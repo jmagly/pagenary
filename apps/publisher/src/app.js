@@ -1,0 +1,694 @@
+import { MANIFEST, DEFAULT_SECTION, findSection } from './manifest.js';
+import { updateMetaTags } from './seo.js';
+
+const app = document.getElementById('app');
+const nav = document.getElementById('nav');
+const yearMarker = document.getElementById('year');
+const exportBtn = document.getElementById('exportBtn');
+const commandToggle = document.getElementById('commandToggle');
+const commandPalette = document.getElementById('commandPalette');
+const commandInput = document.getElementById('commandInput');
+const commandList = document.getElementById('commandList');
+const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+const sidebar = document.querySelector('.sidebar');
+
+const COMMAND_QUERY_KEY = 'docs-toolkit-command-query';
+
+const rendered = new Map();
+const navButtons = new Map();
+const navGroups = new Map();
+const expandedGroups = new Set();
+let commandEntries = [];
+let commandIndex = 0;
+let paletteOpen = false;
+let highlightQuery = (localStorage.getItem(COMMAND_QUERY_KEY) || '').trim();
+let pendingHighlightScroll = false;
+
+function initNav() {
+  nav.innerHTML = '';
+  navButtons.clear();
+  navGroups.clear();
+  let groupApplied = expandedGroups.size > 0;
+  MANIFEST.forEach((section, index) => {
+    if (section.subsections && section.subsections.length) {
+      const group = document.createElement('div');
+      group.className = 'nav-group';
+
+      const parentBtn = document.createElement('button');
+      parentBtn.type = 'button';
+      parentBtn.className = 'nav-parent';
+      parentBtn.dataset.section = section.id;
+      parentBtn.title = section.summary;
+      parentBtn.innerHTML = `
+        <span class="nav-title">${section.title}</span>
+      `;
+      parentBtn.addEventListener('click', () => {
+        const next = !expandedGroups.has(section.id);
+        setGroupExpanded(section.id, next);
+      });
+
+      const list = document.createElement('div');
+      list.className = 'nav-sublist';
+      section.subsections.forEach((sub) => {
+        const childBtn = document.createElement('button');
+        childBtn.type = 'button';
+        childBtn.className = 'nav-item';
+        childBtn.dataset.section = sub.id;
+        childBtn.title = sub.summary;
+        childBtn.innerHTML = `
+          <span class="nav-title">${sub.title}</span>
+          <span class="nav-summary">${sub.summary}</span>
+        `;
+        childBtn.addEventListener('click', () => navigate(sub.id, { scrollToHighlight: Boolean(highlightQuery) }));
+        list.appendChild(childBtn);
+        navButtons.set(sub.id, childBtn);
+      });
+
+      group.append(parentBtn, list);
+      nav.appendChild(group);
+      navButtons.set(section.id, parentBtn);
+      navGroups.set(section.id, { group, button: parentBtn, list });
+      const shouldExpand = expandedGroups.has(section.id) || (!groupApplied && !expandedGroups.size);
+      setGroupExpanded(section.id, shouldExpand);
+      if (shouldExpand) groupApplied = true;
+    } else {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'nav-leaf';
+      button.dataset.section = section.id;
+      button.title = section.summary;
+      button.innerHTML = `
+        <span class="nav-title">${section.title}</span>
+        <span class="nav-summary">${section.summary}</span>
+      `;
+      button.addEventListener('click', () => navigate(section.id, { scrollToHighlight: Boolean(highlightQuery) }));
+      nav.appendChild(button);
+      navButtons.set(section.id, button);
+    }
+  });
+}
+
+function navigate(id, options = {}) {
+  const { scrollToHighlight = false } = options;
+  const { targetId, parentId } = resolveTarget(id);
+  if (paletteOpen) closeCommandPalette();
+  if (parentId) {
+    setGroupExpanded(parentId, true);
+  }
+  pendingHighlightScroll = scrollToHighlight || Boolean(highlightQuery);
+  if (location.hash.replace('#', '') === targetId) {
+    handleRoute();
+  } else {
+    location.hash = `#${targetId}`;
+  }
+}
+
+function currentSectionId() {
+  return location.hash.replace('#', '') || DEFAULT_SECTION;
+}
+
+async function handleRoute() {
+  const currentId = currentSectionId();
+  const resolved = resolveEntry(currentId);
+  if (!resolved) return;
+  const { entry, targetId, parentId } = resolved;
+  if (targetId !== currentId) {
+    location.replace(`#${targetId}`);
+    return;
+  }
+  if (parentId) {
+    setGroupExpanded(parentId, true);
+  }
+  setActiveNav(entry.id, parentId);
+  await loadSection(entry, parentId);
+}
+
+function setActiveNav(activeId, parentId = null) {
+  navButtons.forEach((btn) => {
+    btn.setAttribute('aria-current', 'false');
+  });
+  const activeBtn = navButtons.get(activeId);
+  if (activeBtn) {
+    activeBtn.setAttribute('aria-current', 'page');
+  }
+  if (parentId) {
+    const parentBtn = navButtons.get(parentId);
+    if (parentBtn) parentBtn.setAttribute('aria-current', 'page');
+  }
+}
+
+function setGroupExpanded(id, expanded) {
+  if (!id) return;
+  const info = navGroups.get(id);
+  if (expanded) {
+    expandedGroups.add(id);
+    if (info) info.group.classList.add('expanded');
+  } else {
+    expandedGroups.delete(id);
+    if (info) info.group.classList.remove('expanded');
+  }
+}
+
+function resolveTarget(id) {
+  const entry = findSection(id);
+  if (!entry) return { targetId: id, parentId: null };
+  if (!entry.module && entry.subsections && entry.subsections.length) {
+    return { targetId: entry.subsections[0].id, parentId: entry.id };
+  }
+  return { targetId: entry.id, parentId: entry.parentId || null };
+}
+
+function resolveEntry(id) {
+  const { targetId, parentId } = resolveTarget(id);
+  const entry = findSection(targetId);
+  if (!entry) return null;
+  return { entry, targetId, parentId };
+}
+
+async function loadSection(entry) {
+  if (!entry) return;
+  const module = await import(entry.module);
+  const loader = module.load || module.default;
+  if (typeof loader !== 'function') {
+    app.innerHTML = `<article class="section"><p>Section failed to load.</p></article>`;
+    return;
+  }
+  const payload = await loader();
+  app.innerHTML = payload.html || '';
+
+  // Scroll to top of content area
+  app.scrollTop = 0;
+  window.scrollTo(0, 0);
+
+  if (typeof payload.afterRender === 'function') {
+    payload.afterRender(app);
+  }
+  updateMetaTags({ title: entry.title, description: entry.summary });
+  rendered.set(entry.id, Date.now());
+  const shouldScrollToHighlight = pendingHighlightScroll;
+  pendingHighlightScroll = false;
+  applyHighlight(shouldScrollToHighlight);
+  focusCanvas();
+}
+
+function focusCanvas() {
+  requestAnimationFrame(() => app.focus());
+}
+
+function boot() {
+  initNav();
+  if (highlightQuery) {
+    pendingHighlightScroll = true;
+  }
+  window.addEventListener('hashchange', () => {
+    if (highlightQuery) {
+      pendingHighlightScroll = true;
+    }
+    handleRoute();
+  });
+  yearMarker.textContent = new Date().getFullYear();
+  handleRoute();
+}
+
+boot();
+
+// Command palette
+if (commandToggle && commandPalette && commandInput && commandList) {
+  commandToggle.addEventListener('click', () => {
+    if (paletteOpen) closeCommandPalette();
+    else openCommandPalette();
+  });
+
+  commandInput.addEventListener('input', () => {
+    const value = commandInput.value;
+    setHighlightQuery(value, true);
+    updateCommandEntries(value);
+  });
+
+  commandInput.addEventListener('keydown', (event) => {
+    const max = commandEntries.length - 1;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      commandIndex = Math.min(max, commandIndex + 1);
+      reflectCommandSelection();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      commandIndex = Math.max(0, commandIndex - 1);
+      reflectCommandSelection();
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const target = commandEntries[commandIndex];
+      if (target) {
+        setHighlightQuery(commandInput.value, true);
+        navigate(target.id, { scrollToHighlight: true });
+        closeCommandPalette();
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      closeCommandPalette();
+    }
+  });
+
+  commandList.addEventListener('click', (event) => {
+    const item = event.target.closest('[data-section]');
+    if (!item) return;
+    const targetId = item.dataset.section;
+    if (!targetId) return;
+    setHighlightQuery(commandInput.value, true);
+    navigate(targetId, { scrollToHighlight: true });
+    closeCommandPalette();
+  });
+
+  commandPalette.addEventListener('click', (event) => {
+    if (event.target === commandPalette) {
+      closeCommandPalette();
+    }
+  });
+
+  window.addEventListener('keydown', (event) => {
+    const target = event.target;
+    const isTypingContext = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+    const isModifier = event.metaKey || event.ctrlKey;
+    if ((event.key === 'k' && isModifier) || (event.key === '/' && !isTypingContext)) {
+      event.preventDefault();
+      if (paletteOpen) closeCommandPalette();
+      else openCommandPalette();
+    } else if (event.key === 'Escape' && paletteOpen) {
+      event.preventDefault();
+      closeCommandPalette();
+    }
+  });
+}
+
+function openCommandPalette() {
+  if (!commandPalette || !commandInput) return;
+  paletteOpen = true;
+  commandPalette.hidden = false;
+  const initial = highlightQuery;
+  commandInput.value = initial;
+  updateCommandEntries(initial);
+  requestAnimationFrame(() => {
+    commandInput.focus();
+    if (initial) {
+      commandInput.select();
+    }
+  });
+}
+
+function closeCommandPalette() {
+  if (!commandPalette || !commandInput) return;
+  paletteOpen = false;
+  commandPalette.hidden = true;
+  commandInput.blur();
+}
+
+function updateCommandEntries(query) {
+  if (!commandList) return;
+  const q = query.trim().toLowerCase();
+  commandEntries = MANIFEST.filter((section) => {
+    if (!q) return true;
+    const haystack = `${section.title} ${section.summary}`.toLowerCase();
+    return haystack.includes(q);
+  });
+  const currentId = currentSectionId();
+  const preferredIndex = commandEntries.findIndex((section) => section.id === currentId);
+  commandIndex = preferredIndex >= 0 ? preferredIndex : 0;
+  renderCommandList();
+  reflectCommandSelection();
+}
+
+function renderCommandList() {
+  if (!commandList) return;
+  commandList.innerHTML = '';
+  if (!commandEntries.length) {
+    const empty = document.createElement('li');
+    empty.className = 'cmd-item';
+    empty.setAttribute('aria-selected', 'false');
+    empty.textContent = 'No matches.';
+    commandList.appendChild(empty);
+    return;
+  }
+  commandEntries.forEach((section) => {
+    const item = document.createElement('li');
+    item.className = 'cmd-item';
+    item.dataset.section = section.id;
+    item.setAttribute('role', 'option');
+    const title = document.createElement('span');
+    title.className = 'cmd-item-title';
+    title.textContent = section.title;
+    const summary = document.createElement('span');
+    summary.className = 'cmd-item-summary';
+    summary.textContent = section.summary;
+    item.append(title, summary);
+    commandList.appendChild(item);
+  });
+}
+
+function reflectCommandSelection() {
+  if (!commandList) return;
+  Array.from(commandList.children).forEach((li, index) => {
+    const isActive = index === commandIndex && commandEntries.length;
+    li.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    if (isActive) {
+      li.scrollIntoView({ block: 'nearest' });
+    }
+  });
+}
+
+// Export handler
+if (exportBtn) {
+  exportBtn.addEventListener('click', handleExport);
+}
+
+async function handleExport() {
+  if (!exportBtn) return;
+  const originalMarkup = exportBtn.innerHTML;
+
+  // Test for popup blocking first
+  const testWindow = window.open('', '_blank', 'width=1,height=1,left=0,top=0');
+  if (!testWindow || testWindow.closed || typeof testWindow.closed === 'undefined') {
+    if (confirm('Pop-ups are blocked. Please allow pop-ups for this site to export the document.\n\nWould you like to try again after enabling pop-ups?')) {
+      return; // User will try again after enabling popups
+    } else {
+      return; // User declined, cannot proceed
+    }
+  } else {
+    testWindow.close(); // Close test window
+  }
+
+  exportBtn.disabled = true;
+
+  // Create loading overlay
+  const loadingOverlay = document.createElement('div');
+  loadingOverlay.className = 'export-loading-overlay';
+  loadingOverlay.innerHTML = `
+    <div class="export-loading-modal">
+      <div class="export-loading-header">
+        <div class="export-loading-title">COMPILING DOCUMENTATION</div>
+        <div class="export-loading-subtitle">Assembling all sections into unified document</div>
+      </div>
+      <div class="export-loading-progress">
+        <div class="export-loading-bar">
+          <div class="export-loading-fill"></div>
+        </div>
+        <div class="export-loading-status-container">
+          <div class="export-loading-status">Initializing...</div>
+        </div>
+      </div>
+      <div class="export-loading-scanner">
+        <div class="scanner-line"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(loadingOverlay);
+
+  // Force layout and trigger animation
+  setTimeout(() => loadingOverlay.classList.add('active'), 10);
+
+  const progressFill = loadingOverlay.querySelector('.export-loading-fill');
+  const statusText = loadingOverlay.querySelector('.export-loading-status');
+
+  try {
+    // Collect all sections and subsections in navigation order
+    const allSections = [];
+    for (const section of MANIFEST) {
+      if (section.module) {
+        allSections.push(section);
+      }
+      if (section.subsections) {
+        for (const subsection of section.subsections) {
+          if (subsection.module) {
+            allSections.push(subsection);
+          }
+        }
+      }
+    }
+
+    const bundle = [];
+    const totalSections = allSections.length;
+    let processedSections = 0;
+
+    for (const section of allSections) {
+      // Update progress
+      processedSections++;
+      const progress = (processedSections / totalSections) * 100;
+      progressFill.style.width = `${progress}%`;
+      statusText.textContent = `Processing section ${processedSections} of ${totalSections}: ${section.title}`;
+
+      // Small delay to show progress animation
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      try {
+        const mod = await import(section.module);
+        const loader = mod.load || mod.default;
+        if (typeof loader !== 'function') continue;
+        const payload = await loader();
+        const parsed = sanitizeExportMarkup(payload.html || '');
+        bundle.push({ section, html: parsed });
+      } catch (err) {
+        console.error('Failed to include section in export', section.id, err);
+      }
+    }
+
+    statusText.textContent = 'Generating document...';
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const htmlDoc = composeExportDocument(bundle);
+
+    statusText.textContent = 'Opening document viewer...';
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Open window only after content is ready
+    const printWindow = window.open('', '_blank', 'width=900,height=860,scrollbars=yes,resizable=yes');
+    if (!printWindow) {
+      alert('Please allow pop-ups to export the document.');
+      loadingOverlay.remove();
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(htmlDoc);
+    printWindow.document.close();
+    printWindow.focus();
+
+    // Fade out loading overlay
+    loadingOverlay.classList.remove('active');
+    setTimeout(() => loadingOverlay.remove(), 300);
+
+  } catch (err) {
+    console.error('Export failed', err);
+    alert('Export failed. Check console for details.');
+    loadingOverlay.remove();
+  } finally {
+    exportBtn.disabled = false;
+    exportBtn.innerHTML = originalMarkup;
+  }
+}
+
+function sanitizeExportMarkup(markup) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = markup;
+  wrapper.querySelectorAll('script').forEach((script) => script.remove());
+  wrapper.querySelectorAll('button').forEach((button) => button.removeAttribute('onclick'));
+  wrapper.querySelectorAll('mark.hl').forEach((mark) => {
+    const text = document.createTextNode(mark.textContent || '');
+    mark.replaceWith(text);
+  });
+  const firstSection = wrapper.querySelector('section');
+  return firstSection ? firstSection.innerHTML : wrapper.innerHTML;
+}
+
+function composeExportDocument(chapters) {
+  const toc = chapters.map((chapter, index) => `
+        <li>${index + 1}. ${chapter.section.title}</li>`).join('');
+  const body = chapters.map((chapter, index) => `
+      <section>
+        <h2>${index + 1}. ${chapter.section.title}</h2>
+        <p class="section-summary">${chapter.section.summary || ''}</p>
+        <div class="section-body">
+${chapter.html}
+        </div>
+      </section>`).join('\n');
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Docs Toolkit Export</title>
+    <style>
+      :root { color-scheme: light; font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      body { margin: 0 auto; padding: 2.5rem; max-width: 820px; color: #111; line-height: 1.6; }
+      header { text-align: center; margin-bottom: 3rem; }
+      h1 { font-size: 2.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem; }
+      .meta { color: #666; font-size: 0.9rem; }
+      .toc { border: 1px solid rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 2.5rem; background: rgba(0,0,0,0.02); }
+      .toc h2 { margin-top: 0; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem; }
+      .toc ul { margin: 0; padding-left: 1.2rem; }
+      .toc li { margin: 0.4rem 0; }
+      section { page-break-inside: avoid; margin-bottom: 2.75rem; }
+      h2 { font-size: 1.4rem; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+      .section-summary { color: #5a5a5a; font-size: 0.95rem; margin-top: 0; }
+      .section-body { border-left: 1px solid rgba(0,0,0,0.1); padding-left: 1.25rem; }
+      .card, .card-grid, .card-grid > *, .section-body > * { break-inside: avoid; }
+      pre { background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 4px; overflow-x: auto; }
+      code { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      @media print {
+        @page { size: A4; margin: 1in; }
+        body { box-shadow: none; }
+        header, .toc { break-after: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Docs Toolkit</h1>
+      <p class="meta">Generated ${new Date().toLocaleString()}</p>
+    </header>
+    <div class="toc">
+      <h2>Table of Contents</h2>
+      <ul>${toc || '<li>No sections</li>'}</ul>
+    </div>
+${body || '<p>No sections available.</p>'}
+    <script>window.addEventListener('load', () => window.focus());</script>
+  </body>
+</html>`;
+}
+
+function setHighlightQuery(value, persist = false) {
+  highlightQuery = value.trim();
+  if (persist) {
+    if (highlightQuery) {
+      localStorage.setItem(COMMAND_QUERY_KEY, highlightQuery);
+    } else {
+      localStorage.removeItem(COMMAND_QUERY_KEY);
+    }
+  }
+  applyHighlight();
+}
+
+function applyHighlight(scrollToFirst = false) {
+  if (!app) return;
+  highlightContent(app, highlightQuery, { scrollToFirst });
+}
+
+function clearHighlights(root) {
+  if (!root) return;
+  root.querySelectorAll('mark.hl').forEach((mark) => {
+    const text = document.createTextNode(mark.textContent || '');
+    mark.replaceWith(text);
+  });
+}
+
+function highlightContent(root, query, { scrollToFirst = false } = {}) {
+  if (!root) return;
+  clearHighlights(root);
+  if (!query) return;
+  const terms = query.split(/\s+/).map((term) => term.trim()).filter(Boolean);
+  if (!terms.length) return;
+
+  const lowerTerms = terms.map((term) => term.toLowerCase());
+  const skipTags = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE']);
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        const parent = node.parentNode;
+        if (parent && skipTags.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+
+  const matches = [];
+  let current;
+  while ((current = walker.nextNode())) {
+    const value = current.nodeValue.toLowerCase();
+    if (lowerTerms.some((term) => value.includes(term))) {
+      matches.push(current);
+    }
+  }
+
+  const termPattern = new RegExp(`(${terms.map(escapeRegExp).join('|')})`, 'gi');
+  matches.forEach((textNode) => {
+    const text = textNode.nodeValue;
+    const fragments = [];
+    let lastIndex = 0;
+    text.replace(termPattern, (match, _group, offset) => {
+      if (offset > lastIndex) {
+        fragments.push(document.createTextNode(text.slice(lastIndex, offset)));
+      }
+      const mark = document.createElement('mark');
+      mark.className = 'hl';
+      mark.textContent = match;
+      fragments.push(mark);
+      lastIndex = offset + match.length;
+      return match;
+    });
+    if (lastIndex < text.length) {
+      fragments.push(document.createTextNode(text.slice(lastIndex)));
+    }
+    const replacement = document.createDocumentFragment();
+    fragments.forEach((fragment) => replacement.appendChild(fragment));
+    textNode.parentNode.replaceChild(replacement, textNode);
+  });
+
+  if (scrollToFirst) {
+    requestAnimationFrame(() => {
+      const first = root.querySelector('mark.hl');
+      if (first) {
+        first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Mobile menu toggle
+if (mobileMenuToggle && sidebar) {
+  mobileMenuToggle.addEventListener('click', () => {
+    const isOpen = sidebar.classList.contains('mobile-open');
+    if (isOpen) {
+      sidebar.classList.remove('mobile-open');
+      document.body.classList.remove('menu-open');
+      mobileMenuToggle.setAttribute('aria-expanded', 'false');
+    } else {
+      sidebar.classList.add('mobile-open');
+      document.body.classList.add('menu-open');
+      mobileMenuToggle.setAttribute('aria-expanded', 'true');
+    }
+  });
+
+  // Close menu when clicking on a nav item (but not parent sections)
+  nav.addEventListener('click', (e) => {
+    if (window.innerWidth <= 960) {
+      const clickedElement = e.target.closest('.nav-item, .nav-leaf, .nav-parent');
+      if (clickedElement) {
+        // Only close if it's a leaf node or nav-item (actual navigation)
+        // Don't close for nav-parent (section headers that expand/collapse)
+        if (clickedElement.classList.contains('nav-item') ||
+            clickedElement.classList.contains('nav-leaf')) {
+          sidebar.classList.remove('mobile-open');
+          document.body.classList.remove('menu-open');
+          mobileMenuToggle.setAttribute('aria-expanded', 'false');
+        }
+      }
+    }
+  });
+
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (window.innerWidth <= 960 &&
+        sidebar.classList.contains('mobile-open') &&
+        !sidebar.contains(e.target) &&
+        !mobileMenuToggle.contains(e.target)) {
+      sidebar.classList.remove('mobile-open');
+      document.body.classList.remove('menu-open');
+      mobileMenuToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+}

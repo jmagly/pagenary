@@ -1,0 +1,32 @@
+{
+  "name": "@integro/publisher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant static publishing component for Integro platform.",
+  "scripts": {
+    "dev": "npm run build:dev && npm run serve:dev",
+    "build": "node scripts/build.js",
+    "build:dev": "NODE_ENV=development node scripts/build.js --dev",
+    "build:tenants": "node scripts/build-tenants.js",
+    "serve": "node scripts/serve.js",
+    "serve:dev": "NODE_ENV=development node scripts/serve.js --dev",
+    "start": "npm run build && npm run serve",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "sync:docs": "node scripts/generate-sections.js",
+    "lint:content": "node scripts/lint-content.js",
+    "check:seo": "node scripts/seo-smoke.js",
+    "check": "npm run lint:content && npm run build && npm run check:seo",
+    "ci": "npm run check",
+    "caddy:up": "docker compose up -d caddy",
+    "caddy:down": "docker compose down",
+    "caddy:restart": "docker compose restart caddy",
+    "caddy:logs": "docker compose logs -f caddy",
+    "caddy:reload": "docker compose exec caddy caddy reload --config /srv/app/Caddyfile"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "devDependencies": {
+    "terser": "^5.44.0"
+  }
+}

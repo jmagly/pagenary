@@ -1,0 +1,21 @@
+{
+  auto_https off
+
+  servers :80 {
+    protocols h1 h2c
+  }
+}
+
+http://tenant-alpha.local {
+  root * dist/tenant-alpha
+  encode gzip zstd
+  try_files {path} {path}/ index.html
+  file_server
+}
+
+http://tenant-beta.local {
+  root * dist/tenant-beta
+  encode gzip zstd
+  try_files {path} {path}/ index.html
+  file_server
+}

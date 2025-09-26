@@ -1,0 +1,30 @@
+{
+  "default": "alpha-welcome",
+  "sections": [
+    {
+      "id": "alpha-welcome",
+      "title": "Atlas Edge Overview",
+      "summary": "Orientation entry point for Atlas tenant teams.",
+      "file": "welcome.html"
+    },
+    {
+      "id": "alpha-runbooks",
+      "title": "Launch Runbooks",
+      "summary": "Step-by-step guides for the first deployment.",
+      "sections": [
+        {
+          "id": "alpha-launch-checklist",
+          "title": "Launch Checklist",
+          "summary": "Milestones to complete before production go-live.",
+          "file": "launch-checklist.md"
+        },
+        {
+          "id": "alpha-telemetry-dashboard",
+          "title": "Telemetry Dashboard",
+          "summary": "Quick reference for observability metrics.",
+          "file": "telemetry.js"
+        }
+      ]
+    }
+  ]
+}

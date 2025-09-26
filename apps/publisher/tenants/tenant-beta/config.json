@@ -1,0 +1,30 @@
+{
+  "title": "Nova Insights Portal",
+  "brandMark": "Nova",
+  "brandSub": "Insights",
+  "domain": "tenant-beta.local",
+  "tagline": "Revenue intelligence tailored to regional sales pods.",
+  "description": "Nova Insights documentation for sales operations and analytics teams.",
+  "accentColor": "#B91C1C",
+  "welcome": {
+    "eyebrow": "Nova Insights Platform",
+    "headline": "Revenue Intelligence Launch Guide",
+    "lead": "Activate pod-level forecasting and deal health scoring in five working days.",
+    "pillars": [
+      "Unify CRM and billing data into a single decision layer.",
+      "Coach reps with real-time opportunity scoring.",
+      "Forecast confidently with explainable AI nudges."
+    ],
+    "checklist": [
+      "Connect Salesforce and Stripe workspaces.",
+      "Invite pod leads and configure role-based insights.",
+      "Publish the go-live report template to Slack."
+    ],
+    "quickLinks": [
+      { "label": "Executive Summary", "href": "#/welcome-overview" },
+      { "label": "Integration Checklist", "href": "#/developers-automation-blueprints" },
+      { "label": "Support Hub", "href": "https://example.com/nova/support" }
+    ],
+    "quote": "Nova aligns every revenue pod around the same scorecard, so pivots happen in minutes—not quarters."
+  }
+}

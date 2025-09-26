@@ -1,0 +1,14 @@
+{
+  "name": "integro-platform",
+  "private": true,
+  "description": "Integro multi-tenant platform monorepo",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "bootstrap": "npm install --workspaces",
+    "publisher:build": "npm run build --workspace @integro/publisher",
+    "publisher:serve": "npm run serve --workspace @integro/publisher",
+    "publisher:build:tenants": "npm run build:tenants --workspace @integro/publisher"
+  }
+}
