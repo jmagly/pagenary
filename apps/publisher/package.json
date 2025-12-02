@@ -16,7 +16,10 @@
     "lint:content": "node scripts/lint-content.js",
     "check:seo": "node scripts/seo-smoke.js",
     "check": "npm run lint:content && npm run build && npm run check:seo",
-    "ci": "npm run check",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "ci": "npm run check && npm test",
     "caddy:up": "docker compose up -d caddy",
     "caddy:down": "docker compose down",
     "caddy:restart": "docker compose restart caddy",
@@ -27,6 +30,7 @@
     "node": ">=16"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "terser": "^5.44.0"
   }
 }
