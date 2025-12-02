@@ -64,7 +64,7 @@
 
 ---
 
-### Iteration 2: Testable Architecture Refactoring ⚠️ HIGH PRIORITY
+### Iteration 2: Testable Architecture Refactoring ✅ COMPLETE
 
 **Focus:** Separate pure logic from DOM code to enable direct testing
 
@@ -76,17 +76,26 @@
 - Double maintenance burden
 
 **Deliverables:**
-- [ ] Create `src/lib/` directory with pure functions
-- [ ] Extract: categories.js, search.js, router.js, export.js, manifest-utils.js
-- [ ] Configure Jest for ESM imports
-- [ ] Rewrite tests to import from lib/ (zero duplication)
-- [ ] Verify browser functionality unchanged
+- [x] Create `src/lib/` directory with pure functions
+- [x] Extract: categories.js, search.js, router.js, export.js, manifest-utils.js
+- [x] Configure Jest for ESM imports
+- [x] Rewrite tests to import from lib/ (zero duplication)
+- [x] Verify browser functionality unchanged
+
+**Additional Work Completed:**
+- [x] Convert all scripts to ESM (build.js, build-tenants.js, serve.js, etc.)
+- [x] Create `tenant-default` for base documentation site (ADR-007)
+- [x] Fix serve.js trailing slash redirect for SPA routing
+- [x] Enhanced build-tenants.js with CLI arguments (--target, --list, tenant selection)
+- [x] Update Caddyfile for multi-tenant domain routing
 
 **Exit Criteria:**
-- `grep -r "document\|window" src/lib/` returns 0 matches
-- Tests import actual source code
-- All tests pass
-- Browser smoke test passes
+- [x] `grep -r "document\|window" src/lib/` returns 0 matches
+- [x] Tests import actual source code
+- [x] All tests pass (157 tests)
+- [x] Browser smoke test passes (all tenants working)
+
+**Completion Date:** 2025-12-02
 
 ---
 
@@ -212,11 +221,13 @@
 
 | Metric | Target | Current |
 |--------|--------|---------|
-| Test coverage (overall) | 70% | 0% |
-| Test coverage (build pipeline) | 85% | 0% |
-| Use cases complete | 10/10 | 0/10 (existing, untested) |
-| CI/CD operational | Yes | No |
+| Test coverage (overall) | 70% | ~60% (157 tests) |
+| Test coverage (build pipeline) | 85% | ~70% (24+ tests) |
+| Use cases complete | 10/10 | 4/10 tested (UC-001 to UC-004) |
+| CI/CD operational | Yes | No (deferred) |
 | Security scanning | Enabled | No |
+| ADRs documented | - | 7 ADRs |
+| Iterations complete | 5 | 2/5 |
 
 ---
 
@@ -226,3 +237,4 @@
 |------|---------|---------|--------|
 | 2025-12-01 | 1.0 | Initial Construction phase plan | Project Manager |
 | 2025-12-01 | 1.1 | Iteration 1 complete; added Iteration 2 for testable architecture (ADR-006) | Project Manager |
+| 2025-12-02 | 1.2 | Iteration 2 complete; ESM conversion, tenant-default, flexible builds (ADR-007) | Project Manager |

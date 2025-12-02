@@ -6,7 +6,7 @@ services:
     working_dir: /srv/app
     command: ["caddy", "run", "--config", "/srv/app/Caddyfile"]
     ports:
-      - "${DOCS_TOOLKIT_PORT:-80}:5174"
+      - "5175:5175"
     volumes:
       - ./Caddyfile:/srv/app/Caddyfile:ro
       - ./dist:/srv/app/dist:ro

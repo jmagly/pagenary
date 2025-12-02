@@ -9,6 +9,8 @@
     "build": "node scripts/build.js",
     "build:dev": "NODE_ENV=development node scripts/build.js --dev",
     "build:tenants": "node scripts/build-tenants.js",
+    "build:tenant": "node scripts/build-tenants.js",
+    "tenants:list": "node scripts/build-tenants.js --list",
     "serve": "node scripts/serve.js",
     "serve:dev": "NODE_ENV=development node scripts/serve.js --dev",
     "start": "npm run build && npm run serve",

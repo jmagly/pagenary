@@ -10,6 +10,79 @@ const tenantsRoot = path.join(root, 'tenants');
 const DEFAULT_CONTENT_DIR = 'content';
 const TENANT_MANIFEST = 'manifest.json';
 
+/**
+ * Parse CLI arguments
+ * Usage: node build-tenants.js [tenant1 tenant2 ...] [--target /path/to/output] [--list] [--help]
+ *
+ * Examples:
+ *   node build-tenants.js                     # Build all tenants to dist/
+ *   node build-tenants.js tenant-alpha        # Build only tenant-alpha
+ *   node build-tenants.js tenant-alpha tenant-beta  # Build specific tenants
+ *   node build-tenants.js --target /var/www   # Build all tenants, copy to /var/www
+ *   node build-tenants.js tenant-alpha --target /var/www  # Build one tenant, copy to target
+ *   node build-tenants.js --list              # List available tenants
+ */
+function parseArgs(argv) {
+  const args = argv.slice(2);
+  const result = {
+    tenants: [],
+    target: null,
+    list: false,
+    help: false
+  };
+
+  let i = 0;
+  while (i < args.length) {
+    const arg = args[i];
+    if (arg === '--target' || arg === '-t') {
+      result.target = args[i + 1];
+      if (!result.target) {
+        console.error('Error: --target requires a path argument');
+        process.exit(1);
+      }
+      i += 2;
+    } else if (arg === '--list' || arg === '-l') {
+      result.list = true;
+      i++;
+    } else if (arg === '--help' || arg === '-h') {
+      result.help = true;
+      i++;
+    } else if (arg.startsWith('-')) {
+      console.error(`Error: Unknown option ${arg}`);
+      process.exit(1);
+    } else {
+      result.tenants.push(arg);
+      i++;
+    }
+  }
+
+  return result;
+}
+
+function printHelp() {
+  console.log(`
+Usage: node build-tenants.js [tenant...] [options]
+
+Build tenant-specific documentation bundles.
+
+Arguments:
+  tenant          One or more tenant names to build (default: all tenants)
+
+Options:
+  -t, --target    Copy built tenant(s) to target directory for deployment
+  -l, --list      List available tenants and exit
+  -h, --help      Show this help message
+
+Examples:
+  node build-tenants.js                          Build all tenants
+  node build-tenants.js tenant-alpha             Build only tenant-alpha
+  node build-tenants.js tenant-alpha tenant-beta Build specific tenants
+  node build-tenants.js --target /var/www/docs   Build all, copy to target
+  node build-tenants.js tenant-alpha -t /deploy  Build one, copy to target
+  node build-tenants.js --list                   Show available tenants
+`);
+}
+
 async function pathExists(target) {
   try {
     await fsp.access(target, fs.constants.F_OK);
@@ -481,20 +554,115 @@ async function buildTenant(tenantId) {
   console.log(`Tenant ${tenantId} ready at ${buildOutput}`);
 }
 
+async function getAvailableTenants() {
+  if (!(await pathExists(tenantsRoot))) {
+    return [];
+  }
+  const entries = await fsp.readdir(tenantsRoot, { withFileTypes: true });
+  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+}
+
+async function copyToTarget(tenantId, targetDir) {
+  const sourceDir = path.join(root, 'dist', tenantId);
+  const destDir = path.join(targetDir, tenantId);
+
+  if (!(await pathExists(sourceDir))) {
+    console.error(`  ↳ Error: dist/${tenantId} does not exist, cannot copy to target`);
+    return false;
+  }
+
+  // Remove existing target directory if it exists
+  if (await pathExists(destDir)) {
+    await fsp.rm(destDir, { recursive: true, force: true });
+  }
+
+  await copyDirectory(sourceDir, destDir);
+  console.log(`  ↳ copied ${tenantId} to ${destDir}`);
+  return true;
+}
+
 async function main() {
+  const args = parseArgs(process.argv);
+
+  // Handle --help
+  if (args.help) {
+    printHelp();
+    return;
+  }
+
+  // Get available tenants
+  const availableTenants = await getAvailableTenants();
+
+  // Handle --list
+  if (args.list) {
+    if (availableTenants.length === 0) {
+      console.log('No tenants found in tenants/ directory.');
+    } else {
+      console.log('Available tenants:');
+      availableTenants.forEach((t) => console.log(`  - ${t}`));
+    }
+    return;
+  }
+
+  // Validate tenants root exists
   if (!(await pathExists(tenantsRoot))) {
     console.log('No tenants directory found. Nothing to build.');
     return;
   }
-  const entries = await fsp.readdir(tenantsRoot, { withFileTypes: true });
-  const tenants = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-  if (tenants.length === 0) {
+
+  if (availableTenants.length === 0) {
     console.log('No tenant configurations detected.');
     return;
   }
-  for (const tenantId of tenants) {
+
+  // Determine which tenants to build
+  let tenantsToBuild = availableTenants;
+  if (args.tenants.length > 0) {
+    // Validate requested tenants exist
+    const invalid = args.tenants.filter((t) => !availableTenants.includes(t));
+    if (invalid.length > 0) {
+      console.error(`Error: Unknown tenant(s): ${invalid.join(', ')}`);
+      console.error(`Available tenants: ${availableTenants.join(', ')}`);
+      process.exit(1);
+    }
+    tenantsToBuild = args.tenants;
+  }
+
+  // Validate target directory if specified
+  if (args.target) {
+    const targetPath = path.resolve(args.target);
+    const targetParent = path.dirname(targetPath);
+    if (!(await pathExists(targetParent))) {
+      console.error(`Error: Target parent directory does not exist: ${targetParent}`);
+      process.exit(1);
+    }
+    // Create target directory if it doesn't exist
+    if (!(await pathExists(targetPath))) {
+      await fsp.mkdir(targetPath, { recursive: true });
+      console.log(`Created target directory: ${targetPath}`);
+    }
+  }
+
+  // Build tenants
+  console.log(`Building ${tenantsToBuild.length} tenant(s): ${tenantsToBuild.join(', ')}`);
+  console.log('');
+
+  for (const tenantId of tenantsToBuild) {
     // eslint-disable-next-line no-await-in-loop
     await buildTenant(tenantId);
+
+    // Copy to target if specified
+    if (args.target) {
+      // eslint-disable-next-line no-await-in-loop
+      await copyToTarget(tenantId, path.resolve(args.target));
+    }
+
+    console.log('');
+  }
+
+  console.log('Build complete.');
+  if (args.target) {
+    console.log(`Tenant files copied to: ${path.resolve(args.target)}`);
   }
 }
 

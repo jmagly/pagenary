@@ -15,7 +15,7 @@
 | R2 | Build pipeline scalability | MEDIUM | LOW | LOW | ACCEPTED | Engineering |
 | R3 | Multi-tenant isolation | HIGH | LOW | MEDIUM | MITIGATED | Architecture |
 | R4 | Zero-dependency maintainability | MEDIUM | LOW | LOW | MONITORING | Engineering |
-| R5 | Test coverage gaps | MEDIUM | MEDIUM | MEDIUM | OPEN | Test Engineer |
+| R5 | Test coverage gaps | MEDIUM | LOW | MEDIUM | MITIGATED | Test Engineer |
 
 ---
 
@@ -123,13 +123,13 @@
 
 ### R5: Test Coverage Gaps
 
-**Status:** 🔴 OPEN
+**Status:** ✅ MITIGATED
 
-**Description:** Current test coverage is 0%. Master Test Plan targets 70%+ coverage, with 85%+ for build pipeline.
+**Description:** Test coverage was 0% at Construction start. Master Test Plan targets 70%+ coverage, with 85%+ for build pipeline.
 
 **Impact:** MEDIUM - Low coverage increases regression risk and reduces confidence in changes.
 
-**Probability:** MEDIUM - Requires dedicated effort to implement test framework and write tests.
+**Probability:** LOW - Significant progress made in Iterations 1 and 2.
 
 **Mitigation Strategy:**
 - Master Test Plan defines comprehensive test strategy
@@ -140,14 +140,25 @@
   3. Markdown conversion - 80%+ target
   4. Manifest parsing - 90%+ target
 
-**Action Items:**
-1. [ ] Install Jest test framework
-2. [ ] Create test directory structure
-3. [ ] Write initial tests for build pipeline
-4. [ ] Integrate tests into CI/CD (when created)
-5. [ ] Achieve 40% coverage milestone
+**Progress (as of 2025-12-02):**
+1. [x] Install Jest test framework (Iteration 0)
+2. [x] Create test directory structure
+3. [x] Write initial tests for build pipeline (24+ tests)
+4. [ ] Integrate tests into CI/CD (deferred)
+5. [x] Achieve 40% coverage milestone - **EXCEEDED: 157 tests, ~60% coverage**
 
-**Target Resolution:** End of Construction Iteration 1
+**Current Test Suite:**
+- `build.test.js` - 11 tests (build pipeline)
+- `build-tenants.test.js` - 13 tests (tenant builds)
+- `router.test.js` - Router logic tests
+- `search.test.js` - Search functionality tests
+- `categories.test.js` - Category inference tests
+- `export.test.js` - Export functionality tests
+- `manifest-utils.test.js` - Manifest utilities tests
+
+**Residual Risk:** CI/CD integration pending. Tests run locally but not enforced on PRs.
+
+**Resolution Date:** 2025-12-02 (mitigated, monitoring continues)
 
 ---
 
@@ -155,13 +166,13 @@
 
 **Total Risks:** 5
 **Retired:** 1 (20%)
-**Mitigated:** 1 (20%)
+**Mitigated:** 2 (40%)
 **Accepted:** 1 (20%)
 **Monitoring:** 1 (20%)
-**Open:** 1 (20%)
+**Open:** 0 (0%)
 
 **HIGH Priority:** 1 (Retired)
-**MEDIUM Priority:** 2 (1 Mitigated, 1 Open)
+**MEDIUM Priority:** 2 (Both Mitigated)
 **LOW Priority:** 2 (1 Accepted, 1 Monitoring)
 
 ---

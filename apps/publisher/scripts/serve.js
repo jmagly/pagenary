@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Lightweight static server for dist */
+/* Lightweight static server for dist with tenant routing */
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -7,8 +7,9 @@ import url from 'url';
 
 const root = path.join(process.cwd(), 'dist');
 const port = Number(process.env.PORT || 5173);
-const host = process.env.HOST || '127.0.0.1';
+const host = process.env.HOST || '0.0.0.0';
 const DEV = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
+const DEFAULT_TENANT = process.env.DEFAULT_TENANT || 'tenant-default';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -20,12 +21,72 @@ const MIME = {
   '.png': 'image/png'
 };
 
+// Detect tenant directories at startup
+const tenantDirs = new Set();
+try {
+  const entries = fs.readdirSync(root, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isDirectory() && entry.name.startsWith('tenant-')) {
+      tenantDirs.add(entry.name);
+    }
+  }
+} catch {
+  // dist may not exist yet
+}
+
+/**
+ * Parse tenant from path. Returns { tenant, localPath }
+ * e.g., /tenant-alpha/app.js -> { tenant: 'tenant-alpha', localPath: '/app.js' }
+ *       /app.js -> { tenant: null, localPath: '/app.js' }
+ */
+function parseTenantPath(pathname) {
+  const match = pathname.match(/^\/(tenant-[^/]+)(\/.*)?$/);
+  if (match && tenantDirs.has(match[1])) {
+    return {
+      tenant: match[1],
+      localPath: match[2] || '/'
+    };
+  }
+  return { tenant: null, localPath: pathname };
+}
+
 const server = http.createServer((req, res) => {
   const parsed = url.parse(req.url);
   let pathname = decodeURIComponent(parsed.pathname || '/');
-  if (pathname === '/') pathname = '/index.html';
-  let filePath = path.join(root, pathname);
-  if (!filePath.startsWith(root)) {
+
+  // Redirect root to default tenant
+  if (pathname === '/' && tenantDirs.has(DEFAULT_TENANT)) {
+    res.writeHead(302, { Location: `/${DEFAULT_TENANT}/` });
+    res.end();
+    return;
+  }
+
+  // Redirect tenant path without trailing slash to add it (for correct relative path resolution)
+  const tenantOnlyMatch = pathname.match(/^\/(tenant-[^/]+)$/);
+  if (tenantOnlyMatch && tenantDirs.has(tenantOnlyMatch[1])) {
+    res.writeHead(302, { Location: `${pathname}/` });
+    res.end();
+    return;
+  }
+
+  // Parse tenant from path
+  const { tenant, localPath } = parseTenantPath(pathname);
+
+  // If no tenant specified and not a root redirect, serve 404
+  if (!tenant) {
+    res.writeHead(404).end('Not Found - Please specify a tenant');
+    return;
+  }
+
+  // Determine the root directory for this request
+  const requestRoot = path.join(root, tenant);
+
+  // Resolve the local path within the tenant/root directory
+  let resolvedPath = localPath === '/' ? '/index.html' : localPath;
+  let filePath = path.join(requestRoot, resolvedPath);
+
+  // Security check
+  if (!filePath.startsWith(requestRoot)) {
     res.writeHead(403).end('Forbidden');
     return;
   }
@@ -72,4 +133,7 @@ function streamFile(target, res) {
 
 server.listen(port, host, () => {
   console.log(`Serving dist at http://${host}:${port} ${DEV ? '(dev cache disabled)' : ''}`);
+  if (tenantDirs.size > 0) {
+    console.log(`Tenants: ${[...tenantDirs].join(', ')}`);
+  }
 });
