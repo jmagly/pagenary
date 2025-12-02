@@ -1,6 +1,6 @@
-# Integro Publisher
+# Pagenary Publisher
 
-Static publishing component for the Integro platform. It repackages shared documentation templates into tenant-specific bundles with optional branding, while keeping the underlying shell dependency-free. Run the commands below either from this workspace directory or via the monorepo helpers (`npm run publisher:*` from the repository root).
+Static publishing component for Pagenary — "Where documentation takes shape." It repackages shared documentation templates into tenant-specific bundles with optional branding, while keeping the underlying shell dependency-free. Run the commands below either from this workspace directory or via the monorepo helpers (`npm run publisher:*` from the repository root).
 
 ## Quick Start
 Install dependencies inside this workspace, then use the convenience scripts for local development.

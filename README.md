@@ -1,6 +1,8 @@
-# Integro Platform Monorepo
+# Pagenary
 
-This repository houses multiple tooling and application layers for the Integro multi-tenant documentation and content platform. The initial focus is the **publisher** app, which packages tenant-specific static bundles and serves them via Caddy for local domain testing. Upcoming work will add upstream authoring, workflow, and billing components in separate workspaces under `apps/`.
+**"Where documentation takes shape."**
+
+This repository houses multiple tooling and application layers for Pagenary, a multi-tenant documentation publishing platform. The initial focus is the **publisher** app, which packages tenant-specific static bundles and serves them via Caddy for local domain testing. Upcoming work will add upstream authoring, workflow, and billing components in separate workspaces under `apps/`.
 
 ## Layout
 - `apps/publisher/` – static site publishing pipeline (build scripts, tenant configs, Docker Caddy integration)

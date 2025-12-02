@@ -1,8 +1,8 @@
 {
-  "name": "@integro/publisher",
+  "name": "@pagenary/publisher",
   "version": "0.1.0",
   "private": true,
-  "description": "Multi-tenant static publishing component for Integro platform.",
+  "description": "Multi-tenant static publishing component for Pagenary platform.",
   "scripts": {
     "dev": "npm run build:dev && npm run serve:dev",
     "build": "node scripts/build.js",

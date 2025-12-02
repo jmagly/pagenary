@@ -1,6 +1,6 @@
 # Developer Guide
 
-Welcome to Docs Toolkit. This workspace lives at `apps/publisher/` inside the Integro platform monorepo. Use the repo-level commands (e.g. `npm run publisher:*`) when you prefer not to `cd` into the workspace. This guide keeps onboarding fast so you can focus on tailoring tenant-specific copy rather than plumbing.
+Welcome to Pagenary Publisher. This workspace lives at `apps/publisher/` inside the Pagenary platform monorepo. Use the repo-level commands (e.g. `npm run publisher:*`) when you prefer not to `cd` into the workspace. This guide keeps onboarding fast so you can focus on tailoring tenant-specific copy rather than plumbing.
 
 ## Prerequisites
 - Node.js 16+
