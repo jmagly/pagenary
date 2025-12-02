@@ -6,26 +6,33 @@ import path from 'path';
 import { spawn } from 'child_process';
 
 const root = process.cwd();
-const tenantsRoot = path.join(root, 'tenants');
+const DEFAULT_TENANTS_DIR = path.join(root, 'tenants');
+const DEFAULT_DIST_DIR = path.join(root, 'dist');
+const DEFAULT_REGISTRY_PATH = path.join(root, 'tenants.json');
 const DEFAULT_CONTENT_DIR = 'content';
 const TENANT_MANIFEST = 'manifest.json';
 
 /**
  * Parse CLI arguments
- * Usage: node build-tenants.js [tenant1 tenant2 ...] [--target /path/to/output] [--list] [--help]
+ * Usage: node build-tenants.js [tenant1 tenant2 ...] [options]
+ *
+ * Options:
+ *   --registry, -r   Path to tenant registry JSON file
+ *   --target, -t     Override target directory for all tenants
+ *   --list, -l       List available tenants
+ *   --help, -h       Show help
  *
  * Examples:
- *   node build-tenants.js                     # Build all tenants to dist/
- *   node build-tenants.js tenant-alpha        # Build only tenant-alpha
- *   node build-tenants.js tenant-alpha tenant-beta  # Build specific tenants
- *   node build-tenants.js --target /var/www   # Build all tenants, copy to /var/www
- *   node build-tenants.js tenant-alpha --target /var/www  # Build one tenant, copy to target
- *   node build-tenants.js --list              # List available tenants
+ *   node build-tenants.js                          # Build all tenants
+ *   node build-tenants.js tenant-alpha             # Build only tenant-alpha
+ *   node build-tenants.js --registry /etc/tenants.json  # Use external registry
+ *   node build-tenants.js --target /var/www        # Override target for all
  */
 function parseArgs(argv) {
   const args = argv.slice(2);
   const result = {
     tenants: [],
+    registry: null,
     target: null,
     list: false,
     help: false
@@ -38,6 +45,13 @@ function parseArgs(argv) {
       result.target = args[i + 1];
       if (!result.target) {
         console.error('Error: --target requires a path argument');
+        process.exit(1);
+      }
+      i += 2;
+    } else if (arg === '--registry' || arg === '-r') {
+      result.registry = args[i + 1];
+      if (!result.registry) {
+        console.error('Error: --registry requires a path argument');
         process.exit(1);
       }
       i += 2;
@@ -66,20 +80,42 @@ Usage: node build-tenants.js [tenant...] [options]
 Build tenant-specific documentation bundles.
 
 Arguments:
-  tenant          One or more tenant names to build (default: all tenants)
+  tenant              One or more tenant IDs to build (default: all tenants)
 
 Options:
-  -t, --target    Copy built tenant(s) to target directory for deployment
-  -l, --list      List available tenants and exit
-  -h, --help      Show this help message
+  -r, --registry      Path to tenant registry JSON file (default: tenants.json)
+  -t, --target        Override target directory for all tenants
+  -l, --list          List available tenants and exit
+  -h, --help          Show this help message
+
+Registry Format (tenants.json):
+  {
+    "tenants": [
+      {
+        "id": "tenant-alpha",
+        "enabled": true,
+        "source": { "type": "local", "path": "/path/to/source" },
+        "target": { "type": "local", "path": "/path/to/target" },
+        "domains": ["alpha.example.com"],
+        "config": { "title": "Alpha Docs" }
+      }
+    ],
+    "defaults": {
+      "source": { "type": "local", "path": "./tenants" },
+      "target": { "type": "local", "path": "./dist" }
+    }
+  }
+
+Fallback Behavior:
+  If no registry is found, scans ./tenants/ directory for tenant folders.
+  Source defaults to ./tenants/<id>/, target defaults to ./dist/<id>/
 
 Examples:
-  node build-tenants.js                          Build all tenants
-  node build-tenants.js tenant-alpha             Build only tenant-alpha
-  node build-tenants.js tenant-alpha tenant-beta Build specific tenants
-  node build-tenants.js --target /var/www/docs   Build all, copy to target
-  node build-tenants.js tenant-alpha -t /deploy  Build one, copy to target
-  node build-tenants.js --list                   Show available tenants
+  node build-tenants.js                              Build all tenants
+  node build-tenants.js tenant-alpha                 Build only tenant-alpha
+  node build-tenants.js --registry /etc/tenants.json Use external registry
+  node build-tenants.js tenant-alpha -t /var/www     Build one, override target
+  node build-tenants.js --list                       Show available tenants
 `);
 }
 
@@ -90,6 +126,129 @@ async function pathExists(target) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Expand environment variables in a path string
+ * Supports $VAR and ${VAR} syntax
+ */
+function expandEnvVars(pathStr) {
+  if (!pathStr) return pathStr;
+  return pathStr
+    .replace(/\$\{([^}]+)\}/g, (_, name) => process.env[name] || '')
+    .replace(/\$([A-Z_][A-Z0-9_]*)/gi, (_, name) => process.env[name] || '');
+}
+
+/**
+ * Resolve a path relative to publisher root, expanding env vars
+ */
+function resolvePath(pathStr, base = root) {
+  if (!pathStr) return null;
+  const expanded = expandEnvVars(pathStr);
+  if (path.isAbsolute(expanded)) {
+    return expanded;
+  }
+  return path.resolve(base, expanded);
+}
+
+/**
+ * Load tenant registry from JSON file or fall back to directory scan
+ */
+async function loadRegistry(registryPath) {
+  const effectivePath = registryPath || process.env.TENANT_REGISTRY || DEFAULT_REGISTRY_PATH;
+
+  // Try to load registry file
+  if (await pathExists(effectivePath)) {
+    try {
+      const raw = await fsp.readFile(effectivePath, 'utf8');
+      const registry = JSON.parse(raw);
+      console.log(`Loaded registry from ${effectivePath}`);
+      return normalizeRegistry(registry);
+    } catch (err) {
+      console.error(`Error loading registry ${effectivePath}: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  // Fall back to scanning tenants/ directory
+  if (await pathExists(DEFAULT_TENANTS_DIR)) {
+    console.log('No registry found, scanning tenants/ directory...');
+    return await scanTenantsDirectory();
+  }
+
+  // No registry and no tenants directory
+  return { tenants: [], defaults: getDefaultConfig() };
+}
+
+/**
+ * Get default source/target configuration
+ */
+function getDefaultConfig() {
+  return {
+    source: { type: 'local', path: './tenants' },
+    target: { type: 'local', path: './dist' }
+  };
+}
+
+/**
+ * Normalize registry structure and apply defaults
+ */
+function normalizeRegistry(registry) {
+  const defaults = { ...getDefaultConfig(), ...(registry.defaults || {}) };
+  const tenants = (registry.tenants || []).map(tenant => normalizeTenant(tenant, defaults));
+  return { tenants, defaults };
+}
+
+/**
+ * Normalize a single tenant entry with defaults
+ */
+function normalizeTenant(tenant, defaults) {
+  const id = tenant.id;
+  if (!id) {
+    throw new Error('Tenant entry missing required "id" field');
+  }
+
+  // Source resolution
+  let source = tenant.source || {};
+  if (!source.path) {
+    // Default source path: <defaults.source.path>/<id>/
+    const basePath = defaults.source?.path || './tenants';
+    source = { type: 'local', path: path.join(basePath, id) };
+  }
+  source.type = source.type || 'local';
+  source.resolvedPath = resolvePath(source.path);
+
+  // Target resolution
+  let target = tenant.target || {};
+  if (!target.path) {
+    // Default target path: <defaults.target.path>/<id>/
+    const basePath = defaults.target?.path || './dist';
+    target = { type: 'local', path: path.join(basePath, id) };
+  }
+  target.type = target.type || 'local';
+  target.resolvedPath = resolvePath(target.path);
+
+  return {
+    id,
+    enabled: tenant.enabled !== false,
+    source,
+    target,
+    domains: tenant.domains || [],
+    config: tenant.config || {}
+  };
+}
+
+/**
+ * Scan tenants/ directory and create registry entries for each subdirectory
+ */
+async function scanTenantsDirectory() {
+  const defaults = getDefaultConfig();
+  const entries = await fsp.readdir(DEFAULT_TENANTS_DIR, { withFileTypes: true });
+  const tenants = entries
+    .filter(entry => entry.isDirectory())
+    .map(entry => normalizeTenant({ id: entry.name }, defaults));
+
+  return { tenants, defaults };
 }
 
 function escapeHtml(value) {
@@ -469,10 +628,10 @@ function buildManifestModuleSource(manifestEntries, defaultSection) {
   return `export const MANIFEST = ${manifestJson};\nexport const DEFAULT_SECTION = ${defaultJson};\n\nconst SECTION_INDEX = new Map();\n\nfunction registerEntry(entry, parentId = null) {\n  if (parentId) entry.parentId = parentId;\n  SECTION_INDEX.set(entry.id, entry);\n  if (Array.isArray(entry.subsections)) {\n    entry.subsections.forEach((child) => registerEntry(child, entry.id));\n  }\n}\n\nMANIFEST.forEach((entry) => registerEntry(entry));\n\nexport function findSection(id) {\n  return SECTION_INDEX.get(id) || null;\n}\n`;
 }
 
-async function processTenantManifest(tenantDir, distDir, tenantId) {
-  const manifestPath = path.join(tenantDir, TENANT_MANIFEST);
+async function processTenantManifest(sourceDir, distDir, tenantId) {
+  const manifestPath = path.join(sourceDir, TENANT_MANIFEST);
   if (!(await pathExists(manifestPath))) return;
-  const contentDir = path.join(tenantDir, DEFAULT_CONTENT_DIR);
+  const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
   if (!(await pathExists(contentDir))) {
     console.warn(`  ↳ ${tenantId}: manifest found but no content directory`);
     return;
@@ -517,67 +676,78 @@ async function processTenantManifest(tenantDir, distDir, tenantId) {
   console.log(`  ↳ applied manifest-driven content for ${tenantId}`);
 }
 
-async function buildTenant(tenantId) {
-  const tenantDir = path.join(tenantsRoot, tenantId);
-  const configPath = path.join(tenantDir, 'config.json');
-  const overridesDir = path.join(tenantDir, 'overrides');
-  let config = {};
+/**
+ * Build a single tenant using registry entry
+ */
+async function buildTenant(tenant, targetOverride) {
+  const tenantId = tenant.id;
+  const sourceDir = tenant.source.resolvedPath;
+  const targetDir = targetOverride
+    ? path.join(resolvePath(targetOverride), tenantId)
+    : tenant.target.resolvedPath;
 
+  // Validate source exists
+  if (!(await pathExists(sourceDir))) {
+    console.warn(`Skipping ${tenantId}: source directory not found at ${sourceDir}`);
+    return false;
+  }
+
+  // Load config from registry or source directory
+  let config = { ...tenant.config };
+  const configPath = path.join(sourceDir, 'config.json');
   if (await pathExists(configPath)) {
     try {
       const raw = await fsp.readFile(configPath, 'utf8');
-      config = JSON.parse(raw);
+      const fileConfig = JSON.parse(raw);
+      // Registry config takes precedence over file config
+      config = { ...fileConfig, ...config };
     } catch (err) {
-      console.warn(`Skipping ${tenantId}: unable to parse config.json (${err.message})`);
-      return;
+      console.warn(`  ↳ ${tenantId}: unable to parse config.json (${err.message})`);
     }
   }
 
+  // Build to a temporary location in dist/ first, then copy to target
   const buildOutput = path.join('dist', tenantId);
-  console.log(`Building tenant ${tenantId} -> ${buildOutput}`);
-  await runBuild(buildOutput);
   const distDir = path.join(root, 'dist', tenantId);
 
-  await processTenantManifest(tenantDir, distDir, tenantId);
+  console.log(`Building tenant ${tenantId}`);
+  console.log(`  source: ${sourceDir}`);
+  console.log(`  target: ${targetDir}`);
 
+  await runBuild(buildOutput);
+
+  // Process manifest from source directory
+  await processTenantManifest(sourceDir, distDir, tenantId);
+
+  // Apply branding and config
   if (Object.keys(config).length > 0) {
     await applyBranding(distDir, config, tenantId);
     await applyAccent(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }
 
+  // Apply file overrides from source
+  const overridesDir = path.join(sourceDir, 'overrides');
   if (await pathExists(overridesDir)) {
     await copyDirectory(overridesDir, distDir);
     console.log(`  ↳ applied file overrides for ${tenantId}`);
   }
 
-  console.log(`Tenant ${tenantId} ready at ${buildOutput}`);
-}
+  // Copy to final target if different from dist
+  if (targetDir !== distDir) {
+    // Ensure target parent exists
+    await fsp.mkdir(path.dirname(targetDir), { recursive: true });
 
-async function getAvailableTenants() {
-  if (!(await pathExists(tenantsRoot))) {
-    return [];
-  }
-  const entries = await fsp.readdir(tenantsRoot, { withFileTypes: true });
-  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-}
+    // Remove existing target if it exists
+    if (await pathExists(targetDir)) {
+      await fsp.rm(targetDir, { recursive: true, force: true });
+    }
 
-async function copyToTarget(tenantId, targetDir) {
-  const sourceDir = path.join(root, 'dist', tenantId);
-  const destDir = path.join(targetDir, tenantId);
-
-  if (!(await pathExists(sourceDir))) {
-    console.error(`  ↳ Error: dist/${tenantId} does not exist, cannot copy to target`);
-    return false;
+    await copyDirectory(distDir, targetDir);
+    console.log(`  ↳ deployed to ${targetDir}`);
   }
 
-  // Remove existing target directory if it exists
-  if (await pathExists(destDir)) {
-    await fsp.rm(destDir, { recursive: true, force: true });
-  }
-
-  await copyDirectory(sourceDir, destDir);
-  console.log(`  ↳ copied ${tenantId} to ${destDir}`);
+  console.log(`Tenant ${tenantId} ready`);
   return true;
 }
 
@@ -590,53 +760,59 @@ async function main() {
     return;
   }
 
-  // Get available tenants
-  const availableTenants = await getAvailableTenants();
+  // Load registry
+  const registry = await loadRegistry(args.registry);
 
   // Handle --list
   if (args.list) {
-    if (availableTenants.length === 0) {
-      console.log('No tenants found in tenants/ directory.');
+    if (registry.tenants.length === 0) {
+      console.log('No tenants found.');
     } else {
       console.log('Available tenants:');
-      availableTenants.forEach((t) => console.log(`  - ${t}`));
+      registry.tenants.forEach((t) => {
+        const status = t.enabled ? '' : ' (disabled)';
+        console.log(`  - ${t.id}${status}`);
+        console.log(`      source: ${t.source.resolvedPath}`);
+        console.log(`      target: ${t.target.resolvedPath}`);
+        if (t.domains.length > 0) {
+          console.log(`      domains: ${t.domains.join(', ')}`);
+        }
+      });
     }
     return;
   }
 
-  // Validate tenants root exists
-  if (!(await pathExists(tenantsRoot))) {
-    console.log('No tenants directory found. Nothing to build.');
-    return;
-  }
-
-  if (availableTenants.length === 0) {
+  if (registry.tenants.length === 0) {
     console.log('No tenant configurations detected.');
     return;
   }
 
   // Determine which tenants to build
-  let tenantsToBuild = availableTenants;
+  let tenantsToBuild = registry.tenants.filter(t => t.enabled);
   if (args.tenants.length > 0) {
-    // Validate requested tenants exist
-    const invalid = args.tenants.filter((t) => !availableTenants.includes(t));
+    const allIds = registry.tenants.map(t => t.id);
+    const invalid = args.tenants.filter(t => !allIds.includes(t));
     if (invalid.length > 0) {
       console.error(`Error: Unknown tenant(s): ${invalid.join(', ')}`);
-      console.error(`Available tenants: ${availableTenants.join(', ')}`);
+      console.error(`Available tenants: ${allIds.join(', ')}`);
       process.exit(1);
     }
-    tenantsToBuild = args.tenants;
+    tenantsToBuild = registry.tenants.filter(t => args.tenants.includes(t.id));
   }
 
-  // Validate target directory if specified
+  if (tenantsToBuild.length === 0) {
+    console.log('No tenants to build (all may be disabled).');
+    return;
+  }
+
+  // Validate target override if specified
   if (args.target) {
-    const targetPath = path.resolve(args.target);
+    const targetPath = resolvePath(args.target);
     const targetParent = path.dirname(targetPath);
     if (!(await pathExists(targetParent))) {
       console.error(`Error: Target parent directory does not exist: ${targetParent}`);
       process.exit(1);
     }
-    // Create target directory if it doesn't exist
     if (!(await pathExists(targetPath))) {
       await fsp.mkdir(targetPath, { recursive: true });
       console.log(`Created target directory: ${targetPath}`);
@@ -644,25 +820,29 @@ async function main() {
   }
 
   // Build tenants
-  console.log(`Building ${tenantsToBuild.length} tenant(s): ${tenantsToBuild.join(', ')}`);
+  const tenantIds = tenantsToBuild.map(t => t.id);
+  console.log(`Building ${tenantsToBuild.length} tenant(s): ${tenantIds.join(', ')}`);
   console.log('');
 
-  for (const tenantId of tenantsToBuild) {
-    // eslint-disable-next-line no-await-in-loop
-    await buildTenant(tenantId);
+  let successCount = 0;
+  let failCount = 0;
 
-    // Copy to target if specified
-    if (args.target) {
+  for (const tenant of tenantsToBuild) {
+    try {
       // eslint-disable-next-line no-await-in-loop
-      await copyToTarget(tenantId, path.resolve(args.target));
+      const success = await buildTenant(tenant, args.target);
+      if (success) successCount++;
+      else failCount++;
+    } catch (err) {
+      console.error(`Error building ${tenant.id}: ${err.message}`);
+      failCount++;
     }
-
     console.log('');
   }
 
-  console.log('Build complete.');
+  console.log(`Build complete. Success: ${successCount}, Failed: ${failCount}`);
   if (args.target) {
-    console.log(`Tenant files copied to: ${path.resolve(args.target)}`);
+    console.log(`Tenant files deployed to: ${resolvePath(args.target)}`);
   }
 }
 

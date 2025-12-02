@@ -1,0 +1,68 @@
+{
+  "$schema": "./tenants.schema.json",
+  "tenants": [
+    {
+      "id": "tenant-alpha",
+      "enabled": true,
+      "source": {
+        "type": "local",
+        "path": "./tenants/tenant-alpha"
+      },
+      "target": {
+        "type": "local",
+        "path": "./dist/tenant-alpha"
+      },
+      "domains": ["tenant-alpha.local", "alpha.example.com"],
+      "config": {
+        "title": "Tenant Alpha Documentation",
+        "brandMark": "Alpha",
+        "brandSub": "Docs"
+      }
+    },
+    {
+      "id": "tenant-beta",
+      "enabled": true,
+      "source": {
+        "type": "local",
+        "path": "./tenants/tenant-beta"
+      },
+      "target": {
+        "type": "local",
+        "path": "./dist/tenant-beta"
+      },
+      "domains": ["tenant-beta.local"]
+    },
+    {
+      "id": "tenant-default",
+      "enabled": true,
+      "domains": ["localhost", "docs.example.com"]
+    },
+    {
+      "id": "external-docs",
+      "enabled": false,
+      "source": {
+        "type": "local",
+        "path": "/home/user/projects/external-docs"
+      },
+      "target": {
+        "type": "local",
+        "path": "/var/www/docs/external"
+      },
+      "domains": ["external.example.com"],
+      "config": {
+        "title": "External Documentation",
+        "accentColor": "#10B981"
+      }
+    }
+  ],
+  "defaults": {
+    "source": {
+      "type": "local",
+      "path": "./tenants"
+    },
+    "target": {
+      "type": "local",
+      "path": "./dist"
+    }
+  }
+}

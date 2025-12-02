@@ -120,6 +120,35 @@
 
 ---
 
+### Iteration 3.5: External Tenant Sources (Inserted)
+
+**Focus:** Support external tenant content sources and deployment targets
+
+**Reference:** ADR-008 - External Tenant Sources
+
+**Problem:** Tenant directories in `tenants/` are examples, not production content. Real deployments source content from external locations.
+
+**Deliverables:**
+- [x] ADR-008 documenting external source model
+- [x] Tenant registry schema (`tenants.schema.json`)
+- [x] Registry-aware `build-tenants.js` with source/target resolution
+- [x] Fallback behavior when no registry (scan `tenants/` directory)
+- [x] Environment variable expansion in paths
+- [x] Example registry (`tenants.json.example`)
+
+**New CLI Options:**
+- `--registry, -r` - Path to tenant registry JSON file
+- Source/target shown in `--list` output
+
+**Exit Criteria:**
+- [x] Registry-based builds work with external sources
+- [x] Fallback to directory scan preserves existing behavior
+- [x] All 157 tests still pass
+
+**Completion Date:** 2025-12-02
+
+---
+
 ### Iteration 4: Tenant Management - Routing
 
 **Focus:** Implement tenant routing solution (ADR-004)
@@ -129,9 +158,9 @@
 - UC-010: Route to tenant
 
 **Deliverables:**
-- [ ] File-based tenant registry implementation
+- [x] File-based tenant registry implementation (ADR-008)
 - [ ] Atomic symlink deployment script
-- [ ] Caddy configuration generator
+- [ ] Caddy configuration generator (from registry)
 - [ ] Zero-downtime update tests
 - [ ] Integration tests for routing
 
@@ -223,11 +252,11 @@
 |--------|--------|---------|
 | Test coverage (overall) | 70% | ~60% (157 tests) |
 | Test coverage (build pipeline) | 85% | ~70% (24+ tests) |
-| Use cases complete | 10/10 | 4/10 tested (UC-001 to UC-004) |
+| Use cases complete | 10/10 | 5/10 tested (UC-001 to UC-004, UC-009) |
 | CI/CD operational | Yes | No (deferred) |
 | Security scanning | Enabled | No |
-| ADRs documented | - | 7 ADRs |
-| Iterations complete | 5 | 2/5 |
+| ADRs documented | - | 8 ADRs |
+| Iterations complete | 5 | 2.5/5 (Iter 2, 3.5 complete) |
 
 ---
 
@@ -238,3 +267,4 @@
 | 2025-12-01 | 1.0 | Initial Construction phase plan | Project Manager |
 | 2025-12-01 | 1.1 | Iteration 1 complete; added Iteration 2 for testable architecture (ADR-006) | Project Manager |
 | 2025-12-02 | 1.2 | Iteration 2 complete; ESM conversion, tenant-default, flexible builds (ADR-007) | Project Manager |
+| 2025-12-02 | 1.3 | Added Iteration 3.5; external tenant sources, registry support (ADR-008) | Project Manager |
