@@ -3,7 +3,9 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
+import { createHash } from 'crypto';
+import os from 'os';
 
 const root = process.cwd();
 const DEFAULT_TENANTS_DIR = path.join(root, 'tenants');
@@ -12,21 +14,15 @@ const DEFAULT_REGISTRY_PATH = path.join(root, 'tenants.json');
 const DEFAULT_CONTENT_DIR = 'content';
 const TENANT_MANIFEST = 'manifest.json';
 
+// Git defaults
+const DEFAULT_GIT_DEPTH = 1;
+const DEFAULT_GIT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_GIT_RETRIES = 3;
+const DEFAULT_CACHE_DIR = path.join(root, '.cache', 'git');
+
 /**
  * Parse CLI arguments
  * Usage: node build-tenants.js [tenant1 tenant2 ...] [options]
- *
- * Options:
- *   --registry, -r   Path to tenant registry JSON file
- *   --target, -t     Override target directory for all tenants
- *   --list, -l       List available tenants
- *   --help, -h       Show help
- *
- * Examples:
- *   node build-tenants.js                          # Build all tenants
- *   node build-tenants.js tenant-alpha             # Build only tenant-alpha
- *   node build-tenants.js --registry /etc/tenants.json  # Use external registry
- *   node build-tenants.js --target /var/www        # Override target for all
  */
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -35,7 +31,13 @@ function parseArgs(argv) {
     registry: null,
     target: null,
     list: false,
-    help: false
+    help: false,
+    // Git options
+    cacheDir: process.env.GIT_CACHE_DIR || null,
+    keepCache: false,
+    cleanCache: false,
+    gitDepth: parseInt(process.env.GIT_CLONE_DEPTH, 10) || null,
+    noSparse: false
   };
 
   let i = 0;
@@ -55,6 +57,29 @@ function parseArgs(argv) {
         process.exit(1);
       }
       i += 2;
+    } else if (arg === '--cache-dir') {
+      result.cacheDir = args[i + 1];
+      if (!result.cacheDir) {
+        console.error('Error: --cache-dir requires a path argument');
+        process.exit(1);
+      }
+      i += 2;
+    } else if (arg === '--git-depth') {
+      result.gitDepth = parseInt(args[i + 1], 10);
+      if (isNaN(result.gitDepth) || result.gitDepth < 1) {
+        console.error('Error: --git-depth requires a positive integer');
+        process.exit(1);
+      }
+      i += 2;
+    } else if (arg === '--keep-cache') {
+      result.keepCache = true;
+      i++;
+    } else if (arg === '--clean-cache') {
+      result.cleanCache = true;
+      i++;
+    } else if (arg === '--no-sparse') {
+      result.noSparse = true;
+      i++;
     } else if (arg === '--list' || arg === '-l') {
       result.list = true;
       i++;
@@ -88,6 +113,21 @@ Options:
   -l, --list          List available tenants and exit
   -h, --help          Show this help message
 
+Git Source Options:
+  --cache-dir         Directory for caching git clones (default: .cache/git/)
+  --keep-cache        Preserve git cache after build (default: clean up)
+  --clean-cache       Force fresh git clones, ignoring cache
+  --git-depth         Override clone depth for all git sources (default: 1)
+  --no-sparse         Disable sparse checkout for monorepo paths
+
+Environment Variables:
+  TENANT_REGISTRY     Path to tenant registry (alternative to --registry)
+  GIT_CACHE_DIR       Default cache directory for git clones
+  GIT_CLONE_DEPTH     Default clone depth (default: 1)
+  GIT_TERMINAL_PROMPT Set to 0 to disable interactive git prompts (recommended for CI)
+  GIT_SSH_COMMAND     Custom SSH command (e.g., "ssh -i ~/.ssh/deploy_key")
+  GIT_CREDENTIALS     HTTPS credentials in "username:token" format (not logged)
+
 Registry Format (tenants.json):
   {
     "tenants": [
@@ -98,23 +138,33 @@ Registry Format (tenants.json):
         "target": { "type": "local", "path": "/path/to/target" },
         "domains": ["alpha.example.com"],
         "config": { "title": "Alpha Docs" }
+      },
+      {
+        "id": "tenant-beta",
+        "source": {
+          "type": "git",
+          "url": "https://github.com/org/docs.git",
+          "ref": "main",
+          "path": "tenant-beta/"
+        }
       }
-    ],
-    "defaults": {
-      "source": { "type": "local", "path": "./tenants" },
-      "target": { "type": "local", "path": "./dist" }
-    }
+    ]
   }
 
-Fallback Behavior:
-  If no registry is found, scans ./tenants/ directory for tenant folders.
-  Source defaults to ./tenants/<id>/, target defaults to ./dist/<id>/
+Git Source Properties:
+  type      "git" (required)
+  url       Git repository URL (HTTPS or SSH)
+  ref       Branch, tag, or commit SHA (default: "main")
+  path      Subdirectory within repo (default: repo root)
+  sparse    Use sparse checkout for path (default: false)
+  depth     Clone depth (default: 1)
 
 Examples:
   node build-tenants.js                              Build all tenants
   node build-tenants.js tenant-alpha                 Build only tenant-alpha
   node build-tenants.js --registry /etc/tenants.json Use external registry
   node build-tenants.js tenant-alpha -t /var/www     Build one, override target
+  node build-tenants.js --clean-cache                Force fresh git clones
   node build-tenants.js --list                       Show available tenants
 `);
 }
@@ -149,6 +199,227 @@ function resolvePath(pathStr, base = root) {
     return expanded;
   }
   return path.resolve(base, expanded);
+}
+
+/**
+ * Check if git is available
+ */
+function isGitAvailable() {
+  try {
+    execSync('git --version', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Execute a command with timeout and retry
+ */
+async function execWithRetry(command, options = {}) {
+  const {
+    cwd = root,
+    timeout = DEFAULT_GIT_TIMEOUT,
+    retries = DEFAULT_GIT_RETRIES,
+    env = process.env
+  } = options;
+
+  let lastError;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await new Promise((resolve, reject) => {
+        const proc = spawn('sh', ['-c', command], {
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: { ...env, GIT_TERMINAL_PROMPT: '0' },
+          timeout
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        proc.stdout.on('data', (data) => { stdout += data.toString(); });
+        proc.stderr.on('data', (data) => { stderr += data.toString(); });
+
+        proc.on('close', (code) => {
+          if (code === 0) {
+            resolve({ stdout, stderr });
+          } else {
+            reject(new Error(`Command failed (exit ${code}): ${stderr || stdout}`));
+          }
+        });
+
+        proc.on('error', (err) => {
+          reject(new Error(`Command error: ${err.message}`));
+        });
+      });
+    } catch (err) {
+      lastError = err;
+      // Check if this is a retryable error (network issues)
+      const isRetryable = err.message.includes('Could not resolve host') ||
+                          err.message.includes('Connection refused') ||
+                          err.message.includes('Connection timed out') ||
+                          err.message.includes('Network is unreachable');
+
+      if (!isRetryable || attempt === retries) {
+        break;
+      }
+
+      // Exponential backoff
+      const delay = Math.pow(2, attempt) * 1000;
+      console.log(`  ↳ Retry ${attempt}/${retries} in ${delay / 1000}s...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Generate cache key for git source
+ */
+function getCacheKey(source) {
+  const { url, ref = 'main', path: subPath = '' } = source;
+  const hash = createHash('sha256')
+    .update(`${url}:${ref}:${subPath}`)
+    .digest('hex')
+    .slice(0, 12);
+  return `git-${hash}`;
+}
+
+/**
+ * Check if a ref is immutable (tag or commit SHA)
+ */
+function isImmutableRef(ref) {
+  // Commit SHA is 40 hex characters
+  if (/^[0-9a-f]{40}$/i.test(ref)) return true;
+  // Short SHA is 7+ hex characters (less reliable)
+  if (/^[0-9a-f]{7,39}$/i.test(ref)) return true;
+  // Version tags typically start with v
+  if (/^v?\d+\.\d+/.test(ref)) return true;
+  return false;
+}
+
+/**
+ * Clone or update a git repository
+ */
+async function cloneGitSource(source, cacheDir, options = {}) {
+  const { url, ref = 'main', path: subPath = '.', sparse = false, depth = DEFAULT_GIT_DEPTH } = source;
+  const { cleanCache = false, noSparse = false, gitDepth = null } = options;
+
+  const effectiveDepth = gitDepth || depth;
+  const effectiveSparse = sparse && !noSparse && subPath !== '.';
+
+  const cacheKey = getCacheKey(source);
+  const cloneDir = path.join(cacheDir, cacheKey);
+
+  // Sanitize URL for logging (hide credentials)
+  const safeUrl = url.replace(/\/\/[^@]+@/, '//***@');
+
+  console.log(`  ↳ git source: ${safeUrl}`);
+  console.log(`  ↳ ref: ${ref}, path: ${subPath || '(root)'}`);
+
+  // Check cache
+  const cacheExists = await pathExists(cloneDir);
+
+  if (cacheExists && !cleanCache) {
+    const isImmutable = isImmutableRef(ref);
+    if (isImmutable) {
+      console.log(`  ↳ using cached clone (immutable ref)`);
+    } else {
+      console.log(`  ↳ updating cached clone...`);
+      try {
+        await execWithRetry(`git -C "${cloneDir}" fetch origin ${ref} --depth ${effectiveDepth}`, { cwd: root });
+        await execWithRetry(`git -C "${cloneDir}" checkout FETCH_HEAD`, { cwd: root });
+      } catch (err) {
+        console.warn(`  ↳ fetch failed, will re-clone: ${err.message}`);
+        await fsp.rm(cloneDir, { recursive: true, force: true });
+      }
+    }
+  }
+
+  // Clone if not cached or cache was cleared
+  if (!(await pathExists(cloneDir))) {
+    console.log(`  ↳ cloning repository...`);
+    await fsp.mkdir(cacheDir, { recursive: true });
+
+    // Build clone command
+    let cloneCmd = `git clone --depth ${effectiveDepth}`;
+
+    // Add branch/ref
+    // For commits, we can't use --branch, need to fetch after
+    if (!isImmutableRef(ref) || /^v?\d+\.\d+/.test(ref)) {
+      cloneCmd += ` --branch ${ref}`;
+    }
+
+    // Sparse checkout preparation
+    if (effectiveSparse) {
+      cloneCmd += ' --filter=blob:none --sparse';
+    }
+
+    cloneCmd += ` "${url}" "${cloneDir}"`;
+
+    try {
+      await execWithRetry(cloneCmd, { cwd: root });
+
+      // If ref is a commit SHA, checkout after clone
+      if (/^[0-9a-f]{7,40}$/i.test(ref) && !/^v?\d+\.\d+/.test(ref)) {
+        await execWithRetry(`git -C "${cloneDir}" fetch --depth ${effectiveDepth} origin ${ref}`, { cwd: root });
+        await execWithRetry(`git -C "${cloneDir}" checkout ${ref}`, { cwd: root });
+      }
+
+      // Set up sparse checkout if needed
+      if (effectiveSparse) {
+        await execWithRetry(`git -C "${cloneDir}" sparse-checkout set "${subPath}"`, { cwd: root });
+      }
+    } catch (err) {
+      // Clean up partial clone on failure
+      await fsp.rm(cloneDir, { recursive: true, force: true }).catch(() => {});
+
+      // Provide helpful error message
+      if (err.message.includes('Authentication failed') ||
+          err.message.includes('could not read Username')) {
+        throw new Error(`Git authentication failed for ${safeUrl}. Check SSH keys or GIT_CREDENTIALS env var.`);
+      }
+      if (err.message.includes('not found') || err.message.includes('does not exist')) {
+        throw new Error(`Git ref '${ref}' not found in ${safeUrl}`);
+      }
+      throw err;
+    }
+  }
+
+  // Resolve the final source path
+  const resolvedPath = subPath === '.' ? cloneDir : path.join(cloneDir, subPath);
+
+  // Validate the path exists
+  if (!(await pathExists(resolvedPath))) {
+    throw new Error(`Subdirectory '${subPath}' not found in repository ${safeUrl}`);
+  }
+
+  return resolvedPath;
+}
+
+/**
+ * Resolve source to a local path (handles git cloning)
+ */
+async function resolveSource(source, cacheDir, options = {}) {
+  if (source.type === 'git') {
+    return await cloneGitSource(source, cacheDir, options);
+  }
+  // Local source - already resolved
+  return source.resolvedPath;
+}
+
+/**
+ * Clean up git cache
+ */
+async function cleanupCache(cacheDir, keep = false) {
+  if (keep) {
+    console.log(`Git cache preserved at: ${cacheDir}`);
+    return;
+  }
+  if (await pathExists(cacheDir)) {
+    await fsp.rm(cacheDir, { recursive: true, force: true });
+  }
 }
 
 /**
@@ -210,18 +481,34 @@ function normalizeTenant(tenant, defaults) {
 
   // Source resolution
   let source = tenant.source || {};
-  if (!source.path) {
-    // Default source path: <defaults.source.path>/<id>/
-    const basePath = defaults.source?.path || './tenants';
-    source = { type: 'local', path: path.join(basePath, id) };
+  const sourceType = source.type || 'local';
+
+  if (sourceType === 'git') {
+    // Git source - validate required fields
+    if (!source.url) {
+      throw new Error(`Tenant ${id}: git source requires 'url' field`);
+    }
+    source = {
+      type: 'git',
+      url: source.url,
+      ref: source.ref || 'main',
+      path: source.path || '.',
+      sparse: source.sparse || false,
+      depth: source.depth || DEFAULT_GIT_DEPTH
+    };
+  } else {
+    // Local source
+    if (!source.path) {
+      const basePath = defaults.source?.path || './tenants';
+      source = { type: 'local', path: path.join(basePath, id) };
+    }
+    source.type = 'local';
+    source.resolvedPath = resolvePath(source.path);
   }
-  source.type = source.type || 'local';
-  source.resolvedPath = resolvePath(source.path);
 
   // Target resolution
   let target = tenant.target || {};
   if (!target.path) {
-    // Default target path: <defaults.target.path>/<id>/
     const basePath = defaults.target?.path || './dist';
     target = { type: 'local', path: path.join(basePath, id) };
   }
@@ -679,12 +966,20 @@ async function processTenantManifest(sourceDir, distDir, tenantId) {
 /**
  * Build a single tenant using registry entry
  */
-async function buildTenant(tenant, targetOverride) {
+async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
   const tenantId = tenant.id;
-  const sourceDir = tenant.source.resolvedPath;
   const targetDir = targetOverride
     ? path.join(resolvePath(targetOverride), tenantId)
     : tenant.target.resolvedPath;
+
+  // Resolve source (handles git cloning)
+  let sourceDir;
+  try {
+    sourceDir = await resolveSource(tenant.source, cacheDir, gitOptions);
+  } catch (err) {
+    console.error(`  ↳ Failed to resolve source: ${err.message}`);
+    return false;
+  }
 
   // Validate source exists
   if (!(await pathExists(sourceDir))) {
@@ -763,6 +1058,13 @@ async function main() {
   // Load registry
   const registry = await loadRegistry(args.registry);
 
+  // Check for git sources and validate git availability
+  const hasGitSources = registry.tenants.some(t => t.source.type === 'git');
+  if (hasGitSources && !isGitAvailable()) {
+    console.error('Error: Git sources configured but git is not available. Please install git.');
+    process.exit(1);
+  }
+
   // Handle --list
   if (args.list) {
     if (registry.tenants.length === 0) {
@@ -772,7 +1074,13 @@ async function main() {
       registry.tenants.forEach((t) => {
         const status = t.enabled ? '' : ' (disabled)';
         console.log(`  - ${t.id}${status}`);
-        console.log(`      source: ${t.source.resolvedPath}`);
+        if (t.source.type === 'git') {
+          const safeUrl = t.source.url.replace(/\/\/[^@]+@/, '//***@');
+          console.log(`      source: git ${safeUrl}`);
+          console.log(`              ref: ${t.source.ref}, path: ${t.source.path || '(root)'}`);
+        } else {
+          console.log(`      source: ${t.source.resolvedPath}`);
+        }
         console.log(`      target: ${t.target.resolvedPath}`);
         if (t.domains.length > 0) {
           console.log(`      domains: ${t.domains.join(', ')}`);
@@ -819,6 +1127,22 @@ async function main() {
     }
   }
 
+  // Set up cache directory
+  const cacheDir = args.cacheDir || DEFAULT_CACHE_DIR;
+
+  // Clean cache if requested
+  if (args.cleanCache && await pathExists(cacheDir)) {
+    console.log(`Cleaning git cache at ${cacheDir}...`);
+    await fsp.rm(cacheDir, { recursive: true, force: true });
+  }
+
+  // Git options for all tenants
+  const gitOptions = {
+    cleanCache: args.cleanCache,
+    noSparse: args.noSparse,
+    gitDepth: args.gitDepth
+  };
+
   // Build tenants
   const tenantIds = tenantsToBuild.map(t => t.id);
   console.log(`Building ${tenantsToBuild.length} tenant(s): ${tenantIds.join(', ')}`);
@@ -830,7 +1154,7 @@ async function main() {
   for (const tenant of tenantsToBuild) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      const success = await buildTenant(tenant, args.target);
+      const success = await buildTenant(tenant, args.target, cacheDir, gitOptions);
       if (success) successCount++;
       else failCount++;
     } catch (err) {
@@ -839,6 +1163,9 @@ async function main() {
     }
     console.log('');
   }
+
+  // Clean up cache
+  await cleanupCache(cacheDir, args.keepCache);
 
   console.log(`Build complete. Success: ${successCount}, Failed: ${failCount}`);
   if (args.target) {

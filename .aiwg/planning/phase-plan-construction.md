@@ -174,6 +174,46 @@
 
 ---
 
+### Iteration 4.5: Git Source Integration (Planned)
+
+**Focus:** Implement git source type for tenant content (ADR-009)
+
+**Reference:** ADR-009 - Git Source Type for Tenant Content
+
+**NFRs:**
+- NFR-B1: Git source cloning
+- NFR-B2: Git authentication
+- NFR-B3: Git clone caching
+- NFR-B4: Git error handling
+
+**Deliverables:**
+- [ ] Git source type implementation in build-tenants.js
+- [ ] SSH and HTTPS authentication support
+- [ ] Shallow clone with depth=1 (default)
+- [ ] Sparse checkout for monorepo subdirectories
+- [ ] Clone caching with configurable retention
+- [ ] Retry logic with exponential backoff
+- [ ] Update tenants.schema.json with git source properties
+- [ ] Unit tests for git source functions
+- [ ] Integration tests with public repositories
+- [ ] Documentation for git source configuration
+
+**New CLI Options:**
+- `--cache-dir` - Git clone cache directory
+- `--keep-cache` - Preserve cache after build
+- `--clean-cache` - Force fresh clones
+- `--git-depth` - Override clone depth
+
+**Exit Criteria:**
+- [ ] Clone from public HTTPS repo works
+- [ ] Clone from SSH repo works (with key)
+- [ ] Branch, tag, and commit refs supported
+- [ ] Subdirectory extraction works
+- [ ] Cache reuse reduces build time
+- [ ] All 157+ existing tests still pass
+
+---
+
 ### Iteration 5: Polish and Gate Preparation
 
 **Focus:** Complete remaining use cases and prepare for Transition
@@ -255,7 +295,7 @@
 | Use cases complete | 10/10 | 5/10 tested (UC-001 to UC-004, UC-009) |
 | CI/CD operational | Yes | No (deferred) |
 | Security scanning | Enabled | No |
-| ADRs documented | - | 8 ADRs |
+| ADRs documented | - | 9 ADRs |
 | Iterations complete | 5 | 2.5/5 (Iter 2, 3.5 complete) |
 
 ---
@@ -268,3 +308,4 @@
 | 2025-12-01 | 1.1 | Iteration 1 complete; added Iteration 2 for testable architecture (ADR-006) | Project Manager |
 | 2025-12-02 | 1.2 | Iteration 2 complete; ESM conversion, tenant-default, flexible builds (ADR-007) | Project Manager |
 | 2025-12-02 | 1.3 | Added Iteration 3.5; external tenant sources, registry support (ADR-008) | Project Manager |
+| 2025-12-02 | 1.4 | Added Iteration 4.5; git source integration planning (ADR-009) | Project Manager |

@@ -1141,6 +1141,142 @@ All code and dependencies MUST use permissive open-source licenses compatible wi
 
 ---
 
+## 10A. Build Source Requirements (ADR-009)
+
+### 10A.1 Git Source Support
+
+#### NFR-B1: Git Source Cloning
+
+**ID:** NFR-B1
+**Priority:** HIGH
+**Category:** Build - Source Fetching
+
+**Requirement:**
+Build pipeline MUST support cloning tenant content from git repositories with configurable branch, tag, or commit reference.
+
+**Rationale:**
+Most production content is stored in git repositories. Direct git integration eliminates need for pre-fetch scripts and enables true CI/CD workflows.
+
+**Acceptance Criteria:**
+- [ ] Support HTTPS and SSH git URLs
+- [ ] Support branch, tag, and commit SHA references
+- [ ] Support subdirectory extraction (path within repo)
+- [ ] Shallow clone by default (depth=1) for performance
+- [ ] Sparse checkout for monorepo efficiency (optional)
+- [ ] Clone completes within 60 seconds for typical repo (<100MB)
+
+**Test Approach:**
+- Unit tests with mock git commands
+- Integration tests with real public repositories
+- Performance tests measuring clone duration
+
+**Related Components:**
+- `build-tenants.js` (git source handling)
+- Git binary on build machine
+
+---
+
+#### NFR-B2: Git Authentication
+
+**ID:** NFR-B2
+**Priority:** HIGH
+**Category:** Build - Security
+
+**Requirement:**
+Build pipeline MUST support authenticated access to private git repositories via SSH keys or HTTPS tokens without exposing credentials in logs or configuration.
+
+**Rationale:**
+Enterprise and private documentation repos require authentication. Credentials must be handled securely.
+
+**Acceptance Criteria:**
+- [ ] SSH key authentication via ssh-agent or GIT_SSH_COMMAND
+- [ ] HTTPS token authentication via environment variable
+- [ ] Credentials never logged to console
+- [ ] Credentials never stored in registry file
+- [ ] Support for GitHub App installation tokens (short-lived)
+- [ ] Clear error message if auth fails (without exposing credentials)
+
+**Test Approach:**
+- Security review of credential handling
+- Integration test with private repo
+- Log audit for credential leakage
+
+**Related Components:**
+- `build-tenants.js` (credential handling)
+- Environment variables (GIT_CREDENTIALS, GIT_SSH_COMMAND)
+
+---
+
+#### NFR-B3: Git Clone Caching
+
+**ID:** NFR-B3
+**Priority:** MEDIUM
+**Category:** Build - Performance
+
+**Requirement:**
+Build pipeline SHOULD cache cloned repositories to avoid redundant fetches for unchanged content.
+
+**Rationale:**
+CI/CD pipelines may run multiple builds. Caching reduces network usage and build time.
+
+**Acceptance Criteria:**
+- [ ] Cache key based on URL + ref + path
+- [ ] Immutable refs (tags, SHAs) reuse cached clone
+- [ ] Mutable refs (branches) fetch to update
+- [ ] Cache location configurable via CLI or environment
+- [ ] Cache cleanup on build completion (default) or preserve (optional)
+- [ ] Max cache age configurable (default 24 hours for branches)
+
+**Test Approach:**
+- Performance test: first clone vs cached clone
+- Verify cache invalidation for branch updates
+
+**Related Components:**
+- `build-tenants.js` (cache management)
+- `.cache/git/` directory
+
+---
+
+#### NFR-B4: Git Error Handling
+
+**ID:** NFR-B4
+**Priority:** HIGH
+**Category:** Build - Reliability
+
+**Requirement:**
+Build pipeline MUST handle git clone failures gracefully with retry logic and clear error messages.
+
+**Rationale:**
+Network issues, auth failures, and missing refs are common. Clear errors help operators diagnose issues.
+
+**Acceptance Criteria:**
+- [ ] Retry network failures 3 times with exponential backoff
+- [ ] Clear error for auth failure (without exposing credentials)
+- [ ] Clear error for missing branch/tag/commit
+- [ ] Clear error for missing subdirectory path
+- [ ] 5-minute timeout per clone operation
+- [ ] Failed tenant does not block other tenants
+
+**Test Approach:**
+- Unit tests with simulated failures
+- Integration test with invalid refs
+
+**Related Components:**
+- `build-tenants.js` (error handling)
+
+---
+
+### 10A.2 NFR to ADR Mapping (Build Sources)
+
+| NFR ID | ADR Reference | Description |
+|--------|---------------|-------------|
+| NFR-B1 | ADR-009 | Git source cloning with refs |
+| NFR-B2 | ADR-009 | Git authentication |
+| NFR-B3 | ADR-009 | Clone caching strategy |
+| NFR-B4 | ADR-009 | Error handling and retries |
+
+---
+
 ## 11. Requirements Traceability
 
 ### 11.1 NFR to Architecture Mapping
@@ -1154,6 +1290,7 @@ All code and dependencies MUST use permissive open-source licenses compatible wi
 | **Maintainability** | Zero runtime dependencies, Vanilla JavaScript, Comprehensive docs | 2.1.5 Maintainability |
 | **Portability** | Hash-based routing, No server dependencies, Standard formats | 2.1.2 Portability |
 | **Operability** | Automated deployment, Git webhooks, Rollback mechanism | 5. Deployment Architecture |
+| **Build Sources** | Git source type, Clone caching, Authentication | ADR-009 |
 
 ### 11.2 NFR to Component Mapping
 
@@ -1174,14 +1311,18 @@ All code and dependencies MUST use permissive open-source licenses compatible wi
 | NFR-PORT1 | Hash routing, static bundles | Cross-platform tests |
 | NFR-O1, NFR-O2 | CI/CD pipeline, Git webhooks | Deployment automation tests |
 | NFR-O3 | Rollback script, versioned directories | Rollback timing tests |
+| NFR-B1 | `build-tenants.js`, git binary | Clone integration tests |
+| NFR-B2 | `build-tenants.js`, credential env vars | Security tests |
+| NFR-B3 | `build-tenants.js`, `.cache/git/` | Performance tests |
+| NFR-B4 | `build-tenants.js` error handling | Failure simulation tests |
 
 ### 11.3 NFR Priority Matrix
 
 | Priority | NFR IDs | Summary |
 |----------|---------|---------|
 | **CRITICAL** | NFR-R2, NFR-R3, NFR-SEC1, NFR-SEC2, NFR-M1, NFR-PORT1, NFR-O1 | Zero-downtime, security, zero dependencies, deployment flexibility |
-| **HIGH** | NFR-P1, NFR-P2, NFR-P3, NFR-R1, NFR-R4, NFR-S1, NFR-S2, NFR-SEC3, NFR-M2, NFR-PORT2, NFR-PORT3, NFR-O2, NFR-O3, NFR-U2, NFR-C1 | Performance, reliability, scalability, portability |
-| **MEDIUM** | NFR-P4, NFR-S3, NFR-SEC4, NFR-SEC5, NFR-M3, NFR-M4, NFR-O4, NFR-O5, NFR-U1, NFR-U3 | Infrastructure, code quality, monitoring, usability |
+| **HIGH** | NFR-P1, NFR-P2, NFR-P3, NFR-R1, NFR-R4, NFR-S1, NFR-S2, NFR-SEC3, NFR-M2, NFR-PORT2, NFR-PORT3, NFR-O2, NFR-O3, NFR-U2, NFR-C1, NFR-B1, NFR-B2, NFR-B4 | Performance, reliability, scalability, portability, git sources |
+| **MEDIUM** | NFR-P4, NFR-S3, NFR-SEC4, NFR-SEC5, NFR-M3, NFR-M4, NFR-O4, NFR-O5, NFR-U1, NFR-U3, NFR-B3 | Infrastructure, code quality, monitoring, usability, git caching |
 | **LOW** | NFR-C2 | Licensing compliance |
 
 ---
@@ -1191,6 +1332,7 @@ All code and dependencies MUST use permissive open-source licenses compatible wi
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-12-01 | Requirements Analyst Agent | Initial baseline |
+| 1.1 | 2025-12-02 | Requirements Analyst Agent | Added Section 10A: Build Source Requirements (NFR-B1 to NFR-B4) per ADR-009 |
 
 ---
 

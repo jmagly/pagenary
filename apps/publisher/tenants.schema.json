@@ -60,20 +60,65 @@
       }
     },
     "sourcePath": {
+      "oneOf": [
+        { "$ref": "#/definitions/localSource" },
+        { "$ref": "#/definitions/gitSource" }
+      ],
+      "description": "Source location for tenant content (local path or git repository)"
+    },
+    "localSource": {
       "type": "object",
-      "description": "Source location for tenant content",
+      "description": "Local filesystem source",
       "properties": {
         "type": {
           "type": "string",
           "enum": ["local"],
           "default": "local",
-          "description": "Source type (currently only 'local' is supported)"
+          "description": "Local source type"
         },
         "path": {
           "type": "string",
           "description": "Path to tenant source directory. Relative paths resolve from publisher root. Supports environment variable expansion ($VAR or ${VAR})."
         }
-      }
+      },
+      "required": ["path"]
+    },
+    "gitSource": {
+      "type": "object",
+      "description": "Git repository source",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["git"],
+          "description": "Git source type"
+        },
+        "url": {
+          "type": "string",
+          "description": "Git repository URL (HTTPS, SSH, or file://)"
+        },
+        "ref": {
+          "type": "string",
+          "default": "main",
+          "description": "Branch, tag, or commit SHA to checkout"
+        },
+        "path": {
+          "type": "string",
+          "default": ".",
+          "description": "Subdirectory within repository containing tenant content"
+        },
+        "sparse": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use sparse checkout (only fetch subdirectory specified by path)"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Shallow clone depth (1 = latest commit only)"
+        }
+      },
+      "required": ["type", "url"]
     },
     "targetPath": {
       "type": "object",
