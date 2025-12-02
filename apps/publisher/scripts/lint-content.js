@@ -4,8 +4,8 @@
  * - scans source and docs for trailing whitespace or tab characters
  * - ensures files end with a newline
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const ROOT = process.cwd();
 const INCLUDE_DIRS = ['src', 'scripts', 'docs'];

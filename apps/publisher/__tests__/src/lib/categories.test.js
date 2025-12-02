@@ -1,65 +1,39 @@
 /**
- * Tests for section-templates.js pure functions
- *
- * Since src/ files are browser ES modules, we re-implement the pure logic here
- * to test in Node environment. This validates the business logic without
- * requiring DOM or ESM configuration.
+ * Tests for lib/categories.js
+ * Tests the ACTUAL source code - no logic duplication.
  */
 
-// Re-implement pure functions from section-templates.js for testing
-const WORD_OVERRIDES = {
-  api: 'API',
-  apis: 'APIs',
-  faq: 'FAQ',
-  rpc: 'RPC',
-  sdk: 'SDK',
-  sdks: 'SDKs',
-  ui: 'UI'
-};
+import {
+  WORD_OVERRIDES,
+  CATEGORY_RULES,
+  formatWord,
+  normalizeId,
+  inferCategory,
+  titleFromId
+} from '../../../src/lib/categories.js';
 
-const CATEGORY_RULES = [
-  { category: 'welcome', test: (id) => id.startsWith('welcome') },
-  { category: 'guide', test: (id) => id.startsWith('getting-started') },
-  { category: 'reference', test: (id) => id.startsWith('core-technology') },
-  { category: 'technical', test: (id) => id.startsWith('technical') },
-  { category: 'developer', test: (id) => id.startsWith('developers') },
-  { category: 'tutorial-overview', test: (id) => id === 'tutorials-overview' },
-  { category: 'tutorial', test: (id) => id.startsWith('tutorial-') },
-  { category: 'tutorial', test: (id) => id.startsWith('tutorials-') },
-  { category: 'use-case', test: (id) => id.startsWith('use-case') },
-  { category: 'product', test: (id) => id.startsWith('products') },
-  { category: 'governance', test: (id) => id.startsWith('governance') },
-  { category: 'resource', test: (id) => id.startsWith('resources') },
-  { category: 'security', test: (id) => id.startsWith('security') },
-  { category: 'operations', test: (id) => id.startsWith('operations') },
-  { category: 'archive', test: (id) => id.startsWith('archive') },
-];
+describe('lib/categories.js', () => {
+  describe('WORD_OVERRIDES', () => {
+    test('contains expected acronyms', () => {
+      expect(WORD_OVERRIDES.api).toBe('API');
+      expect(WORD_OVERRIDES.sdk).toBe('SDK');
+      expect(WORD_OVERRIDES.faq).toBe('FAQ');
+      expect(WORD_OVERRIDES.ui).toBe('UI');
+    });
+  });
 
-function formatWord(word) {
-  if (!word) return '';
-  if (WORD_OVERRIDES[word]) return WORD_OVERRIDES[word];
-  if (/^\d+$/.test(word)) return word;
-  return word.charAt(0).toUpperCase() + word.slice(1);
-}
+  describe('CATEGORY_RULES', () => {
+    test('is an array of rule objects', () => {
+      expect(Array.isArray(CATEGORY_RULES)).toBe(true);
+      expect(CATEGORY_RULES.length).toBeGreaterThan(0);
+      CATEGORY_RULES.forEach(rule => {
+        expect(rule).toHaveProperty('category');
+        expect(rule).toHaveProperty('test');
+        expect(typeof rule.test).toBe('function');
+      });
+    });
+  });
 
-function normalizeId(id) {
-  return id.trim();
-}
-
-function inferCategory(id) {
-  const normalized = normalizeId(id);
-  const match = CATEGORY_RULES.find((rule) => rule.test(normalized));
-  return match ? match.category : 'default';
-}
-
-function titleFromId(id) {
-  const normalized = normalizeId(id).replace(/_/g, '-');
-  const words = normalized.split('-').filter(Boolean).map((word) => formatWord(word));
-  return words.join(' ');
-}
-
-// Tests
-describe('section-templates.js pure functions', () => {
   describe('formatWord', () => {
     test('returns empty string for falsy input', () => {
       expect(formatWord('')).toBe('');
@@ -246,13 +220,10 @@ describe('section-templates.js pure functions', () => {
 
 describe('CATEGORY_RULES ordering', () => {
   test('tutorial-overview takes precedence over tutorial prefix', () => {
-    // tutorials-overview should match tutorial-overview category (exact match)
-    // not the tutorial prefix rules
     expect(inferCategory('tutorials-overview')).toBe('tutorial-overview');
   });
 
   test('tutorial- prefix matches before tutorials- prefix', () => {
-    // Both should result in 'tutorial' but the first matching rule wins
     expect(inferCategory('tutorial-basics')).toBe('tutorial');
     expect(inferCategory('tutorials-basics')).toBe('tutorial');
   });

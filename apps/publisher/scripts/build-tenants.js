@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /* Build tenant-specific bundles with optional branding overrides */
-const fs = require('fs');
-const fsp = fs.promises;
-const path = require('path');
-const { spawn } = require('child_process');
+import fs from 'fs';
+import fsp from 'fs/promises';
+import path from 'path';
+import { spawn } from 'child_process';
 
 const root = process.cwd();
 const tenantsRoot = path.join(root, 'tenants');

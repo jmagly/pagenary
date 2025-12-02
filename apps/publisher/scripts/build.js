@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /* Minimal build: copy src -> dist with optional terser minification */
-const fs = require('fs');
-const fsp = fs.promises;
-const path = require('path');
+import fs from 'fs';
+import fsp from 'fs/promises';
+import path from 'path';
+import { createRequire } from 'module';
 
+const require = createRequire(import.meta.url);
 const root = process.cwd();
 const srcDir = path.join(root, 'src');
 const outputDirEnv = process.env.BUILD_OUTPUT || process.env.DIST_DIR;

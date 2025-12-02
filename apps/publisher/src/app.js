@@ -1,5 +1,8 @@
 import { MANIFEST, DEFAULT_SECTION, findSection } from './manifest.js';
 import { updateMetaTags } from './seo.js';
+import { escapeRegExp, filterSections, findPreferredIndex } from './lib/search.js';
+import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
+import { composeExportDocument, collectExportableSections } from './lib/export.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -149,20 +152,13 @@ function setGroupExpanded(id, expanded) {
   }
 }
 
+// Wrapper functions that bind findSection to lib functions
 function resolveTarget(id) {
-  const entry = findSection(id);
-  if (!entry) return { targetId: id, parentId: null };
-  if (!entry.module && entry.subsections && entry.subsections.length) {
-    return { targetId: entry.subsections[0].id, parentId: entry.id };
-  }
-  return { targetId: entry.id, parentId: entry.parentId || null };
+  return resolveTargetFn(id, findSection);
 }
 
 function resolveEntry(id) {
-  const { targetId, parentId } = resolveTarget(id);
-  const entry = findSection(targetId);
-  if (!entry) return null;
-  return { entry, targetId, parentId };
+  return resolveEntryFn(id, findSection);
 }
 
 async function loadSection(entry) {
@@ -304,15 +300,9 @@ function closeCommandPalette() {
 
 function updateCommandEntries(query) {
   if (!commandList) return;
-  const q = query.trim().toLowerCase();
-  commandEntries = MANIFEST.filter((section) => {
-    if (!q) return true;
-    const haystack = `${section.title} ${section.summary}`.toLowerCase();
-    return haystack.includes(q);
-  });
+  commandEntries = filterSections(MANIFEST, query);
   const currentId = currentSectionId();
-  const preferredIndex = commandEntries.findIndex((section) => section.id === currentId);
-  commandIndex = preferredIndex >= 0 ? preferredIndex : 0;
+  commandIndex = findPreferredIndex(commandEntries, currentId);
   renderCommandList();
   reflectCommandSelection();
 }
@@ -410,19 +400,7 @@ async function handleExport() {
 
   try {
     // Collect all sections and subsections in navigation order
-    const allSections = [];
-    for (const section of MANIFEST) {
-      if (section.module) {
-        allSections.push(section);
-      }
-      if (section.subsections) {
-        for (const subsection of section.subsections) {
-          if (subsection.module) {
-            allSections.push(subsection);
-          }
-        }
-      }
-    }
+    const allSections = collectExportableSections(MANIFEST);
 
     const bundle = [];
     const totalSections = allSections.length;
@@ -496,62 +474,6 @@ function sanitizeExportMarkup(markup) {
   });
   const firstSection = wrapper.querySelector('section');
   return firstSection ? firstSection.innerHTML : wrapper.innerHTML;
-}
-
-function composeExportDocument(chapters) {
-  const toc = chapters.map((chapter, index) => `
-        <li>${index + 1}. ${chapter.section.title}</li>`).join('');
-  const body = chapters.map((chapter, index) => `
-      <section>
-        <h2>${index + 1}. ${chapter.section.title}</h2>
-        <p class="section-summary">${chapter.section.summary || ''}</p>
-        <div class="section-body">
-${chapter.html}
-        </div>
-      </section>`).join('\n');
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Docs Toolkit Export</title>
-    <style>
-      :root { color-scheme: light; font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-      body { margin: 0 auto; padding: 2.5rem; max-width: 820px; color: #111; line-height: 1.6; }
-      header { text-align: center; margin-bottom: 3rem; }
-      h1 { font-size: 2.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem; }
-      .meta { color: #666; font-size: 0.9rem; }
-      .toc { border: 1px solid rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 2.5rem; background: rgba(0,0,0,0.02); }
-      .toc h2 { margin-top: 0; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem; }
-      .toc ul { margin: 0; padding-left: 1.2rem; }
-      .toc li { margin: 0.4rem 0; }
-      section { page-break-inside: avoid; margin-bottom: 2.75rem; }
-      h2 { font-size: 1.4rem; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 0.5rem; margin-bottom: 1rem; }
-      .section-summary { color: #5a5a5a; font-size: 0.95rem; margin-top: 0; }
-      .section-body { border-left: 1px solid rgba(0,0,0,0.1); padding-left: 1.25rem; }
-      .card, .card-grid, .card-grid > *, .section-body > * { break-inside: avoid; }
-      pre { background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 4px; overflow-x: auto; }
-      code { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-      @media print {
-        @page { size: A4; margin: 1in; }
-        body { box-shadow: none; }
-        header, .toc { break-after: avoid; }
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <h1>Docs Toolkit</h1>
-      <p class="meta">Generated ${new Date().toLocaleString()}</p>
-    </header>
-    <div class="toc">
-      <h2>Table of Contents</h2>
-      <ul>${toc || '<li>No sections</li>'}</ul>
-    </div>
-${body || '<p>No sections available.</p>'}
-    <script>window.addEventListener('load', () => window.focus());</script>
-  </body>
-</html>`;
 }
 
 function setHighlightQuery(value, persist = false) {
@@ -642,10 +564,6 @@ function highlightContent(root, query, { scrollToFirst = false } = {}) {
       }
     });
   }
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Mobile menu toggle

@@ -9,14 +9,15 @@
  * - Branding application
  */
 
-const fs = require('fs');
-const fsp = fs.promises;
-const path = require('path');
-const { spawn } = require('child_process');
+import fs from 'fs';
+import fsp from 'fs/promises';
+import path from 'path';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLISHER_ROOT = path.resolve(__dirname, '../..');
 const BUILD_TENANTS_SCRIPT = path.join(PUBLISHER_ROOT, 'scripts', 'build-tenants.js');
-const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures');
 
 // Helper to run build-tenants script
 function runBuildTenants(env = {}) {

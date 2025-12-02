@@ -4,9 +4,9 @@
  * Verifies dist/index.html contains core metadata and that manifest entries
  * include summaries and modules for shareability.
  */
-const fs = require('fs');
-const path = require('path');
-const { pathToFileURL } = require('url');
+import fs from 'fs';
+import path from 'path';
+import { pathToFileURL } from 'url';
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, 'dist');

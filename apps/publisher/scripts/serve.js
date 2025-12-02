@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /* Lightweight static server for dist */
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import url from 'url';
 
 const root = path.join(process.cwd(), 'dist');
 const port = Number(process.env.PORT || 5173);

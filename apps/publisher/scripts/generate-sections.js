@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const ROOT = process.cwd();
 const SECTIONS_DIR = path.join(ROOT, 'src', 'sections');
