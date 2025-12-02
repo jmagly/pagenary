@@ -150,8 +150,23 @@ apps/publisher/
 
 ---
 
+## Testing Constraints
+
+**Domain Mapping:**
+- Domain-based routing (e.g., `tenant-alpha.local`) requires `/etc/hosts` edits on **host machine** - manual setup by user
+- Automated tests should use `localhost:<port>` for Caddy access within the instance
+- Flag domain-specific tests for manual verification
+
+**Caddy Testing Approach:**
+- Test symlink swap and reload mechanisms via localhost
+- Validate zero-downtime by checking response continuity during updates
+- User manually verifies domain routing works from host browser
+
+---
+
 ## Change History
 
 | Date | Version | Changes |
 |------|---------|---------|
 | 2025-12-01 | 1.0 | Initial iteration plan |
+| 2025-12-01 | 1.1 | Added testing constraints for domain mapping |

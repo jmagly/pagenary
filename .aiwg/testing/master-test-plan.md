@@ -2400,6 +2400,30 @@ services:
       - DOCS_TOOLKIT_PORT=80
 ```
 
+### 11.3.1 Domain Mapping Constraints
+
+**Environment-Specific Limitations:**
+
+| Test Type | Access Method | Automated? | Notes |
+|-----------|---------------|------------|-------|
+| Caddy routing (basic) | `localhost:<port>` | ✅ Yes | Automated tests use localhost |
+| Domain-based routing | `tenant-alpha.local` | ❌ Manual | Requires host `/etc/hosts` edit |
+| Zero-downtime validation | `localhost:<port>` | ✅ Yes | Test response continuity during updates |
+| SSL/HTTPS | Manual | ❌ Manual | Production deployment verification |
+
+**Automated Test Approach:**
+- Tests access Caddy via `localhost` on the configured port (default 80, or `DOCS_TOOLKIT_PORT`)
+- Symlink swap and Caddy reload mechanisms tested via localhost
+- Response continuity validated during content updates
+
+**Manual Verification Required:**
+- Domain-based routing (`tenant-alpha.local`, `tenant-beta.local`)
+- Requires user to add entries to host machine `/etc/hosts`:
+  ```
+  127.0.0.1 tenant-alpha.local tenant-beta.local
+  ```
+- User verifies routing works from host browser after automated tests pass
+
 ### 11.4 Test Data Setup
 
 **Initial fixture creation:**
