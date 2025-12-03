@@ -1175,15 +1175,22 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
   const sections = [];
   const manifest = await loadDirectoryManifest(dirPath);
 
+  // Build exclude set from manifest
+  const excludeSet = new Set(manifest?.exclude || []);
+  const isManifestExcluded = (name) => {
+    const stem = name.replace(/\.[^.]+$/, '');
+    return excludeSet.has(name) || excludeSet.has(stem);
+  };
+
   // Read directory contents
   const entries = await fsp.readdir(dirPath, { withFileTypes: true });
 
-  // Separate files and directories
+  // Separate files and directories, applying both standard and manifest exclusions
   const files = entries.filter(e =>
-    e.isFile() && isContentFile(e.name) && !isExcludedName(e.name)
+    e.isFile() && isContentFile(e.name) && !isExcludedName(e.name) && !isManifestExcluded(e.name)
   );
   const subdirs = entries.filter(e =>
-    e.isDirectory() && !isExcludedName(e.name)
+    e.isDirectory() && !isExcludedName(e.name) && !isManifestExcluded(e.name)
   );
 
   // Process index file first (if exists)
