@@ -1359,6 +1359,9 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
   // Ensure sections directory exists
   await fsp.mkdir(sectionsDir, { recursive: true });
 
+  // Build file-to-sectionId map from manifest
+  const fileToSectionId = await buildFileToSectionMap(sourceDir);
+
   // Filter to content files only
   const contentFiles = [...changedFiles.added, ...changedFiles.modified]
     .filter(f => f.startsWith('content/') || f.startsWith(DEFAULT_CONTENT_DIR + '/'))
@@ -1375,7 +1378,8 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
     }
 
     const ext = path.extname(sourcePath).toLowerCase();
-    const sectionId = path.basename(relPath, ext);
+    // Use manifest section ID if available, otherwise fall back to filename
+    const sectionId = fileToSectionId.get(relPath) || path.basename(relPath, ext);
     const targetPath = path.join(sectionsDir, `${sectionId}.js`);
 
     try {
@@ -1401,7 +1405,8 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
 
   for (const relPath of deletedContent) {
     const ext = path.extname(relPath);
-    const sectionId = path.basename(relPath, ext);
+    // Use manifest section ID if available, otherwise fall back to filename
+    const sectionId = fileToSectionId.get(relPath) || path.basename(relPath, ext);
     const targetPath = path.join(sectionsDir, `${sectionId}.js`);
 
     if (await pathExists(targetPath)) {
@@ -1417,6 +1422,49 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
   if (manifestChanged) {
     console.log(`  ↳ manifest.json changed, regenerating manifest.js`);
     await processTenantManifest(sourceDir, distDir, tenantId);
+  }
+}
+
+/**
+ * Build a map from content file paths to manifest section IDs
+ * This allows incremental builds to use the correct output filename
+ */
+async function buildFileToSectionMap(sourceDir) {
+  const fileToId = new Map();
+  const manifestPath = path.join(sourceDir, TENANT_MANIFEST);
+
+  if (!(await pathExists(manifestPath))) {
+    return fileToId;
+  }
+
+  try {
+    const raw = await fsp.readFile(manifestPath, 'utf8');
+    const manifestData = JSON.parse(raw);
+    const entries = Array.isArray(manifestData) ? manifestData : manifestData.sections;
+
+    if (Array.isArray(entries)) {
+      collectFileToIdMappings(entries, fileToId);
+    }
+  } catch {
+    // If manifest can't be read, return empty map (will fall back to filename)
+  }
+
+  return fileToId;
+}
+
+/**
+ * Recursively collect file → section ID mappings from manifest entries
+ */
+function collectFileToIdMappings(entries, map) {
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+
+    if (Array.isArray(entry.sections) && entry.sections.length) {
+      collectFileToIdMappings(entry.sections, map);
+    } else if (entry.id && entry.file) {
+      // Map the file path to the section ID
+      map.set(entry.file, entry.id);
+    }
   }
 }
 
