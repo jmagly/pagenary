@@ -37,7 +37,10 @@ function parseArgs(argv) {
     keepCache: false,
     cleanCache: false,
     gitDepth: parseInt(process.env.GIT_CLONE_DEPTH, 10) || null,
-    noSparse: false
+    noSparse: false,
+    // Incremental build options
+    incremental: false,
+    diffOnly: false
   };
 
   let i = 0;
@@ -80,6 +83,13 @@ function parseArgs(argv) {
     } else if (arg === '--no-sparse') {
       result.noSparse = true;
       i++;
+    } else if (arg === '--incremental' || arg === '-i') {
+      result.incremental = true;
+      i++;
+    } else if (arg === '--diff-only') {
+      result.diffOnly = true;
+      result.incremental = true; // diff-only implies incremental
+      i++;
     } else if (arg === '--list' || arg === '-l') {
       result.list = true;
       i++;
@@ -119,6 +129,10 @@ Git Source Options:
   --clean-cache       Force fresh git clones, ignoring cache
   --git-depth         Override clone depth for all git sources (default: 1)
   --no-sparse         Disable sparse checkout for monorepo paths
+
+Incremental Build Options:
+  -i, --incremental   Enable incremental builds (only rebuild changed content)
+  --diff-only         Show changed files without building (implies --incremental)
 
 Environment Variables:
   TENANT_REGISTRY     Path to tenant registry (alternative to --registry)
@@ -166,6 +180,8 @@ Examples:
   node build-tenants.js tenant-alpha -t /var/www     Build one, override target
   node build-tenants.js --clean-cache                Force fresh git clones
   node build-tenants.js --list                       Show available tenants
+  node build-tenants.js --incremental --keep-cache   Pull updates, rebuild only changed
+  node build-tenants.js --diff-only                  Show what changed without building
 `);
 }
 
@@ -300,11 +316,98 @@ function isImmutableRef(ref) {
 }
 
 /**
- * Clone or update a git repository
+ * Get the current HEAD commit SHA
+ */
+async function getHeadCommit(repoDir) {
+  try {
+    const { stdout } = await execWithRetry(`git -C "${repoDir}" rev-parse HEAD`, { cwd: root, retries: 1 });
+    return stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get list of changed files between two commits
+ * Returns { added: [], modified: [], deleted: [] }
+ */
+async function getChangedFiles(repoDir, oldCommit, newCommit, subPath = '.') {
+  const changes = { added: [], modified: [], deleted: [] };
+
+  if (!oldCommit || !newCommit || oldCommit === newCommit) {
+    return changes;
+  }
+
+  try {
+    // Use --name-status to get file status (A=added, M=modified, D=deleted)
+    const { stdout } = await execWithRetry(
+      `git -C "${repoDir}" diff --name-status ${oldCommit} ${newCommit}`,
+      { cwd: root, retries: 1 }
+    );
+
+    const lines = stdout.trim().split('\n').filter(Boolean);
+    for (const line of lines) {
+      const [status, ...pathParts] = line.split('\t');
+      const filePath = pathParts.join('\t'); // Handle filenames with tabs
+
+      // Filter to subPath if specified
+      if (subPath !== '.' && !filePath.startsWith(subPath + '/') && filePath !== subPath) {
+        continue;
+      }
+
+      // Normalize path relative to subPath
+      const relativePath = subPath === '.' ? filePath : filePath.slice(subPath.length + 1);
+
+      if (!relativePath) continue;
+
+      switch (status.charAt(0)) {
+        case 'A':
+          changes.added.push(relativePath);
+          break;
+        case 'M':
+          changes.modified.push(relativePath);
+          break;
+        case 'D':
+          changes.deleted.push(relativePath);
+          break;
+        case 'R': // Renamed - treat as add + delete
+          changes.deleted.push(relativePath);
+          if (pathParts[1]) {
+            const newPath = subPath === '.' ? pathParts[1] : pathParts[1].slice(subPath.length + 1);
+            if (newPath) changes.added.push(newPath);
+          }
+          break;
+      }
+    }
+  } catch (err) {
+    console.warn(`  ↳ could not compute diff: ${err.message}`);
+  }
+
+  return changes;
+}
+
+/**
+ * Create a change result object
+ */
+function createChangeResult(sourcePath, type, oldCommit = null, newCommit = null, files = null) {
+  return {
+    sourcePath,
+    changes: {
+      type, // 'full' | 'incremental' | 'none'
+      oldCommit,
+      newCommit,
+      files: files || { added: [], modified: [], deleted: [] }
+    }
+  };
+}
+
+/**
+ * Clone or update a git repository with change tracking
+ * Returns { sourcePath, changes: { type, oldCommit, newCommit, files } }
  */
 async function cloneGitSource(source, cacheDir, options = {}) {
   const { url, ref = 'main', path: subPath = '.', sparse = false, depth = DEFAULT_GIT_DEPTH } = source;
-  const { cleanCache = false, noSparse = false, gitDepth = null } = options;
+  const { cleanCache = false, noSparse = false, gitDepth = null, incremental = false } = options;
 
   const effectiveDepth = gitDepth || depth;
   const effectiveSparse = sparse && !noSparse && subPath !== '.';
@@ -318,21 +421,43 @@ async function cloneGitSource(source, cacheDir, options = {}) {
   console.log(`  ↳ git source: ${safeUrl}`);
   console.log(`  ↳ ref: ${ref}, path: ${subPath || '(root)'}`);
 
+  // Resolve the final source path
+  const resolvedPath = subPath === '.' ? cloneDir : path.join(cloneDir, subPath);
+
   // Check cache
   const cacheExists = await pathExists(cloneDir);
+  let oldCommit = null;
+  let newCommit = null;
+  let wasCloned = false;
 
   if (cacheExists && !cleanCache) {
     const isImmutable = isImmutableRef(ref);
+
     if (isImmutable) {
       console.log(`  ↳ using cached clone (immutable ref)`);
+      // For immutable refs with cache, nothing changed
+      newCommit = await getHeadCommit(cloneDir);
+
+      if (!(await pathExists(resolvedPath))) {
+        throw new Error(`Subdirectory '${subPath}' not found in repository ${safeUrl}`);
+      }
+
+      return createChangeResult(resolvedPath, 'none', newCommit, newCommit);
     } else {
+      // Mutable ref - need to fetch and check for changes
+      oldCommit = await getHeadCommit(cloneDir);
       console.log(`  ↳ updating cached clone...`);
+      console.log(`  ↳ current HEAD: ${oldCommit ? oldCommit.slice(0, 7) : 'unknown'}`);
+
       try {
         await execWithRetry(`git -C "${cloneDir}" fetch origin ${ref} --depth ${effectiveDepth}`, { cwd: root });
         await execWithRetry(`git -C "${cloneDir}" checkout FETCH_HEAD`, { cwd: root });
+        newCommit = await getHeadCommit(cloneDir);
+        console.log(`  ↳ updated HEAD: ${newCommit ? newCommit.slice(0, 7) : 'unknown'}`);
       } catch (err) {
         console.warn(`  ↳ fetch failed, will re-clone: ${err.message}`);
         await fsp.rm(cloneDir, { recursive: true, force: true });
+        oldCommit = null; // Force full rebuild
       }
     }
   }
@@ -341,6 +466,7 @@ async function cloneGitSource(source, cacheDir, options = {}) {
   if (!(await pathExists(cloneDir))) {
     console.log(`  ↳ cloning repository...`);
     await fsp.mkdir(cacheDir, { recursive: true });
+    wasCloned = true;
 
     // Build clone command
     let cloneCmd = `git clone --depth ${effectiveDepth}`;
@@ -371,6 +497,9 @@ async function cloneGitSource(source, cacheDir, options = {}) {
       if (effectiveSparse) {
         await execWithRetry(`git -C "${cloneDir}" sparse-checkout set "${subPath}"`, { cwd: root });
       }
+
+      newCommit = await getHeadCommit(cloneDir);
+      console.log(`  ↳ cloned at: ${newCommit ? newCommit.slice(0, 7) : 'unknown'}`);
     } catch (err) {
       // Clean up partial clone on failure
       await fsp.rm(cloneDir, { recursive: true, force: true }).catch(() => {});
@@ -387,26 +516,49 @@ async function cloneGitSource(source, cacheDir, options = {}) {
     }
   }
 
-  // Resolve the final source path
-  const resolvedPath = subPath === '.' ? cloneDir : path.join(cloneDir, subPath);
-
   // Validate the path exists
   if (!(await pathExists(resolvedPath))) {
     throw new Error(`Subdirectory '${subPath}' not found in repository ${safeUrl}`);
   }
 
-  return resolvedPath;
+  // Determine change type and compute diff if incremental
+  if (wasCloned || !oldCommit) {
+    // Fresh clone - full build required
+    return createChangeResult(resolvedPath, 'full', null, newCommit);
+  }
+
+  if (oldCommit === newCommit) {
+    // No changes
+    console.log(`  ↳ no changes detected`);
+    return createChangeResult(resolvedPath, 'none', oldCommit, newCommit);
+  }
+
+  // Changes detected - compute diff if incremental mode
+  if (incremental) {
+    console.log(`  ↳ computing changes...`);
+    const files = await getChangedFiles(cloneDir, oldCommit, newCommit, subPath);
+    const totalChanges = files.added.length + files.modified.length + files.deleted.length;
+    console.log(`  ↳ ${totalChanges} file(s) changed (${files.added.length} added, ${files.modified.length} modified, ${files.deleted.length} deleted)`);
+    return createChangeResult(resolvedPath, 'incremental', oldCommit, newCommit, files);
+  }
+
+  // Not incremental mode - treat as full build
+  return createChangeResult(resolvedPath, 'full', oldCommit, newCommit);
 }
 
 /**
  * Resolve source to a local path (handles git cloning)
+ * Returns { sourcePath, changes } for git sources, or { sourcePath, changes: null } for local
  */
 async function resolveSource(source, cacheDir, options = {}) {
   if (source.type === 'git') {
     return await cloneGitSource(source, cacheDir, options);
   }
-  // Local source - already resolved
-  return source.resolvedPath;
+  // Local source - no change tracking
+  return {
+    sourcePath: source.resolvedPath,
+    changes: null // Local sources don't track changes
+  };
 }
 
 /**
@@ -964,7 +1116,49 @@ async function processTenantManifest(sourceDir, distDir, tenantId) {
 }
 
 /**
+ * Print change summary for diff-only mode
+ */
+function printChangeSummary(tenantId, changes) {
+  if (!changes) {
+    console.log(`  ${tenantId}: local source (no change tracking)`);
+    return;
+  }
+
+  const { type, oldCommit, newCommit, files } = changes;
+
+  if (type === 'none') {
+    console.log(`  ${tenantId}: no changes (${newCommit?.slice(0, 7) || 'unknown'})`);
+    return;
+  }
+
+  if (type === 'full') {
+    console.log(`  ${tenantId}: full rebuild required`);
+    if (newCommit) {
+      console.log(`    commit: ${newCommit.slice(0, 7)}`);
+    }
+    return;
+  }
+
+  // Incremental changes
+  console.log(`  ${tenantId}: ${oldCommit?.slice(0, 7)} → ${newCommit?.slice(0, 7)}`);
+
+  if (files.added.length > 0) {
+    console.log(`    added (${files.added.length}):`);
+    files.added.forEach(f => console.log(`      + ${f}`));
+  }
+  if (files.modified.length > 0) {
+    console.log(`    modified (${files.modified.length}):`);
+    files.modified.forEach(f => console.log(`      ~ ${f}`));
+  }
+  if (files.deleted.length > 0) {
+    console.log(`    deleted (${files.deleted.length}):`);
+    files.deleted.forEach(f => console.log(`      - ${f}`));
+  }
+}
+
+/**
  * Build a single tenant using registry entry
+ * Returns { success, changes } where changes contains git diff info if applicable
  */
 async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
   const tenantId = tenant.id;
@@ -972,19 +1166,33 @@ async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
     ? path.join(resolvePath(targetOverride), tenantId)
     : tenant.target.resolvedPath;
 
-  // Resolve source (handles git cloning)
-  let sourceDir;
+  // Resolve source (handles git cloning with change tracking)
+  let sourceResult;
   try {
-    sourceDir = await resolveSource(tenant.source, cacheDir, gitOptions);
+    sourceResult = await resolveSource(tenant.source, cacheDir, gitOptions);
   } catch (err) {
     console.error(`  ↳ Failed to resolve source: ${err.message}`);
-    return false;
+    return { success: false, changes: null };
+  }
+
+  const { sourcePath: sourceDir, changes } = sourceResult;
+
+  // Handle diff-only mode - just return the changes
+  if (gitOptions.diffOnly) {
+    printChangeSummary(tenantId, changes);
+    return { success: true, changes };
+  }
+
+  // Handle incremental mode with no changes
+  if (gitOptions.incremental && changes?.type === 'none') {
+    console.log(`Skipping ${tenantId}: no changes detected`);
+    return { success: true, changes };
   }
 
   // Validate source exists
   if (!(await pathExists(sourceDir))) {
     console.warn(`Skipping ${tenantId}: source directory not found at ${sourceDir}`);
-    return false;
+    return { success: false, changes };
   }
 
   // Load config from registry or source directory
@@ -1009,10 +1217,27 @@ async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
   console.log(`  source: ${sourceDir}`);
   console.log(`  target: ${targetDir}`);
 
-  await runBuild(buildOutput);
+  // Determine build mode
+  const isIncrementalBuild = gitOptions.incremental && changes?.type === 'incremental';
 
-  // Process manifest from source directory
-  await processTenantManifest(sourceDir, distDir, tenantId);
+  if (isIncrementalBuild) {
+    console.log(`  mode: incremental (${changes.files.added.length + changes.files.modified.length} files to process)`);
+
+    // For incremental builds, we need the base build to exist
+    if (!(await pathExists(distDir))) {
+      console.log(`  ↳ no existing build found, performing full build`);
+      await runBuild(buildOutput);
+    }
+
+    // Process only changed content files
+    await processIncrementalManifest(sourceDir, distDir, tenantId, changes.files);
+  } else {
+    console.log(`  mode: full`);
+    await runBuild(buildOutput);
+
+    // Process full manifest from source directory
+    await processTenantManifest(sourceDir, distDir, tenantId);
+  }
 
   // Apply branding and config
   if (Object.keys(config).length > 0) {
@@ -1033,17 +1258,129 @@ async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
     // Ensure target parent exists
     await fsp.mkdir(path.dirname(targetDir), { recursive: true });
 
-    // Remove existing target if it exists
-    if (await pathExists(targetDir)) {
-      await fsp.rm(targetDir, { recursive: true, force: true });
+    // For incremental builds, sync changes rather than full copy
+    if (isIncrementalBuild && (await pathExists(targetDir))) {
+      await syncChangesToTarget(distDir, targetDir, changes.files);
+      console.log(`  ↳ synced changes to ${targetDir}`);
+    } else {
+      // Remove existing target if it exists
+      if (await pathExists(targetDir)) {
+        await fsp.rm(targetDir, { recursive: true, force: true });
+      }
+      await copyDirectory(distDir, targetDir);
+      console.log(`  ↳ deployed to ${targetDir}`);
     }
-
-    await copyDirectory(distDir, targetDir);
-    console.log(`  ↳ deployed to ${targetDir}`);
   }
 
   console.log(`Tenant ${tenantId} ready`);
-  return true;
+  return { success: true, changes };
+}
+
+/**
+ * Sync only changed files to target directory
+ */
+async function syncChangesToTarget(srcDir, targetDir, files) {
+  // Handle added and modified files
+  const toCopy = [...files.added, ...files.modified];
+  for (const relPath of toCopy) {
+    // Map content file to section JS module
+    const sectionId = path.basename(relPath, path.extname(relPath));
+    const srcFile = path.join(srcDir, 'sections', `${sectionId}.js`);
+    const destFile = path.join(targetDir, 'sections', `${sectionId}.js`);
+
+    if (await pathExists(srcFile)) {
+      await fsp.mkdir(path.dirname(destFile), { recursive: true });
+      await fsp.copyFile(srcFile, destFile);
+    }
+  }
+
+  // Handle deleted files
+  for (const relPath of files.deleted) {
+    const sectionId = path.basename(relPath, path.extname(relPath));
+    const destFile = path.join(targetDir, 'sections', `${sectionId}.js`);
+
+    if (await pathExists(destFile)) {
+      await fsp.rm(destFile, { force: true });
+    }
+  }
+
+  // Always sync manifest.js as it may have changed
+  const manifestSrc = path.join(srcDir, 'manifest.js');
+  const manifestDest = path.join(targetDir, 'manifest.js');
+  if (await pathExists(manifestSrc)) {
+    await fsp.copyFile(manifestSrc, manifestDest);
+  }
+}
+
+/**
+ * Process only changed content files for incremental builds
+ */
+async function processIncrementalManifest(sourceDir, distDir, tenantId, changedFiles) {
+  const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
+  const sectionsDir = path.join(distDir, 'sections');
+
+  // Ensure sections directory exists
+  await fsp.mkdir(sectionsDir, { recursive: true });
+
+  // Filter to content files only
+  const contentFiles = [...changedFiles.added, ...changedFiles.modified]
+    .filter(f => f.startsWith('content/') || f.startsWith(DEFAULT_CONTENT_DIR + '/'))
+    .map(f => f.replace(/^content\//, ''));
+
+  console.log(`  ↳ processing ${contentFiles.length} changed content file(s)`);
+
+  for (const relPath of contentFiles) {
+    const sourcePath = path.join(contentDir, relPath);
+
+    if (!(await pathExists(sourcePath))) {
+      console.warn(`  ↳ ${tenantId}: changed file not found: ${relPath}`);
+      continue;
+    }
+
+    const ext = path.extname(sourcePath).toLowerCase();
+    const sectionId = path.basename(relPath, ext);
+    const targetPath = path.join(sectionsDir, `${sectionId}.js`);
+
+    try {
+      if (ext === '.md' || ext === '.markdown') {
+        await ensureMarkdownModule(sourcePath, targetPath);
+        console.log(`  ↳ updated: ${sectionId} (markdown)`);
+      } else if (ext === '.html' || ext === '.htm') {
+        await ensureHtmlModule(sourcePath, targetPath);
+        console.log(`  ↳ updated: ${sectionId} (html)`);
+      } else if (ext === '.js' || ext === '.mjs') {
+        await ensureJavascriptModule(sourcePath, targetPath);
+        console.log(`  ↳ updated: ${sectionId} (js)`);
+      }
+    } catch (err) {
+      console.error(`  ↳ ${tenantId}: failed to update ${relPath}: ${err.message}`);
+    }
+  }
+
+  // Handle deleted content files
+  const deletedContent = changedFiles.deleted
+    .filter(f => f.startsWith('content/') || f.startsWith(DEFAULT_CONTENT_DIR + '/'))
+    .map(f => f.replace(/^content\//, ''));
+
+  for (const relPath of deletedContent) {
+    const ext = path.extname(relPath);
+    const sectionId = path.basename(relPath, ext);
+    const targetPath = path.join(sectionsDir, `${sectionId}.js`);
+
+    if (await pathExists(targetPath)) {
+      await fsp.rm(targetPath, { force: true });
+      console.log(`  ↳ removed: ${sectionId}`);
+    }
+  }
+
+  // Check if manifest.json was modified
+  const manifestChanged = changedFiles.added.includes('manifest.json') ||
+                          changedFiles.modified.includes('manifest.json');
+
+  if (manifestChanged) {
+    console.log(`  ↳ manifest.json changed, regenerating manifest.js`);
+    await processTenantManifest(sourceDir, distDir, tenantId);
+  }
 }
 
 async function main() {
@@ -1140,37 +1477,72 @@ async function main() {
   const gitOptions = {
     cleanCache: args.cleanCache,
     noSparse: args.noSparse,
-    gitDepth: args.gitDepth
+    gitDepth: args.gitDepth,
+    incremental: args.incremental,
+    diffOnly: args.diffOnly
   };
 
-  // Build tenants
-  const tenantIds = tenantsToBuild.map(t => t.id);
-  console.log(`Building ${tenantsToBuild.length} tenant(s): ${tenantIds.join(', ')}`);
-  console.log('');
+  // Handle diff-only mode header
+  if (args.diffOnly) {
+    console.log(`Checking ${tenantsToBuild.length} tenant(s) for changes...`);
+    console.log('');
+  } else {
+    // Build tenants header
+    const mode = args.incremental ? 'incremental' : 'full';
+    console.log(`Building ${tenantsToBuild.length} tenant(s) [${mode}]: ${tenantsToBuild.map(t => t.id).join(', ')}`);
+    console.log('');
+  }
 
   let successCount = 0;
   let failCount = 0;
+  let skippedCount = 0;
+  const results = [];
 
   for (const tenant of tenantsToBuild) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      const success = await buildTenant(tenant, args.target, cacheDir, gitOptions);
-      if (success) successCount++;
-      else failCount++;
+      const result = await buildTenant(tenant, args.target, cacheDir, gitOptions);
+
+      if (result.success) {
+        successCount++;
+        // Track skipped (no changes) vs actually built
+        if (args.incremental && result.changes?.type === 'none') {
+          skippedCount++;
+        }
+      } else {
+        failCount++;
+      }
+
+      results.push({ tenantId: tenant.id, ...result });
     } catch (err) {
       console.error(`Error building ${tenant.id}: ${err.message}`);
       failCount++;
+      results.push({ tenantId: tenant.id, success: false, changes: null, error: err.message });
     }
     console.log('');
   }
 
-  // Clean up cache
-  await cleanupCache(cacheDir, args.keepCache);
+  // Clean up cache (keep if incremental or diffOnly to preserve state)
+  const shouldKeepCache = args.keepCache || args.incremental || args.diffOnly;
+  await cleanupCache(cacheDir, shouldKeepCache);
 
-  console.log(`Build complete. Success: ${successCount}, Failed: ${failCount}`);
-  if (args.target) {
-    console.log(`Tenant files deployed to: ${resolvePath(args.target)}`);
+  // Summary
+  if (args.diffOnly) {
+    console.log('Change detection complete.');
+  } else {
+    const builtCount = successCount - skippedCount;
+    let summary = `Build complete. Built: ${builtCount}`;
+    if (skippedCount > 0) summary += `, Skipped (no changes): ${skippedCount}`;
+    if (failCount > 0) summary += `, Failed: ${failCount}`;
+    console.log(summary);
+
+    if (args.target) {
+      console.log(`Tenant files deployed to: ${resolvePath(args.target)}`);
+    }
   }
+
+  // Return results for programmatic use (if this script is imported)
+  return results;
 }
 
 main().catch((err) => {
