@@ -18,11 +18,13 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLISHER_ROOT = path.resolve(__dirname, '../..');
 const BUILD_TENANTS_SCRIPT = path.join(PUBLISHER_ROOT, 'scripts', 'build-tenants.js');
+const DEFAULT_REGISTRY_PATH = path.join(PUBLISHER_ROOT, 'tenants.json');
+const TEST_REGISTRY_PATH = path.join(PUBLISHER_ROOT, '__test-tenants.json');
 
 // Helper to run build-tenants script
-function runBuildTenants(env = {}) {
+function runBuildTenants(args = [], env = {}) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(process.execPath, [BUILD_TENANTS_SCRIPT], {
+    const proc = spawn(process.execPath, [BUILD_TENANTS_SCRIPT, ...args], {
       cwd: PUBLISHER_ROOT,
       env: { ...process.env, ...env },
       stdio: 'pipe'
@@ -40,6 +42,29 @@ function runBuildTenants(env = {}) {
 
     proc.on('error', reject);
   });
+}
+
+// Helper to run build-tenants with a custom test registry
+async function runBuildTenantsWithRegistry(tenants, args = [], env = {}) {
+  // Create a test registry with the specified tenants
+  const registry = {
+    "$schema": "./tenants.schema.json",
+    "defaults": {
+      "source": { "type": "local", "path": "./tenants" },
+      "target": { "type": "local", "path": "./dist" }
+    },
+    "tenants": tenants
+  };
+  await fsp.writeFile(TEST_REGISTRY_PATH, JSON.stringify(registry, null, 2));
+
+  try {
+    return await runBuildTenants(['-r', TEST_REGISTRY_PATH, ...args], env);
+  } finally {
+    // Clean up test registry
+    if (fs.existsSync(TEST_REGISTRY_PATH)) {
+      await fsp.rm(TEST_REGISTRY_PATH);
+    }
+  }
 }
 
 // Helper to create a test tenant
@@ -83,8 +108,11 @@ async function cleanup(dir) {
 
 describe('build-tenants.js', () => {
   describe('existing tenants', () => {
+    // Use a test registry with only local tenants to avoid git clone delays
+    const LOCAL_TENANTS = [{ id: 'tenant-alpha' }, { id: 'tenant-beta' }];
+
     test('builds existing sample tenants successfully', async () => {
-      const result = await runBuildTenants();
+      const result = await runBuildTenantsWithRegistry(LOCAL_TENANTS);
 
       expect(result.code).toBe(0);
       // Should find tenant-alpha and tenant-beta
@@ -93,7 +121,7 @@ describe('build-tenants.js', () => {
     });
 
     test('creates separate dist directories for each tenant', async () => {
-      await runBuildTenants();
+      await runBuildTenantsWithRegistry(LOCAL_TENANTS);
 
       const alphaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha');
       const betaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta');
@@ -103,7 +131,7 @@ describe('build-tenants.js', () => {
     });
 
     test('each tenant bundle has index.html', async () => {
-      await runBuildTenants();
+      await runBuildTenantsWithRegistry(LOCAL_TENANTS);
 
       const alphaIndex = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha', 'index.html');
       const betaIndex = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta', 'index.html');
@@ -114,8 +142,10 @@ describe('build-tenants.js', () => {
   });
 
   describe('tenant isolation', () => {
+    const LOCAL_TENANTS = [{ id: 'tenant-alpha' }, { id: 'tenant-beta' }];
+
     test('tenant bundles are independent', async () => {
-      await runBuildTenants();
+      await runBuildTenantsWithRegistry(LOCAL_TENANTS);
 
       const alphaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha');
       const betaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta');
@@ -156,7 +186,7 @@ describe('build-tenants.js', () => {
         title: 'Test Tenant'
       });
 
-      const result = await runBuildTenants();
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
 
       expect(result.code).toBe(0);
       expect(result.stdout).toMatch(new RegExp(TEST_TENANT_ID));
@@ -168,7 +198,7 @@ describe('build-tenants.js', () => {
         brandMark: 'TestBrand'
       });
 
-      const result = await runBuildTenants();
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
       const distIndex = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html');
@@ -190,7 +220,7 @@ describe('build-tenants.js', () => {
 
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
 
-      const result = await runBuildTenants();
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
       // Check that section was created
@@ -218,7 +248,7 @@ describe('build-tenants.js', () => {
 
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
 
-      const result = await runBuildTenants();
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
       const sectionFile = path.join(
@@ -243,7 +273,7 @@ describe('build-tenants.js', () => {
 
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
 
-      const result = await runBuildTenants();
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
       const sectionFile = path.join(
@@ -283,7 +313,7 @@ describe('build-tenants.js', () => {
 
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
 
-      await runBuildTenants();
+      await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
 
       const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
@@ -316,7 +346,7 @@ describe('build-tenants.js', () => {
 
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
 
-      const result = await runBuildTenants();
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
       const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
@@ -343,7 +373,7 @@ describe('build-tenants.js', () => {
 
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
 
-      await runBuildTenants();
+      await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
 
       const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
@@ -364,7 +394,7 @@ describe('build-tenants.js', () => {
       const tenantDir = await createTestTenant(testTenantId, {}, manifest, {});
 
       try {
-        const result = await runBuildTenants();
+        const result = await runBuildTenantsWithRegistry([{ id: testTenantId }]);
 
         // Should complete but warn about missing file
         expect(result.code).toBe(0);

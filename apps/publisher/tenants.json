@@ -1,0 +1,23 @@
+{
+  "$schema": "./tenants.schema.json",
+  "defaults": {
+    "source": { "type": "local", "path": "./tenants" },
+    "target": { "type": "local", "path": "./dist" }
+  },
+  "tenants": [
+    {
+      "id": "tenant-alpha"
+    },
+    {
+      "id": "tenant-beta"
+    },
+    {
+      "id": "roko-kb",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/Roko-Network/roko-kb.git",
+        "ref": "main"
+      }
+    }
+  ]
+}

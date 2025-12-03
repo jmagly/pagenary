@@ -13,6 +13,11 @@ const DEFAULT_DIST_DIR = path.join(root, 'dist');
 const DEFAULT_REGISTRY_PATH = path.join(root, 'tenants.json');
 const DEFAULT_CONTENT_DIR = 'content';
 const TENANT_MANIFEST = 'manifest.json';
+const DIRECTORY_MANIFEST = '_manifest.json';
+const MAX_CONTENT_DEPTH = 10;
+
+// Common abbreviations to preserve in title humanization
+const ABBREVIATIONS = new Set(['api', 'sdk', 'cli', 'ui', 'ux', 'http', 'https', 'html', 'css', 'js', 'json', 'xml', 'sql', 'nosql', 'jwt', 'oauth', 'ocp', 'tap', 'ieee', 'ptp', 'ntp', 'mev', 'dao', 'nft', 'defi', 'faq', 'id', 'ids', 'url', 'urls', 'uri', 'uris']);
 
 // Git defaults
 const DEFAULT_GIT_DEPTH = 1;
@@ -1015,6 +1020,381 @@ async function ensureJavascriptModule(sourcePath, targetPath) {
   await fsp.copyFile(sourcePath, targetPath);
 }
 
+// ============================================================================
+// Nested Content Directory Support (ADR-010)
+// ============================================================================
+
+/**
+ * Check if a file/directory name should be excluded from content discovery
+ * Excludes: dot-prefixed (.), underscore-prefixed (_), and 'overrides' directory
+ */
+function isExcludedName(name) {
+  return name.startsWith('.') || name.startsWith('_') || name === 'overrides';
+}
+
+/**
+ * Check if a file is a content file based on extension
+ */
+function isContentFile(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  return ['.md', '.markdown', '.html', '.htm', '.js', '.mjs'].includes(ext);
+}
+
+/**
+ * Convert filename or directory name to human-readable title
+ * - Strips extension
+ * - Replaces hyphens/underscores with spaces
+ * - Title cases words (preserving abbreviations)
+ */
+function humanizeTitle(name) {
+  // Strip extension if present
+  const stem = name.replace(/\.[^.]+$/, '');
+
+  // Replace hyphens and underscores with spaces
+  const words = stem.replace(/[-_]+/g, ' ').trim().split(/\s+/);
+
+  // Title case each word, preserving abbreviations
+  return words.map(word => {
+    const lower = word.toLowerCase();
+    if (ABBREVIATIONS.has(lower)) {
+      return lower.toUpperCase();
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+/**
+ * Derive section ID from filesystem path
+ * - index.md -> parent directory ID
+ * - file.md -> parentId/filename (without extension)
+ */
+function deriveSectionId(parentId, name, isIndex = false) {
+  const stem = name.replace(/\.[^.]+$/, ''); // Strip extension
+
+  if (isIndex || stem === 'index') {
+    // index.md resolves to parent directory ID
+    return parentId || stem;
+  }
+
+  if (parentId) {
+    return `${parentId}/${stem}`;
+  }
+  return stem;
+}
+
+/**
+ * Encode section ID for use in output filename
+ * Replaces / with -- to create flat output structure
+ */
+function encodePathForFilename(sectionId) {
+  return sectionId.replace(/\//g, '--');
+}
+
+/**
+ * Load optional _manifest.json from a directory
+ * Returns manifest data or null if not present/invalid
+ */
+async function loadDirectoryManifest(dirPath) {
+  const manifestPath = path.join(dirPath, DIRECTORY_MANIFEST);
+  if (!(await pathExists(manifestPath))) {
+    return null;
+  }
+
+  try {
+    const raw = await fsp.readFile(manifestPath, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.warn(`  ↳ warning: unable to parse ${DIRECTORY_MANIFEST} in ${dirPath}: ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Determine content root type and path for a tenant source directory
+ * Returns: { type: 'nested' | 'flat' | 'root' | 'none', basePath: string }
+ *
+ * Priority:
+ * 1. If content/ directory exists -> 'flat' (legacy mode)
+ * 2. If subdirectories contain content files -> 'nested'
+ * 3. If root has content files -> 'root'
+ * 4. Otherwise -> 'none'
+ */
+async function findContentRoot(sourceDir) {
+  // Check for traditional content/ subdirectory FIRST (backward compatibility)
+  const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
+  const hasContentDir = await pathExists(contentDir);
+
+  if (hasContentDir) {
+    return { type: 'flat', basePath: contentDir };
+  }
+
+  // Check for content files directly in root (excluding special files)
+  const rootEntries = await fsp.readdir(sourceDir, { withFileTypes: true });
+  const rootContentFiles = rootEntries.filter(e =>
+    e.isFile() && isContentFile(e.name) && !isExcludedName(e.name)
+  );
+
+  // Check for nested directories with content
+  const subdirs = rootEntries.filter(e =>
+    e.isDirectory() && !isExcludedName(e.name)
+  );
+
+  let hasNestedContent = false;
+  for (const dir of subdirs) {
+    const dirPath = path.join(sourceDir, dir.name);
+    const dirEntries = await fsp.readdir(dirPath, { withFileTypes: true });
+    if (dirEntries.some(e => e.isFile() && isContentFile(e.name) && !isExcludedName(e.name))) {
+      hasNestedContent = true;
+      break;
+    }
+  }
+
+  // Nested structure: subdirectories contain content files
+  if (hasNestedContent) {
+    return { type: 'nested', basePath: sourceDir };
+  }
+
+  // Root-level content: files directly in source root
+  if (rootContentFiles.length > 0) {
+    return { type: 'root', basePath: sourceDir };
+  }
+
+  return { type: 'none', basePath: null };
+}
+
+/**
+ * Recursively scan a directory for content files and subdirectories
+ * Returns array of manifest entries with proper section IDs
+ */
+async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
+  if (depth > MAX_CONTENT_DEPTH) {
+    console.warn(`  ↳ warning: maximum content depth (${MAX_CONTENT_DEPTH}) exceeded at ${dirPath}`);
+    return [];
+  }
+
+  const sections = [];
+  const manifest = await loadDirectoryManifest(dirPath);
+
+  // Read directory contents
+  const entries = await fsp.readdir(dirPath, { withFileTypes: true });
+
+  // Separate files and directories
+  const files = entries.filter(e =>
+    e.isFile() && isContentFile(e.name) && !isExcludedName(e.name)
+  );
+  const subdirs = entries.filter(e =>
+    e.isDirectory() && !isExcludedName(e.name)
+  );
+
+  // Process index file first (if exists)
+  const indexFile = files.find(f => /^index\.(md|markdown|html|htm|js|mjs)$/i.test(f.name));
+  if (indexFile) {
+    const sectionId = parentId || path.basename(dirPath);
+    const title = manifest?.title || humanizeTitle(path.basename(dirPath));
+    const summary = manifest?.summary || '';
+
+    // Calculate relative path from content root
+    const relPath = path.relative(context.contentRoot, path.join(dirPath, indexFile.name));
+
+    sections.push({
+      id: sectionId,
+      title,
+      summary,
+      file: relPath,
+      _isIndex: true
+    });
+  }
+
+  // Process other content files
+  for (const file of files) {
+    if (indexFile && file.name === indexFile.name) continue; // Skip index, already processed
+
+    const sectionId = deriveSectionId(parentId, file.name);
+    const manifestEntry = manifest?.sections?.find(s =>
+      s.id === sectionId || s.file === file.name || s.id === file.name.replace(/\.[^.]+$/, '')
+    );
+
+    const title = manifestEntry?.title || humanizeTitle(file.name);
+    const summary = manifestEntry?.summary || '';
+    const relPath = path.relative(context.contentRoot, path.join(dirPath, file.name));
+
+    sections.push({
+      id: sectionId,
+      title,
+      summary,
+      file: relPath
+    });
+  }
+
+  // Process subdirectories
+  for (const subdir of subdirs) {
+    const subdirPath = path.join(dirPath, subdir.name);
+    const subdirId = deriveSectionId(parentId, subdir.name);
+    const subdirManifest = await loadDirectoryManifest(subdirPath);
+
+    const title = subdirManifest?.title || humanizeTitle(subdir.name);
+    const summary = subdirManifest?.summary || '';
+
+    const subsections = await scanContentDirectory(subdirPath, subdirId, context, depth + 1);
+
+    if (subsections.length > 0) {
+      // Check if there's an index page that should be the group's landing
+      const indexEntry = subsections.find(s => s._isIndex);
+
+      if (indexEntry) {
+        // Remove index from subsections, it becomes the group itself
+        const otherSections = subsections.filter(s => !s._isIndex);
+        sections.push({
+          id: subdirId,
+          title,
+          summary,
+          file: indexEntry.file,
+          subsections: otherSections.length > 0 ? otherSections : undefined
+        });
+      } else {
+        // No index, just a group with subsections
+        sections.push({
+          id: subdirId,
+          title,
+          summary,
+          subsections
+        });
+      }
+    }
+  }
+
+  // Apply ordering from manifest or sort alphabetically
+  if (manifest?.order && Array.isArray(manifest.order)) {
+    const orderMap = new Map(manifest.order.map((id, idx) => [id, idx]));
+    sections.sort((a, b) => {
+      const aOrder = orderMap.get(a.id) ?? orderMap.get(a.id.split('/').pop()) ?? 999;
+      const bOrder = orderMap.get(b.id) ?? orderMap.get(b.id.split('/').pop()) ?? 999;
+      return aOrder - bOrder;
+    });
+  } else {
+    // Alphabetical sort, but index always first
+    sections.sort((a, b) => {
+      if (a._isIndex) return -1;
+      if (b._isIndex) return 1;
+      return a.title.localeCompare(b.title);
+    });
+  }
+
+  return sections;
+}
+
+/**
+ * Process scanned sections into built modules
+ * Materializes content files and builds manifest entries
+ */
+async function materializeScannedSections(sections, context) {
+  const processed = [];
+
+  for (const section of sections) {
+    const { id, title, summary, file, subsections } = section;
+
+    // Process subsections recursively
+    let processedSubsections;
+    if (subsections && subsections.length > 0) {
+      processedSubsections = await materializeScannedSections(subsections, context);
+    }
+
+    // If this section has a file, materialize it
+    if (file) {
+      const sourcePath = path.join(context.contentRoot, file);
+      if (!(await pathExists(sourcePath))) {
+        console.warn(`  ↳ ${context.tenantId}: missing content file ${file}`);
+        continue;
+      }
+
+      const ext = path.extname(sourcePath).toLowerCase();
+      const outFile = `${encodePathForFilename(id)}.js`;
+      const targetPath = path.join(context.sectionsDir, outFile);
+      context.keepFiles.add(outFile);
+
+      try {
+        if (ext === '.md' || ext === '.markdown') {
+          await ensureMarkdownModule(sourcePath, targetPath);
+        } else if (ext === '.html' || ext === '.htm') {
+          await ensureHtmlModule(sourcePath, targetPath);
+        } else if (ext === '.js' || ext === '.mjs') {
+          await ensureJavascriptModule(sourcePath, targetPath);
+        } else {
+          console.warn(`  ↳ ${context.tenantId}: unsupported extension ${ext} for ${file}`);
+          continue;
+        }
+      } catch (err) {
+        console.error(`  ↳ ${context.tenantId}: failed to generate module for ${file} (${err.message})`);
+        continue;
+      }
+
+      context.leafOrder.push(id);
+
+      if (processedSubsections && processedSubsections.length > 0) {
+        processed.push({
+          id,
+          title,
+          summary,
+          module: `./sections/${outFile}`,
+          subsections: processedSubsections
+        });
+      } else {
+        processed.push({ id, title, summary, module: `./sections/${outFile}` });
+      }
+    } else if (processedSubsections && processedSubsections.length > 0) {
+      // Group without its own content
+      processed.push({ id, title, summary, subsections: processedSubsections });
+    }
+  }
+
+  return processed;
+}
+
+/**
+ * Process tenant content using nested directory scanning (ADR-010)
+ */
+async function processNestedContent(sourceDir, distDir, tenantId, contentRoot) {
+  const sectionsDir = path.join(distDir, 'sections');
+  const keepFiles = new Set(['section-templates.js']);
+  await pruneSectionsDirectory(sectionsDir, keepFiles);
+
+  const context = {
+    contentRoot: contentRoot.basePath,
+    sectionsDir,
+    tenantId,
+    keepFiles,
+    leafOrder: []
+  };
+
+  // Scan content directory tree
+  const scannedSections = await scanContentDirectory(contentRoot.basePath, null, context);
+
+  if (scannedSections.length === 0) {
+    console.warn(`  ↳ ${tenantId}: no content found in ${contentRoot.basePath}`);
+    return;
+  }
+
+  // Materialize all sections
+  const processedManifest = await materializeScannedSections(scannedSections, context);
+
+  if (processedManifest.length === 0) {
+    console.warn(`  ↳ ${tenantId}: no sections materialized`);
+    return;
+  }
+
+  // Determine default section
+  const defaultSection = context.leafOrder[0];
+
+  // Generate manifest.js
+  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection);
+  await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
+  console.log(`  ↳ applied nested content structure for ${tenantId} (${context.leafOrder.length} sections)`);
+}
+
+// ============================================================================
+// End Nested Content Directory Support
+// ============================================================================
+
 async function processManifestEntries(entries, context) {
   const processed = [];
   for (const entry of entries) {
@@ -1080,7 +1460,68 @@ function buildManifestModuleSource(manifestEntries, defaultSection) {
   return `export const MANIFEST = ${manifestJson};\nexport const DEFAULT_SECTION = ${defaultJson};\n\nconst SECTION_INDEX = new Map();\n\nfunction registerEntry(entry, parentId = null) {\n  if (parentId) entry.parentId = parentId;\n  SECTION_INDEX.set(entry.id, entry);\n  if (Array.isArray(entry.subsections)) {\n    entry.subsections.forEach((child) => registerEntry(child, entry.id));\n  }\n}\n\nMANIFEST.forEach((entry) => registerEntry(entry));\n\nexport function findSection(id) {\n  return SECTION_INDEX.get(id) || null;\n}\n`;
 }
 
-async function processTenantManifest(sourceDir, distDir, tenantId) {
+/**
+ * Main entry point for processing tenant content
+ * Detects content structure type and delegates to appropriate processor
+ */
+async function processTenantContent(sourceDir, distDir, tenantId) {
+  // Detect content structure type
+  const contentRoot = await findContentRoot(sourceDir);
+
+  // Check for explicit manifest.json (legacy or hybrid mode)
+  const manifestPath = path.join(sourceDir, TENANT_MANIFEST);
+  const hasManifest = await pathExists(manifestPath);
+
+  if (contentRoot.type === 'none' && !hasManifest) {
+    console.warn(`  ↳ ${tenantId}: no content found`);
+    return;
+  }
+
+  // If nested structure detected, use new processing
+  if (contentRoot.type === 'nested' || contentRoot.type === 'root') {
+    // Check if manifest exists and has explicit file mappings (hybrid mode)
+    if (hasManifest) {
+      try {
+        const raw = await fsp.readFile(manifestPath, 'utf8');
+        const manifestData = JSON.parse(raw);
+        const entries = Array.isArray(manifestData) ? manifestData : manifestData.sections;
+
+        // Check if any entry uses type: "directory" or lacks explicit file mappings
+        const hasDirectoryType = entries?.some(e => e.type === 'directory');
+        const hasExplicitFiles = entries?.every(e => e.file || e.sections);
+
+        if (hasDirectoryType || !hasExplicitFiles) {
+          // Use nested content processing
+          await processNestedContent(sourceDir, distDir, tenantId, contentRoot);
+          return;
+        }
+      } catch {
+        // Fall through to nested processing if manifest is invalid
+      }
+    }
+
+    // No manifest or manifest doesn't fully define structure - use nested scanning
+    await processNestedContent(sourceDir, distDir, tenantId, contentRoot);
+    return;
+  }
+
+  // Flat content/ structure with manifest - use legacy processing
+  if (hasManifest && contentRoot.type === 'flat') {
+    await processTenantManifestLegacy(sourceDir, distDir, tenantId);
+    return;
+  }
+
+  // Fallback: try legacy processing
+  if (hasManifest) {
+    await processTenantManifestLegacy(sourceDir, distDir, tenantId);
+  }
+}
+
+/**
+ * Legacy manifest processing for flat content/ structure
+ * Preserved for backward compatibility with existing tenants
+ */
+async function processTenantManifestLegacy(sourceDir, distDir, tenantId) {
   const manifestPath = path.join(sourceDir, TENANT_MANIFEST);
   if (!(await pathExists(manifestPath))) return;
   const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
@@ -1252,7 +1693,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     if (!(await pathExists(distDir))) {
       console.log(`  ↳ no existing build found, performing full build first`);
       await runBuild(buildOutput);
-      await processTenantManifest(sourceDir, distDir, tenantId);
+      await processTenantContent(sourceDir, distDir, tenantId);
     }
 
     // Process only the specified files
@@ -1273,7 +1714,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await runBuild(buildOutput);
 
     // Process full manifest from source directory
-    await processTenantManifest(sourceDir, distDir, tenantId);
+    await processTenantContent(sourceDir, distDir, tenantId);
   }
 
   // Apply branding and config
@@ -1421,7 +1862,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
 
   if (manifestChanged) {
     console.log(`  ↳ manifest.json changed, regenerating manifest.js`);
-    await processTenantManifest(sourceDir, distDir, tenantId);
+    await processTenantContent(sourceDir, distDir, tenantId);
   }
 }
 

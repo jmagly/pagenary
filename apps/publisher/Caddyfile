@@ -26,3 +26,10 @@ http://tenant-beta.local:5175 {
   try_files {path} {path}/ index.html
   file_server
 }
+
+http://tenant-roko.local:5175 {
+  root * dist/roko-kb
+  encode gzip zstd
+  try_files {path} {path}/ index.html
+  file_server
+}
