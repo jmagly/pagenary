@@ -40,7 +40,9 @@ function parseArgs(argv) {
     noSparse: false,
     // Incremental build options
     incremental: false,
-    diffOnly: false
+    diffOnly: false,
+    // Direct file targeting
+    files: []
   };
 
   let i = 0;
@@ -90,6 +92,15 @@ function parseArgs(argv) {
       result.diffOnly = true;
       result.incremental = true; // diff-only implies incremental
       i++;
+    } else if (arg === '--files' || arg === '-f') {
+      const filesArg = args[i + 1];
+      if (!filesArg) {
+        console.error('Error: --files requires a comma-separated list of files');
+        process.exit(1);
+      }
+      result.files = filesArg.split(',').map(f => f.trim()).filter(Boolean);
+      result.incremental = true; // --files implies incremental mode
+      i += 2;
     } else if (arg === '--list' || arg === '-l') {
       result.list = true;
       i++;
@@ -133,6 +144,7 @@ Git Source Options:
 Incremental Build Options:
   -i, --incremental   Enable incremental builds (only rebuild changed content)
   --diff-only         Show changed files without building (implies --incremental)
+  -f, --files         Comma-separated list of content files to rebuild (implies --incremental)
 
 Environment Variables:
   TENANT_REGISTRY     Path to tenant registry (alternative to --registry)
@@ -182,6 +194,7 @@ Examples:
   node build-tenants.js --list                       Show available tenants
   node build-tenants.js --incremental --keep-cache   Pull updates, rebuild only changed
   node build-tenants.js --diff-only                  Show what changed without building
+  node build-tenants.js tenant-alpha -f launch-checklist.md  Rebuild single file
 `);
 }
 
@@ -1160,7 +1173,7 @@ function printChangeSummary(tenantId, changes) {
  * Build a single tenant using registry entry
  * Returns { success, changes } where changes contains git diff info if applicable
  */
-async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
+async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   const tenantId = tenant.id;
   const targetDir = targetOverride
     ? path.join(resolvePath(targetOverride), tenantId)
@@ -1169,7 +1182,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
   // Resolve source (handles git cloning with change tracking)
   let sourceResult;
   try {
-    sourceResult = await resolveSource(tenant.source, cacheDir, gitOptions);
+    sourceResult = await resolveSource(tenant.source, cacheDir, buildOptions);
   } catch (err) {
     console.error(`  ↳ Failed to resolve source: ${err.message}`);
     return { success: false, changes: null };
@@ -1178,13 +1191,16 @@ async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
   const { sourcePath: sourceDir, changes } = sourceResult;
 
   // Handle diff-only mode - just return the changes
-  if (gitOptions.diffOnly) {
+  if (buildOptions.diffOnly) {
     printChangeSummary(tenantId, changes);
     return { success: true, changes };
   }
 
-  // Handle incremental mode with no changes
-  if (gitOptions.incremental && changes?.type === 'none') {
+  // Check for explicit file targeting (--files option)
+  const hasExplicitFiles = buildOptions.files && buildOptions.files.length > 0;
+
+  // Handle incremental mode with no changes (only if not explicitly targeting files)
+  if (!hasExplicitFiles && buildOptions.incremental && changes?.type === 'none') {
     console.log(`Skipping ${tenantId}: no changes detected`);
     return { success: true, changes };
   }
@@ -1218,9 +1234,30 @@ async function buildTenant(tenant, targetOverride, cacheDir, gitOptions) {
   console.log(`  target: ${targetDir}`);
 
   // Determine build mode
-  const isIncrementalBuild = gitOptions.incremental && changes?.type === 'incremental';
+  // Priority: explicit files > git incremental > full build
+  const isExplicitFileBuild = hasExplicitFiles;
+  const isGitIncrementalBuild = !hasExplicitFiles && buildOptions.incremental && changes?.type === 'incremental';
+  const isIncrementalBuild = isExplicitFileBuild || isGitIncrementalBuild;
 
-  if (isIncrementalBuild) {
+  if (isExplicitFileBuild) {
+    // Explicit file targeting - create synthetic change set
+    const explicitFiles = {
+      added: [],
+      modified: buildOptions.files.map(f => f.startsWith('content/') ? f : `content/${f}`),
+      deleted: []
+    };
+    console.log(`  mode: targeted (${explicitFiles.modified.length} file(s) specified)`);
+
+    // For targeted builds, we need the base build to exist
+    if (!(await pathExists(distDir))) {
+      console.log(`  ↳ no existing build found, performing full build first`);
+      await runBuild(buildOutput);
+      await processTenantManifest(sourceDir, distDir, tenantId);
+    }
+
+    // Process only the specified files
+    await processIncrementalManifest(sourceDir, distDir, tenantId, explicitFiles);
+  } else if (isGitIncrementalBuild) {
     console.log(`  mode: incremental (${changes.files.added.length + changes.files.modified.length} files to process)`);
 
     // For incremental builds, we need the base build to exist
@@ -1473,13 +1510,14 @@ async function main() {
     await fsp.rm(cacheDir, { recursive: true, force: true });
   }
 
-  // Git options for all tenants
-  const gitOptions = {
+  // Build options for all tenants
+  const buildOptions = {
     cleanCache: args.cleanCache,
     noSparse: args.noSparse,
     gitDepth: args.gitDepth,
     incremental: args.incremental,
-    diffOnly: args.diffOnly
+    diffOnly: args.diffOnly,
+    files: args.files
   };
 
   // Handle diff-only mode header
@@ -1488,7 +1526,12 @@ async function main() {
     console.log('');
   } else {
     // Build tenants header
-    const mode = args.incremental ? 'incremental' : 'full';
+    let mode = 'full';
+    if (args.files.length > 0) {
+      mode = `files: ${args.files.join(', ')}`;
+    } else if (args.incremental) {
+      mode = 'incremental';
+    }
     console.log(`Building ${tenantsToBuild.length} tenant(s) [${mode}]: ${tenantsToBuild.map(t => t.id).join(', ')}`);
     console.log('');
   }
@@ -1501,7 +1544,7 @@ async function main() {
   for (const tenant of tenantsToBuild) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      const result = await buildTenant(tenant, args.target, cacheDir, gitOptions);
+      const result = await buildTenant(tenant, args.target, cacheDir, buildOptions);
 
       if (result.success) {
         successCount++;
