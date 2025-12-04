@@ -232,7 +232,8 @@ describe('build-tenants.js', () => {
       // Check content was converted
       const sectionContent = await fsp.readFile(sectionFile, 'utf8');
       expect(sectionContent).toMatch(/Hello World/);
-      expect(sectionContent).toMatch(/<h1>/);
+      // Headings now have auto-generated IDs (ADR-011)
+      expect(sectionContent).toMatch(/h1 id=/);
     });
 
     test('processes HTML content files', async () => {

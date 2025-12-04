@@ -16,6 +16,9 @@ const TENANT_MANIFEST = 'manifest.json';
 const DIRECTORY_MANIFEST = '_manifest.json';
 const MAX_CONTENT_DEPTH = 10;
 
+// Content file extensions for link transformation
+const CONTENT_EXTENSIONS = ['.md', '.markdown', '.html', '.htm', '.js', '.mjs'];
+
 // Common abbreviations to preserve in title humanization
 const ABBREVIATIONS = new Set(['api', 'sdk', 'cli', 'ui', 'ux', 'http', 'https', 'html', 'css', 'js', 'json', 'xml', 'sql', 'nosql', 'jwt', 'oauth', 'ocp', 'tap', 'ieee', 'ptp', 'ntp', 'mev', 'dao', 'nft', 'defi', 'faq', 'id', 'ids', 'url', 'urls', 'uri', 'uris']);
 
@@ -691,7 +694,8 @@ function normalizeTenant(tenant, defaults) {
     source,
     target,
     domains: tenant.domains || [],
-    config: tenant.config || {}
+    config: tenant.config || {},
+    strictLinks: tenant.strictLinks
   };
 }
 
@@ -884,12 +888,26 @@ async function applyWelcome(distDir, config, tenantId) {
   console.log(`  ↳ customized welcome section for ${tenantId}`);
 }
 
-function parseInlineMarkdown(input) {
+/**
+ * Parse inline markdown elements (links, bold, italic)
+ *
+ * @param {string} input - Raw markdown text
+ * @param {object} [linkContext] - Optional context for link transformation
+ * @param {string} linkContext.currentPath - Current file path relative to content root
+ * @param {Map} linkContext.sectionIndex - Section ID map for validation
+ * @param {Array} linkContext.linkWarnings - Array to collect warnings
+ * @returns {string} HTML string
+ */
+function parseInlineMarkdown(input, linkContext = null) {
   if (!input) return '';
   let output = input.replace(/\r\n/g, '\n');
   // Links: [label](href)
   output = output.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
-    return `<a href="${escapeAttribute(href)}">${escapeHtml(label)}</a>`;
+    // Transform internal links if context is provided
+    const resolvedHref = linkContext
+      ? transformInternalLink(href, linkContext)
+      : href;
+    return `<a href="${escapeAttribute(resolvedHref)}">${escapeHtml(label)}</a>`;
   });
   // Bold: **text**
   output = output.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -901,11 +919,22 @@ function parseInlineMarkdown(input) {
     .replace(/&lt;a href=&quot;([^&]*)&quot;&gt;([^]*?)&lt;\/a&gt;/g, '<a href="$1">$2</a>');
 }
 
-function markdownToHtml(markdown) {
+/**
+ * Convert markdown content to HTML
+ *
+ * @param {string} markdown - Raw markdown content
+ * @param {object} [linkContext] - Optional context for link transformation
+ * @returns {string} HTML string
+ */
+function markdownToHtml(markdown, linkContext = null) {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   const chunks = [];
   let inList = false;
   let inBlockquote = false;
+  let inCodeBlock = false;
+  let codeBlockContent = [];
+  let codeBlockLang = '';
+  const headingIds = new Map(); // Track heading IDs for uniqueness
 
   function closeList() {
     if (inList) {
@@ -928,8 +957,52 @@ function markdownToHtml(markdown) {
     }
   }
 
+  /**
+   * Generate unique heading ID
+   * If slug already exists, append -2, -3, etc.
+   */
+  function getUniqueHeadingId(text) {
+    const baseSlug = generateSlug(text);
+    if (!baseSlug) return null;
+
+    let slug = baseSlug;
+    let counter = 1;
+    while (headingIds.has(slug)) {
+      counter++;
+      slug = `${baseSlug}-${counter}`;
+    }
+    headingIds.set(slug, true);
+    return slug;
+  }
+
   for (const rawLine of lines) {
     const line = rawLine.trim();
+
+    // Handle code blocks
+    if (line.startsWith('```')) {
+      if (inCodeBlock) {
+        // End code block
+        const escapedCode = escapeHtml(codeBlockContent.join('\n'));
+        const langAttr = codeBlockLang ? ` class="language-${escapeAttribute(codeBlockLang)}"` : '';
+        chunks.push(`<pre><code${langAttr}>${escapedCode}</code></pre>`);
+        inCodeBlock = false;
+        codeBlockContent = [];
+        codeBlockLang = '';
+      } else {
+        // Start code block
+        closeList();
+        closeBlockquote();
+        inCodeBlock = true;
+        codeBlockLang = line.slice(3).trim();
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockContent.push(rawLine); // Preserve original indentation
+      continue;
+    }
+
     if (!line) {
       closeList();
       closeBlockquote();
@@ -941,8 +1014,14 @@ function markdownToHtml(markdown) {
       closeList();
       closeBlockquote();
       const level = Math.min(headingMatch[1].length, 6);
-      const text = parseInlineMarkdown(headingMatch[2].trim());
-      chunks.push(`<h${level}>${text}</h${level}>`);
+      const rawText = headingMatch[2].trim();
+      const text = parseInlineMarkdown(rawText, linkContext);
+      const headingId = getUniqueHeadingId(rawText);
+      if (headingId) {
+        chunks.push(`<h${level} id="${headingId}">${text}</h${level}>`);
+      } else {
+        chunks.push(`<h${level}>${text}</h${level}>`);
+      }
       continue;
     }
 
@@ -953,7 +1032,7 @@ function markdownToHtml(markdown) {
         chunks.push('<ul>');
         inList = true;
       }
-      const item = parseInlineMarkdown(listMatch[1].trim());
+      const item = parseInlineMarkdown(listMatch[1].trim(), linkContext);
       chunks.push(`<li>${item}</li>`);
       continue;
     }
@@ -962,15 +1041,22 @@ function markdownToHtml(markdown) {
     if (quoteMatch) {
       closeList();
       openBlockquote();
-      const quoteLine = parseInlineMarkdown(quoteMatch[1]);
+      const quoteLine = parseInlineMarkdown(quoteMatch[1], linkContext);
       chunks.push(`<p>${quoteLine}</p>`);
       continue;
     }
 
     closeList();
     closeBlockquote();
-    const paragraph = parseInlineMarkdown(line);
+    const paragraph = parseInlineMarkdown(line, linkContext);
     chunks.push(`<p>${paragraph}</p>`);
+  }
+
+  // Close any open code block
+  if (inCodeBlock) {
+    const escapedCode = escapeHtml(codeBlockContent.join('\n'));
+    const langAttr = codeBlockLang ? ` class="language-${escapeAttribute(codeBlockLang)}"` : '';
+    chunks.push(`<pre><code${langAttr}>${escapedCode}</code></pre>`);
   }
 
   closeList();
@@ -1007,9 +1093,16 @@ async function ensureHtmlModule(sourcePath, targetPath) {
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
 }
 
-async function ensureMarkdownModule(sourcePath, targetPath) {
+/**
+ * Convert markdown file to JS module
+ *
+ * @param {string} sourcePath - Absolute path to markdown file
+ * @param {string} targetPath - Absolute path to output JS module
+ * @param {object} [linkContext] - Optional context for link transformation
+ */
+async function ensureMarkdownModule(sourcePath, targetPath, linkContext = null) {
   const raw = await fsp.readFile(sourcePath, 'utf8');
-  const html = markdownToHtml(raw);
+  const html = markdownToHtml(raw, linkContext);
   const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
@@ -1019,6 +1112,262 @@ async function ensureJavascriptModule(sourcePath, targetPath) {
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.copyFile(sourcePath, targetPath);
 }
+
+// ============================================================================
+// Internal Link Transformation (ADR-011)
+// ============================================================================
+
+/**
+ * Check if a link is external (HTTP, mailto, tel, protocol-relative, etc.)
+ * External links are not transformed.
+ */
+function isExternalLink(href) {
+  if (!href) return true;
+  // Protocol-based links (http:, https:, mailto:, tel:, data:, javascript:, etc.)
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+    return true;
+  }
+  // Protocol-relative URLs (//example.com)
+  if (href.startsWith('//')) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Check if a link is fragment-only (#anchor)
+ * Fragment-only links are not transformed.
+ */
+function isFragmentOnly(href) {
+  return href && href.startsWith('#');
+}
+
+/**
+ * Check if a path points to a markdown file (for link transformation)
+ * Only .md files get transformed; .html and .js links are preserved.
+ */
+function isMarkdownLink(href) {
+  if (!href) return false;
+  // Extract pathname (before any # or ?)
+  const pathname = href.split('#')[0].split('?')[0];
+  const ext = path.extname(pathname).toLowerCase();
+  // Only transform .md and .markdown links
+  return ext === '.md' || ext === '.markdown';
+}
+
+/**
+ * Normalize a relative path for consistent resolution
+ * - Converts backslashes to forward slashes (Windows compatibility)
+ * - Removes redundant slashes
+ * - Handles ./ and ../ prefixes
+ */
+function normalizeLinkPath(linkPath) {
+  if (!linkPath) return '';
+  return linkPath
+    .replace(/\\/g, '/') // Windows backslashes
+    .replace(/\/+/g, '/') // Multiple slashes
+    .replace(/\/\.$/, '') // Trailing /.
+    .replace(/\/+$/, ''); // Trailing slashes
+}
+
+/**
+ * Resolve a relative link path to an absolute path within content root
+ *
+ * @param {string} linkPath - The href path from markdown (e.g., ./file.md, ../other/file.md)
+ * @param {string} currentFilePath - Current file path relative to content root (e.g., getting-started/intro.md)
+ * @returns {string} Resolved path relative to content root
+ */
+function resolveLinkPath(linkPath, currentFilePath) {
+  // Get directory containing current file
+  const currentDir = path.dirname(currentFilePath);
+
+  let resolvedPath;
+
+  if (linkPath.startsWith('/')) {
+    // Absolute path from content root
+    resolvedPath = linkPath.slice(1);
+  } else if (linkPath.startsWith('./')) {
+    // Relative to current directory
+    resolvedPath = path.join(currentDir, linkPath.slice(2));
+  } else if (linkPath.startsWith('../')) {
+    // Relative to parent
+    resolvedPath = path.join(currentDir, linkPath);
+  } else {
+    // Implicit relative (no prefix)
+    resolvedPath = path.join(currentDir, linkPath);
+  }
+
+  // Normalize path separators and remove leading/trailing slashes
+  return path.normalize(resolvedPath).replace(/\\/g, '/').replace(/^\/|\/$/g, '');
+}
+
+/**
+ * Convert a resolved file path to a section ID
+ * - Strips content file extensions
+ * - Handles index files (getting-started/index -> getting-started)
+ *
+ * @param {string} resolvedPath - Path relative to content root
+ * @returns {string} Section ID for hash-based navigation
+ */
+function pathToSectionId(resolvedPath) {
+  if (!resolvedPath) return '';
+
+  // Strip content file extensions (case-insensitive)
+  let withoutExt = resolvedPath;
+  for (const ext of CONTENT_EXTENSIONS) {
+    if (resolvedPath.toLowerCase().endsWith(ext)) {
+      withoutExt = resolvedPath.slice(0, -ext.length);
+      break;
+    }
+  }
+
+  // Handle index files: getting-started/index -> getting-started
+  const normalized = withoutExt.replace(/\/index$/i, '');
+
+  // Return empty string if this resolves to root
+  return normalized || '';
+}
+
+/**
+ * Generate a URL-safe slug from text for heading IDs
+ * - Lowercase
+ * - Replace spaces and special chars with hyphens
+ * - Remove consecutive hyphens
+ * - Trim leading/trailing hyphens
+ */
+function generateSlug(text) {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '') // Remove special chars except hyphens
+    .replace(/[\s_]+/g, '-')   // Replace spaces and underscores with hyphens
+    .replace(/-+/g, '-')       // Remove consecutive hyphens
+    .replace(/^-|-$/g, '');    // Trim leading/trailing hyphens
+}
+
+/**
+ * Transform an internal markdown link to a hash-based section link
+ *
+ * @param {string} href - Original href from markdown link
+ * @param {object} context - Transformation context
+ * @param {string} context.currentPath - Current file path relative to content root
+ * @param {string} context.contentRoot - Absolute path to content root
+ * @param {Map<string,object>} context.sectionIndex - Map of section IDs to section info (for validation)
+ * @param {object} context.linkWarnings - Array to collect link warnings
+ * @param {boolean} context.strictLinks - Whether to error on broken links (default: true)
+ * @returns {string} Transformed href (hash-based) or original href if not transformable
+ */
+function transformInternalLink(href, context) {
+  // Skip external links
+  if (isExternalLink(href)) {
+    return href;
+  }
+
+  // Skip fragment-only links
+  if (isFragmentOnly(href)) {
+    return href;
+  }
+
+  // Only transform markdown links
+  if (!isMarkdownLink(href)) {
+    return href;
+  }
+
+  // Parse href to extract path and fragment
+  const hashIndex = href.indexOf('#');
+  const pathname = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
+  const fragment = hashIndex >= 0 ? href.slice(hashIndex) : '';
+
+  // Normalize the link path
+  const normalizedPath = normalizeLinkPath(pathname);
+
+  // Resolve relative path to absolute (relative to content root)
+  const resolvedPath = resolveLinkPath(normalizedPath, context.currentPath);
+
+  // Convert to section ID
+  const sectionId = pathToSectionId(resolvedPath);
+
+  // Validate section exists (if index available)
+  if (context.sectionIndex && sectionId) {
+    // Case-insensitive lookup
+    const sectionIdLower = sectionId.toLowerCase();
+    let found = false;
+    let actualId = sectionId;
+
+    for (const [id] of context.sectionIndex) {
+      if (id.toLowerCase() === sectionIdLower) {
+        found = true;
+        actualId = id;
+        // Warn if case doesn't match exactly
+        if (id !== sectionId && context.linkWarnings) {
+          context.linkWarnings.push({
+            type: 'case-mismatch',
+            source: context.currentPath,
+            href: href,
+            expected: id,
+            actual: sectionId
+          });
+        }
+        break;
+      }
+    }
+
+    if (!found && context.linkWarnings) {
+      context.linkWarnings.push({
+        type: 'broken',
+        source: context.currentPath,
+        href: href,
+        targetId: sectionId
+      });
+      // Preserve original link on validation failure (graceful degradation)
+      return href;
+    }
+
+    // Use the correctly-cased section ID
+    if (found && actualId !== sectionId) {
+      return fragment ? `#${actualId}${fragment}` : `#${actualId}`;
+    }
+  }
+
+  // Compose hash-based URL
+  // Double hash for section + anchor: #section-id#anchor
+  return fragment ? `#${sectionId}${fragment}` : `#${sectionId}`;
+}
+
+/**
+ * Print link validation warnings
+ */
+function printLinkWarnings(warnings, tenantId, strictLinks = true) {
+  if (!warnings || warnings.length === 0) return;
+
+  const brokenLinks = warnings.filter(w => w.type === 'broken');
+  const caseMismatches = warnings.filter(w => w.type === 'case-mismatch');
+
+  if (brokenLinks.length > 0) {
+    const level = strictLinks ? 'ERROR' : 'WARN';
+    console.log(`  ↳ [${level}] ${brokenLinks.length} broken link(s) found:`);
+    for (const w of brokenLinks.slice(0, 10)) { // Show first 10
+      console.log(`      ${w.source}: [link](${w.href}) → target "${w.targetId}" not found`);
+    }
+    if (brokenLinks.length > 10) {
+      console.log(`      ... and ${brokenLinks.length - 10} more`);
+    }
+  }
+
+  if (caseMismatches.length > 0) {
+    console.log(`  ↳ [WARN] ${caseMismatches.length} case mismatch(es) found (resolved, but may break on Linux):`);
+    for (const w of caseMismatches.slice(0, 5)) { // Show first 5
+      console.log(`      ${w.source}: expected "${w.expected}", got "${w.actual}"`);
+    }
+    if (caseMismatches.length > 5) {
+      console.log(`      ... and ${caseMismatches.length - 5} more`);
+    }
+  }
+}
+
+// ============================================================================
+// End Internal Link Transformation
+// ============================================================================
 
 // ============================================================================
 // Nested Content Directory Support (ADR-010)
@@ -1291,6 +1640,22 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
 }
 
 /**
+ * Build section index from scanned sections for link validation
+ * Returns a Map of section ID -> { id, title, file }
+ */
+function buildSectionIndex(sections, index = new Map()) {
+  for (const section of sections) {
+    const { id, title, file, subsections } = section;
+    index.set(id, { id, title, file });
+
+    if (subsections && subsections.length > 0) {
+      buildSectionIndex(subsections, index);
+    }
+  }
+  return index;
+}
+
+/**
  * Process scanned sections into built modules
  * Materializes content files and builds manifest entries
  */
@@ -1321,7 +1686,15 @@ async function materializeScannedSections(sections, context) {
 
       try {
         if (ext === '.md' || ext === '.markdown') {
-          await ensureMarkdownModule(sourcePath, targetPath);
+          // Create link context for this file
+          const linkContext = {
+            currentPath: file,
+            contentRoot: context.contentRoot,
+            sectionIndex: context.sectionIndex,
+            linkWarnings: context.linkWarnings,
+            strictLinks: context.strictLinks
+          };
+          await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         } else if (ext === '.html' || ext === '.htm') {
           await ensureHtmlModule(sourcePath, targetPath);
         } else if (ext === '.js' || ext === '.mjs') {
@@ -1359,18 +1732,33 @@ async function materializeScannedSections(sections, context) {
 
 /**
  * Process tenant content using nested directory scanning (ADR-010)
+ *
+ * @param {string} sourceDir - Tenant source directory
+ * @param {string} distDir - Build output directory
+ * @param {string} tenantId - Tenant identifier
+ * @param {object} contentRoot - Content root info from findContentRoot()
+ * @param {object} [options] - Build options
+ * @param {boolean} [options.strictLinks=true] - Whether to error on broken links
  */
-async function processNestedContent(sourceDir, distDir, tenantId, contentRoot) {
+async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, options = {}) {
   const sectionsDir = path.join(distDir, 'sections');
   const keepFiles = new Set(['section-templates.js']);
   await pruneSectionsDirectory(sectionsDir, keepFiles);
+
+  // Default to strict links (error on broken links)
+  const strictLinks = options.strictLinks !== false;
+  const linkWarnings = [];
 
   const context = {
     contentRoot: contentRoot.basePath,
     sectionsDir,
     tenantId,
     keepFiles,
-    leafOrder: []
+    leafOrder: [],
+    // Link transformation context (populated after scan)
+    sectionIndex: null,
+    linkWarnings,
+    strictLinks
   };
 
   // Scan content directory tree
@@ -1378,15 +1766,30 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot) {
 
   if (scannedSections.length === 0) {
     console.warn(`  ↳ ${tenantId}: no content found in ${contentRoot.basePath}`);
-    return;
+    return { success: false };
   }
 
-  // Materialize all sections
+  // Build section index for link validation (pass 1)
+  context.sectionIndex = buildSectionIndex(scannedSections);
+
+  // Materialize all sections with link transformation (pass 2)
   const processedManifest = await materializeScannedSections(scannedSections, context);
 
   if (processedManifest.length === 0) {
     console.warn(`  ↳ ${tenantId}: no sections materialized`);
-    return;
+    return { success: false };
+  }
+
+  // Print link warnings
+  if (linkWarnings.length > 0) {
+    printLinkWarnings(linkWarnings, tenantId, strictLinks);
+
+    // Error on broken links if strict mode
+    const brokenLinks = linkWarnings.filter(w => w.type === 'broken');
+    if (strictLinks && brokenLinks.length > 0) {
+      console.error(`  ↳ [ERROR] ${tenantId}: Build failed due to ${brokenLinks.length} broken link(s). Use strictLinks: false to warn instead.`);
+      return { success: false, brokenLinks: brokenLinks.length };
+    }
   }
 
   // Determine default section
@@ -1396,6 +1799,8 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot) {
   const manifestModule = buildManifestModuleSource(processedManifest, defaultSection);
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied nested content structure for ${tenantId} (${context.leafOrder.length} sections)`);
+
+  return { success: true, sectionsCount: context.leafOrder.length };
 }
 
 // ============================================================================
@@ -1444,7 +1849,15 @@ async function materializeSectionModule(entry, context) {
 
   try {
     if (ext === '.md' || ext === '.markdown') {
-      await ensureMarkdownModule(sourcePath, targetPath);
+      // Create link context for this file
+      const linkContext = context.sectionIndex ? {
+        currentPath: relPath,
+        contentRoot: context.contentDir,
+        sectionIndex: context.sectionIndex,
+        linkWarnings: context.linkWarnings,
+        strictLinks: context.strictLinks
+      } : null;
+      await ensureMarkdownModule(sourcePath, targetPath, linkContext);
     } else if (ext === '.html' || ext === '.htm') {
       await ensureHtmlModule(sourcePath, targetPath);
     } else if (ext === '.js' || ext === '.mjs') {
@@ -1470,8 +1883,14 @@ function buildManifestModuleSource(manifestEntries, defaultSection) {
 /**
  * Main entry point for processing tenant content
  * Detects content structure type and delegates to appropriate processor
+ *
+ * @param {string} sourceDir - Tenant source directory
+ * @param {string} distDir - Build output directory
+ * @param {string} tenantId - Tenant identifier
+ * @param {object} [options] - Build options
+ * @param {boolean} [options.strictLinks=true] - Whether to error on broken links
  */
-async function processTenantContent(sourceDir, distDir, tenantId) {
+async function processTenantContent(sourceDir, distDir, tenantId, options = {}) {
   // Detect content structure type
   const contentRoot = await findContentRoot(sourceDir);
 
@@ -1499,7 +1918,7 @@ async function processTenantContent(sourceDir, distDir, tenantId) {
 
         if (hasDirectoryType || !hasExplicitFiles) {
           // Use nested content processing
-          await processNestedContent(sourceDir, distDir, tenantId, contentRoot);
+          await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options);
           return;
         }
       } catch {
@@ -1508,27 +1927,32 @@ async function processTenantContent(sourceDir, distDir, tenantId) {
     }
 
     // No manifest or manifest doesn't fully define structure - use nested scanning
-    await processNestedContent(sourceDir, distDir, tenantId, contentRoot);
+    await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options);
     return;
   }
 
   // Flat content/ structure with manifest - use legacy processing
   if (hasManifest && contentRoot.type === 'flat') {
-    await processTenantManifestLegacy(sourceDir, distDir, tenantId);
+    await processTenantManifestLegacy(sourceDir, distDir, tenantId, options);
     return;
   }
 
   // Fallback: try legacy processing
   if (hasManifest) {
-    await processTenantManifestLegacy(sourceDir, distDir, tenantId);
+    await processTenantManifestLegacy(sourceDir, distDir, tenantId, options);
   }
 }
 
 /**
  * Legacy manifest processing for flat content/ structure
  * Preserved for backward compatibility with existing tenants
+ *
+ * @param {string} sourceDir - Tenant source directory
+ * @param {string} distDir - Build output directory
+ * @param {string} tenantId - Tenant identifier
+ * @param {object} [options] - Build options
  */
-async function processTenantManifestLegacy(sourceDir, distDir, tenantId) {
+async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options = {}) {
   const manifestPath = path.join(sourceDir, TENANT_MANIFEST);
   if (!(await pathExists(manifestPath))) return;
   const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
@@ -1556,18 +1980,44 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId) {
   const keepFiles = new Set(['section-templates.js']);
   await pruneSectionsDirectory(sectionsDir, keepFiles);
 
+  // Build section index for link validation
+  const sectionIndex = new Map();
+  function collectSectionIds(sectionEntries) {
+    for (const entry of sectionEntries) {
+      if (entry.id) {
+        sectionIndex.set(entry.id, { id: entry.id, file: entry.file });
+      }
+      if (Array.isArray(entry.sections)) {
+        collectSectionIds(entry.sections);
+      }
+    }
+  }
+  collectSectionIds(entries);
+
+  const linkWarnings = [];
+  const strictLinks = options.strictLinks !== false;
+
   const context = {
     contentDir,
     sectionsDir,
     tenantId,
     keepFiles,
-    leafOrder: []
+    leafOrder: [],
+    // Link transformation context
+    sectionIndex,
+    linkWarnings,
+    strictLinks
   };
 
   const processedManifest = await processManifestEntries(entries, context);
   if (!processedManifest.length) {
     console.warn(`  ↳ ${tenantId}: manifest did not produce any sections`);
     return;
+  }
+
+  // Print link warnings
+  if (linkWarnings.length > 0) {
+    printLinkWarnings(linkWarnings, tenantId, strictLinks);
   }
 
   const defaultSection = manifestData.default || manifestData.defaultSection || context.leafOrder[0];
@@ -1687,6 +2137,13 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   const isGitIncrementalBuild = !hasExplicitFiles && buildOptions.incremental && changes?.type === 'incremental';
   const isIncrementalBuild = isExplicitFileBuild || isGitIncrementalBuild;
 
+  // Content processing options (strictLinks defaults to true unless explicitly set to false)
+  // Check both tenant registry and config.json for strictLinks setting
+  const strictLinksSetting = tenant.strictLinks !== undefined ? tenant.strictLinks : config.strictLinks;
+  const contentOptions = {
+    strictLinks: strictLinksSetting !== false
+  };
+
   if (isExplicitFileBuild) {
     // Explicit file targeting - create synthetic change set
     const explicitFiles = {
@@ -1700,11 +2157,11 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     if (!(await pathExists(distDir))) {
       console.log(`  ↳ no existing build found, performing full build first`);
       await runBuild(buildOutput);
-      await processTenantContent(sourceDir, distDir, tenantId);
+      await processTenantContent(sourceDir, distDir, tenantId, contentOptions);
     }
 
     // Process only the specified files
-    await processIncrementalManifest(sourceDir, distDir, tenantId, explicitFiles);
+    await processIncrementalManifest(sourceDir, distDir, tenantId, explicitFiles, contentOptions);
   } else if (isGitIncrementalBuild) {
     console.log(`  mode: incremental (${changes.files.added.length + changes.files.modified.length} files to process)`);
 
@@ -1715,13 +2172,13 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     }
 
     // Process only changed content files
-    await processIncrementalManifest(sourceDir, distDir, tenantId, changes.files);
+    await processIncrementalManifest(sourceDir, distDir, tenantId, changes.files, contentOptions);
   } else {
     console.log(`  mode: full`);
     await runBuild(buildOutput);
 
     // Process full manifest from source directory
-    await processTenantContent(sourceDir, distDir, tenantId);
+    await processTenantContent(sourceDir, distDir, tenantId, contentOptions);
   }
 
   // Apply branding and config
@@ -1799,8 +2256,14 @@ async function syncChangesToTarget(srcDir, targetDir, files) {
 
 /**
  * Process only changed content files for incremental builds
+ *
+ * @param {string} sourceDir - Tenant source directory
+ * @param {string} distDir - Build output directory
+ * @param {string} tenantId - Tenant identifier
+ * @param {object} changedFiles - Changed files { added, modified, deleted }
+ * @param {object} [options] - Build options
  */
-async function processIncrementalManifest(sourceDir, distDir, tenantId, changedFiles) {
+async function processIncrementalManifest(sourceDir, distDir, tenantId, changedFiles, options = {}) {
   const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
   const sectionsDir = path.join(distDir, 'sections');
 
@@ -1809,6 +2272,18 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
 
   // Build file-to-sectionId map from manifest
   const fileToSectionId = await buildFileToSectionMap(sourceDir);
+
+  // Build section index for link validation (from existing manifest.js if available)
+  // Note: For full link validation in incremental mode, we'd need to scan all content
+  // For now, we provide a partial context (without full section index)
+  const contentRoot = await findContentRoot(sourceDir);
+  const linkWarnings = [];
+  const sectionIndex = new Map();
+
+  // Add known sections from fileToSectionId map
+  for (const [file, id] of fileToSectionId.entries()) {
+    sectionIndex.set(id, { id, file });
+  }
 
   // Filter to content files only
   const contentFiles = [...changedFiles.added, ...changedFiles.modified]
@@ -1832,7 +2307,15 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
 
     try {
       if (ext === '.md' || ext === '.markdown') {
-        await ensureMarkdownModule(sourcePath, targetPath);
+        // Create link context for this file
+        const linkContext = {
+          currentPath: relPath,
+          contentRoot: contentRoot.basePath || contentDir,
+          sectionIndex,
+          linkWarnings,
+          strictLinks: options.strictLinks !== false
+        };
+        await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         console.log(`  ↳ updated: ${sectionId} (markdown)`);
       } else if (ext === '.html' || ext === '.htm') {
         await ensureHtmlModule(sourcePath, targetPath);
@@ -1844,6 +2327,11 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
     } catch (err) {
       console.error(`  ↳ ${tenantId}: failed to update ${relPath}: ${err.message}`);
     }
+  }
+
+  // Print link warnings
+  if (linkWarnings.length > 0) {
+    printLinkWarnings(linkWarnings, tenantId, options.strictLinks !== false);
   }
 
   // Handle deleted content files
@@ -1869,7 +2357,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
 
   if (manifestChanged) {
     console.log(`  ↳ manifest.json changed, regenerating manifest.js`);
-    await processTenantContent(sourceDir, distDir, tenantId);
+    await processTenantContent(sourceDir, distDir, tenantId, options);
   }
 }
 
