@@ -802,6 +802,13 @@ async function applyBranding(distDir, config, tenantId) {
     );
     mutated = true;
   }
+  if (config.copyright) {
+    html = html.replace(
+      /Modular Documentation Toolkit/,
+      escapeHtml(config.copyright)
+    );
+    mutated = true;
+  }
 
   if (mutated) {
     await fsp.writeFile(indexPath, html, 'utf8');
@@ -983,8 +990,23 @@ function markdownToHtml(markdown, linkContext = null) {
       if (inCodeBlock) {
         // End code block
         const escapedCode = escapeHtml(codeBlockContent.join('\n'));
-        const langAttr = codeBlockLang ? ` class="language-${escapeAttribute(codeBlockLang)}"` : '';
-        chunks.push(`<pre><code${langAttr}>${escapedCode}</code></pre>`);
+
+        // Check for special block types
+        if (codeBlockLang.startsWith('box')) {
+          // Box/panel block: ```box or ```box:Title
+          const titleMatch = codeBlockLang.match(/^box(?::(.+))?$/);
+          const title = titleMatch && titleMatch[1] ? titleMatch[1].trim() : '';
+          const titleHtml = title ? `<div class="box-title">${escapeHtml(title)}</div>` : '';
+          chunks.push(`<div class="content-box">${titleHtml}<pre class="box-content">${escapedCode}</pre></div>`);
+        } else if (codeBlockLang.startsWith('html')) {
+          // Raw HTML block: ```html - renders HTML directly (use with caution)
+          // Note: We don't escape here to allow HTML rendering
+          chunks.push(`<div class="html-block">${codeBlockContent.join('\n')}</div>`);
+        } else {
+          // Standard code block
+          const langAttr = codeBlockLang ? ` class="language-${escapeAttribute(codeBlockLang)}"` : '';
+          chunks.push(`<pre><code${langAttr}>${escapedCode}</code></pre>`);
+        }
         inCodeBlock = false;
         codeBlockContent = [];
         codeBlockLang = '';
@@ -1043,6 +1065,14 @@ function markdownToHtml(markdown, linkContext = null) {
       openBlockquote();
       const quoteLine = parseInlineMarkdown(quoteMatch[1], linkContext);
       chunks.push(`<p>${quoteLine}</p>`);
+      continue;
+    }
+
+    // Horizontal rule: ---, ***, or ___
+    if (/^[-*_]{3,}$/.test(line)) {
+      closeList();
+      closeBlockquote();
+      chunks.push('<hr>');
       continue;
     }
 
@@ -1749,12 +1779,20 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   const strictLinks = options.strictLinks !== false;
   const linkWarnings = [];
 
+  // Load root _manifest.json for site configuration
+  const rootManifest = await loadDirectoryManifest(contentRoot.basePath);
+  const siteConfig = {
+    bottomNav: rootManifest?.bottomNav || 'mobile',
+    bottomNavSections: rootManifest?.bottomNavSections || []
+  };
+
   const context = {
     contentRoot: contentRoot.basePath,
     sectionsDir,
     tenantId,
     keepFiles,
     leafOrder: [],
+    siteConfig,
     // Link transformation context (populated after scan)
     sectionIndex: null,
     linkWarnings,
@@ -1795,8 +1833,8 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   // Determine default section
   const defaultSection = context.leafOrder[0];
 
-  // Generate manifest.js
-  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection);
+  // Generate manifest.js with site configuration
+  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig);
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied nested content structure for ${tenantId} (${context.leafOrder.length} sections)`);
 
@@ -1874,10 +1912,65 @@ async function materializeSectionModule(entry, context) {
   return `./sections/${outFile}`;
 }
 
-function buildManifestModuleSource(manifestEntries, defaultSection) {
+function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}) {
   const manifestJson = JSON.stringify(manifestEntries, null, 2);
   const defaultJson = JSON.stringify(defaultSection || null);
-  return `export const MANIFEST = ${manifestJson};\nexport const DEFAULT_SECTION = ${defaultJson};\n\nconst SECTION_INDEX = new Map();\n\nfunction registerEntry(entry, parentId = null) {\n  if (parentId) entry.parentId = parentId;\n  SECTION_INDEX.set(entry.id, entry);\n  if (Array.isArray(entry.subsections)) {\n    entry.subsections.forEach((child) => registerEntry(child, entry.id));\n  }\n}\n\nMANIFEST.forEach((entry) => registerEntry(entry));\n\nexport function findSection(id) {\n  return SECTION_INDEX.get(id) || null;\n}\n`;
+  const configJson = JSON.stringify({
+    bottomNav: siteConfig.bottomNav || 'mobile', // 'always' | 'mobile' | 'never'
+    bottomNavSections: siteConfig.bottomNavSections || [], // Section prefixes to always show nav
+    ...siteConfig
+  }, null, 2);
+  return `export const MANIFEST = ${manifestJson};
+export const DEFAULT_SECTION = ${defaultJson};
+
+const SECTION_INDEX = new Map();
+
+function registerEntry(entry, parentId = null) {
+  if (parentId) entry.parentId = parentId;
+  SECTION_INDEX.set(entry.id, entry);
+  if (Array.isArray(entry.subsections)) {
+    entry.subsections.forEach((child) => registerEntry(child, entry.id));
+  }
+}
+
+MANIFEST.forEach((entry) => registerEntry(entry));
+
+export function findSection(id) {
+  return SECTION_INDEX.get(id) || null;
+}
+
+// Build flat list of navigable sections for prev/next navigation
+function buildFlatNav() {
+  const flat = [];
+  MANIFEST.forEach((entry) => {
+    if (entry.subsections && entry.subsections.length) {
+      entry.subsections.forEach((sub) => flat.push(sub));
+    } else {
+      flat.push(entry);
+    }
+  });
+  return flat;
+}
+
+const FLAT_NAV = buildFlatNav();
+
+/**
+ * Get previous and next sections for bottom navigation
+ * @param {string} currentId - Current section ID
+ * @returns {{ prev: object|null, next: object|null }}
+ */
+export function getAdjacentSections(currentId) {
+  const index = FLAT_NAV.findIndex((s) => s.id === currentId);
+  if (index === -1) return { prev: null, next: null };
+  return {
+    prev: index > 0 ? FLAT_NAV[index - 1] : null,
+    next: index < FLAT_NAV.length - 1 ? FLAT_NAV[index + 1] : null
+  };
+}
+
+// Site configuration (from tenant _manifest.json)
+export const SITE_CONFIG = ${configJson};
+`;
 }
 
 /**
@@ -1997,12 +2090,19 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
   const linkWarnings = [];
   const strictLinks = options.strictLinks !== false;
 
+  // Extract site configuration from manifest
+  const siteConfig = {
+    bottomNav: manifestData.bottomNav || 'mobile',
+    bottomNavSections: manifestData.bottomNavSections || []
+  };
+
   const context = {
     contentDir,
     sectionsDir,
     tenantId,
     keepFiles,
     leafOrder: [],
+    siteConfig,
     // Link transformation context
     sectionIndex,
     linkWarnings,
@@ -2021,7 +2121,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
   }
 
   const defaultSection = manifestData.default || manifestData.defaultSection || context.leafOrder[0];
-  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection);
+  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig);
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied manifest-driven content for ${tenantId}`);
 }

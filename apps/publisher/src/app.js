@@ -1,8 +1,10 @@
-import { MANIFEST, DEFAULT_SECTION, findSection } from './manifest.js';
+import { MANIFEST, DEFAULT_SECTION, findSection, getAdjacentSections, SITE_CONFIG } from './manifest.js';
 import { updateMetaTags } from './seo.js';
 import { escapeRegExp, filterSections, findPreferredIndex } from './lib/search.js';
 import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
 import { composeExportDocument, collectExportableSections } from './lib/export.js';
+import { renderMermaidBlocks } from './mermaid-init.js';
+import { highlightCodeBlocks } from './syntax-highlight.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -172,6 +174,15 @@ async function loadSection(entry) {
   const payload = await loader();
   app.innerHTML = payload.html || '';
 
+  // Render any mermaid diagrams in the content
+  await renderMermaidBlocks(app);
+
+  // Apply syntax highlighting to code blocks
+  await highlightCodeBlocks(app);
+
+  // Add bottom page navigation
+  renderBottomNav(entry.id);
+
   // Scroll to top of content area
   app.scrollTop = 0;
   window.scrollTo(0, 0);
@@ -185,6 +196,77 @@ async function loadSection(entry) {
   pendingHighlightScroll = false;
   applyHighlight(shouldScrollToHighlight);
   focusCanvas();
+}
+
+/**
+ * Render bottom page navigation (prev/next links)
+ * Visibility controlled by SITE_CONFIG.bottomNav: 'always' | 'mobile' | 'never'
+ * Per-section override via SITE_CONFIG.bottomNavSections array
+ */
+function renderBottomNav(currentId) {
+  // Remove existing bottom nav if present
+  const existing = app.querySelector('.bottom-nav');
+  if (existing) existing.remove();
+
+  // Check if bottom nav is disabled globally
+  if (SITE_CONFIG.bottomNav === 'never') return;
+
+  // Check for per-section override
+  const sectionOverrides = SITE_CONFIG.bottomNavSections || [];
+  const isSectionEnabled = sectionOverrides.some(prefix => currentId.startsWith(prefix));
+  const isMobileOnly = SITE_CONFIG.bottomNav === 'mobile' && !isSectionEnabled;
+
+  const { prev, next } = getAdjacentSections(currentId);
+  if (!prev && !next) return;
+
+  const nav = document.createElement('nav');
+  nav.className = 'bottom-nav';
+  if (isMobileOnly) {
+    nav.classList.add('mobile-only');
+  }
+
+  if (prev) {
+    const prevWrapper = document.createElement('div');
+    prevWrapper.className = 'bottom-nav-item bottom-nav-prev';
+    prevWrapper.innerHTML = `<span class="bottom-nav-chevron">\u2039</span>`;
+    const prevLink = document.createElement('a');
+    prevLink.href = `#${prev.id}`;
+    prevLink.className = 'bottom-nav-link';
+    prevLink.title = `Previous: ${prev.title}`;
+    prevLink.textContent = prev.title;
+    prevLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigate(prev.id);
+    });
+    prevWrapper.appendChild(prevLink);
+    nav.appendChild(prevWrapper);
+  } else {
+    // Empty spacer for alignment
+    const spacer = document.createElement('div');
+    spacer.className = 'bottom-nav-spacer';
+    nav.appendChild(spacer);
+  }
+
+  if (next) {
+    const nextWrapper = document.createElement('div');
+    nextWrapper.className = 'bottom-nav-item bottom-nav-next';
+    const nextLink = document.createElement('a');
+    nextLink.href = `#${next.id}`;
+    nextLink.className = 'bottom-nav-link';
+    nextLink.title = `Next: ${next.title}`;
+    nextLink.textContent = next.title;
+    nextLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigate(next.id);
+    });
+    nextWrapper.appendChild(nextLink);
+    nextWrapper.innerHTML += `<span class="bottom-nav-chevron">\u203a</span>`;
+    nav.appendChild(nextWrapper);
+  }
+
+  // Append to the section content
+  const section = app.querySelector('section') || app;
+  section.appendChild(nav);
 }
 
 function focusCanvas() {

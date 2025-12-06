@@ -42,6 +42,38 @@ ${chapter.html}
       .card, .card-grid, .card-grid > *, .section-body > * { break-inside: avoid; }
       pre { background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 4px; overflow-x: auto; }
       code { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      /* Spec table styling */
+      .spec-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+      .spec-table th, .spec-table td { padding: 0.75rem 1rem; text-align: left; border: 1px solid rgba(0,0,0,0.15); }
+      .spec-table th { background: rgba(0,0,0,0.05); font-weight: 600; }
+      .spec-table tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+      .spec-table td:first-child { width: 40%; }
+      /* Layer stack styling */
+      .layer-stack { display: flex; flex-direction: column; margin: 1.5rem 0; border: 2px solid #111; border-radius: 6px; overflow: hidden; }
+      .layer-stack .layer { padding: 1rem 1.25rem; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.15); }
+      .layer-stack .layer:last-child { border-bottom: none; }
+      .layer-stack .layer:first-child { background: rgba(0,0,0,0.02); }
+      .layer-stack .layer:nth-child(2) { background: rgba(0,0,0,0.04); }
+      .layer-stack .layer:nth-child(3) { background: rgba(0,0,0,0.06); }
+      .layer-stack .layer-title { font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem; }
+      .layer-stack .layer-desc, .layer-stack .layer-detail { font-size: 0.85rem; color: #666; }
+      /* HTML block container */
+      .html-block { margin: 1.5rem 0; }
+      /* Box diagram styling */
+      .box-diagram { border: 2px solid #111; border-radius: 6px; padding: 1.25rem; margin: 1.5rem 0; background: rgba(0,0,0,0.02); font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; white-space: pre-wrap; }
+      .box-diagram .box-title { font-weight: 700; font-size: 1rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(0,0,0,0.15); }
+      /* Syntax highlighting tokens */
+      .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #6a737d; font-style: italic; }
+      .token.punctuation { color: #24292e; }
+      .token.property, .token.tag, .token.constant, .token.symbol, .token.deleted { color: #d73a49; }
+      .token.boolean, .token.number { color: #005cc5; }
+      .token.selector, .token.attr-name, .token.string, .token.char, .token.builtin, .token.inserted { color: #22863a; }
+      .token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string { color: #d73a49; }
+      .token.atrule, .token.attr-value, .token.keyword { color: #d73a49; }
+      .token.function, .token.class-name { color: #6f42c1; }
+      .token.regex, .token.important, .token.variable { color: #e36209; }
+      .token.important, .token.bold { font-weight: bold; }
+      .token.italic { font-style: italic; }
       @media print {
         @page { size: A4; margin: 1in; }
         body { box-shadow: none; }
@@ -59,7 +91,23 @@ ${chapter.html}
       <ul>${toc || '<li>No sections</li>'}</ul>
     </div>
 ${body || '<p>No sections available.</p>'}
-    <script>window.addEventListener('load', () => window.focus());</script>
+    <script type="module">
+      import Prism from 'https://esm.sh/prismjs@1.29.0';
+      await Promise.all([
+        import('https://esm.sh/prismjs@1.29.0/components/prism-c'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-json'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-typescript'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-python'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-rust'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-go'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-bash'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-yaml'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-sql'),
+        import('https://esm.sh/prismjs@1.29.0/components/prism-solidity'),
+      ]);
+      Prism.highlightAll();
+      window.focus();
+    </script>
   </body>
 </html>`;
 }

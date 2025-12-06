@@ -210,3 +210,37 @@ MANIFEST.forEach((entry) => registerEntry(entry));
 export function findSection(id) {
   return SECTION_INDEX.get(id) || null;
 }
+
+// Build flat list of navigable sections for prev/next navigation
+function buildFlatNav() {
+  const flat = [];
+  MANIFEST.forEach((entry) => {
+    if (entry.subsections && entry.subsections.length) {
+      entry.subsections.forEach((sub) => flat.push(sub));
+    } else {
+      flat.push(entry);
+    }
+  });
+  return flat;
+}
+
+const FLAT_NAV = buildFlatNav();
+
+/**
+ * Get previous and next sections for bottom navigation
+ * @param {string} currentId - Current section ID
+ * @returns {{ prev: object|null, next: object|null }}
+ */
+export function getAdjacentSections(currentId) {
+  const index = FLAT_NAV.findIndex((s) => s.id === currentId);
+  if (index === -1) return { prev: null, next: null };
+  return {
+    prev: index > 0 ? FLAT_NAV[index - 1] : null,
+    next: index < FLAT_NAV.length - 1 ? FLAT_NAV[index + 1] : null
+  };
+}
+
+// Site configuration (can be overridden by tenant manifest)
+export const SITE_CONFIG = {
+  bottomNav: 'mobile' // 'always' | 'mobile' | 'never'
+};
