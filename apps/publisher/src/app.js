@@ -408,9 +408,15 @@ function renderCommandList() {
     const title = document.createElement('span');
     title.className = 'cmd-item-title';
     title.textContent = section.title;
+    if (section.group) {
+      const group = document.createElement('span');
+      group.className = 'cmd-item-group';
+      group.textContent = section.group;
+      title.prepend(group);
+    }
     const summary = document.createElement('span');
     summary.className = 'cmd-item-summary';
-    summary.textContent = section.summary;
+    summary.textContent = section.summary || '';
     item.append(title, summary);
     commandList.appendChild(item);
   });

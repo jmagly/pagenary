@@ -13,17 +13,45 @@ export function escapeRegExp(value) {
 }
 
 /**
+ * Flatten manifest into searchable sections.
+ * Returns all navigable sections (those with module paths).
+ * @param {Array} manifest - Nested manifest array
+ * @returns {Array} Flat array of searchable sections
+ */
+export function flattenManifest(manifest) {
+  const flat = [];
+  for (const entry of manifest) {
+    // Include top-level section if it has a module
+    if (entry.module) {
+      flat.push(entry);
+    }
+    // Include all subsections
+    if (entry.subsections) {
+      for (const sub of entry.subsections) {
+        flat.push({
+          ...sub,
+          group: entry.title // Track parent group for display
+        });
+      }
+    }
+  }
+  return flat;
+}
+
+/**
  * Filter sections by search query.
  * Matches against title and summary (case-insensitive).
+ * Searches both top-level and nested subsections.
  * @param {Array} manifest - Array of section objects with title and summary
  * @param {string} query - Search query
- * @returns {Array} Filtered sections
+ * @returns {Array} Filtered sections (flattened)
  */
 export function filterSections(manifest, query) {
+  const flat = flattenManifest(manifest);
   const q = query.trim().toLowerCase();
-  if (!q) return manifest;
-  return manifest.filter((section) => {
-    const haystack = `${section.title} ${section.summary}`.toLowerCase();
+  if (!q) return flat;
+  return flat.filter((section) => {
+    const haystack = `${section.title || ''} ${section.summary || ''} ${section.group || ''}`.toLowerCase();
     return haystack.includes(q);
   });
 }
