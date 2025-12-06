@@ -816,15 +816,30 @@ async function applyBranding(distDir, config, tenantId) {
   }
 }
 
-async function applyAccent(distDir, config, tenantId) {
-  if (!config.accentColor) return;
+async function applyThemeColors(distDir, config, tenantId) {
+  const hasColors = config.accentColor || config.surfaceColor;
+  if (!hasColors) return;
   const stylesPath = path.join(distDir, 'styles.css');
   if (!(await pathExists(stylesPath))) return;
   let css = await fsp.readFile(stylesPath, 'utf8');
-  const updated = css.replace(/(--accent:\s*)([^;]+);/, `$1${config.accentColor};`);
-  if (updated !== css) {
-    await fsp.writeFile(stylesPath, updated, 'utf8');
-    console.log(`  ↳ updated accent color for ${tenantId}`);
+  let modified = false;
+  if (config.accentColor) {
+    const updated = css.replace(/(--accent:\s*)([^;]+);/, `$1${config.accentColor};`);
+    if (updated !== css) {
+      css = updated;
+      modified = true;
+    }
+  }
+  if (config.surfaceColor) {
+    const updated = css.replace(/(--surface:\s*)([^;]+);/, `$1${config.surfaceColor};`);
+    if (updated !== css) {
+      css = updated;
+      modified = true;
+    }
+  }
+  if (modified) {
+    await fsp.writeFile(stylesPath, css, 'utf8');
+    console.log(`  ↳ updated theme colors for ${tenantId}`);
   }
 }
 
@@ -2284,7 +2299,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   // Apply branding and config
   if (Object.keys(config).length > 0) {
     await applyBranding(distDir, config, tenantId);
-    await applyAccent(distDir, config, tenantId);
+    await applyThemeColors(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }
 
