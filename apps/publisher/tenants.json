@@ -14,9 +14,8 @@
     {
       "id": "roko-kb",
       "source": {
-        "type": "git",
-        "url": "https://github.com/Roko-Network/roko-kb.git",
-        "ref": "main"
+        "type": "local",
+        "path": "/tmp/roko-kb-work"
       },
       "strictLinks": true
     }
