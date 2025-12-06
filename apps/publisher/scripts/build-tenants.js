@@ -816,6 +816,12 @@ async function applyBranding(distDir, config, tenantId) {
   }
 }
 
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return null;
+  return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
+}
+
 async function applyThemeColors(distDir, config, tenantId) {
   const hasColors = config.accentColor || config.surfaceColor;
   if (!hasColors) return;
@@ -831,10 +837,19 @@ async function applyThemeColors(distDir, config, tenantId) {
     }
   }
   if (config.surfaceColor) {
-    const updated = css.replace(/(--surface:\s*)([^;]+);/, `$1${config.surfaceColor};`);
+    // Update --surface hex value
+    let updated = css.replace(/(--surface:\s*)([^;]+);/, `$1${config.surfaceColor};`);
     if (updated !== css) {
       css = updated;
       modified = true;
+    }
+    // Update --surface-rgb for rgba() usage
+    const rgb = hexToRgb(config.surfaceColor);
+    if (rgb) {
+      updated = css.replace(/(--surface-rgb:\s*)([^;]+);/, `$1${rgb};`);
+      if (updated !== css) {
+        css = updated;
+      }
     }
   }
   if (modified) {
