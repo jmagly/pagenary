@@ -68,7 +68,9 @@ export async function buildSearchIndex(manifest) {
         let content = '';
         try {
           if (section.module) {
-            const mod = await import(section.module);
+            // Adjust path: module paths are relative to root, but we're in lib/
+            const modulePath = section.module.replace('./', '../');
+            const mod = await import(modulePath);
             if (mod.load) {
               const result = await mod.load();
               content = extractText(result.html || '');
