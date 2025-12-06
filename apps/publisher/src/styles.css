@@ -352,6 +352,12 @@ mark.hl {
   font-weight: 500;
 }
 
+.cmd-loading {
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+}
+
 .canvas {
   padding: clamp(2rem, 5vw, 5.5rem) clamp(1.5rem, 7vw, 7rem);
   display: grid;

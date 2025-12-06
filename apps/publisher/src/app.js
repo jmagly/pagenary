@@ -1,6 +1,6 @@
 import { MANIFEST, DEFAULT_SECTION, findSection, getAdjacentSections, SITE_CONFIG } from './manifest.js';
 import { updateMetaTags } from './seo.js';
-import { escapeRegExp, filterSections, findPreferredIndex } from './lib/search.js';
+import { escapeRegExp, searchContent, flattenManifest, findPreferredIndex } from './lib/search.js';
 import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
 import { composeExportDocument, collectExportableSections } from './lib/export.js';
 import { renderMermaidBlocks } from './mermaid-init.js';
@@ -380,13 +380,28 @@ function closeCommandPalette() {
   commandInput.blur();
 }
 
-function updateCommandEntries(query) {
+let searchDebounce = null;
+let isSearching = false;
+
+async function updateCommandEntries(query) {
   if (!commandList) return;
-  commandEntries = filterSections(MANIFEST, query);
-  const currentId = currentSectionId();
-  commandIndex = findPreferredIndex(commandEntries, currentId);
-  renderCommandList();
-  reflectCommandSelection();
+
+  // Show loading state on first search
+  if (!isSearching && query.trim()) {
+    isSearching = true;
+    commandList.innerHTML = '<li class="cmd-item cmd-loading">Indexing content...</li>';
+  }
+
+  // Debounce to avoid excessive searches while typing
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(async () => {
+    commandEntries = await searchContent(MANIFEST, query);
+    const currentId = currentSectionId();
+    commandIndex = findPreferredIndex(commandEntries, currentId);
+    renderCommandList();
+    reflectCommandSelection();
+    isSearching = false;
+  }, query.trim() ? 150 : 0);
 }
 
 function renderCommandList() {

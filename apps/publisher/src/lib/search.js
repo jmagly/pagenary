@@ -1,7 +1,10 @@
 /**
  * Search and filtering utilities.
- * Pure functions - no DOM dependencies.
  */
+
+// Cache for loaded section content
+let searchIndex = null;
+let indexPromise = null;
 
 /**
  * Escape special regex characters in a string.
@@ -39,12 +42,59 @@ export function flattenManifest(manifest) {
 }
 
 /**
- * Filter sections by search query.
- * Matches against title and summary (case-insensitive).
- * Searches both top-level and nested subsections.
- * @param {Array} manifest - Array of section objects with title and summary
+ * Extract plain text from HTML string.
+ * @param {string} html - HTML content
+ * @returns {string} Plain text
+ */
+function extractText(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+}
+
+/**
+ * Build search index by loading all section modules.
+ * @param {Array} manifest - The manifest array
+ * @returns {Promise<Array>} Indexed sections with content
+ */
+export async function buildSearchIndex(manifest) {
+  if (searchIndex) return searchIndex;
+  if (indexPromise) return indexPromise;
+
+  indexPromise = (async () => {
+    const flat = flattenManifest(manifest);
+    const indexed = await Promise.all(
+      flat.map(async (section) => {
+        let content = '';
+        try {
+          if (section.module) {
+            const mod = await import(section.module);
+            if (mod.load) {
+              const result = await mod.load();
+              content = extractText(result.html || '');
+            }
+          }
+        } catch (e) {
+          // Module failed to load, search by title/summary only
+        }
+        return {
+          ...section,
+          searchContent: `${section.title || ''} ${section.summary || ''} ${section.group || ''} ${content}`.toLowerCase()
+        };
+      })
+    );
+    searchIndex = indexed;
+    return indexed;
+  })();
+
+  return indexPromise;
+}
+
+/**
+ * Filter sections by search query (title/summary only, synchronous).
+ * @param {Array} manifest - Array of section objects
  * @param {string} query - Search query
- * @returns {Array} Filtered sections (flattened)
+ * @returns {Array} Filtered sections
  */
 export function filterSections(manifest, query) {
   const flat = flattenManifest(manifest);
@@ -54,6 +104,20 @@ export function filterSections(manifest, query) {
     const haystack = `${section.title || ''} ${section.summary || ''} ${section.group || ''}`.toLowerCase();
     return haystack.includes(q);
   });
+}
+
+/**
+ * Full-text search across all section content.
+ * Loads all modules on first call (cached thereafter).
+ * @param {Array} manifest - The manifest array
+ * @param {string} query - Search query
+ * @returns {Promise<Array>} Matching sections
+ */
+export async function searchContent(manifest, query) {
+  const index = await buildSearchIndex(manifest);
+  const q = query.trim().toLowerCase();
+  if (!q) return index;
+  return index.filter((section) => section.searchContent.includes(q));
 }
 
 /**
