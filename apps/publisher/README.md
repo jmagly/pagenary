@@ -29,6 +29,38 @@ npm run serve       # Preview on http://localhost:5173
 - **HTML Components** - Spec tables, layer stacks, box diagrams, cards
 - **Internal Links** - Auto-resolved `#section-id` links in Markdown
 
+### External Links
+- **Navigation Links** - Add external URLs directly in manifest with `url` property
+- **Smart Link Handling** - All external links open in new tab with security headers
+- **Visual Indicators** - Subtle ↗ icon shows external destinations
+- **CTA Styling** - Button-like `external-cta` class for prominent external links
+
+**External navigation example** (manifest.json):
+```json
+[
+  { "id": "welcome", "title": "Welcome", "file": "welcome.md" },
+  { "title": "External Resource", "url": "https://example.com" }
+]
+```
+
+**External links in Markdown** (auto-handled):
+```markdown
+Visit our [support portal](https://support.example.com) for help.
+```
+
+**Prominent CTA in HTML**:
+```html
+<a href="https://example.com" target="_blank" rel="noopener noreferrer" class="external-cta">
+  Get Started →
+</a>
+```
+
+**Security & UX:**
+- All external links use `target="_blank"` and `rel="noopener noreferrer"` by default
+- Navigation external links show ↗ indicator
+- Content external links styled with subtle ↗ after link text
+- No configuration needed - works automatically for `http://` and `https://` URLs
+
 ### Navigation & Search
 - **Command Palette** - `Ctrl/Cmd+K` or `/` opens global finder
 - **Full-Text Search** - Searches all content, not just titles
@@ -140,6 +172,22 @@ export async function load() {
     { "id": "endpoints", "title": "Endpoints", "file": "endpoints.md" }
   ]
 }
+```
+
+**External links in manifest** (use `url` instead of `id`):
+```json
+[
+  { "id": "welcome", "title": "Welcome", "file": "welcome.md" },
+  { "title": "Support Portal", "url": "https://support.example.com" },
+  {
+    "id": "resources",
+    "title": "Resources",
+    "subsections": [
+      { "id": "guides/overview", "title": "Overview", "file": "guides/overview.md" },
+      { "title": "API Docs", "url": "https://api.example.com/docs" }
+    ]
+  }
+]
 ```
 
 ### Branding Configuration

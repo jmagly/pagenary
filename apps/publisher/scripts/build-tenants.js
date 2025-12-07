@@ -944,7 +944,10 @@ function parseInlineMarkdown(input, linkContext = null) {
     const resolvedHref = linkContext
       ? transformInternalLink(href, linkContext)
       : href;
-    return `<a href="${escapeAttribute(resolvedHref)}">${escapeHtml(label)}</a>`;
+    // External links open in new tab by default
+    const isExternal = /^https?:\/\//i.test(resolvedHref);
+    const attrs = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+    return `<a href="${escapeAttribute(resolvedHref)}"${attrs}>${escapeHtml(label)}</a>`;
   });
   // Bold: **text**
   output = output.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -953,7 +956,11 @@ function parseInlineMarkdown(input, linkContext = null) {
   return escapeHtml(output)
     .replace(/&lt;strong&gt;([^]*?)&lt;\/strong&gt;/g, '<strong>$1</strong>')
     .replace(/&lt;em&gt;([^]*?)&lt;\/em&gt;/g, '<em>$1</em>')
-    .replace(/&lt;a href=&quot;([^&]*)&quot;&gt;([^]*?)&lt;\/a&gt;/g, '<a href="$1">$2</a>');
+    .replace(/&lt;a href=&quot;([^&]*)&quot;(?: target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;)?&gt;([^]*?)&lt;\/a&gt;/g, (_, href, text) => {
+      const isExternal = /^https?:\/\//i.test(href);
+      const attrs = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+      return `<a href="${href}"${attrs}>${text}</a>`;
+    });
 }
 
 /**
