@@ -1679,12 +1679,25 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
     }
   }
 
+  // Add external links from manifest (entries with url property)
+  if (manifest?.sections) {
+    for (const entry of manifest.sections) {
+      if (entry.url) {
+        sections.push({
+          title: entry.title,
+          summary: entry.summary || '',
+          url: entry.url
+        });
+      }
+    }
+  }
+
   // Apply ordering from manifest or sort alphabetically
   if (manifest?.order && Array.isArray(manifest.order)) {
     const orderMap = new Map(manifest.order.map((id, idx) => [id, idx]));
     sections.sort((a, b) => {
-      const aOrder = orderMap.get(a.id) ?? orderMap.get(a.id.split('/').pop()) ?? 999;
-      const bOrder = orderMap.get(b.id) ?? orderMap.get(b.id.split('/').pop()) ?? 999;
+      const aOrder = a.id ? (orderMap.get(a.id) ?? orderMap.get(a.id.split('/').pop()) ?? 999) : 999;
+      const bOrder = b.id ? (orderMap.get(b.id) ?? orderMap.get(b.id.split('/').pop()) ?? 999) : 999;
       return aOrder - bOrder;
     });
   } else {
@@ -1723,7 +1736,13 @@ async function materializeScannedSections(sections, context) {
   const processed = [];
 
   for (const section of sections) {
-    const { id, title, summary, file, subsections } = section;
+    const { id, title, summary, file, subsections, url } = section;
+
+    // Pass through external links without processing
+    if (url) {
+      processed.push({ title, summary, url });
+      continue;
+    }
 
     // Process subsections recursively
     let processedSubsections;
