@@ -21,6 +21,20 @@ The dev command builds to `dist/` and serves the bundle with live reload. Open t
 - `src/manifest.js` – default navigation structure (overridden per tenant via `tenants/<id>/manifest.json`)
 - `scripts/` – small Node utilities for building, serving, syncing sections, linting content, and checking SEO metadata
 
+## Key Features
+
+1. **Mermaid Diagrams** - Use fenced code blocks with `mermaid` language. Renders with zoom/pan controls and pan-on-drag functionality.
+
+2. **External Links** - Links to external URLs (http/https) automatically open in new tab with security attributes. Use `url` property in manifest for external nav links.
+
+3. **Internal Linking** - Link between sections with `#section-id` syntax. Build validates that all internal links reference existing sections.
+
+4. **Bottom Navigation** - Configurable via `bottomNav` in root manifest. Options: "mobile" (default), "always", or "never".
+
+5. **Command Palette** - Press Ctrl+K (or Cmd+K) to search and navigate sections. Supports fuzzy search across section titles and summaries.
+
+See TENANT-CONFIG.md for full configuration details and examples.
+
 ## Common Tasks
 - **Add a Section** – create `src/sections/my-section.js`, set the `SECTION_ID`, update `manifest.js`.
 - **Regenerate Templates** – run `npm run sync:docs` to reset section boilerplate if you need a clean slate.

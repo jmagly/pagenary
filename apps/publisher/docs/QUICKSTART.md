@@ -24,6 +24,14 @@ npm run serve
 # Visit http://localhost:5173 to see the default docs
 ```
 
+## Key Features
+
+Pagenary includes several powerful features out of the box:
+
+- **Command Palette** - Press `Ctrl+K` (or `Cmd+K` on Mac) to quickly navigate, search, and export
+- **Mermaid Diagrams** - Embed flowcharts, sequence diagrams, and more using Mermaid syntax
+- **Smart External Links** - External links automatically open in new tabs with security headers
+
 ## Step 2: Create Your Tenant Directory
 
 Create a new directory for your documentation (can be anywhere on your system):

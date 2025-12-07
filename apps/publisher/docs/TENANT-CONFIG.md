@@ -145,14 +145,43 @@ Located at tenant root, defines top-level navigation:
 
 | Property | Required | Description |
 |----------|----------|-------------|
-| `id` | Yes | Unique section identifier (used in URLs) |
+| `id` | Yes* | Unique section identifier (used in URLs) |
 | `title` | Yes | Display title in navigation |
 | `summary` | No | Description shown in search results |
-| `file` | Yes* | Path to content file (relative to `content/`) |
+| `file` | No** | Path to content file (relative to `content/`) |
+| `url` | No** | External link URL (opens in new tab) |
 | `subsections` | No | Array of child sections |
 | `exclude` | No | Exclude from build (`true` to skip) |
 
-*Required unless section is a group with only subsections.
+*Not required for external links
+**Use either `file` OR `url`, not both
+
+### External Links in Navigation
+
+Manifest entries can link to external resources using `url` instead of `id`/`file`:
+
+```json
+[
+  {
+    "id": "docs",
+    "title": "Documentation",
+    "file": "docs.md"
+  },
+  {
+    "title": "GitHub",
+    "url": "https://github.com/example/repo"
+  },
+  {
+    "title": "Support Portal",
+    "url": "https://support.example.com"
+  }
+]
+```
+
+External links automatically:
+- Open in new tab (`target="_blank"`)
+- Display subtle arrow icon indicator (↗)
+- Skip URL hash routing
 
 ### Section Manifest (_manifest.json)
 
@@ -185,6 +214,56 @@ If no `manifest.json` exists, the build system auto-generates navigation from th
 - Directories become groups
 - `_manifest.json` in directories customizes the group
 
+## Bottom Navigation
+
+Configure bottom navigation bar behavior in root `_manifest.json` or `manifest.json`:
+
+```json
+{
+  "bottomNav": "always",
+  "bottomNavSections": ["getting-started", "api-reference", "faq"],
+  "sections": [
+    // ... section definitions
+  ]
+}
+```
+
+### Bottom Navigation Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `bottomNav` | string | `"mobile"` | When to show bottom nav: `"mobile"`, `"always"`, or `"never"` |
+| `bottomNavSections` | string[] | `[]` | Section IDs to include (empty array = all sections) |
+
+**Behavior:**
+- `"mobile"` - Show only on small screens (default)
+- `"always"` - Show on all screen sizes
+- `"never"` - Hide bottom navigation completely
+
+**Examples:**
+
+Show all sections on mobile only (default):
+```json
+{
+  "bottomNav": "mobile"
+}
+```
+
+Show specific sections always:
+```json
+{
+  "bottomNav": "always",
+  "bottomNavSections": ["home", "docs", "api"]
+}
+```
+
+Hide bottom navigation:
+```json
+{
+  "bottomNav": "never"
+}
+```
+
 ## Content Files
 
 ### Markdown (.md)
@@ -192,8 +271,9 @@ If no `manifest.json` exists, the build system auto-generates navigation from th
 Full CommonMark support plus:
 
 - Fenced code blocks with syntax highlighting
-- Mermaid diagrams in `mermaid` code blocks
+- Mermaid diagrams with interactive controls
 - Internal links via `#section-id`
+- External links auto-open in new tab
 
 ```markdown
 # Page Title
@@ -214,6 +294,62 @@ graph LR
 \`\`\`
 
 See also: [Getting Started](#guides/getting-started)
+
+Learn more: [GitHub](https://github.com/example)
+```
+
+#### External Links in Content
+
+All HTTP/HTTPS links in markdown automatically:
+- Open in new tab (`target="_blank"`)
+- Display subtle ↗ indicator via CSS
+- Include security attributes (`rel="noopener noreferrer"`)
+
+**Standard external link:**
+```markdown
+Visit our [GitHub repository](https://github.com/example/repo).
+```
+
+**Prominent call-to-action link:**
+```html
+<a href="https://example.com/signup" class="external-cta">
+  Sign Up Now →
+</a>
+```
+
+The `.external-cta` class provides enhanced styling for important external links.
+
+#### Mermaid Diagrams
+
+Mermaid diagrams render with interactive controls:
+
+**Features:**
+- **Zoom controls**: +/− buttons for zoom in/out
+- **Reset button**: ⊙ restores original view
+- **Pan**: Click and drag to move diagram
+- **Pinch zoom**: Touch devices support pinch gestures
+- **Auto-scroll**: Diagrams larger than viewport are scrollable
+
+**Supported diagram types:**
+- Flowcharts (`graph`, `flowchart`)
+- Sequence diagrams (`sequenceDiagram`)
+- Class diagrams (`classDiagram`)
+- State diagrams (`stateDiagram`)
+- ER diagrams (`erDiagram`)
+- User journey (`journey`)
+- Gantt charts (`gantt`)
+- And more (see Mermaid documentation)
+
+**Example:**
+```markdown
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action 1]
+    B -->|No| D[Action 2]
+    C --> E[End]
+    D --> E
+\`\`\`
 ```
 
 ### HTML (.html)
@@ -295,6 +431,7 @@ export async function load() {
 | `.content-box` | Bordered content box |
 | `.box-title` | Box heading |
 | `.html-block` | HTML content wrapper |
+| `.external-cta` | Prominent external link button |
 
 ### Typography
 
