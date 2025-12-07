@@ -29,12 +29,33 @@ let paletteOpen = false;
 let highlightQuery = (localStorage.getItem(COMMAND_QUERY_KEY) || '').trim();
 let pendingHighlightScroll = false;
 
+function createExternalLink(item, className) {
+  const link = document.createElement('a');
+  link.href = item.url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.className = `${className} nav-external`;
+  link.title = item.summary || item.title;
+  link.innerHTML = `
+    <span class="nav-title">${item.title}<span class="nav-external-icon" aria-label="(opens in new tab)">↗</span></span>
+    ${item.summary ? `<span class="nav-summary">${item.summary}</span>` : ''}
+  `;
+  return link;
+}
+
 function initNav() {
   nav.innerHTML = '';
   navButtons.clear();
   navGroups.clear();
   let groupApplied = expandedGroups.size > 0;
   MANIFEST.forEach((section, index) => {
+    // Handle external links at top level
+    if (section.url) {
+      const link = createExternalLink(section, 'nav-leaf');
+      nav.appendChild(link);
+      return;
+    }
+
     if (section.subsections && section.subsections.length) {
       const group = document.createElement('div');
       group.className = 'nav-group';
@@ -55,6 +76,13 @@ function initNav() {
       const list = document.createElement('div');
       list.className = 'nav-sublist';
       section.subsections.forEach((sub) => {
+        // Handle external links in subsections
+        if (sub.url) {
+          const link = createExternalLink(sub, 'nav-item');
+          list.appendChild(link);
+          return;
+        }
+
         const childBtn = document.createElement('button');
         childBtn.type = 'button';
         childBtn.className = 'nav-item';

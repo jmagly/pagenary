@@ -247,6 +247,45 @@ a:focus {
   background: rgba(0, 0, 0, 0.05);
 }
 
+/* External links in nav */
+.nav-external {
+  all: unset;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem 0.9rem 0.75rem 1.1rem;
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+}
+
+.nav-external:hover,
+.nav-external:focus-visible {
+  border-color: var(--grid-line);
+  border-left-color: var(--ink);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.nav-external .nav-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.nav-external-icon {
+  font-size: 0.7em;
+  color: var(--muted);
+  opacity: 0.7;
+  transition: opacity 160ms ease;
+}
+
+.nav-external:hover .nav-external-icon {
+  opacity: 1;
+}
+
 mark.hl {
   background: var(--highlight-bg);
   border-bottom: 1px solid var(--highlight-border);
