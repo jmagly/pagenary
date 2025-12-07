@@ -951,8 +951,8 @@ function parseInlineMarkdown(input, linkContext = null) {
   });
   // Bold: **text**
   output = output.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  // Italic: _text_
-  output = output.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // Italic: _text_ (only at word boundaries, not inside HTML attributes like target="_blank")
+  output = output.replace(/(?<!["\w])_([^_]+)_(?!["\w])/g, '<em>$1</em>');
   return escapeHtml(output)
     .replace(/&lt;strong&gt;([^]*?)&lt;\/strong&gt;/g, '<strong>$1</strong>')
     .replace(/&lt;em&gt;([^]*?)&lt;\/em&gt;/g, '<em>$1</em>')
