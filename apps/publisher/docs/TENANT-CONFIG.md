@@ -1,0 +1,355 @@
+# Tenant Configuration Reference
+
+Complete reference for all tenant configuration options.
+
+## Tenant Registry (tenants.json)
+
+Located at `apps/publisher/tenants.json`, this file registers all tenants:
+
+```json
+{
+  "tenant-id": {
+    "source": "/path/to/content",
+    "domain": "docs.example.com"
+  }
+}
+```
+
+### Registry Properties
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `source` | Yes | Path to tenant content directory |
+| `domain` | No | Custom domain for Caddy routing |
+
+### Source Types
+
+**Local Path:**
+```json
+{
+  "my-docs": {
+    "source": "/home/user/my-docs"
+  }
+}
+```
+
+**Git Repository:**
+```json
+{
+  "my-docs": {
+    "source": "git:https://github.com/org/my-docs.git#main"
+  }
+}
+```
+
+Format: `git:<repo-url>#<branch>`
+
+Git sources are cloned to a cache directory and updated on each build.
+
+## Tenant Directory Structure
+
+```
+my-tenant/
+├── config.json           # Branding and theme (required)
+├── manifest.json         # Navigation structure (optional)
+├── content/              # Content files
+│   ├── *.md              # Markdown files
+│   ├── *.html            # HTML files
+│   ├── *.js              # JavaScript modules
+│   └── section/          # Nested directories
+│       └── _manifest.json
+└── overrides/            # Post-build replacements (optional)
+    └── styles.css        # Replace built files
+```
+
+## Branding Configuration (config.json)
+
+### Complete Example
+
+```json
+{
+  "title": "ACME Documentation",
+  "description": "Complete guide to the ACME platform",
+  "brandMark": "ACME",
+  "brandSub": "Docs",
+  "tagline": "Build better, faster",
+  "copyright": "ACME Corporation",
+  "accentColor": "#6366F1",
+  "surfaceColor": "#F7FAFC"
+}
+```
+
+### Properties Reference
+
+#### Site Metadata
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `title` | string | "Docs Toolkit" | Browser tab title and header |
+| `description` | string | - | Meta description for SEO |
+
+#### Branding
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `brandMark` | string | "DOCS" | Primary brand text (bold, uppercase) |
+| `brandSub` | string | "TOOLKIT" | Secondary brand text (light weight) |
+| `tagline` | string | - | Subtitle displayed under brand |
+| `copyright` | string | "Modular Documentation Toolkit" | Footer copyright text |
+
+#### Theme Colors
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `accentColor` | hex string | "#111111" | Links, buttons, active states |
+| `surfaceColor` | hex string | "#ffffff" | Page background color |
+
+Color values must be 6-digit hex codes (e.g., `#6366F1`).
+
+## Navigation Manifest (manifest.json)
+
+### Root Manifest
+
+Located at tenant root, defines top-level navigation:
+
+```json
+[
+  {
+    "id": "welcome",
+    "title": "Welcome",
+    "summary": "Introduction to the platform",
+    "file": "welcome.md"
+  },
+  {
+    "id": "guides",
+    "title": "Guides",
+    "summary": "Step-by-step tutorials",
+    "subsections": [
+      {
+        "id": "guides/getting-started",
+        "title": "Getting Started",
+        "summary": "First steps",
+        "file": "guides/getting-started.md"
+      },
+      {
+        "id": "guides/advanced",
+        "title": "Advanced",
+        "file": "guides/advanced.md"
+      }
+    ]
+  }
+]
+```
+
+### Section Properties
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `id` | Yes | Unique section identifier (used in URLs) |
+| `title` | Yes | Display title in navigation |
+| `summary` | No | Description shown in search results |
+| `file` | Yes* | Path to content file (relative to `content/`) |
+| `subsections` | No | Array of child sections |
+| `exclude` | No | Exclude from build (`true` to skip) |
+
+*Required unless section is a group with only subsections.
+
+### Section Manifest (_manifest.json)
+
+Located in content subdirectories for nested navigation:
+
+```json
+{
+  "title": "API Reference",
+  "summary": "Complete API documentation",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "file": "overview.md"
+    },
+    {
+      "id": "endpoints",
+      "title": "Endpoints",
+      "file": "endpoints.md"
+    }
+  ]
+}
+```
+
+### Auto-Generated Manifest
+
+If no `manifest.json` exists, the build system auto-generates navigation from the `content/` directory structure:
+
+- Files become sections (filename → title)
+- Directories become groups
+- `_manifest.json` in directories customizes the group
+
+## Content Files
+
+### Markdown (.md)
+
+Full CommonMark support plus:
+
+- Fenced code blocks with syntax highlighting
+- Mermaid diagrams in `mermaid` code blocks
+- Internal links via `#section-id`
+
+```markdown
+# Page Title
+
+Regular markdown content.
+
+## Code Example
+
+\`\`\`javascript
+const x = 1;
+\`\`\`
+
+## Diagram
+
+\`\`\`mermaid
+graph LR
+    A --> B
+\`\`\`
+
+See also: [Getting Started](#guides/getting-started)
+```
+
+### HTML (.html)
+
+Direct HTML with access to built-in CSS classes:
+
+```html
+<section class="section doc markdown">
+  <div class="doc-content">
+    <h1>Custom Section</h1>
+
+    <table class="spec-table">
+      <thead>
+        <tr><th>Feature</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Search</td><td>Ready</td></tr>
+      </tbody>
+    </table>
+
+    <div class="layer-stack">
+      <div class="layer">
+        <div class="layer-title">Layer 1</div>
+        <div class="layer-desc">Description</div>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+### JavaScript (.js)
+
+Dynamic content modules:
+
+```javascript
+export async function load() {
+  // Fetch data, compute values, etc.
+  const data = await fetch('/api/data.json').then(r => r.json());
+
+  return {
+    html: `
+      <section class="section doc">
+        <h1>Dynamic Content</h1>
+        <p>Value: ${data.value}</p>
+      </section>
+    `,
+    afterRender(container) {
+      // Optional: DOM manipulation after render
+      container.querySelector('button')?.addEventListener('click', () => {
+        // Handle click
+      });
+    }
+  };
+}
+```
+
+## CSS Classes Reference
+
+### Layout
+
+| Class | Description |
+|-------|-------------|
+| `.section` | Section container |
+| `.doc` | Document-style section |
+| `.markdown` | Apply markdown typography |
+| `.doc-content` | Content wrapper |
+
+### Components
+
+| Class | Description |
+|-------|-------------|
+| `.spec-table` | Styled data table |
+| `.layer-stack` | Vertical layer diagram |
+| `.layer` | Individual layer in stack |
+| `.layer-title` | Layer heading |
+| `.layer-desc` | Layer description |
+| `.card` | Card component |
+| `.card-grid` | Grid of cards |
+| `.content-box` | Bordered content box |
+| `.box-title` | Box heading |
+| `.html-block` | HTML content wrapper |
+
+### Typography
+
+| Class | Description |
+|-------|-------------|
+| `.doc-h1` through `.doc-h4` | Heading styles |
+| `.doc-list` | Styled list |
+| `.doc-grid` | Two-column grid |
+
+## Overrides Directory
+
+Files in `overrides/` replace built files after the build completes:
+
+```
+my-tenant/
+└── overrides/
+    ├── styles.css      # Replace default styles
+    └── favicon.ico     # Custom favicon
+```
+
+Use for:
+- Custom stylesheets
+- Custom favicons
+- Additional assets
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BUILD_OUTPUT` | `dist/` | Output directory |
+| `DOCS_TOOLKIT_PORT` | `80` | Caddy server port |
+| `PORT` | `5173` | Dev server port |
+
+## Build Modes
+
+### Full Build
+
+```bash
+npm run build:tenants my-tenant
+```
+
+Rebuilds everything from scratch.
+
+### Incremental Build
+
+```bash
+npm run build:incremental my-tenant
+```
+
+Only rebuilds files changed since last build (git-aware).
+
+### All Tenants
+
+```bash
+npm run build:tenants
+```
+
+Builds all registered tenants.
