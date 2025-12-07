@@ -366,7 +366,26 @@ mark.hl {
   min-height: 0;
   height: 100%;
   overflow-y: auto;
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+/* Custom scrollbar styling - minimal black line aesthetic */
+.canvas::-webkit-scrollbar {
+  width: 6px;
+}
+
+.canvas::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.canvas::-webkit-scrollbar-thumb {
+  background: var(--ink);
+  border-radius: 3px;
+}
+
+.canvas::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 .doc-content {
@@ -655,12 +674,27 @@ mark.hl {
   }
 
   .canvas {
-    padding: 1.5rem 1rem;
+    padding: 1.5rem 0.65rem;
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     max-width: 100%;
     min-width: 0;
+    scrollbar-gutter: unset;
+  }
+
+  /* Minimal mobile scrollbar */
+  .canvas::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  .canvas::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .canvas::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 2px;
   }
 
   .section {
@@ -764,6 +798,130 @@ mark.hl {
   }
 
   .divider {
+    display: none;
+  }
+
+  /* Special content elements - ensure responsive sizing */
+  .mermaid-diagram {
+    margin: 1rem 0;
+  }
+
+  .mermaid-content {
+    max-height: 50vh;
+  }
+
+  .mermaid-content svg {
+    min-width: 500px;
+  }
+
+  .arch-diagram,
+  .spec-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .content-box .box-content {
+    font-size: 0.7rem;
+    line-height: 1.4;
+    max-height: 50vh;
+    padding: 0.75rem;
+  }
+
+  /* HTML blocks with embedded tables/diagrams */
+  .html-block {
+    margin: 1rem 0;
+    border: 1px solid var(--grid-line);
+    border-radius: 6px;
+    padding: 0;
+  }
+
+  .html-block .arch-diagram {
+    min-width: 450px;
+    border: none;
+    border-radius: 0;
+  }
+
+  .html-block .arch-diagram caption {
+    border-radius: 6px 6px 0 0;
+  }
+
+  /* Ensure all SVGs scale properly */
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Feature grids and lists */
+  .feature-grid,
+  .feature-list {
+    display: block;
+  }
+
+  .feature-grid > *,
+  .feature-list > * {
+    margin-bottom: 1rem;
+  }
+
+  /* HTML blocks with custom content */
+  .html-block {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  /* Bottom navigation responsive */
+  .bottom-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .bottom-nav .bottom-nav-item {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    position: relative;
+  }
+
+  .bottom-nav .bottom-nav-prev,
+  .bottom-nav .bottom-nav-next {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .bottom-nav .bottom-nav-chevron {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    font-size: 1.1rem;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  .bottom-nav .bottom-nav-prev .bottom-nav-chevron {
+    left: 0.5rem;
+  }
+
+  .bottom-nav .bottom-nav-next .bottom-nav-chevron {
+    right: 0.5rem;
+  }
+
+  .bottom-nav .bottom-nav-link {
+    display: block;
+    width: 100%;
+    text-align: center;
+    white-space: normal;
+    padding: 0.6rem 2rem;
+    font-size: 0.85rem;
+  }
+
+  .bottom-nav .bottom-nav-spacer {
     display: none;
   }
 }
@@ -1018,16 +1176,61 @@ mark.hl {
 
 .mermaid-diagram {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   margin: 1.5rem 0;
-  padding: 1rem;
-  overflow-x: auto;
   background: var(--surface);
+  border: 1px solid var(--grid-line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mermaid-controls {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid var(--grid-line);
+}
+
+.mermaid-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1px solid var(--grid-line);
   border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--ink);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mermaid-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: var(--ink);
+}
+
+.mermaid-btn:active {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.mermaid-content {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem;
+  max-height: 70vh;
+}
+
+.mermaid-content svg {
+  display: block;
+  transition: transform 0.15s ease;
 }
 
 .mermaid-diagram svg {
-  max-width: 100%;
+  max-width: none;
   height: auto;
 }
 
@@ -1074,7 +1277,7 @@ pre:has(code.language-mermaid)::after {
   border: 1px solid var(--grid-line);
   border-radius: 6px;
   background: var(--surface);
-  overflow: visible;
+  overflow: hidden;
   min-height: 50px;
 }
 
@@ -1119,11 +1322,14 @@ pre:has(code.language-mermaid)::after {
 
 .html-block {
   margin: 1.5rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Architecture diagram table styling */
 .arch-diagram {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   border: 2px solid var(--ink);
   font-family: var(--font-body);
@@ -1305,8 +1511,8 @@ pre:has(code.language-mermaid)::after {
 }
 
 .bottom-nav-link:hover {
-  border-color: var(--accent);
-  background: rgba(0, 0, 0, 0.02);
+  border-color: var(--ink);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .bottom-nav-spacer {
