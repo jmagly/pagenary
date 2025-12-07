@@ -347,7 +347,7 @@ if (commandToggle && commandPalette && commandInput && commandList) {
     const target = event.target;
     const isTypingContext = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
     const isModifier = event.metaKey || event.ctrlKey;
-    if ((event.key === 'k' && isModifier) || (event.key === '/' && !isTypingContext)) {
+    if ((event.key.toLowerCase() === 'k' && isModifier) || (event.key === '/' && !isTypingContext)) {
       event.preventDefault();
       if (paletteOpen) closeCommandPalette();
       else openCommandPalette();
