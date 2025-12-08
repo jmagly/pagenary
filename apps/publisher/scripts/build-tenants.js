@@ -1013,7 +1013,8 @@ function parseInlineMarkdown(input, linkContext = null) {
     // External links open in new tab by default
     const isExternal = /^https?:\/\//i.test(resolvedHref);
     const attrs = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
-    return `<a href="${escapeAttribute(resolvedHref)}"${attrs}>${escapeHtml(label)}</a>`;
+    // Don't escape label here - it will be escaped by the final escapeHtml call
+    return `<a href="${escapeAttribute(resolvedHref)}"${attrs}>${label}</a>`;
   });
   // Bold: **text**
   output = output.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
