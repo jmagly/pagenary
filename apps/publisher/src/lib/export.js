@@ -6,9 +6,50 @@
 /**
  * Compose a complete HTML export document from chapters.
  * @param {Array<{section: {title: string, summary?: string}, html: string}>} chapters - Array of chapter objects
+ * @param {object} [config={}] - Export branding configuration
+ * @param {string} [config.title] - Document title
+ * @param {string} [config.brandMark] - Primary brand text
+ * @param {string} [config.brandSub] - Secondary brand text
+ * @param {string} [config.tagline] - Brand tagline
+ * @param {string|null} [config.logo] - Logo as data URI or null
+ * @param {boolean} [config.showTagline=true] - Whether to show tagline
+ * @param {boolean} [config.showDate=true] - Whether to show generation date
  * @returns {string} Complete HTML document
  */
-export function composeExportDocument(chapters) {
+export function composeExportDocument(chapters, config = {}) {
+  const {
+    title = 'Documentation Export',
+    brandMark = 'Docs',
+    brandSub = 'Toolkit',
+    tagline = '',
+    logo = null,
+    showTagline = true,
+    showDate = true
+  } = config;
+
+  const date = new Date().toLocaleString();
+
+  // Build brand name with optional sub
+  const brandName = brandSub
+    ? `<span class="brand-mark">${brandMark}</span><span class="brand-sub">${brandSub}</span>`
+    : brandMark;
+
+  // Build header components
+  const logoHtml = logo
+    ? `<img src="${logo}" alt="" class="export-logo" aria-hidden="true" />`
+    : '';
+
+  const taglineHtml = showTagline && tagline
+    ? `<p class="tagline">${tagline}</p>`
+    : '';
+
+  const dateHtml = showDate
+    ? `<p class="meta">Generated ${date}</p>`
+    : '';
+
+  // Determine header class based on content
+  const headerClass = logo ? 'export-header--logo-text' : 'export-header--text-only';
+
   const toc = chapters.map((chapter, index) => `
         <li>${index + 1}. ${chapter.section.title}</li>`).join('');
   const body = chapters.map((chapter, index) => `
@@ -24,13 +65,21 @@ ${chapter.html}
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Docs Toolkit Export</title>
+    <title>${title}</title>
     <style>
       :root { color-scheme: light; font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
       body { margin: 0 auto; padding: 2.5rem; max-width: 820px; color: #111; line-height: 1.6; }
+      /* Export header styling */
       header { text-align: center; margin-bottom: 3rem; }
-      h1 { font-size: 2.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem; }
-      .meta { color: #666; font-size: 0.9rem; }
+      .export-brand { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 0.5rem; }
+      .export-header--logo-text .export-brand { flex-direction: row; }
+      .export-header--text-only .export-brand { flex-direction: column; gap: 0; }
+      .export-logo { max-height: 48px; width: auto; }
+      h1 { font-size: 2.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin: 0; line-height: 1; }
+      .brand-mark { font-weight: 700; }
+      .brand-sub { font-weight: 400; opacity: 0.85; }
+      .tagline { color: #666; font-size: 0.95rem; margin: 0.5rem 0 0 0; font-style: italic; }
+      .meta { color: #666; font-size: 0.9rem; margin: 0.5rem 0 0 0; }
       .toc { border: 1px solid rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 2.5rem; background: rgba(0,0,0,0.02); }
       .toc h2 { margin-top: 0; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem; }
       .toc ul { margin: 0; padding-left: 1.2rem; }
@@ -42,7 +91,12 @@ ${chapter.html}
       .card, .card-grid, .card-grid > *, .section-body > * { break-inside: avoid; }
       pre { background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 4px; overflow-x: auto; }
       code { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-      /* Spec table styling */
+      /* Table styling */
+      table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+      th, td { padding: 0.75rem 1rem; text-align: left; border: 1px solid rgba(0,0,0,0.15); }
+      th { background: rgba(0,0,0,0.05); font-weight: 600; }
+      tbody tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+      /* Spec table styling (legacy) */
       .spec-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
       .spec-table th, .spec-table td { padding: 0.75rem 1rem; text-align: left; border: 1px solid rgba(0,0,0,0.15); }
       .spec-table th { background: rgba(0,0,0,0.05); font-weight: 600; }
@@ -78,13 +132,18 @@ ${chapter.html}
         @page { size: A4; margin: 1in; }
         body { box-shadow: none; }
         header, .toc { break-after: avoid; }
+        .export-logo { max-height: 36px; }
       }
     </style>
   </head>
   <body>
-    <header>
-      <h1>Docs Toolkit</h1>
-      <p class="meta">Generated ${new Date().toLocaleString()}</p>
+    <header class="${headerClass}">
+      <div class="export-brand">
+        ${logoHtml}
+        <h1>${brandName}</h1>
+      </div>
+      ${taglineHtml}
+      ${dateHtml}
     </header>
     <div class="toc">
       <h2>Table of Contents</h2>

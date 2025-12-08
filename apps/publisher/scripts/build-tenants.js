@@ -826,6 +826,70 @@ async function copyPublicAssets(sourceDir, distDir, tenantId) {
   }
 }
 
+/**
+ * Read and base64-encode a logo file from .public directory
+ * @param {string} publicDir - Path to .public directory
+ * @param {string} [logoPath] - Specific logo filename or auto-detect
+ * @returns {Promise<string|null>} Data URI or null if not found
+ */
+async function embedLogo(publicDir, logoPath = null) {
+  const candidates = logoPath
+    ? [logoPath]
+    : ['logo.png', 'logo.svg', 'logo.jpg', 'favicon.png', 'favicon.svg'];
+
+  for (const filename of candidates) {
+    const fullPath = path.join(publicDir, filename);
+    if (await pathExists(fullPath)) {
+      const buffer = await fsp.readFile(fullPath);
+      const ext = path.extname(filename).toLowerCase();
+      const mimeTypes = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.svg': 'image/svg+xml',
+        '.gif': 'image/gif'
+      };
+      const mime = mimeTypes[ext] || 'image/png';
+      const sizeKB = Math.round(buffer.length / 1024);
+      if (sizeKB > 500) {
+        console.warn(`  ⚠ Logo ${filename} is ${sizeKB}KB (recommend < 500KB)`);
+      }
+      return `data:${mime};base64,${buffer.toString('base64')}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Build export configuration from tenant config
+ * @param {object} config - Tenant config.json contents
+ * @param {string} sourceDir - Tenant source directory
+ * @returns {Promise<object>} Export configuration for manifest.js
+ */
+async function buildExportConfig(config, sourceDir) {
+  const exportSettings = config.export || {};
+  const publicDir = path.join(sourceDir, '.public');
+
+  let logo = null;
+  const logoMode = exportSettings.logo !== undefined ? exportSettings.logo : 'embed';
+
+  if (logoMode === 'embed') {
+    logo = await embedLogo(publicDir, exportSettings.logoPath);
+  } else if (logoMode === 'reference' && exportSettings.logoPath) {
+    logo = `./assets/${exportSettings.logoPath}`;
+  }
+
+  return {
+    title: config.title || 'Documentation',
+    brandMark: config.brandMark || 'Docs',
+    brandSub: config.brandSub || '',
+    tagline: config.tagline || '',
+    logo,
+    showTagline: exportSettings.showTagline !== false,
+    showDate: exportSettings.showDate !== false
+  };
+}
+
 async function applyBranding(distDir, config, tenantId) {
   const indexPath = path.join(distDir, 'index.html');
   if (!(await pathExists(indexPath))) return;
@@ -1018,6 +1082,8 @@ function parseInlineMarkdown(input, linkContext = null) {
   });
   // Bold: **text**
   output = output.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Italic: *text* (single asterisks, after bold replacement)
+  output = output.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
   // Italic: _text_ (only at word boundaries, not inside HTML attributes like target="_blank")
   output = output.replace(/(?<!["\w])_([^_]+)_(?!["\w])/g, '<em>$1</em>');
   return escapeHtml(output)
@@ -1046,6 +1112,8 @@ function markdownToHtml(markdown, linkContext = null) {
   let inCodeBlock = false;
   let codeBlockContent = [];
   let codeBlockLang = '';
+  let inTable = false;
+  let tableRows = [];
   const headingIds = new Map(); // Track heading IDs for uniqueness
 
   function closeList() {
@@ -1066,6 +1134,69 @@ function markdownToHtml(markdown, linkContext = null) {
     if (inBlockquote) {
       chunks.push('</blockquote>');
       inBlockquote = false;
+    }
+  }
+
+  function closeTable() {
+    if (inTable && tableRows.length > 0) {
+      // Parse table rows
+      const parseRow = (row) => {
+        // Split by | but handle escaped pipes and trim cells
+        return row.replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
+      };
+
+      // Check if second row is separator (determines if first row is header)
+      const isSeparator = (row) => /^\|?[\s\-:]+\|/.test(row);
+
+      let headerRow = null;
+      let bodyRows = [];
+      let alignments = [];
+
+      if (tableRows.length > 1 && isSeparator(tableRows[1])) {
+        headerRow = parseRow(tableRows[0]);
+        // Parse alignments from separator
+        const sepCells = parseRow(tableRows[1]);
+        alignments = sepCells.map(cell => {
+          const left = cell.startsWith(':');
+          const right = cell.endsWith(':');
+          if (left && right) return 'center';
+          if (right) return 'right';
+          return 'left';
+        });
+        bodyRows = tableRows.slice(2).map(parseRow);
+      } else {
+        bodyRows = tableRows.map(parseRow);
+      }
+
+      let tableHtml = '<table>';
+
+      if (headerRow) {
+        tableHtml += '<thead><tr>';
+        headerRow.forEach((cell, i) => {
+          const align = alignments[i] ? ` style="text-align: ${alignments[i]}"` : '';
+          tableHtml += `<th${align}>${parseInlineMarkdown(cell, linkContext)}</th>`;
+        });
+        tableHtml += '</tr></thead>';
+      }
+
+      if (bodyRows.length > 0) {
+        tableHtml += '<tbody>';
+        bodyRows.forEach(row => {
+          tableHtml += '<tr>';
+          row.forEach((cell, i) => {
+            const align = alignments[i] ? ` style="text-align: ${alignments[i]}"` : '';
+            tableHtml += `<td${align}>${parseInlineMarkdown(cell, linkContext)}</td>`;
+          });
+          tableHtml += '</tr>';
+        });
+        tableHtml += '</tbody>';
+      }
+
+      tableHtml += '</table>';
+      chunks.push(tableHtml);
+
+      inTable = false;
+      tableRows = [];
     }
   }
 
@@ -1140,6 +1271,7 @@ function markdownToHtml(markdown, linkContext = null) {
     if (headingMatch) {
       closeList();
       closeBlockquote();
+      closeTable();
       const level = Math.min(headingMatch[1].length, 6);
       const rawText = headingMatch[2].trim();
       const text = parseInlineMarkdown(rawText, linkContext);
@@ -1155,6 +1287,7 @@ function markdownToHtml(markdown, linkContext = null) {
     const listMatch = /^[-*+]\s+(.*)$/.exec(line);
     if (listMatch) {
       closeBlockquote();
+      closeTable();
       if (!inList) {
         chunks.push('<ul>');
         inList = true;
@@ -1167,10 +1300,25 @@ function markdownToHtml(markdown, linkContext = null) {
     const quoteMatch = /^>\s?(.*)$/.exec(line);
     if (quoteMatch) {
       closeList();
+      closeTable();
       openBlockquote();
       const quoteLine = parseInlineMarkdown(quoteMatch[1], linkContext);
       chunks.push(`<p>${quoteLine}</p>`);
       continue;
+    }
+
+    // Table row: starts with |
+    if (line.startsWith('|')) {
+      closeList();
+      closeBlockquote();
+      inTable = true;
+      tableRows.push(line);
+      continue;
+    }
+
+    // If we were in a table and hit a non-table line, close it
+    if (inTable) {
+      closeTable();
     }
 
     // Horizontal rule: ---, ***, or ___
@@ -1196,6 +1344,7 @@ function markdownToHtml(markdown, linkContext = null) {
 
   closeList();
   closeBlockquote();
+  closeTable();
 
   const body = chunks.join('\n');
   return `
@@ -1707,14 +1856,17 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
 
     const title = manifestEntry?.title || humanizeTitle(file.name);
     const summary = manifestEntry?.summary || '';
+    const type = manifestEntry?.type || null;
     const relPath = path.relative(context.contentRoot, path.join(dirPath, file.name));
 
-    sections.push({
+    const sectionEntry = {
       id: sectionId,
       title,
       summary,
       file: relPath
-    });
+    };
+    if (type) sectionEntry.type = type;
+    sections.push(sectionEntry);
   }
 
   // Process subdirectories
@@ -1811,7 +1963,7 @@ async function materializeScannedSections(sections, context) {
   const processed = [];
 
   for (const section of sections) {
-    const { id, title, summary, file, subsections, url } = section;
+    const { id, title, summary, file, subsections, url, type } = section;
 
     // Pass through external links without processing
     if (url) {
@@ -1865,19 +2017,25 @@ async function materializeScannedSections(sections, context) {
       context.leafOrder.push(id);
 
       if (processedSubsections && processedSubsections.length > 0) {
-        processed.push({
+        const entry = {
           id,
           title,
           summary,
           module: `./sections/${outFile}`,
           subsections: processedSubsections
-        });
+        };
+        if (type) entry.type = type;
+        processed.push(entry);
       } else {
-        processed.push({ id, title, summary, module: `./sections/${outFile}` });
+        const entry = { id, title, summary, module: `./sections/${outFile}` };
+        if (type) entry.type = type;
+        processed.push(entry);
       }
     } else if (processedSubsections && processedSubsections.length > 0) {
       // Group without its own content
-      processed.push({ id, title, summary, subsections: processedSubsections });
+      const entry = { id, title, summary, subsections: processedSubsections };
+      if (type) entry.type = type;
+      processed.push(entry);
     }
   }
 
@@ -1894,7 +2052,7 @@ async function materializeScannedSections(sections, context) {
  * @param {object} [options] - Build options
  * @param {boolean} [options.strictLinks=true] - Whether to error on broken links
  */
-async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, options = {}) {
+async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, options = {}, config = {}) {
   const sectionsDir = path.join(distDir, 'sections');
   const keepFiles = new Set(['section-templates.js']);
   await pruneSectionsDirectory(sectionsDir, keepFiles);
@@ -1909,6 +2067,9 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     bottomNav: rootManifest?.bottomNav || 'mobile',
     bottomNavSections: rootManifest?.bottomNavSections || []
   };
+
+  // Build export branding configuration
+  const exportConfig = await buildExportConfig(config, sourceDir);
 
   const context = {
     contentRoot: contentRoot.basePath,
@@ -1957,8 +2118,8 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   // Determine default section
   const defaultSection = context.leafOrder[0];
 
-  // Generate manifest.js with site configuration
-  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig);
+  // Generate manifest.js with site configuration and export branding
+  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig, exportConfig);
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied nested content structure for ${tenantId} (${context.leafOrder.length} sections)`);
 
@@ -1980,16 +2141,21 @@ async function processManifestEntries(entries, context) {
     }
     const title = entry.title || id;
     const summary = entry.summary || '';
+    const type = entry.type || null; // Support content type (e.g., 'press-release')
     if (Array.isArray(entry.sections) && entry.sections.length) {
       const subsections = await processManifestEntries(entry.sections, context);
-      processed.push({ id, title, summary, subsections });
+      const groupEntry = { id, title, summary, subsections };
+      if (type) groupEntry.type = type;
+      processed.push(groupEntry);
       continue;
     }
 
     const modulePath = await materializeSectionModule(entry, context);
     if (modulePath) {
       context.leafOrder.push(id);
-      processed.push({ id, title, summary, module: modulePath });
+      const leafEntry = { id, title, summary, module: modulePath };
+      if (type) leafEntry.type = type;
+      processed.push(leafEntry);
     }
   }
   return processed;
@@ -2036,7 +2202,7 @@ async function materializeSectionModule(entry, context) {
   return `./sections/${outFile}`;
 }
 
-function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}) {
+function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}, exportConfig = {}) {
   const manifestJson = JSON.stringify(manifestEntries, null, 2);
   const defaultJson = JSON.stringify(defaultSection || null);
   const configJson = JSON.stringify({
@@ -2044,6 +2210,7 @@ function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig =
     bottomNavSections: siteConfig.bottomNavSections || [], // Section prefixes to always show nav
     ...siteConfig
   }, null, 2);
+  const exportJson = JSON.stringify(exportConfig, null, 2);
   return `export const MANIFEST = ${manifestJson};
 export const DEFAULT_SECTION = ${defaultJson};
 
@@ -2094,6 +2261,9 @@ export function getAdjacentSections(currentId) {
 
 // Site configuration (from tenant _manifest.json)
 export const SITE_CONFIG = ${configJson};
+
+// Export document branding configuration
+export const EXPORT_CONFIG = ${exportJson};
 `;
 }
 
@@ -2106,8 +2276,9 @@ export const SITE_CONFIG = ${configJson};
  * @param {string} tenantId - Tenant identifier
  * @param {object} [options] - Build options
  * @param {boolean} [options.strictLinks=true] - Whether to error on broken links
+ * @param {object} [config={}] - Tenant configuration from config.json
  */
-async function processTenantContent(sourceDir, distDir, tenantId, options = {}) {
+async function processTenantContent(sourceDir, distDir, tenantId, options = {}, config = {}) {
   // Detect content structure type
   const contentRoot = await findContentRoot(sourceDir);
 
@@ -2135,7 +2306,7 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}) 
 
         if (hasDirectoryType || !hasExplicitFiles) {
           // Use nested content processing
-          await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options);
+          await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options, config);
           return;
         }
       } catch {
@@ -2144,7 +2315,7 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}) 
     }
 
     // No manifest or manifest doesn't fully define structure - use nested scanning
-    await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options);
+    await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options, config);
     return;
   }
 
@@ -2381,11 +2552,11 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     if (!(await pathExists(distDir))) {
       console.log(`  ↳ no existing build found, performing full build first`);
       await runBuild(buildOutput);
-      await processTenantContent(sourceDir, distDir, tenantId, contentOptions);
+      await processTenantContent(sourceDir, distDir, tenantId, contentOptions, config);
     }
 
     // Process only the specified files
-    await processIncrementalManifest(sourceDir, distDir, tenantId, explicitFiles, contentOptions);
+    await processIncrementalManifest(sourceDir, distDir, tenantId, explicitFiles, contentOptions, config);
   } else if (isGitIncrementalBuild) {
     console.log(`  mode: incremental (${changes.files.added.length + changes.files.modified.length} files to process)`);
 
@@ -2396,13 +2567,13 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     }
 
     // Process only changed content files
-    await processIncrementalManifest(sourceDir, distDir, tenantId, changes.files, contentOptions);
+    await processIncrementalManifest(sourceDir, distDir, tenantId, changes.files, contentOptions, config);
   } else {
     console.log(`  mode: full`);
     await runBuild(buildOutput);
 
     // Process full manifest from source directory
-    await processTenantContent(sourceDir, distDir, tenantId, contentOptions);
+    await processTenantContent(sourceDir, distDir, tenantId, contentOptions, config);
   }
 
   // Apply branding and config
@@ -2489,8 +2660,9 @@ async function syncChangesToTarget(srcDir, targetDir, files) {
  * @param {string} tenantId - Tenant identifier
  * @param {object} changedFiles - Changed files { added, modified, deleted }
  * @param {object} [options] - Build options
+ * @param {object} [config={}] - Tenant configuration
  */
-async function processIncrementalManifest(sourceDir, distDir, tenantId, changedFiles, options = {}) {
+async function processIncrementalManifest(sourceDir, distDir, tenantId, changedFiles, options = {}, config = {}) {
   const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
   const sectionsDir = path.join(distDir, 'sections');
 
@@ -2584,7 +2756,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
 
   if (manifestChanged) {
     console.log(`  ↳ manifest.json changed, regenerating manifest.js`);
-    await processTenantContent(sourceDir, distDir, tenantId, options);
+    await processTenantContent(sourceDir, distDir, tenantId, options, config);
   }
 }
 

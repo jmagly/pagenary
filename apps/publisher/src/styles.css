@@ -286,6 +286,29 @@ a:focus {
   opacity: 1;
 }
 
+/* Press release and content type indicators */
+.nav-type-press-release .nav-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.nav-type-icon {
+  font-size: 0.65em;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.nav-type-press-release .nav-type-icon::before {
+  content: '\25C9'; /* Unicode circle with dot - subtle signal indicator */
+}
+
+.nav-type-press-release:hover .nav-type-icon,
+.nav-type-press-release:focus-visible .nav-type-icon {
+  opacity: 0.7;
+}
+
 mark.hl {
   background: var(--highlight-bg);
   border-bottom: 1px solid var(--highlight-border);
@@ -1117,6 +1140,94 @@ mark.hl {
     background: transparent;
     border-bottom: 1px solid rgba(0, 0, 0, 0.2);
   }
+}
+
+/* Export Options Modal */
+.export-options-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(var(--surface-rgb), 0.9);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.export-options-overlay.active {
+  opacity: 1;
+}
+
+.export-options-modal {
+  background: white;
+  border: 2px solid #000;
+  padding: 2rem;
+  width: 340px;
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.1);
+}
+
+.export-options-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.export-options-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.export-option-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--grid-line);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.export-option-btn:hover {
+  border-color: var(--ink);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.export-option-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.export-option-desc {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.export-cancel-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: color 160ms ease;
+}
+
+.export-cancel-btn:hover {
+  color: var(--ink);
 }
 
 /* Export Loading Overlay */

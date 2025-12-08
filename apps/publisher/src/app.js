@@ -1,4 +1,4 @@
-import { MANIFEST, DEFAULT_SECTION, findSection, getAdjacentSections, SITE_CONFIG } from './manifest.js';
+import { MANIFEST, DEFAULT_SECTION, findSection, getAdjacentSections, SITE_CONFIG, EXPORT_CONFIG } from './manifest.js';
 import { updateMetaTags } from './seo.js';
 import { escapeRegExp, searchContent, flattenManifest, findPreferredIndex } from './lib/search.js';
 import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
@@ -85,11 +85,11 @@ function initNav() {
 
         const childBtn = document.createElement('button');
         childBtn.type = 'button';
-        childBtn.className = 'nav-item';
+        childBtn.className = 'nav-item' + (sub.type ? ` nav-type-${sub.type}` : '');
         childBtn.dataset.section = sub.id;
         childBtn.title = sub.summary;
         childBtn.innerHTML = `
-          <span class="nav-title">${sub.title}</span>
+          <span class="nav-title">${sub.title}${sub.type === 'press-release' ? '<span class="nav-type-icon" aria-label="Press Release"></span>' : ''}</span>
           <span class="nav-summary">${sub.summary}</span>
         `;
         childBtn.addEventListener('click', () => navigate(sub.id, { scrollToHighlight: Boolean(highlightQuery) }));
@@ -107,11 +107,11 @@ function initNav() {
     } else {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'nav-leaf';
+      button.className = 'nav-leaf' + (section.type ? ` nav-type-${section.type}` : '');
       button.dataset.section = section.id;
       button.title = section.summary;
       button.innerHTML = `
-        <span class="nav-title">${section.title}</span>
+        <span class="nav-title">${section.title}${section.type === 'press-release' ? '<span class="nav-type-icon" aria-label="Press Release"></span>' : ''}</span>
         <span class="nav-summary">${section.summary}</span>
       `;
       button.addEventListener('click', () => navigate(section.id, { scrollToHighlight: Boolean(highlightQuery) }));
@@ -478,10 +478,51 @@ function reflectCommandSelection() {
 
 // Export handler
 if (exportBtn) {
-  exportBtn.addEventListener('click', handleExport);
+  exportBtn.addEventListener('click', showExportOptions);
 }
 
-async function handleExport() {
+function showExportOptions() {
+  const overlay = document.createElement('div');
+  overlay.className = 'export-options-overlay';
+  overlay.innerHTML = `
+    <div class="export-options-modal">
+      <div class="export-options-header">EXPORT OPTIONS</div>
+      <div class="export-options-buttons">
+        <button type="button" class="export-option-btn" data-scope="page">
+          <span class="export-option-title">Current Page</span>
+          <span class="export-option-desc">Export only this section</span>
+        </button>
+        <button type="button" class="export-option-btn" data-scope="site">
+          <span class="export-option-title">Entire Site</span>
+          <span class="export-option-desc">Export all documentation</span>
+        </button>
+      </div>
+      <button type="button" class="export-cancel-btn">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('active'), 10);
+
+  const close = () => {
+    overlay.classList.remove('active');
+    setTimeout(() => overlay.remove(), 200);
+  };
+
+  overlay.querySelector('.export-cancel-btn').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+
+  overlay.querySelectorAll('.export-option-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const scope = btn.dataset.scope;
+      close();
+      handleExport(scope);
+    });
+  });
+}
+
+async function handleExport(scope = 'site') {
   if (!exportBtn) return;
   const originalMarkup = exportBtn.innerHTML;
 
@@ -530,8 +571,25 @@ async function handleExport() {
   const statusText = loadingOverlay.querySelector('.export-loading-status');
 
   try {
-    // Collect all sections and subsections in navigation order
-    const allSections = collectExportableSections(MANIFEST);
+    // Collect sections based on scope
+    let allSections;
+    if (scope === 'page') {
+      // Export only current page
+      const currentId = currentSectionId();
+      const allAvailable = collectExportableSections(MANIFEST);
+      const current = allAvailable.find(s => s.id === currentId);
+      allSections = current ? [current] : [];
+    } else {
+      // Export entire site
+      allSections = collectExportableSections(MANIFEST);
+    }
+
+    if (allSections.length === 0) {
+      alert('No content available to export.');
+      loadingOverlay.remove();
+      exportBtn.disabled = false;
+      return;
+    }
 
     const bundle = [];
     const totalSections = allSections.length;
@@ -542,7 +600,9 @@ async function handleExport() {
       processedSections++;
       const progress = (processedSections / totalSections) * 100;
       progressFill.style.width = `${progress}%`;
-      statusText.textContent = `Processing section ${processedSections} of ${totalSections}: ${section.title}`;
+      statusText.textContent = scope === 'page'
+        ? `Exporting: ${section.title}`
+        : `Processing section ${processedSections} of ${totalSections}: ${section.title}`;
 
       // Small delay to show progress animation
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -562,7 +622,7 @@ async function handleExport() {
     statusText.textContent = 'Generating document...';
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    const htmlDoc = composeExportDocument(bundle);
+    const htmlDoc = composeExportDocument(bundle, EXPORT_CONFIG);
 
     statusText.textContent = 'Opening document viewer...';
     await new Promise(resolve => setTimeout(resolve, 100));
