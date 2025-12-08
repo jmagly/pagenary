@@ -26,6 +26,7 @@ npm run serve       # Preview on http://localhost:5173
 ### Rich Content
 - **Mermaid Diagrams** - Flowcharts, sequence diagrams, state machines, and more
 - **Syntax Highlighting** - Prism.js with 10+ language support
+- **Markdown Tables** - Full table syntax with alignment support
 - **HTML Components** - Spec tables, layer stacks, box diagrams, cards
 - **Internal Links** - Auto-resolved `#section-id` links in Markdown
 
@@ -73,9 +74,12 @@ Visit our [support portal](https://support.example.com) for help.
 - **Typography** - IBM Plex Sans/Mono defaults, customizable
 
 ### Export & Sharing
+- **Export Options** - Choose between Current Page or Entire Site export
+- **Branded Exports** - Tenant logo, brand name, and tagline in export header
 - **Document Export** - One-click HTML export with TOC
 - **Print Styles** - Optimized for PDF generation
 - **Syntax Highlighting** - Preserved in exports
+- **Table Rendering** - Markdown tables render correctly in exports
 
 ## Tenant Content Workflow
 
@@ -202,7 +206,13 @@ export async function load() {
   "tagline": "Build better, faster",
   "copyright": "ACME Corp",
   "accentColor": "#6366F1",
-  "surfaceColor": "#F7FAFC"
+  "surfaceColor": "#F7FAFC",
+  "export": {
+    "logo": "embed",
+    "logoPath": "favicon.png",
+    "showTagline": true,
+    "showDate": true
+  }
 }
 ```
 
@@ -216,6 +226,10 @@ export async function load() {
 | `copyright` | Footer copyright text | "Modular Documentation Toolkit" |
 | `accentColor` | Links, buttons, highlights | `#111111` |
 | `surfaceColor` | Background color (hex) | `#ffffff` |
+| `export.logo` | Logo mode: `"embed"`, `"reference"`, or `null` | `"embed"` |
+| `export.logoPath` | Path to logo in `.public/` directory | Auto-detect |
+| `export.showTagline` | Show tagline in export header | `true` |
+| `export.showDate` | Show generation date in export | `true` |
 
 ## Build Commands
 
