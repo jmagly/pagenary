@@ -764,6 +764,68 @@ async function copyDirectory(from, to) {
   }
 }
 
+/**
+ * Copy static assets from .public/ directory to dist
+ * Assets are copied to dist/assets/ and favicon files are also copied to dist root
+ *
+ * @param {string} sourceDir - Tenant source directory
+ * @param {string} distDir - Build output directory
+ * @param {string} tenantId - Tenant identifier
+ */
+async function copyPublicAssets(sourceDir, distDir, tenantId) {
+  const publicDir = path.join(sourceDir, '.public');
+
+  // Check if .public directory exists
+  if (!(await pathExists(publicDir))) {
+    return;
+  }
+
+  const assetsDir = path.join(distDir, 'assets');
+  await fsp.mkdir(assetsDir, { recursive: true });
+
+  let assetCount = 0;
+  const faviconFiles = [];
+
+  /**
+   * Recursively copy files from source to destination
+   */
+  async function copyAssets(srcDir, destDir) {
+    const entries = await fsp.readdir(srcDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const srcPath = path.join(srcDir, entry.name);
+      const destPath = path.join(destDir, entry.name);
+
+      if (entry.isDirectory()) {
+        await fsp.mkdir(destPath, { recursive: true });
+        await copyAssets(srcPath, destPath);
+      } else if (entry.isFile()) {
+        await fsp.copyFile(srcPath, destPath);
+        assetCount++;
+
+        // Track favicon files for root copy
+        const lowerName = entry.name.toLowerCase();
+        if (lowerName === 'favicon.ico' || lowerName === 'favicon.png' || lowerName === 'favicon.svg') {
+          faviconFiles.push({ srcPath, filename: entry.name });
+        }
+      }
+    }
+  }
+
+  // Copy all assets to dist/assets/
+  await copyAssets(publicDir, assetsDir);
+
+  // Also copy favicon files to dist root for browser auto-detection
+  for (const { srcPath, filename } of faviconFiles) {
+    const rootDestPath = path.join(distDir, filename);
+    await fsp.copyFile(srcPath, rootDestPath);
+  }
+
+  if (assetCount > 0) {
+    console.log(`  ↳ copied ${assetCount} asset(s) from .public/`);
+  }
+}
+
 async function applyBranding(distDir, config, tenantId) {
   const indexPath = path.join(distDir, 'index.html');
   if (!(await pathExists(indexPath))) return;
@@ -2350,6 +2412,9 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await copyDirectory(overridesDir, distDir);
     console.log(`  ↳ applied file overrides for ${tenantId}`);
   }
+
+  // Copy static assets from .public/ directory
+  await copyPublicAssets(sourceDir, distDir, tenantId);
 
   // Copy to final target if different from dist
   if (targetDir !== distDir) {

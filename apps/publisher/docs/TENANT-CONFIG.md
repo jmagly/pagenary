@@ -58,6 +58,10 @@ my-tenant/
 │   ├── *.js              # JavaScript modules
 │   └── section/          # Nested directories
 │       └── _manifest.json
+├── .public/              # Static assets (optional)
+│   ├── favicon.ico       # Favicons copied to dist root
+│   ├── logo.svg          # Assets copied to dist/assets/
+│   └── icons/            # Subdirectories preserved
 └── overrides/            # Post-build replacements (optional)
     └── styles.css        # Replace built files
 ```
@@ -456,6 +460,129 @@ Use for:
 - Custom stylesheets
 - Custom favicons
 - Additional assets
+
+## Static Assets (.public/)
+
+The `.public/` directory stores static assets (images, icons, logos) that should be included in the built tenant bundle.
+
+### Directory Structure
+
+```
+my-tenant/
+├── .public/              # Static assets directory
+│   ├── favicon.ico       # Copied to dist root
+│   ├── favicon.png       # Copied to dist root
+│   ├── logo.svg          # Copied to dist/assets/
+│   └── icons/            # Subdirectories preserved
+│       ├── discord.svg
+│       └── github.svg
+├── config.json
+├── content/
+└── ...
+```
+
+### Build Behavior
+
+During the build process:
+
+1. **Assets directory creation**: Contents are copied to `dist/<tenant-id>/assets/`
+2. **Favicon handling**: Files matching `favicon.*` (e.g., `favicon.ico`, `favicon.png`, `favicon.svg`) are copied to the dist root (`dist/<tenant-id>/`) for browser auto-detection
+3. **Subdirectory preservation**: Subdirectory structure within `.public/` is maintained in the output
+
+### Referencing Assets in Content
+
+**In Markdown:**
+```markdown
+![Company Logo](./assets/logo.svg)
+![Product Screenshot](./assets/screenshots/dashboard.png)
+```
+
+**In HTML content:**
+```html
+<img src="./assets/logo.svg" alt="Company Logo">
+<img src="./assets/icons/github.svg" alt="GitHub">
+```
+
+**In CSS (via overrides):**
+```css
+.custom-header {
+  background-image: url(./assets/logo.svg);
+}
+
+.icon-discord {
+  content: url(./assets/icons/discord.svg);
+}
+```
+
+### Why .public Instead of public?
+
+The dot-prefix (`.public/`) was chosen to:
+
+- **Avoid conflicts**: Prevents naming collisions with user's conventional `public/` directories that might contain user-facing content
+- **Clear separation**: Distinguishes between tenant assets and potential user content directories
+- **Build system clarity**: Signals this is a build-time directive, not user-facing content
+
+### Supported File Formats
+
+The `.public/` directory supports all static file types:
+
+**Images:**
+- PNG (`.png`)
+- JPEG (`.jpg`, `.jpeg`)
+- SVG (`.svg`)
+- WebP (`.webp`)
+- GIF (`.gif`)
+
+**Icons:**
+- ICO (`.ico`)
+- SVG (`.svg`)
+
+**Other static files:**
+- Any additional static assets needed by your documentation
+
+### Example Usage
+
+**Typical tenant structure with assets:**
+
+```
+acme-docs/
+├── config.json
+├── manifest.json
+├── .public/
+│   ├── favicon.ico              # Browser tab icon
+│   ├── favicon.svg              # Modern browsers
+│   ├── logo.svg                 # Company logo
+│   ├── logo-dark.svg            # Dark mode variant
+│   ├── screenshots/             # Product screenshots
+│   │   ├── dashboard.png
+│   │   └── settings.png
+│   └── icons/                   # Social/external icons
+│       ├── github.svg
+│       ├── discord.svg
+│       └── twitter.svg
+└── content/
+    └── welcome.md
+```
+
+**Referenced in welcome.md:**
+
+```markdown
+# Welcome to ACME Docs
+
+![ACME Logo](./assets/logo.svg)
+
+## Quick Start
+
+Check out our dashboard:
+
+![Dashboard Screenshot](./assets/screenshots/dashboard.png)
+
+## Community
+
+Join us on:
+- ![GitHub](./assets/icons/github.svg) [GitHub](https://github.com/acme)
+- ![Discord](./assets/icons/discord.svg) [Discord](https://discord.gg/acme)
+```
 
 ## Environment Variables
 
