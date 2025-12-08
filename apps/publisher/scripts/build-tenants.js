@@ -1000,6 +1000,10 @@ async function applyWelcome(distDir, config, tenantId) {
 function parseInlineMarkdown(input, linkContext = null) {
   if (!input) return '';
   let output = input.replace(/\r\n/g, '\n');
+  // Images: ![alt](src) - must be processed before links
+  output = output.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
+    return `<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}">`;
+  });
   // Links: [label](href)
   output = output.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
     // Transform internal links if context is provided
@@ -1018,6 +1022,7 @@ function parseInlineMarkdown(input, linkContext = null) {
   return escapeHtml(output)
     .replace(/&lt;strong&gt;([^]*?)&lt;\/strong&gt;/g, '<strong>$1</strong>')
     .replace(/&lt;em&gt;([^]*?)&lt;\/em&gt;/g, '<em>$1</em>')
+    .replace(/&lt;img src=&quot;([^&]*)&quot; alt=&quot;([^&]*)&quot;&gt;/g, '<img src="$1" alt="$2">')
     .replace(/&lt;a href=&quot;([^&]*)&quot;(?: target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;)?&gt;([^]*?)&lt;\/a&gt;/g, (_, href, text) => {
       const isExternal = /^https?:\/\//i.test(href);
       const attrs = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
