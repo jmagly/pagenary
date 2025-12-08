@@ -83,6 +83,51 @@ function initNav() {
           return;
         }
 
+        // Handle nested subsections (3-level nav)
+        if (sub.subsections && sub.subsections.length) {
+          const nestedGroup = document.createElement('div');
+          nestedGroup.className = 'nav-group nav-group-nested';
+
+          const nestedParentBtn = document.createElement('button');
+          nestedParentBtn.type = 'button';
+          nestedParentBtn.className = 'nav-parent nav-parent-nested';
+          nestedParentBtn.dataset.section = sub.id;
+          nestedParentBtn.title = sub.summary || sub.title;
+          nestedParentBtn.innerHTML = `<span class="nav-title">${sub.title}</span>`;
+          nestedParentBtn.addEventListener('click', () => {
+            const next = !expandedGroups.has(sub.id);
+            setGroupExpanded(sub.id, next);
+          });
+
+          const nestedList = document.createElement('div');
+          nestedList.className = 'nav-sublist nav-sublist-nested';
+          sub.subsections.forEach((nested) => {
+            if (nested.url) {
+              const link = createExternalLink(nested, 'nav-item');
+              nestedList.appendChild(link);
+              return;
+            }
+            const nestedBtn = document.createElement('button');
+            nestedBtn.type = 'button';
+            nestedBtn.className = 'nav-item nav-item-nested' + (nested.type ? ` nav-type-${nested.type}` : '');
+            nestedBtn.dataset.section = nested.id;
+            nestedBtn.title = nested.summary || nested.title;
+            nestedBtn.innerHTML = `
+              <span class="nav-title">${nested.title}${nested.type === 'press-release' ? '<span class="nav-type-icon" aria-label="Press Release"></span>' : ''}</span>
+              <span class="nav-summary">${nested.summary || ''}</span>
+            `;
+            nestedBtn.addEventListener('click', () => navigate(nested.id, { scrollToHighlight: Boolean(highlightQuery) }));
+            nestedList.appendChild(nestedBtn);
+            navButtons.set(nested.id, nestedBtn);
+          });
+
+          nestedGroup.append(nestedParentBtn, nestedList);
+          list.appendChild(nestedGroup);
+          navButtons.set(sub.id, nestedParentBtn);
+          navGroups.set(sub.id, { group: nestedGroup, button: nestedParentBtn, list: nestedList });
+          return;
+        }
+
         const childBtn = document.createElement('button');
         childBtn.type = 'button';
         childBtn.className = 'nav-item' + (sub.type ? ` nav-type-${sub.type}` : '');

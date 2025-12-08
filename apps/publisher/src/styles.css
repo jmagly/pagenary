@@ -234,6 +234,38 @@ a:focus {
   display: grid;
 }
 
+/* Nested nav groups (3-level hierarchy) */
+.nav-group-nested {
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(var(--ink-rgb), 0.1);
+}
+
+.nav-parent-nested {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  opacity: 0.85;
+}
+
+.nav-sublist-nested {
+  display: none;
+  gap: 0.25rem;
+  padding-left: 0.25rem;
+}
+
+.nav-group-nested.expanded .nav-sublist-nested {
+  display: grid;
+}
+
+.nav-item-nested {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.nav-item-nested .nav-summary {
+  font-size: 0.7rem;
+}
+
 .nav-base:hover,
 .nav-base:focus-visible {
   border-color: var(--grid-line);
