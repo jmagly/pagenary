@@ -6,6 +6,7 @@ import path from 'path';
 import { spawn, execSync } from 'child_process';
 import { createHash } from 'crypto';
 import os from 'os';
+import { generateSeoArtifacts } from './lib/seo-generator.js';
 
 const root = process.cwd();
 const DEFAULT_TENANTS_DIR = path.join(root, 'tenants');
@@ -2592,6 +2593,9 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
 
   // Copy static assets from .public/ directory
   await copyPublicAssets(sourceDir, distDir, tenantId);
+
+  // Generate SEO artifacts (sitemap.xml, robots.txt, static pages)
+  await generateSeoArtifacts(distDir, config);
 
   // Copy to final target if different from dist
   if (targetDir !== distDir) {
