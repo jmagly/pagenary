@@ -15,7 +15,7 @@
       "id": "roko-kb",
       "source": {
         "type": "local",
-        "path": "/home/roctinam/roko-kb"
+        "path": "/tmp/roko-kb-work"
       },
       "strictLinks": true
     }

@@ -600,6 +600,48 @@ mark.hl {
   line-height: 1.5;
 }
 
+/* Link grid for icon-based link cards */
+.link-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin: 1.5rem 0;
+}
+
+.link-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--grid-line);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.link-card:hover {
+  border-color: var(--ink);
+  background: rgba(0, 0, 0, 0.03);
+  text-decoration: none;
+}
+
+.link-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.link-title {
+  font-weight: 600;
+  display: block;
+}
+
+.link-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  display: block;
+}
+
 .footnote {
   border-top: 1px solid var(--grid-line);
   font-size: 0.85rem;
