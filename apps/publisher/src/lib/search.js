@@ -18,24 +18,26 @@ export function escapeRegExp(value) {
 /**
  * Flatten manifest into searchable sections.
  * Returns all navigable sections (those with module paths).
+ * Recursively handles deeply nested subsections.
  * @param {Array} manifest - Nested manifest array
+ * @param {string} [parentGroup] - Parent group title for tracking hierarchy
  * @returns {Array} Flat array of searchable sections
  */
-export function flattenManifest(manifest) {
+export function flattenManifest(manifest, parentGroup = '') {
   const flat = [];
   for (const entry of manifest) {
-    // Include top-level section if it has a module
+    const groupLabel = parentGroup ? `${parentGroup} > ${entry.title}` : entry.title;
+    // Include section if it has a module
     if (entry.module) {
-      flat.push(entry);
+      flat.push({
+        ...entry,
+        group: parentGroup || entry.title
+      });
     }
-    // Include all subsections
+    // Recursively include all subsections
     if (entry.subsections) {
-      for (const sub of entry.subsections) {
-        flat.push({
-          ...sub,
-          group: entry.title // Track parent group for display
-        });
-      }
+      const nested = flattenManifest(entry.subsections, groupLabel);
+      flat.push(...nested);
     }
   }
   return flat;
