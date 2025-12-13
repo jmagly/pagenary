@@ -18,6 +18,15 @@
         "path": "/tmp/roko-kb-work"
       },
       "strictLinks": true
+    },
+    {
+      "id": "aiwg-docs",
+      "source": {
+        "type": "local",
+        "path": "/home/manitcor/.local/share/ai-writing-guide/docs"
+      },
+      "domains": ["docs.aiwg.dev", "aiwg-docs.local"],
+      "strictLinks": false
     }
   ]
 }

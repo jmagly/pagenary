@@ -125,6 +125,9 @@ function initNav() {
           list.appendChild(nestedGroup);
           navButtons.set(sub.id, nestedParentBtn);
           navGroups.set(sub.id, { group: nestedGroup, button: nestedParentBtn, list: nestedList });
+          // Initialize nested group expansion state (collapsed by default, or if marked collapsed)
+          const nestedShouldExpand = expandedGroups.has(sub.id) && !sub.collapsed;
+          setGroupExpanded(sub.id, nestedShouldExpand);
           return;
         }
 

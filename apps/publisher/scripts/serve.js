@@ -22,11 +22,13 @@ const MIME = {
 };
 
 // Detect tenant directories at startup
+// Tenants can use tenant-* prefix or any custom name (e.g., aiwg-docs)
 const tenantDirs = new Set();
+const NON_TENANT_DIRS = new Set(['lib', 'sections', 'pages', 'assets', 'node_modules']);
 try {
   const entries = fs.readdirSync(root, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.isDirectory() && entry.name.startsWith('tenant-')) {
+    if (entry.isDirectory() && !NON_TENANT_DIRS.has(entry.name)) {
       tenantDirs.add(entry.name);
     }
   }
@@ -37,10 +39,11 @@ try {
 /**
  * Parse tenant from path. Returns { tenant, localPath }
  * e.g., /tenant-alpha/app.js -> { tenant: 'tenant-alpha', localPath: '/app.js' }
+ *       /aiwg-docs/app.js -> { tenant: 'aiwg-docs', localPath: '/app.js' }
  *       /app.js -> { tenant: null, localPath: '/app.js' }
  */
 function parseTenantPath(pathname) {
-  const match = pathname.match(/^\/(tenant-[^/]+)(\/.*)?$/);
+  const match = pathname.match(/^\/([^/]+)(\/.*)?$/);
   if (match && tenantDirs.has(match[1])) {
     return {
       tenant: match[1],
@@ -62,7 +65,7 @@ const server = http.createServer((req, res) => {
   }
 
   // Redirect tenant path without trailing slash to add it (for correct relative path resolution)
-  const tenantOnlyMatch = pathname.match(/^\/(tenant-[^/]+)$/);
+  const tenantOnlyMatch = pathname.match(/^\/([^/]+)$/);
   if (tenantOnlyMatch && tenantDirs.has(tenantOnlyMatch[1])) {
     res.writeHead(302, { Location: `${pathname}/` });
     res.end();

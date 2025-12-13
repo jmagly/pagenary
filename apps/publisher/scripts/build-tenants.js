@@ -949,40 +949,264 @@ function hexToRgb(hex) {
   return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
 }
 
+/**
+ * Theme presets for light and dark modes
+ * All CSS variables that need to be set for a complete theme
+ */
+const THEME_PRESETS = {
+  light: {
+    colorScheme: 'light',
+    surface: '#ffffff',
+    ink: '#0b0b0b',
+    muted: '#5a5a5a',
+    accent: '#111111',
+    gridLine: 'rgba(0, 0, 0, 0.08)',
+    highlightBg: 'rgba(255, 214, 126, 0.45)',
+    highlightBorder: 'rgba(0, 0, 0, 0.35)',
+    // Hardcoded values in CSS that need dark mode overrides
+    codeBackground: 'rgba(0, 0, 0, 0.04)',
+    codeBorder: 'rgba(0, 0, 0, 0.08)',
+    hoverBackground: 'rgba(0, 0, 0, 0.03)',
+    activeBackground: 'rgba(0, 0, 0, 0.05)',
+    inputBackground: 'rgba(0, 0, 0, 0.02)',
+    tableHeaderBg: 'rgba(0, 0, 0, 0.04)',
+    tableBorder: 'rgba(0, 0, 0, 0.12)',
+    blockquoteBorder: 'rgba(0, 0, 0, 0.2)',
+    sidebarBg: 'white',
+    modalBg: 'white',
+    modalBorder: '#000'
+  },
+  dark: {
+    colorScheme: 'dark',
+    surface: '#0a0a0e',
+    ink: '#e0e0e0',
+    muted: '#888888',
+    accent: '#22d3ee',
+    gridLine: 'rgba(255, 255, 255, 0.08)',
+    highlightBg: 'rgba(34, 211, 238, 0.15)',
+    highlightBorder: 'rgba(34, 211, 238, 0.4)',
+    // Dark mode specific overrides
+    codeBackground: 'rgba(255, 255, 255, 0.05)',
+    codeBorder: 'rgba(255, 255, 255, 0.1)',
+    hoverBackground: 'rgba(255, 255, 255, 0.05)',
+    activeBackground: 'rgba(255, 255, 255, 0.08)',
+    inputBackground: 'rgba(255, 255, 255, 0.03)',
+    tableHeaderBg: 'rgba(255, 255, 255, 0.05)',
+    tableBorder: 'rgba(255, 255, 255, 0.12)',
+    blockquoteBorder: 'rgba(255, 255, 255, 0.2)',
+    sidebarBg: '#151518',
+    modalBg: '#1a1a1e',
+    modalBorder: '#333'
+  },
+  matrix: {
+    colorScheme: 'dark',
+    surface: '#050509',
+    ink: '#00ff00',
+    muted: '#00cc00',
+    accent: '#00ff00',
+    gridLine: 'rgba(0, 255, 0, 0.15)',
+    highlightBg: 'rgba(0, 255, 0, 0.15)',
+    highlightBorder: 'rgba(0, 255, 0, 0.4)',
+    // Matrix-specific overrides (green-on-black terminal style)
+    codeBackground: 'rgba(0, 255, 0, 0.05)',
+    codeBorder: 'rgba(0, 255, 0, 0.15)',
+    hoverBackground: 'rgba(0, 255, 0, 0.08)',
+    activeBackground: 'rgba(0, 255, 0, 0.12)',
+    inputBackground: 'rgba(0, 255, 0, 0.03)',
+    tableHeaderBg: 'rgba(0, 255, 0, 0.08)',
+    tableBorder: 'rgba(0, 255, 0, 0.2)',
+    blockquoteBorder: 'rgba(0, 255, 0, 0.3)',
+    sidebarBg: '#0a0f0a',
+    modalBg: '#0f150f',
+    modalBorder: '#00cc00'
+  }
+};
+
+/**
+ * Apply theme configuration to styles.css
+ * Supports:
+ * - theme: "light" | "dark" (presets)
+ * - theme: { ...custom colors } (full customization)
+ * - Legacy: accentColor, surfaceColor (backwards compatible)
+ * - Fonts: fontBody, fontMono
+ */
 async function applyThemeColors(distDir, config, tenantId) {
-  const hasColors = config.accentColor || config.surfaceColor;
-  if (!hasColors) return;
   const stylesPath = path.join(distDir, 'styles.css');
   if (!(await pathExists(stylesPath))) return;
+
   let css = await fsp.readFile(stylesPath, 'utf8');
   let modified = false;
-  if (config.accentColor) {
-    const updated = css.replace(/(--accent:\s*)([^;]+);/, `$1${config.accentColor};`);
-    if (updated !== css) {
-      css = updated;
-      modified = true;
-    }
+
+  // Determine theme settings
+  let theme = {};
+
+  // Start with light preset as base
+  Object.assign(theme, THEME_PRESETS.light);
+
+  // Apply preset if specified
+  if (config.theme === 'dark') {
+    Object.assign(theme, THEME_PRESETS.dark);
+  } else if (config.theme === 'matrix') {
+    Object.assign(theme, THEME_PRESETS.matrix);
+  } else if (typeof config.theme === 'object' && config.theme !== null) {
+    // Custom theme object - merge with current base
+    Object.assign(theme, config.theme);
   }
-  if (config.surfaceColor) {
-    // Update --surface hex value
-    let updated = css.replace(/(--surface:\s*)([^;]+);/, `$1${config.surfaceColor};`);
-    if (updated !== css) {
-      css = updated;
-      modified = true;
-    }
-    // Update --surface-rgb for rgba() usage
-    const rgb = hexToRgb(config.surfaceColor);
-    if (rgb) {
-      updated = css.replace(/(--surface-rgb:\s*)([^;]+);/, `$1${rgb};`);
+
+  // Legacy support: individual color overrides
+  if (config.accentColor) theme.accent = config.accentColor;
+  if (config.surfaceColor) theme.surface = config.surfaceColor;
+  if (config.inkColor) theme.ink = config.inkColor;
+  if (config.mutedColor) theme.muted = config.mutedColor;
+  if (config.gridLineColor) theme.gridLine = config.gridLineColor;
+
+  // Font overrides
+  if (config.fontBody) theme.fontBody = config.fontBody;
+  if (config.fontMono) theme.fontMono = config.fontMono;
+
+  // Check if any customization is needed
+  const hasCustomization = config.theme || config.accentColor || config.surfaceColor ||
+    config.inkColor || config.mutedColor || config.gridLineColor ||
+    config.fontBody || config.fontMono;
+
+  if (!hasCustomization) return;
+
+  // Apply CSS variable replacements
+  const replacements = [
+    { pattern: /(color-scheme:\s*)([^;]+);/, value: theme.colorScheme },
+    { pattern: /(--surface:\s*)([^;]+);/, value: theme.surface },
+    { pattern: /(--ink:\s*)([^;]+);/, value: theme.ink },
+    { pattern: /(--muted:\s*)([^;]+);/, value: theme.muted },
+    { pattern: /(--accent:\s*)([^;]+);/, value: theme.accent },
+    { pattern: /(--grid-line:\s*)([^;]+);/, value: theme.gridLine },
+    { pattern: /(--highlight-bg:\s*)([^;]+);/, value: theme.highlightBg },
+    { pattern: /(--highlight-border:\s*)([^;]+);/, value: theme.highlightBorder }
+  ];
+
+  // Apply font replacements if specified
+  if (theme.fontBody) {
+    replacements.push({ pattern: /(--font-body:\s*)([^;]+);/, value: theme.fontBody });
+  }
+  if (theme.fontMono) {
+    replacements.push({ pattern: /(--font-mono:\s*)([^;]+);/, value: theme.fontMono });
+  }
+
+  for (const { pattern, value } of replacements) {
+    if (value) {
+      const updated = css.replace(pattern, `$1${value};`);
       if (updated !== css) {
         css = updated;
+        modified = true;
       }
     }
   }
+
+  // Update --surface-rgb for rgba() usage
+  if (theme.surface) {
+    const rgb = hexToRgb(theme.surface);
+    if (rgb) {
+      const updated = css.replace(/(--surface-rgb:\s*)([^;]+);/, `$1${rgb};`);
+      if (updated !== css) {
+        css = updated;
+        modified = true;
+      }
+    }
+  }
+
+  // For dark/matrix themes, apply additional hardcoded color overrides
+  const isDarkMode = config.theme === 'dark' || config.theme === 'matrix' ||
+    (typeof config.theme === 'object' && config.theme?.colorScheme === 'dark');
+  if (isDarkMode) {
+    const darkOverrides = [
+      // Code blocks
+      { pattern: /background:\s*rgba\(0,\s*0,\s*0,\s*0\.04\)/g, value: `background: ${theme.codeBackground}` },
+      { pattern: /border:\s*1px solid rgba\(0,\s*0,\s*0,\s*0\.08\)/g, value: `border: 1px solid ${theme.codeBorder}` },
+      // Hover states
+      { pattern: /background:\s*rgba\(0,\s*0,\s*0,\s*0\.03\)/g, value: `background: ${theme.hoverBackground}` },
+      { pattern: /background:\s*rgba\(0,\s*0,\s*0,\s*0\.05\)/g, value: `background: ${theme.activeBackground}` },
+      // Input backgrounds
+      { pattern: /background:\s*rgba\(0,\s*0,\s*0,\s*0\.02\)/g, value: `background: ${theme.inputBackground}` },
+      // Table styling
+      { pattern: /border:\s*1px solid rgba\(0,\s*0,\s*0,\s*0\.12\)/g, value: `border: 1px solid ${theme.tableBorder}` },
+      // Blockquote border
+      { pattern: /border-left:\s*3px solid rgba\(0,\s*0,\s*0,\s*0\.2\)/g, value: `border-left: 3px solid ${theme.blockquoteBorder}` },
+      // Sidebar background (mobile)
+      { pattern: /background:\s*white;/g, value: `background: ${theme.sidebarBg};` },
+      // Modal backgrounds
+      { pattern: /background:\s*white;\s*\n\s*border:\s*2px solid #000;/g, value: `background: ${theme.modalBg};\n  border: 2px solid ${theme.modalBorder};` }
+    ];
+
+    for (const { pattern, value } of darkOverrides) {
+      const updated = css.replace(pattern, value);
+      if (updated !== css) {
+        css = updated;
+        modified = true;
+      }
+    }
+  }
+
   if (modified) {
     await fsp.writeFile(stylesPath, css, 'utf8');
-    console.log(`  ↳ updated theme colors for ${tenantId}`);
+    const themeLabel = config.theme === 'dark' ? 'dark theme' :
+      config.theme === 'matrix' ? 'matrix theme' :
+      config.theme === 'light' ? 'light theme' :
+      typeof config.theme === 'object' ? 'custom theme' : 'theme colors';
+    console.log(`  ↳ applied ${themeLabel} for ${tenantId}`);
   }
+}
+
+/**
+ * Apply nav position configuration to styles.css
+ * Supports: navPosition: "left" (default) | "right"
+ */
+async function applyNavPosition(distDir, config, tenantId) {
+  if (config.navPosition !== 'right') return;
+
+  const stylesPath = path.join(distDir, 'styles.css');
+  if (!(await pathExists(stylesPath))) return;
+
+  let css = await fsp.readFile(stylesPath, 'utf8');
+
+  // CSS rules to flip the layout for right-side nav
+  const navRightCSS = `
+/* ─────────────────────────────────────────────────────────
+   Nav Position: Right
+   ───────────────────────────────────────────────────────── */
+
+.layout {
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+}
+
+.sidebar {
+  order: 2;
+  border-right: none;
+  border-left: 1px solid var(--grid-line);
+}
+
+.canvas {
+  order: 1;
+}
+
+/* Mobile adjustments for right nav */
+@media (max-width: 960px) {
+  .sidebar {
+    left: auto;
+    right: -100%;
+    border-left: 2px solid var(--ink);
+    border-right: none;
+  }
+
+  .sidebar.mobile-open {
+    left: auto;
+    right: 0;
+  }
+}
+`;
+
+  // Append the nav position CSS at the end
+  css += navRightCSS;
+  await fsp.writeFile(stylesPath, css, 'utf8');
+  console.log(`  ↳ applied right-side nav position for ${tenantId}`);
 }
 
 function renderList(items, tag) {
@@ -1095,7 +1319,9 @@ function parseInlineMarkdown(input, linkContext = null) {
       const isExternal = /^https?:\/\//i.test(href);
       const attrs = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
       return `<a href="${href}"${attrs}>${text}</a>`;
-    });
+    })
+    // Inline span with title attribute for tooltips: <span title="...">text</span>
+    .replace(/&lt;span title=&quot;([^&]*)&quot;&gt;([^]*?)&lt;\/span&gt;/g, '<span title="$1">$2</span>');
 }
 
 /**
@@ -1876,8 +2102,14 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
     const subdirId = deriveSectionId(parentId, subdir.name);
     const subdirManifest = await loadDirectoryManifest(subdirPath);
 
-    const title = subdirManifest?.title || humanizeTitle(subdir.name);
-    const summary = subdirManifest?.summary || '';
+    // Look up metadata from parent manifest's sections array
+    const parentEntry = manifest?.sections?.find(s =>
+      s.id === subdir.name || s.id === subdirId
+    );
+
+    const title = subdirManifest?.title || parentEntry?.title || humanizeTitle(subdir.name);
+    const summary = subdirManifest?.summary || parentEntry?.summary || '';
+    const collapsed = subdirManifest?.collapsed ?? parentEntry?.collapsed ?? false;
 
     const subsections = await scanContentDirectory(subdirPath, subdirId, context, depth + 1);
 
@@ -1888,21 +2120,25 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
       if (indexEntry) {
         // Remove index from subsections, it becomes the group itself
         const otherSections = subsections.filter(s => !s._isIndex);
-        sections.push({
+        const entry = {
           id: subdirId,
           title,
           summary,
           file: indexEntry.file,
           subsections: otherSections.length > 0 ? otherSections : undefined
-        });
+        };
+        if (collapsed) entry.collapsed = true;
+        sections.push(entry);
       } else {
         // No index, just a group with subsections
-        sections.push({
+        const entry = {
           id: subdirId,
           title,
           summary,
           subsections
-        });
+        };
+        if (collapsed) entry.collapsed = true;
+        sections.push(entry);
       }
     }
   }
@@ -1964,7 +2200,7 @@ async function materializeScannedSections(sections, context) {
   const processed = [];
 
   for (const section of sections) {
-    const { id, title, summary, file, subsections, url, type } = section;
+    const { id, title, summary, file, subsections, url, type, collapsed } = section;
 
     // Pass through external links without processing
     if (url) {
@@ -2026,16 +2262,19 @@ async function materializeScannedSections(sections, context) {
           subsections: processedSubsections
         };
         if (type) entry.type = type;
+        if (collapsed) entry.collapsed = true;
         processed.push(entry);
       } else {
         const entry = { id, title, summary, module: `./sections/${outFile}` };
         if (type) entry.type = type;
+        if (collapsed) entry.collapsed = true;
         processed.push(entry);
       }
     } else if (processedSubsections && processedSubsections.length > 0) {
       // Group without its own content
       const entry = { id, title, summary, subsections: processedSubsections };
       if (type) entry.type = type;
+      if (collapsed) entry.collapsed = true;
       processed.push(entry);
     }
   }
@@ -2581,6 +2820,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   if (Object.keys(config).length > 0) {
     await applyBranding(distDir, config, tenantId);
     await applyThemeColors(distDir, config, tenantId);
+    await applyNavPosition(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }
 
