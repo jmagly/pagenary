@@ -1,0 +1,11 @@
+# Dependency source allowlist — per .claude/rules/dependency-source-policy.md
+#
+# Non-registry dependency sources (git+, git:, github:, raw tarball URLs,
+# file:, link:) are forbidden by default in package.json and the lockfile,
+# including transitive entries. They bypass registry signature verification
+# and can execute arbitrary code at install time via lifecycle scripts.
+#
+# To permit a specific exception, add an entry with: dep, source, owner,
+# reason, review_date (<= 1 year out), and an explicit risk_acceptance note.
+# An empty allowlist (the default below) means: no exceptions.
+allowlist: []

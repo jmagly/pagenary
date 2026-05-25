@@ -1,0 +1,231 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pagenary.io/schemas/tenants.schema.json",
+  "title": "Pagenary Tenant Registry",
+  "description": "Configuration file for multi-tenant documentation builds",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for validation"
+    },
+    "tenants": {
+      "type": "array",
+      "description": "List of tenant configurations",
+      "items": {
+        "$ref": "#/definitions/tenant"
+      }
+    },
+    "defaults": {
+      "$ref": "#/definitions/defaults",
+      "description": "Default source and target paths for tenants without explicit paths"
+    }
+  },
+  "required": ["tenants"],
+  "definitions": {
+    "tenant": {
+      "type": "object",
+      "description": "A single tenant configuration",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$",
+          "description": "Unique tenant identifier (lowercase alphanumeric with hyphens)"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this tenant should be built"
+        },
+        "source": {
+          "$ref": "#/definitions/sourcePath",
+          "description": "Where to read tenant content from"
+        },
+        "target": {
+          "$ref": "#/definitions/targetPath",
+          "description": "Where to write built tenant bundle"
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Domain names for routing (used by Caddyfile generator)"
+        },
+        "config": {
+          "$ref": "#/definitions/tenantConfig",
+          "description": "Branding and configuration overrides"
+        }
+      }
+    },
+    "sourcePath": {
+      "oneOf": [
+        { "$ref": "#/definitions/localSource" },
+        { "$ref": "#/definitions/gitSource" }
+      ],
+      "description": "Source location for tenant content (local path or git repository)"
+    },
+    "localSource": {
+      "type": "object",
+      "description": "Local filesystem source",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["local"],
+          "default": "local",
+          "description": "Local source type"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to tenant source directory. Relative paths resolve from publisher root. Supports environment variable expansion ($VAR or ${VAR})."
+        }
+      },
+      "required": ["path"]
+    },
+    "gitSource": {
+      "type": "object",
+      "description": "Git repository source",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["git"],
+          "description": "Git source type"
+        },
+        "url": {
+          "type": "string",
+          "description": "Git repository URL (HTTPS, SSH, or file://)"
+        },
+        "ref": {
+          "type": "string",
+          "default": "main",
+          "description": "Branch, tag, or commit SHA to checkout"
+        },
+        "path": {
+          "type": "string",
+          "default": ".",
+          "description": "Subdirectory within repository containing tenant content"
+        },
+        "sparse": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use sparse checkout (only fetch subdirectory specified by path)"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Shallow clone depth (1 = latest commit only)"
+        }
+      },
+      "required": ["type", "url"]
+    },
+    "targetPath": {
+      "type": "object",
+      "description": "Target location for built tenant bundle",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["local"],
+          "default": "local",
+          "description": "Target type (currently only 'local' is supported)"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to output directory. Relative paths resolve from publisher root. Supports environment variable expansion ($VAR or ${VAR})."
+        }
+      }
+    },
+    "tenantConfig": {
+      "type": "object",
+      "description": "Tenant branding and configuration",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "HTML page title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Meta description for SEO"
+        },
+        "brandMark": {
+          "type": "string",
+          "description": "Primary brand text in header"
+        },
+        "brandSub": {
+          "type": "string",
+          "description": "Secondary brand text in header"
+        },
+        "tagline": {
+          "type": "string",
+          "description": "Tagline shown in header"
+        },
+        "accentColor": {
+          "type": "string",
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "CSS accent color (hex format)"
+        },
+        "welcome": {
+          "$ref": "#/definitions/welcomeConfig",
+          "description": "Welcome section customization"
+        }
+      }
+    },
+    "welcomeConfig": {
+      "type": "object",
+      "description": "Welcome section content",
+      "properties": {
+        "eyebrow": {
+          "type": "string",
+          "description": "Small text above headline"
+        },
+        "headline": {
+          "type": "string",
+          "description": "Main welcome heading"
+        },
+        "lead": {
+          "type": "string",
+          "description": "Introductory paragraph"
+        },
+        "pillars": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Value proposition bullet points"
+        },
+        "checklist": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Getting started checklist items"
+        },
+        "quickLinks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "href": { "type": "string" }
+            },
+            "required": ["label", "href"]
+          },
+          "description": "Quick navigation links"
+        },
+        "quote": {
+          "type": "string",
+          "description": "Optional quote or testimonial"
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Default paths for tenants without explicit configuration",
+      "properties": {
+        "source": {
+          "$ref": "#/definitions/sourcePath"
+        },
+        "target": {
+          "$ref": "#/definitions/targetPath"
+        }
+      }
+    }
+  }
+}

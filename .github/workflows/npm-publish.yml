@@ -1,0 +1,161 @@
+# Public npm Publishing to npmjs.org — runs on GitHub Actions
+#
+# Supply-chain split (see .aiwg / pagenary-release-pipeline):
+#   - .gitea/workflows/npm-publish.yml  -> INTERNAL Gitea registry only
+#   - THIS workflow (GitHub Actions)    -> PUBLIC npmjs.org
+#
+# The public package is published from GitHub — not internal Gitea CI — so it
+# can carry an npm provenance attestation (sigstore) linking
+# @pagenary/publisher to this source commit + build. That attestation is the
+# supply-chain reason the public publish lives here.
+#
+# Triggered by the version tag that .gitea/workflows/release.yml mirrors to
+# GitHub, or manually via workflow_dispatch.
+#
+# REQUIRED GitHub repo secret:
+#   NPMJS_TOKEN - npmjs.org automation/granular token with publish rights to
+#                 the @pagenary scope (bypasses 2FA for CI).
+#
+# Publish enable gate (OFF by default):
+#   NPMJS_PUBLISH_ENABLED (repo variable) must equal 'true' for this workflow
+#   to actually publish. Until then it runs but only logs a skip notice — so a
+#   mirrored tag never publishes a version to npmjs unexpectedly. Recommended
+#   enable order: make the repo PUBLIC -> NPM_PROVENANCE=true ->
+#   NPMJS_PUBLISH_ENABLED=true.
+#
+# Provenance (opt-in; OFF by default):
+#   Set repo variable NPM_PROVENANCE=true to publish with `--provenance`.
+#   PREREQUISITES that must all hold before enabling it:
+#     1. This GitHub repo is PUBLIC (npm rejects provenance for private repos).
+#     2. id-token: write permission (set below) for GitHub OIDC.
+#     3. package.json repository.url matches this GitHub repo — the publish job
+#        rewrites it at runtime (committed value points at the Gitea origin).
+#   Until enabled, the package still publishes to npmjs.org from GitHub using
+#   NPMJS_TOKEN (just without the attestation).
+
+name: Publish to npmjs.org (public)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (build + pack, do not publish)'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: npmjs-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # GitHub OIDC, required for npm --provenance
+
+jobs:
+  publish:
+    name: Publish to npmjs.org
+    runs-on: ubuntu-latest
+    container: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  # node 20.20.2 (see ci/digests.txt)
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Upgrade npm to ^11.5 (release-age gate)
+        run: npm install -g npm@^11.5
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tag matches package version
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          set -o pipefail
+          VERSION=$(node -p "require('./apps/publisher/package.json').version")
+          TAG="${GITHUB_REF#refs/tags/v}"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Error: tag ($TAG) != apps/publisher/package.json ($VERSION)"; exit 1
+          fi
+          echo "Publishing @pagenary/publisher@$VERSION to npmjs.org"
+
+      - name: Verify .aiwg/ excluded from package
+        working-directory: apps/publisher
+        run: |
+          set -o pipefail
+          npm pack --dry-run 2>&1 | tee pack-output.txt
+          if grep -qE '(^|/)\.aiwg/' pack-output.txt; then
+            echo "FATAL: .aiwg/ found in package contents — must never be published."
+            exit 1
+          fi
+          echo "✓ .aiwg/ excluded"
+
+      - name: Route @pagenary scope to npmjs + write auth
+        # In this workspace repo npm reads the repo-root .npmrc as project
+        # config. The committed root .npmrc routes @pagenary to the internal
+        # Gitea registry — drop that line so the scoped package uses the
+        # npmjs default registry, and append the npmjs auth line (npm
+        # env-expands ${NODE_AUTH_TOKEN} at read time).
+        run: |
+          set -o pipefail
+          sed -i '/@pagenary:registry/d' .npmrc
+          cat >> .npmrc << 'NPMRC'
+          //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+          NPMRC
+
+      - name: Point repository.url at this GitHub repo (provenance match)
+        if: ${{ vars.NPM_PROVENANCE == 'true' }}
+        run: |
+          node -e "
+            const f = 'apps/publisher/package.json';
+            const p = require('./' + f);
+            p.repository = {
+              type: 'git',
+              url: 'git+' + process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '.git',
+              directory: 'apps/publisher'
+            };
+            require('fs').writeFileSync(f, JSON.stringify(p, null, 2) + '\n');
+            console.log('repository.url ->', p.repository.url);
+          "
+
+      - name: Publish skipped (not enabled)
+        if: ${{ vars.NPMJS_PUBLISH_ENABLED != 'true' && github.event.inputs.dry_run != 'true' }}
+        run: |
+          echo "npmjs publish is DISABLED. Set repo variable NPMJS_PUBLISH_ENABLED=true to enable."
+          echo "Recommended order: make the repo PUBLIC -> NPM_PROVENANCE=true -> NPMJS_PUBLISH_ENABLED=true."
+
+      - name: Publish to npmjs.org
+        if: ${{ vars.NPMJS_PUBLISH_ENABLED == 'true' && github.event.inputs.dry_run != 'true' }}
+        working-directory: apps/publisher
+        run: |
+          set -o pipefail
+          PROV=""
+          if [ "${{ vars.NPM_PROVENANCE }}" = "true" ]; then
+            PROV="--provenance"
+            echo "Provenance: ENABLED"
+          else
+            echo "Provenance: disabled (set repo var NPM_PROVENANCE=true on a PUBLIC repo to enable)"
+          fi
+          npm publish --registry=https://registry.npmjs.org/ --access public $PROV 2>&1 | tee publish-output.txt || {
+            if grep -qE "cannot publish over the previously published|EPUBLISHCONFLICT|previously published versions|403" publish-output.txt; then
+              echo "✓ Version already on npmjs.org — treating as success"
+            else
+              echo "✗ npmjs.org publish failed"; cat publish-output.txt; exit 1
+            fi
+          }
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPMJS_TOKEN }}
+
+      - name: Dry run — pack only
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        working-directory: apps/publisher
+        run: npm pack && ls -la *.tgz

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+site/
+coverage/
+*.log
+.DS_Store
+.claude/
+nexus-marketing/
+roko-docs/

@@ -1,0 +1,10 @@
+# CI pin manifest — per .claude/rules/ci-action-pinning.md
+#
+# Every GitHub/Gitea Action and container image referenced in
+# .gitea/workflows/ and .github/workflows/ is pinned by immutable digest.
+# Update via a reviewed commit that bumps both the workflow reference and
+# the row here in the same change.
+#
+# kind       name              pin                                                                resolved-version  date-pinned  rationale
+container    node:20           sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  20.20.2  2026-05-25  initial pin (matches roctinam/aiwg)
+action       actions/checkout  34e114876b0b11c390a56381ad16ebd13914f8d5                           v4.3.1            2026-05-25  initial pin (matches roctinam/aiwg)

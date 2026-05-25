@@ -1,0 +1,35 @@
+{
+  auto_https off
+
+  servers :5175 {
+    protocols h1 h2c
+  }
+}
+
+http://tenant-default.local:5175, http://localhost:5175 {
+  root * dist/tenant-default
+  encode gzip zstd
+  try_files {path} {path}/ index.html
+  file_server
+}
+
+http://tenant-alpha.local:5175 {
+  root * dist/tenant-alpha
+  encode gzip zstd
+  try_files {path} {path}/ index.html
+  file_server
+}
+
+http://tenant-beta.local:5175 {
+  root * dist/tenant-beta
+  encode gzip zstd
+  try_files {path} {path}/ index.html
+  file_server
+}
+
+http://tenant-roko.local:5175 {
+  root * dist/roko-kb
+  encode gzip zstd
+  try_files {path} {path}/ index.html
+  file_server
+}

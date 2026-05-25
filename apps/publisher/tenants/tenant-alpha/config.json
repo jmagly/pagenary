@@ -1,0 +1,30 @@
+{
+  "title": "Atlas Edge Docs",
+  "brandMark": "Atlas",
+  "brandSub": "Edge",
+  "domain": "tenant-alpha.local",
+  "tagline": "Enterprise orchestration for autonomous field fleets.",
+  "description": "Atlas Edge deployment guides and runbooks for robotics operations teams.",
+  "accentColor": "#1E3A8A",
+  "welcome": {
+    "eyebrow": "Atlas Edge Platform",
+    "headline": "Field Operations Launch Playbook",
+    "lead": "Stand up your first Atlas-enabled site with resilient robotics control in under two weeks.",
+    "pillars": [
+      "Guarantee resilient command even with intermittent connectivity.",
+      "Spin up telemetry pipelines and analytics dashboards in hours.",
+      "Keep every deployment compliant with prebuilt policy templates."
+    ],
+    "checklist": [
+      "Install Atlas Relay at the facility edge.",
+      "Connect fleet controllers and register operator roles.",
+      "Validate telemetry feeds and schedule the go-live review."
+    ],
+    "quickLinks": [
+      { "label": "Day 0 Overview", "href": "#/getting-started-introduction" },
+      { "label": "Pricing Calculator", "href": "https://example.com/atlas/pricing" },
+      { "label": "Atlas Support", "href": "https://example.com/support" }
+    ],
+    "quote": "Atlas Edge keeps every field operation online and audit-ready, no matter the terrain."
+  }
+}

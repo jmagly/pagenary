@@ -1,0 +1,23 @@
+# Pagenary tarball top-level allowlist (modeled on roctinam/aiwg)
+#
+# The publish workflow diffs `npm pack --dry-run --json` top-level entries
+# (for @pagenary/publisher) against this list and fails if an unexpected
+# entry appears at the tarball root. This catches the Mini Shai-Hulud
+# injection class: a NEW file dropped at the package root (e.g. a malicious
+# prepare.sh or router_init.js).
+#
+# To ADD an entry: confirm it is intentional (listed in package.json `files`),
+# append it below in alphabetical order, and commit with a message stating
+# WHY the new top-level entry ships. Then re-run the audit.
+#
+# Sourced from: `npm pack --dry-run --json` on @pagenary/publisher (2026-05-25).
+LICENSE
+README.md
+bin
+build.config.json
+package.json
+scripts
+site
+src
+tenants.json.example
+tenants.schema.json

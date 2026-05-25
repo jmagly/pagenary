@@ -1,0 +1,66 @@
+{
+  "name": "@pagenary/publisher",
+  "version": "2026.5.0",
+  "type": "module",
+  "description": "Multi-tenant static publishing component for Pagenary platform.",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://git.integrolabs.net/roctinam/pagenary",
+  "repository": {
+    "type": "git",
+    "url": "git+https://git.integrolabs.net/roctinam/pagenary.git",
+    "directory": "apps/publisher"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "pagenary": "bin/pagenary.mjs"
+  },
+  "files": [
+    "src/",
+    "scripts/",
+    "site/",
+    "build.config.json",
+    "tenants.schema.json",
+    "tenants.json.example",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "npm run build:dev && npm run serve:dev",
+    "build": "node scripts/build.js",
+    "build:dev": "NODE_ENV=development node scripts/build.js --dev",
+    "build:tenants": "node scripts/build-tenants.js",
+    "build:tenant": "node scripts/build-tenants.js",
+    "build:site": "node scripts/build-tenants.js pagenary && node scripts/build-site.js",
+    "prepack": "node scripts/build-tenants.js pagenary >&2 && node scripts/build-site.js >&2",
+    "build:incremental": "node scripts/build-tenants.js --incremental",
+    "build:diff": "node scripts/build-tenants.js --diff-only",
+    "tenants:list": "node scripts/build-tenants.js --list",
+    "tenants:diff": "node scripts/build-tenants.js --diff-only",
+    "serve": "node scripts/serve.js",
+    "serve:dev": "NODE_ENV=development node scripts/serve.js --dev",
+    "start": "npm run build && npm run serve",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "sync:docs": "node scripts/generate-sections.js",
+    "lint:content": "node scripts/lint-content.js",
+    "check:seo": "node scripts/seo-smoke.js",
+    "check": "npm run lint:content && npm run build && npm run check:seo",
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --coverage",
+    "test:watch": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --watch",
+    "ci": "npm run check && npm test",
+    "caddy:up": "docker compose up -d caddy",
+    "caddy:down": "docker compose down",
+    "caddy:restart": "docker compose restart caddy",
+    "caddy:logs": "docker compose logs -f caddy",
+    "caddy:reload": "docker compose exec caddy caddy reload --config /srv/app/Caddyfile"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "terser": "^5.44.0"
+  }
+}

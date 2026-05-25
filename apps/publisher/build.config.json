@@ -1,0 +1,5 @@
+{
+  "minify": true,
+  "mangleReserved": ["load", "init"],
+  "sectionsMangleReserved": ["load"]
+}

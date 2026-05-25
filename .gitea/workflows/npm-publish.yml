@@ -1,0 +1,215 @@
+# npm Package Publishing to the INTERNAL Gitea npm Registry
+#
+# Publishes @pagenary/publisher to Gitea's bundled npm registry (the
+# `pagenary` org namespace) when a version tag (vYYYY.M.PATCH, CalVer per
+# .claude/rules/versioning.md) is pushed. Modeled on roctinam/aiwg's
+# .gitea/workflows/npm-publish.yml, including its supply-chain hardening gates.
+#
+# Supply-chain split: this workflow publishes ONLY to the internal Gitea
+# registry. The PUBLIC publish to npmjs.org (with provenance) is handled
+# separately by .github/workflows/npm-publish.yml on GitHub Actions — so the
+# public artifact is built and attested on GitHub's trusted runners, not
+# internal CI.
+#
+# REQUIRED SECRET (either name works; GT_TOKEN is preferred):
+#   GT_TOKEN   - Gitea API token (gta_...) with package:write scope on
+#                Gitea's bundled npm registry under the `pagenary` org.
+#                This is NOT an npmjs.org token. Set it in the repo's
+#                Actions secrets before tagging a release.
+#   NPM_TOKEN  - Legacy fallback name for the same token, used only if
+#                GT_TOKEN is not set.
+#
+# OPTIONAL VARIABLE:
+#   REQUIRE_SIGNED_TAGS = 'true'  - enable the hard signed-tag gate. Requires
+#                a committed maintainer key (.gitea/keys/maintainers.asc or
+#                .gitea/allowed_signers). See docs/contributing/releasing.md.
+#
+# Hardening gates (mirrored from aiwg): npm@11.5 (release-age), npm audit
+# signatures, tarball top-level audit, .aiwg/ exclusion, tag/version guard.
+#
+# Public npmjs.org publishing (OIDC + provenance) is a separate GitHub
+# Actions leg — see docs/contributing/releasing.md § Public npm.
+#
+# To publish:
+#   1. Bump version in apps/publisher/package.json (CalVer: YYYY.M.PATCH)
+#   2. Commit:  git commit -am "release: vYYYY.M.PATCH"
+#   3. Tag:     git tag vYYYY.M.PATCH   (use -s if signed tags are enabled)
+#   4. Push:    git push origin main --tags
+
+name: Publish to npm registry
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (build + pack, do not publish)'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  GITEA_NPM_REGISTRY: https://git.integrolabs.net/api/packages/pagenary/npm/
+  NODE_VERSION: '20'
+
+jobs:
+  build-and-publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+    container: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  # node 20.20.2 (see ci/digests.txt)
+    timeout-minutes: 15
+    # Force bash so `set -o pipefail` works (gitea-runner-host default is sh/dash).
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - name: Fetch tag object for signature verification
+        # checkout@v4 on a tag-push writes refs/tags/<tag> as a commit ref;
+        # `git tag -v` needs the tag object. Force-fetch it.
+        if: ${{ vars.REQUIRE_SIGNED_TAGS == 'true' && github.event_name == 'push' }}
+        run: |
+          set -o pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          git fetch origin "+refs/tags/${TAG}:refs/tags/${TAG}" --depth=1
+
+      - name: Verify signed tag (opt-in)
+        # Hard gate, enabled only when the REQUIRE_SIGNED_TAGS repo variable
+        # is 'true' and a maintainer key is committed. See releasing.md.
+        if: ${{ vars.REQUIRE_SIGNED_TAGS == 'true' && github.event_name == 'push' }}
+        run: bash tools/ci/verify-signed-tag.sh
+
+      - name: Upgrade npm to ^11.5 (release-age gate)
+        # The root .npmrc sets min-release-age=7, which requires npm 11.5+.
+        # node:20 ships npm 10.x. `npm ci` on a locked tree is a no-op for
+        # the gate, but we honor it here — the publish moment is the most
+        # security-sensitive one.
+        run: npm install -g npm@^11.5
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependency signatures
+        # Verifies the installed dep graph against the registry's signing
+        # keys. If a transitive dep trips this, add a time-bounded waiver
+        # (see releasing.md) rather than suppressing the gate.
+        run: npm audit signatures
+
+      - name: Build publisher
+        run: npm run publisher:build
+
+      - name: Run tests
+        run: npm run publisher:test
+
+      - name: Verify tag matches package version
+        id: version
+        run: |
+          set -o pipefail
+          VERSION=$(node -p "require('./apps/publisher/package.json').version")
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+            if [ "$TAG_VERSION" != "$VERSION" ]; then
+              echo "Error: tag ($TAG_VERSION) does not match apps/publisher/package.json ($VERSION)"
+              exit 1
+            fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing @pagenary/publisher@$VERSION"
+
+      - name: Audit tarball top-level entries
+        # Catches the Mini Shai-Hulud new-file-at-tarball-root injection class
+        # by diffing the actual top-level entries against the committed
+        # allowlist (ci/expected-tarball-top-level.txt).
+        working-directory: apps/publisher
+        run: |
+          set -o pipefail
+          ACTUAL=$(npm pack --dry-run --json 2>/dev/null \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);const t=[...new Set((j[0].files||[]).map(f=>f.path.split('/')[0]))].sort();console.log(t.join('\n'))})")
+          EXPECTED=$(grep -vE '^\s*(#|$)' ../../ci/expected-tarball-top-level.txt | sort)
+          UNEXPECTED=$(comm -23 <(echo "$ACTUAL") <(echo "$EXPECTED"))
+          if [ -n "$UNEXPECTED" ]; then
+            echo "FATAL: unexpected top-level entries in the tarball:"
+            echo "$UNEXPECTED"
+            echo "If intentional, add them to ci/expected-tarball-top-level.txt with a rationale."
+            exit 1
+          fi
+          echo "✓ tarball top-level matches the allowlist"
+
+      - name: Check package contents (.aiwg exclusion)
+        working-directory: apps/publisher
+        run: |
+          set -o pipefail
+          npm pack --dry-run 2>&1 | tee pack-output.txt
+          if grep -qE '(^|/)\.aiwg/' pack-output.txt; then
+            echo "FATAL: .aiwg/ found in package contents — must never be published."
+            exit 1
+          fi
+          echo "✓ package contents look clean"
+
+      - name: Publish to Gitea npm registry
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        working-directory: apps/publisher
+        run: |
+          set -o pipefail
+          # This is a workspace repo: npm reads the repo-root .npmrc as project
+          # config (that's where @pagenary:registry lives), so the auth line
+          # must go there too — a per-package apps/publisher/.npmrc is ignored.
+          cat >> "$GITHUB_WORKSPACE/.npmrc" << 'NPMRC'
+          //git.integrolabs.net/api/packages/pagenary/npm/:_authToken=${NODE_AUTH_TOKEN}
+          NPMRC
+          # Stable publish: omit --tag so npm sets `latest`; the explicit
+          # dist-tag step below makes that promotion mandatory and re-run safe.
+          npm publish --registry=${{ env.GITEA_NPM_REGISTRY }} 2>&1 | tee publish-output.txt || {
+            if grep -qiE "cannot publish over|previously published|package version already exists|EPUBLISHCONFLICT|409" publish-output.txt; then
+              echo "✓ Version already published to Gitea — treating as success"
+            else
+              echo "✗ Gitea publish failed"; cat publish-output.txt; exit 1
+            fi
+          }
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GT_TOKEN || secrets.NPM_TOKEN }}
+
+      - name: Promote to latest on Gitea (idempotent)
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        working-directory: apps/publisher
+        run: |
+          set -o pipefail
+          # This is a workspace repo: npm reads the repo-root .npmrc as project
+          # config (that's where @pagenary:registry lives), so the auth line
+          # must go there too — a per-package apps/publisher/.npmrc is ignored.
+          cat >> "$GITHUB_WORKSPACE/.npmrc" << 'NPMRC'
+          //git.integrolabs.net/api/packages/pagenary/npm/:_authToken=${NODE_AUTH_TOKEN}
+          NPMRC
+          VERSION="${{ steps.version.outputs.version }}"
+          for i in 1 2 3 4 5; do
+            if npm dist-tag add "@pagenary/publisher@${VERSION}" latest --registry=${{ env.GITEA_NPM_REGISTRY }} 2>&1 | tee dist-tag-output.txt; then
+              break
+            fi
+            if grep -qiE "is not in the npm registry|not found|404" dist-tag-output.txt; then
+              echo "Attempt $i: version not yet visible, retrying in 10s..."
+              sleep 10
+            else
+              echo "✗ dist-tag promotion failed"; cat dist-tag-output.txt; exit 1
+            fi
+            if [ "$i" = "5" ]; then echo "✗ dist-tag promotion exhausted retries"; exit 1; fi
+          done
+          npm dist-tag ls @pagenary/publisher --registry=${{ env.GITEA_NPM_REGISTRY }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GT_TOKEN || secrets.NPM_TOKEN }}
+
+      - name: Dry run — would publish
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        working-directory: apps/publisher
+        run: |
+          echo "DRY RUN — would publish @pagenary/publisher@${{ steps.version.outputs.version }} to ${GITEA_NPM_REGISTRY}"
+          npm pack
+          ls -la *.tgz

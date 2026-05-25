@@ -1,0 +1,251 @@
+# Release Cutting — Gitea + GitHub
+#
+# On a version tag (vYYYY.M.PATCH) pushed to origin (Gitea), this workflow
+# builds the package once, then:
+#   1. Creates (or reuses) a Gitea release with the built tarball + SHA-256
+#      checksums attached.
+#   2. On STABLE tags only (no pre-release suffix): pushes main + the tag to
+#      the GitHub mirror and creates a matching GitHub release with the same
+#      assets.
+#
+# npm-registry publishing is handled separately by npm-publish.yml. This
+# workflow is only about release records + bundled artifacts.
+#
+# REQUIRED SECRETS:
+#   GT_TOKEN   - Gitea API token (gta_...) with package:write AND
+#                repository:write (the latter drives the Gitea release API).
+#                Preferred name; falls back to NPM_TOKEN if GT_TOKEN is unset.
+#   GH_TOKEN   - GitHub PAT with `repo` (or `public_repo`) scope, for pushing
+#                the mirror and creating the GitHub release. The GitHub leg
+#                is skipped gracefully if this secret is absent.
+#
+# OPTIONAL VARIABLE:
+#   REQUIRE_SIGNED_TAGS = 'true'  - enforce the signed-tag gate (see
+#                docs/contributing/releasing.md).
+
+name: Release (Gitea + GitHub)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  GITEA_NPM_REGISTRY: https://git.integrolabs.net/api/packages/pagenary/npm/
+  GITHUB_MIRROR: github.com/jmagly/pagenary
+
+jobs:
+  release:
+    name: Cut Release
+    runs-on: ubuntu-latest
+    container: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  # node 20.20.2 (see ci/digests.txt)
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          fetch-depth: 0  # full history: changelog + mirror push
+
+      - name: Fetch tag object (for signature verification)
+        if: ${{ vars.REQUIRE_SIGNED_TAGS == 'true' }}
+        run: |
+          set -o pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          git fetch origin "+refs/tags/${TAG}:refs/tags/${TAG}" --depth=1
+
+      - name: Verify signed tag (opt-in)
+        if: ${{ vars.REQUIRE_SIGNED_TAGS == 'true' }}
+        run: bash tools/ci/verify-signed-tag.sh
+
+      - name: Install jq
+        run: command -v jq >/dev/null 2>&1 || { apt-get update && apt-get install -y --no-install-recommends jq; }
+
+      - name: Upgrade npm to ^11.5 (release-age gate)
+        run: npm install -g npm@^11.5
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build publisher
+        run: npm run publisher:build
+
+      - name: Verify tag matches package version
+        id: version
+        run: |
+          set -o pipefail
+          VERSION=$(node -p "require('./apps/publisher/package.json').version")
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if [ "$TAG_VERSION" != "$VERSION" ]; then
+            echo "Error: tag ($TAG_VERSION) != apps/publisher/package.json ($VERSION)"; exit 1
+          fi
+          BASE="${VERSION%%-*}"
+          if [ "$VERSION" != "$BASE" ]; then PRERELEASE=true; else PRERELEASE=false; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Release v$VERSION (prerelease=$PRERELEASE)"
+
+      - name: Build release assets (tarball + site bundle + checksums)
+        id: assets
+        run: |
+          set -o pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p release-assets
+          # npm pack runs the prepack hook, which compiles the pagenary tenant
+          # into apps/publisher/site/. Capture the npm tarball name before
+          # building the site bundle so the two .tgz files are unambiguous.
+          ( cd apps/publisher && npm pack --pack-destination "$GITHUB_WORKSPACE/release-assets" )
+          TARBALL=$(basename "$(ls release-assets/*.tgz)")
+          # Reuse the prepack-built site/ (no double build) as a hostable bundle.
+          if [ ! -f apps/publisher/site/index.html ]; then
+            echo "Error: apps/publisher/site/ not built by prepack"; exit 1
+          fi
+          SITE_BUNDLE="pagenary-site-${VERSION}.tgz"
+          tar -czf "release-assets/${SITE_BUNDLE}" -C apps/publisher/site .
+          ( cd release-assets && sha256sum "$TARBALL" "$SITE_BUNDLE" > checksums.txt )
+          echo "tarball=release-assets/${TARBALL}" >> "$GITHUB_OUTPUT"
+          echo "site=release-assets/${SITE_BUNDLE}" >> "$GITHUB_OUTPUT"
+          echo "checksums=release-assets/checksums.txt" >> "$GITHUB_OUTPUT"
+          echo "Built ${TARBALL} + ${SITE_BUNDLE}"; cat release-assets/checksums.txt
+
+      - name: Compose release notes
+        id: notes
+        run: |
+          set -o pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          PREV_TAG=$(git describe --tags --abbrev=0 "v${VERSION}^" 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            CHANGES=$(git log --no-merges --pretty='- %s' "${PREV_TAG}..v${VERSION}")
+          else
+            CHANGES="- Initial release"
+          fi
+          TARBALL=$(basename "${{ steps.assets.outputs.tarball }}")
+          SITE=$(basename "${{ steps.assets.outputs.site }}")
+          SHA_TARBALL=$(awk -v f="$TARBALL" '$2==f{print $1}' release-assets/checksums.txt)
+          SHA_SITE=$(awk -v f="$SITE" '$2==f{print $1}' release-assets/checksums.txt)
+          {
+            echo "## Install"
+            echo
+            echo '```bash'
+            echo "npm install -g @pagenary/publisher@${VERSION} \\"
+            echo "  --registry=${GITEA_NPM_REGISTRY}"
+            echo '```'
+            echo
+            echo "## Changes"
+            echo
+            echo "$CHANGES"
+            echo
+            echo "## Artifacts"
+            echo
+            echo "- \`${TARBALL}\` — npm package — sha256 \`${SHA_TARBALL}\`"
+            echo "- \`${SITE}\` — compiled, ready-to-host docs site (unpack and serve any static host) — sha256 \`${SHA_SITE}\`"
+          } > release-notes.md
+          echo "Release notes composed"
+
+      # ----------------------------------------------------------------- Gitea
+      - name: Create or reuse Gitea release
+        id: gitea
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          API="${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases"
+          BODY=$(jq -Rs . < release-notes.md)
+          PAYLOAD=$(jq -n --arg tag "v${VERSION}" --argjson body "$BODY" \
+            --argjson pre ${{ steps.version.outputs.prerelease }} \
+            '{tag_name:$tag, name:$tag, body:$body, draft:false, prerelease:$pre}')
+          CODE=$(curl -sS -o resp.json -w '%{http_code}' -X POST "$API" \
+            -H "Authorization: token ${NPM_TOKEN}" \
+            -H "Content-Type: application/json" -d "$PAYLOAD")
+          if [ "$CODE" = "201" ]; then
+            REL_ID=$(jq -r .id resp.json)
+          elif [ "$CODE" = "409" ]; then
+            echo "Release exists; reusing"
+            REL_ID=$(curl -sS -H "Authorization: token ${NPM_TOKEN}" "$API/tags/v${VERSION}" | jq -r .id)
+          else
+            echo "Gitea release create failed (HTTP $CODE)"; cat resp.json; exit 1
+          fi
+          echo "rel_id=$REL_ID" >> "$GITHUB_OUTPUT"
+        env:
+          NPM_TOKEN: ${{ secrets.GT_TOKEN || secrets.NPM_TOKEN }}
+
+      - name: Upload assets to Gitea release
+        run: |
+          set -euo pipefail
+          REL_ID="${{ steps.gitea.outputs.rel_id }}"
+          BASE="${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases/${REL_ID}/assets"
+          for f in "${{ steps.assets.outputs.tarball }}" "${{ steps.assets.outputs.site }}" "${{ steps.assets.outputs.checksums }}"; do
+            NAME=$(basename "$f")
+            # delete a same-named asset first so re-runs are idempotent
+            EXIST=$(curl -sS -H "Authorization: token ${NPM_TOKEN}" "$BASE" | jq -r --arg n "$NAME" '.[]|select(.name==$n)|.id' || true)
+            [ -n "$EXIST" ] && curl -sS -X DELETE -H "Authorization: token ${NPM_TOKEN}" "$BASE/$EXIST" || true
+            curl -sS -X POST "$BASE?name=${NAME}" \
+              -H "Authorization: token ${NPM_TOKEN}" \
+              -F "attachment=@${f}" >/dev/null
+            echo "uploaded $NAME to Gitea release"
+          done
+        env:
+          NPM_TOKEN: ${{ secrets.GT_TOKEN || secrets.NPM_TOKEN }}
+
+      # ---------------------------------------------------------------- GitHub
+      - name: Push mirror + create GitHub release (stable only)
+        if: ${{ steps.version.outputs.prerelease == 'false' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "GH_TOKEN not set — skipping GitHub release leg."; exit 0
+          fi
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+
+          # Push main + tag to the mirror via a transient mode-600 credential
+          # file (no token in URL or args — per dev-secret-hygiene/token-security).
+          CRED=$(mktemp); chmod 600 "$CRED"; trap 'rm -f "$CRED"' EXIT
+          printf 'https://x-access-token:%s@github.com\n' "$GH_TOKEN" > "$CRED"
+          git -c credential.helper="store --file=$CRED" push "https://${GITHUB_MIRROR}.git" "HEAD:refs/heads/main"
+          git -c credential.helper="store --file=$CRED" push "https://${GITHUB_MIRROR}.git" "$TAG"
+
+          # Create the GitHub release via REST API (token via env header).
+          GH_API="https://api.github.com/repos/jmagly/pagenary/releases"
+          BODY=$(jq -Rs . < release-notes.md)
+          PAYLOAD=$(jq -n --arg tag "$TAG" --argjson body "$BODY" \
+            '{tag_name:$tag, name:$tag, body:$body, draft:false, prerelease:false}')
+          CODE=$(curl -sS -o gh-resp.json -w '%{http_code}' -X POST "$GH_API" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" -d "$PAYLOAD")
+          if [ "$CODE" = "201" ]; then
+            UPLOAD_URL=$(jq -r '.upload_url' gh-resp.json | sed 's/{?name,label}//')
+          elif [ "$CODE" = "422" ]; then
+            echo "GitHub release exists; reusing"
+            UPLOAD_URL=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" "$GH_API/tags/$TAG" \
+              | jq -r '.upload_url' | sed 's/{?name,label}//')
+          else
+            echo "GitHub release create failed (HTTP $CODE)"; cat gh-resp.json; exit 1
+          fi
+
+          for f in "${{ steps.assets.outputs.tarball }}" "${{ steps.assets.outputs.site }}" "${{ steps.assets.outputs.checksums }}"; do
+            NAME=$(basename "$f")
+            # delete a same-named asset first so re-runs replace, not 422-duplicate
+            EXIST=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" "$GH_API/tags/$TAG" \
+              | jq -r --arg n "$NAME" '.assets[]?|select(.name==$n)|.id' || true)
+            [ -n "$EXIST" ] && curl -sS -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/jmagly/pagenary/releases/assets/$EXIST" >/dev/null || true
+            curl -sS -X POST "${UPLOAD_URL}?name=${NAME}" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Content-Type: application/octet-stream" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              --data-binary "@${f}" >/dev/null
+            echo "uploaded $NAME to GitHub release"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}

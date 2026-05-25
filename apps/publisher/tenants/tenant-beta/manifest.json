@@ -1,0 +1,30 @@
+{
+  "default": "beta-welcome",
+  "sections": [
+    {
+      "id": "beta-welcome",
+      "title": "Nimbus Control Overview",
+      "summary": "Guided start for automation partners.",
+      "file": "welcome.html"
+    },
+    {
+      "id": "beta-guides",
+      "title": "Guides",
+      "summary": "Short guides for launch, integrations, and reporting.",
+      "sections": [
+        {
+          "id": "beta-rollout-plan",
+          "title": "Rollout Plan",
+          "summary": "Week-by-week schedule for onboarding sites.",
+          "file": "rollout-plan.md"
+        },
+        {
+          "id": "beta-analytics-overview",
+          "title": "Analytics Overview",
+          "summary": "Custom dashboard component example.",
+          "file": "analytics.js"
+        }
+      ]
+    }
+  ]
+}

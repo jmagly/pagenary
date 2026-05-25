@@ -1,0 +1,31 @@
+{
+  "title": "Pagenary Docs",
+  "brandMark": "Pagenary",
+  "brandSub": "Docs",
+  "domain": "pagenary.aiwg.io",
+  "tagline": "Where documentation takes shape.",
+  "description": "Pagenary developer documentation — building, configuring, deploying, and extending the multi-tenant documentation publisher, published with Pagenary itself.",
+  "accentColor": "#111111",
+  "copyright": "Pagenary",
+  "welcome": {
+    "eyebrow": "Pagenary Platform",
+    "headline": "Where documentation takes shape",
+    "lead": "Pagenary turns one shared template catalog into many branded, tenant-specific static sites. This portal is built by Pagenary, from Pagenary's own docs.",
+    "pillars": [
+      "Zero runtime dependencies — every published bundle is a static single-page app.",
+      "Branding and navigation are data, not code: a tenant is config plus content.",
+      "A Git-aware build pipeline rebuilds only what changed across every tenant."
+    ],
+    "checklist": [
+      "Read the Quickstart to build your first bundle.",
+      "Define a tenant with config.json and a manifest.",
+      "Deploy the static output anywhere that serves files."
+    ],
+    "quickLinks": [
+      { "label": "Quickstart", "href": "#/quickstart" },
+      { "label": "Architecture", "href": "#/architecture" },
+      { "label": "Tenant Configuration", "href": "#/tenant-config" }
+    ],
+    "quote": "One source of truth, any number of published sites."
+  }
+}

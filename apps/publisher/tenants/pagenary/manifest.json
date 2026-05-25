@@ -1,0 +1,80 @@
+{
+  "default": "welcome",
+  "sections": [
+    {
+      "id": "welcome",
+      "title": "Welcome",
+      "summary": "What Pagenary is and how this dogfooded portal is built.",
+      "file": "welcome.md"
+    },
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "summary": "Build your first bundle and stand up a tenant.",
+      "sections": [
+        {
+          "id": "quickstart",
+          "title": "Quickstart",
+          "summary": "Install, build the default bundle, and serve it locally.",
+          "file": "QUICKSTART.md"
+        }
+      ]
+    },
+    {
+      "id": "guides",
+      "title": "Guides",
+      "summary": "Day-to-day workflows for authors and maintainers.",
+      "sections": [
+        {
+          "id": "developer-guide",
+          "title": "Developer Guide",
+          "summary": "Project layout, scripts, and the content authoring workflow.",
+          "file": "DEVELOPER-GUIDE.md"
+        },
+        {
+          "id": "tenant-config",
+          "title": "Tenant Configuration",
+          "summary": "Every config.json option: branding, theming, SEO, and export.",
+          "file": "TENANT-CONFIG.md"
+        },
+        {
+          "id": "extending",
+          "title": "Extending",
+          "summary": "Add section templates, content types, and build behaviors.",
+          "file": "EXTENDING.md"
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "Reference",
+      "summary": "Architecture, APIs, deployment, and SEO reference material.",
+      "sections": [
+        {
+          "id": "architecture",
+          "title": "Architecture",
+          "summary": "The static SPA pattern, build pipeline, and tenant content model.",
+          "file": "ARCHITECTURE.md"
+        },
+        {
+          "id": "api",
+          "title": "API Reference",
+          "summary": "Module-level documentation for the publisher internals.",
+          "file": "API.md"
+        },
+        {
+          "id": "deployment",
+          "title": "Deployment",
+          "summary": "Hosting the static output and multi-tenant domain routing.",
+          "file": "DEPLOYMENT.md"
+        },
+        {
+          "id": "seo-strategy",
+          "title": "SEO Strategy",
+          "summary": "Metadata, hash-routing considerations, and discoverability.",
+          "file": "SEO-STRATEGY.md"
+        }
+      ]
+    }
+  ]
+}

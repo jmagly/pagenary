@@ -1,0 +1,1 @@
+../../../docs/TENANT-CONFIG.md

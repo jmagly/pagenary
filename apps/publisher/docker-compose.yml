@@ -1,0 +1,17 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: docs-toolkit-caddy
+    restart: unless-stopped
+    working_dir: /srv/app
+    command: ["caddy", "run", "--config", "/srv/app/Caddyfile"]
+    ports:
+      - "5175:5175"
+    volumes:
+      - ./Caddyfile:/srv/app/Caddyfile:ro
+      - ./dist:/srv/app/dist:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  caddy-data:
+  caddy-config:

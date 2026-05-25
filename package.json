@@ -1,0 +1,21 @@
+{
+  "name": "pagenary",
+  "private": true,
+  "description": "Pagenary multi-tenant documentation platform monorepo",
+  "license": "AGPL-3.0-or-later",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "bootstrap": "npm install --workspaces",
+    "publisher:build": "npm run build --workspace @pagenary/publisher",
+    "publisher:build:tenants": "npm run build:tenants --workspace @pagenary/publisher",
+    "publisher:build:incremental": "npm run build:incremental --workspace @pagenary/publisher",
+    "publisher:build:diff": "npm run build:diff --workspace @pagenary/publisher",
+    "publisher:tenants:list": "npm run tenants:list --workspace @pagenary/publisher",
+    "publisher:tenants:diff": "npm run tenants:diff --workspace @pagenary/publisher",
+    "publisher:serve": "npm run serve --workspace @pagenary/publisher",
+    "publisher:test": "npm run test --workspace @pagenary/publisher",
+    "publisher:clean": "npm run clean --workspace @pagenary/publisher"
+  }
+}

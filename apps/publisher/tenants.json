@@ -1,0 +1,18 @@
+{
+  "$schema": "./tenants.schema.json",
+  "tenants": [
+    {
+      "id": "pagenary",
+      "domains": ["pagenary.aiwg.io"],
+      "strictLinks": true
+    },
+    {
+      "id": "agentic-sandbox-docs",
+      "enabled": false,
+      "note": "External absolute-path source is not CI-portable. Disabled so default and CI builds do not depend on a machine-specific path. To build it on a machine that has the source, re-enable here or pass an overriding --registry / -s. Portability tracked in issue #6.",
+      "source": {"type": "local", "path": "/home/roctinam/dev/agentic-sandbox/docs"},
+      "domains": ["docs.aiwg.io"],
+      "strictLinks": false
+    }
+  ]
+}
