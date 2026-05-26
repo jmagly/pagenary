@@ -21,6 +21,8 @@ Located at `apps/publisher/tenants.json`, this file registers all tenants:
 |----------|----------|-------------|
 | `source` | Yes | Path to tenant content directory |
 | `domain` | No | Custom domain for Caddy routing |
+| `enabled` | No | Whether to build this tenant (default `true`) |
+| `strictLinks` | No | Broken-link gate (default `true`). When `true`, **broken internal links fail the build** — the tenant is reported `Failed` and the process exits non-zero, so CI can gate on it. Set `false` to log broken links as warnings and continue. |
 
 ### Source Types
 
