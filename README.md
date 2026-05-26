@@ -7,9 +7,9 @@
 Pagenary is a multi-tenant documentation publishing platform that turns one shared set of templates into many branded, tenant-specific static sites. Zero runtime dependencies, hash-based routing, and a Git-aware build pipeline make it suited to white-label documentation portals — one source of truth, any number of published sites.
 
 ```bash
-npm run bootstrap          # install all workspaces
-npm run publisher:build    # build the default bundle
-npm run publisher:serve    # serve on http://localhost:5173
+npm install --save-dev @pagenary/publisher   # add Pagenary to your project
+npx pagenary build:tenants my-docs           # build your docs tenant
+npx pagenary serve                           # serve on http://localhost:5173
 ```
 
 [![npm version](https://img.shields.io/npm/v/@pagenary/publisher?label=npm&color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@pagenary/publisher)
