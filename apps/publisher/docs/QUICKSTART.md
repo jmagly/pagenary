@@ -1,28 +1,28 @@
 # Quick Start Guide
 
-Create your first Pagenary documentation site in 10 minutes.
+Create your first Pagenary documentation site in 10 minutes. For a more guided,
+zero-assumptions walkthrough, see [Getting Started](GETTING-STARTED.md).
 
 ## Prerequisites
 
-- Node.js 18+
-- Git (for version control)
+- Node.js ≥ 16 (20+ recommended)
 
-## Step 1: Set Up the Publisher
+## Step 1: Install Pagenary
+
+Use the published package — no clone required:
 
 ```bash
-# Clone the repository
-git clone https://github.com/jmagly/dbbuilder.git pagenary
-cd pagenary
-
-# Install dependencies
-npm run bootstrap
-
-# Verify installation
-cd apps/publisher
-npm run build
-npm run serve
-# Visit http://localhost:5173 to see the default docs
+npm install --save-dev @pagenary/publisher
+npx pagenary --help            # confirm the CLI is available
 ```
+
+> **Building Pagenary from source instead?** Clone the repo and work from the
+> workspace (for contributors / modifying the generator):
+> ```bash
+> git clone https://github.com/jmagly/pagenary.git
+> cd pagenary && npm run bootstrap
+> npm run publisher:build && npm run publisher:serve
+> ```
 
 ## Key Features
 
@@ -160,34 +160,36 @@ Create `manifest.json`:
 
 ## Step 6: Register Your Tenant
 
-Go back to the publisher directory and edit `tenants.json`:
-
-```bash
-cd /path/to/pagenary/apps/publisher
-```
-
-Add your tenant to `tenants.json`:
+Create (or edit) a `tenants.json` at your project root and add your tenant. The
+registry is an array; `source` is an object (`local` or `git`):
 
 ```json
 {
-  "my-docs": {
-    "source": "/home/youruser/my-docs",
-    "domain": "my-docs.local"
-  }
+  "tenants": [
+    {
+      "id": "my-docs",
+      "source": { "type": "local", "path": "./my-docs" },
+      "strictLinks": true
+    }
+  ]
 }
 ```
+
+> Building from source? Edit `apps/publisher/tenants.json` in the cloned repo instead.
 
 ## Step 7: Build and Preview
 
 ```bash
 # Build your tenant
-npm run build:tenants my-docs
+npx pagenary build:tenants my-docs
 
 # Start the server
-npm run serve
+npx pagenary serve
 
 # Visit http://localhost:5173/my-docs/
 ```
+
+> From source, the equivalents are `npm run build:tenants my-docs` and `npm run serve`.
 
 You should see your documentation with your branding applied.
 
@@ -287,7 +289,7 @@ Your built site is in `dist/my-docs/`. Deploy it anywhere that serves static fil
 
 1. Check that `manifest.json` references the correct file paths
 2. Verify files exist in `content/`
-3. Run `npm run build:tenants my-docs` and check for errors
+3. Run `npx pagenary build:tenants my-docs` and check for errors
 
 ### Styles not applied?
 

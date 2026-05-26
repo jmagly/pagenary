@@ -171,64 +171,67 @@ Templates + per-tenant content/config
 
 ## Quick Start
 
-```bash
-# Clone and install
-git clone https://github.com/jmagly/pagenary.git
-cd pagenary
-npm run bootstrap
+Pagenary is an npm package — **no clone required to use it**. New to Pagenary?
+The **[Getting Started guide](apps/publisher/docs/GETTING-STARTED.md)** walks
+you from zero to a published docs site step by step.
 
-# Build and serve the default bundle
-npm run publisher:build
-npm run publisher:serve
-# Visit http://localhost:5173
-
-# Build all tenant bundles
-npm run publisher:build:tenants
-```
-
-### Use as a CLI (`pagenary`)
-
-The published package exposes a `pagenary` command — run it with `npx`, or
-install it as a devDependency and call `pagenary` directly. No clone required.
+### Use the published package (recommended)
 
 ```bash
-# One-off, no install
+# See the available commands
 npx @pagenary/publisher --help
-npx @pagenary/publisher build:tenants pagenary
-npx @pagenary/publisher serve
 
-# Or as a project devDependency
+# Add it to your project, then build and serve your docs
 npm install --save-dev @pagenary/publisher
-npx pagenary build            # build the default bundle
-npx pagenary tenants:list     # list configured tenants
+npx pagenary build:tenants my-docs    # build your tenant (see "Creating Your First Tenant")
+npx pagenary serve                    # serve on http://localhost:5173
 ```
 
-Commands: `build`, `build:tenants [id]`, `tenants:list`, `serve`. Extra flags
-pass through to the underlying script (e.g. `pagenary build:tenants --incremental`).
-The published tarball also ships a compiled reference site under `site/` — the
-Pagenary docs, built by Pagenary itself.
+`pagenary` commands: `build`, `build:tenants [id]`, `tenants:list`, `serve`.
+Extra flags pass through to the underlying script (e.g.
+`pagenary build:tenants --incremental`). The published tarball also ships a
+compiled reference site under `site/` — the Pagenary docs, built by Pagenary
+itself.
+
+### Build from source (contributors / modifying Pagenary)
+
+Clone the repo only if you want to change the templates, hack on the generator,
+or develop Pagenary itself — not to *use* it:
+
+```bash
+git clone https://github.com/jmagly/pagenary.git
+cd pagenary && npm run bootstrap
+
+npm run publisher:build && npm run publisher:serve   # default bundle → http://localhost:5173
+npm run publisher:build:tenants                      # all tenant bundles
+```
 
 ## Creating Your First Tenant
 
-1. **Register the tenant** in `apps/publisher/tenants.json`:
+With `@pagenary/publisher` installed in your project (`npm install -D @pagenary/publisher`):
+
+1. **Register the tenant** in a `tenants.json` at your project root (validated by the bundled `tenants.schema.json`):
 ```json
 {
-  "my-docs": {
-    "source": "/path/to/my-docs",
-    "domain": "my-docs.local"
-  }
+  "tenants": [
+    {
+      "id": "my-docs",
+      "source": { "type": "local", "path": "./docs" },
+      "strictLinks": true
+    }
+  ]
 }
 ```
 
-2. **Create tenant structure**:
+2. **Add your content** under the source path:
 ```
-my-docs/
-├── config.json          # Branding and theme
-├── manifest.json        # Navigation structure (optional)
+docs/
+├── config.json          # branding and theme
+├── manifest.json        # navigation structure (optional)
 └── content/
     ├── welcome.md       # Markdown content
     ├── guide.html       # HTML content
-    └── dashboard.js     # Dynamic JS modules
+    └── dashboard.js     # dynamic JS modules
 ```
 
 3. **Configure branding** in `config.json`:
@@ -245,10 +248,13 @@ my-docs/
 
 4. **Build and preview**:
 ```bash
-npm run publisher:build:tenants my-docs
-npm run publisher:serve
+npx pagenary build:tenants my-docs
+npx pagenary serve
 # Visit http://localhost:5173/my-docs/
 ```
+
+> Building Pagenary from source instead? Use `npm run publisher:build:tenants my-docs`
+> and register tenants in `apps/publisher/tenants.json`.
 
 ## Architecture
 
@@ -278,29 +284,33 @@ pagenary/
 
 ## Common Commands
 
-Run from the repository root:
+**Using the installed package** (the default — `npx pagenary <command>`):
 
 ```bash
-# Workspace management
-npm run bootstrap              # Install all dependencies
+npx pagenary build              # build the default bundle to dist/
+npx pagenary build:tenants [id] # build a tenant (or all enabled tenants)
+npx pagenary tenants:list       # list configured tenants
+npx pagenary serve              # serve dist/ on localhost:5173
+```
 
-# Publisher commands
-npm run publisher:build         # Build default bundle
-npm run publisher:build:tenants # Build all tenant bundles
-npm run publisher:serve         # Serve dist/ on localhost:5173
+**From source** (after cloning — for contributors / Pagenary development):
 
-# From apps/publisher/:
-npm run dev                    # Build + serve with watch
-npm run build:tenants [id]     # Build specific or all tenants
-npm run build:incremental [id] # Git-aware incremental build
-npm run caddy:up               # Start multi-tenant Caddy server
-npm run caddy:down             # Stop Caddy server
-npm test                       # Run test suite
+```bash
+npm run bootstrap               # install all workspace dependencies
+npm run publisher:build         # build default bundle
+npm run publisher:build:tenants # build all tenant bundles
+npm run publisher:serve         # serve dist/ on localhost:5173
+
+# from apps/publisher/:
+npm run dev                     # build + serve with watch
+npm run build:incremental [id]  # Git-aware incremental build
+npm run caddy:up                # start multi-tenant Caddy server
+npm test                        # run test suite
 ```
 
 ## Configuration & Customization
 
-- **Tenant registration** — `apps/publisher/tenants.json` (validated by `tenants.schema.json`)
+- **Tenant registration** — a `tenants.json` at your project root (or `apps/publisher/tenants.json` when building from source), validated by `tenants.schema.json`
 - **Branding & theme** — per-tenant `config.json` (title, brand marks, tagline, colors, typography)
 - **Navigation** — per-tenant `manifest.json` overrides the shared structure
 - **Post-build overrides** — drop replacements in a tenant's `overrides/` directory
@@ -308,6 +318,7 @@ npm test                       # Run test suite
 
 ## Documentation
 
+- [Getting Started](apps/publisher/docs/GETTING-STARTED.md) — **start here**: zero to a published docs site using the npm package
 - [Publisher README](apps/publisher/README.md) — full feature documentation
 - [Quick Start Guide](apps/publisher/docs/QUICKSTART.md) — step-by-step tenant setup
 - [Tenant Configuration](apps/publisher/docs/TENANT-CONFIG.md) — all config options

@@ -6,13 +6,25 @@ Transform shared documentation templates into tenant-specific bundles with custo
 
 ## Quick Start
 
+Install the package and drive it with the `pagenary` CLI — **no clone required**.
+New here? Follow the [Getting Started guide](docs/GETTING-STARTED.md).
+
+```bash
+npm install --save-dev @pagenary/publisher
+
+npx pagenary build:tenants my-docs   # build your tenant (see Tenant Registry below)
+npx pagenary serve                   # preview on http://localhost:5173
+```
+
+Commands: `build`, `build:tenants [id]`, `tenants:list`, `serve` (run
+`npx pagenary --help`). The package also ships a compiled reference site under `site/`.
+
+**Building from source** (contributors / modifying Pagenary):
+
 ```bash
 npm install
-npm run dev         # Build + serve with watch mode
-
-# Or separately:
-npm run build       # Build default bundle to dist/
-npm run serve       # Preview on http://localhost:5173
+npm run dev         # build + serve with watch mode
+npm run build       # build default bundle to dist/
 ```
 
 ## Features
@@ -233,47 +245,56 @@ export async function load() {
 
 ## Build Commands
 
+With the package installed (the default):
+
 ```bash
-# Full builds
-npm run build                    # Build default bundle
-npm run build:tenants            # Build all registered tenants
-npm run build:tenants my-tenant  # Build specific tenant
+npx pagenary build                    # build the default bundle to dist/
+npx pagenary build:tenants            # build all enabled tenants
+npx pagenary build:tenants my-tenant  # build a specific tenant
+npx pagenary tenants:list             # list configured tenants
+npx pagenary serve                    # serve dist/ on localhost:5173
+```
 
-# Incremental builds (git-aware)
-npm run build:incremental my-tenant  # Only rebuild changed files
+From source (clone — adds dev/utility scripts):
 
-# Development
-npm run dev                      # Build + serve with watch
-npm run serve                    # Serve dist/ on localhost:5173
-
-# Utilities
-npm run lint:content             # Check for trailing whitespace/tabs
-npm run check:seo                # Verify SEO metadata
-npm run check                    # Run all checks
-npm run sync:docs                # Regenerate section templates
-npm test                         # Run test suite
+```bash
+npm run build:incremental my-tenant  # git-aware incremental rebuild
+npm run dev                          # build + serve with watch
+npm run lint:content                 # check trailing whitespace/tabs
+npm run check:seo                    # verify SEO metadata
+npm run check                        # run all checks
+npm test                             # run test suite
 ```
 
 ## Tenant Registry
 
-Register tenants in `tenants.json`:
+Register tenants in a `tenants.json` at your project root (validated by the
+bundled `tenants.schema.json`):
 
 ```json
 {
-  "my-docs": {
-    "source": "/absolute/path/to/my-docs",
-    "domain": "my-docs.local"
-  },
-  "client-portal": {
-    "source": "git:https://github.com/org/client-docs.git#main",
-    "domain": "docs.client.com"
-  }
+  "tenants": [
+    {
+      "id": "my-docs",
+      "source": { "type": "local", "path": "./docs" },
+      "strictLinks": true
+    },
+    {
+      "id": "client-portal",
+      "source": { "type": "git", "url": "https://github.com/org/client-docs.git", "ref": "main" },
+      "domains": ["docs.client.com"]
+    }
+  ]
 }
 ```
 
 **Source types:**
-- **Local path**: `/absolute/path/to/content`
-- **Git repository**: `git:https://github.com/org/repo.git#branch`
+- **Local**: `{ "type": "local", "path": "./relative/or/abs/path" }`
+- **Git**: `{ "type": "git", "url": "https://…", "ref": "main", "path": "subdir" }`
+
+Per-tenant options include `enabled` (default `true`), `strictLinks` (default
+`true` — fail the build on broken internal links), and `domains` (for the
+multi-tenant Caddy router). See [Tenant Configuration](docs/TENANT-CONFIG.md).
 
 ## Docker Caddy Workflow
 
@@ -329,6 +350,7 @@ apps/publisher/
 
 ## Documentation
 
+- [Getting Started](docs/GETTING-STARTED.md) - **start here**: zero to a published site with the npm package
 - [Quick Start Guide](docs/QUICKSTART.md) - Step-by-step tenant creation
 - [Tenant Configuration](docs/TENANT-CONFIG.md) - All config options
 - [Architecture](docs/ARCHITECTURE.md) - System design
