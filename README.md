@@ -13,6 +13,7 @@ npm run publisher:serve    # serve on http://localhost:5173
 ```
 
 [![npm version](https://img.shields.io/npm/v/@pagenary/publisher?label=npm&color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@pagenary/publisher)
+[![npm downloads](https://img.shields.io/npm/dm/@pagenary/publisher?color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@pagenary/publisher)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%E2%89%A516.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org)
 
