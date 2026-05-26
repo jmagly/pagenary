@@ -7,8 +7,14 @@ import { spawn, execSync } from 'child_process';
 import { createHash } from 'crypto';
 import os from 'os';
 import { generateSeoArtifacts } from './lib/seo-generator.js';
+import { fileURLToPath } from 'node:url';
 
 const root = process.cwd();
+// The package's own directory (this file lives at <pkg>/scripts/build-tenants.js).
+// Bundled scripts/assets (build.js, src/, build.config.json) resolve against this
+// so the `pagenary` bin works from any consumer CWD (#11). Tenant source/target/
+// registry paths stay relative to `root` (the caller's CWD).
+const packageRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DEFAULT_TENANTS_DIR = path.join(root, 'tenants');
 const DEFAULT_DIST_DIR = path.join(root, 'dist');
 const DEFAULT_REGISTRY_PATH = path.join(root, 'tenants.json');
@@ -738,10 +744,16 @@ function escapeAttribute(value) {
 
 async function runBuild(buildOutput) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(process.execPath, [path.join('scripts', 'build.js')], {
-      cwd: root,
+    // Resolve build.js and run it from the package dir so it reads the package's
+    // own src/ + build.config.json (not the caller's CWD). Pass an ABSOLUTE
+    // output path (resolved against the caller's CWD) so the bundle still lands
+    // in the right dist/ regardless of build.js's CWD (#11).
+    const buildScript = path.join(packageRoot, 'scripts', 'build.js');
+    const absOutput = path.resolve(root, buildOutput);
+    const proc = spawn(process.execPath, [buildScript], {
+      cwd: packageRoot,
       stdio: 'inherit',
-      env: { ...process.env, BUILD_OUTPUT: buildOutput }
+      env: { ...process.env, BUILD_OUTPUT: absOutput }
     });
     proc.on('exit', (code) => {
       if (code === 0) return resolve();
@@ -2874,7 +2886,7 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}, 
 
   if (contentRoot.type === 'none' && !hasManifest) {
     console.warn(`  ↳ ${tenantId}: no content found`);
-    return;
+    return { success: true };
   }
 
   // If nested structure detected, use new processing
@@ -2892,8 +2904,7 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}, 
 
         if (hasDirectoryType || !hasExplicitFiles) {
           // Use nested content processing
-          await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options, config);
-          return;
+          return (await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options, config)) ?? { success: true };
         }
       } catch {
         // Fall through to nested processing if manifest is invalid
@@ -2901,20 +2912,20 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}, 
     }
 
     // No manifest or manifest doesn't fully define structure - use nested scanning
-    await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options, config);
-    return;
+    return (await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options, config)) ?? { success: true };
   }
 
   // Flat content/ structure with manifest - use legacy processing
   if (hasManifest && contentRoot.type === 'flat') {
-    await processTenantManifestLegacy(sourceDir, distDir, tenantId, options);
-    return;
+    return (await processTenantManifestLegacy(sourceDir, distDir, tenantId, options)) ?? { success: true };
   }
 
   // Fallback: try legacy processing
   if (hasManifest) {
-    await processTenantManifestLegacy(sourceDir, distDir, tenantId, options);
+    return (await processTenantManifestLegacy(sourceDir, distDir, tenantId, options)) ?? { success: true };
   }
+
+  return { success: true };
 }
 
 /**
@@ -2996,15 +3007,21 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     return;
   }
 
-  // Print link warnings
+  // Print link warnings, and fail the tenant on broken links under strict mode
   if (linkWarnings.length > 0) {
     printLinkWarnings(linkWarnings, tenantId, strictLinks);
+    const brokenLinks = linkWarnings.filter(w => w.type === 'broken');
+    if (strictLinks && brokenLinks.length > 0) {
+      console.error(`  ↳ [ERROR] ${tenantId}: Build failed due to ${brokenLinks.length} broken link(s). Use strictLinks: false to warn instead.`);
+      return { success: false, brokenLinks: brokenLinks.length };
+    }
   }
 
   const defaultSection = manifestData.default || manifestData.defaultSection || context.leafOrder[0];
   const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig);
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied manifest-driven content for ${tenantId}`);
+  return { success: true };
 }
 
 /**
@@ -3127,6 +3144,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     followLinks: followLinksSetting || false
   };
 
+  let contentResult = { success: true };
   if (isExplicitFileBuild) {
     // Explicit file targeting - create synthetic change set
     const explicitFiles = {
@@ -3140,7 +3158,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     if (!(await pathExists(distDir))) {
       console.log(`  ↳ no existing build found, performing full build first`);
       await runBuild(buildOutput);
-      await processTenantContent(sourceDir, distDir, tenantId, contentOptions, config);
+      contentResult = await processTenantContent(sourceDir, distDir, tenantId, contentOptions, config);
     }
 
     // Process only the specified files
@@ -3161,7 +3179,16 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await runBuild(buildOutput);
 
     // Process full manifest from source directory
-    await processTenantContent(sourceDir, distDir, tenantId, contentOptions, config);
+    contentResult = await processTenantContent(sourceDir, distDir, tenantId, contentOptions, config);
+  }
+
+  // Fail the tenant before branding/SEO/deploy if content processing failed
+  // (e.g. broken links under strictLinks). Continuing would deploy a half-built
+  // dist with no tenant manifest.js, yielding a misleading "ready" and the
+  // downstream SEO "sectionEntry is not defined" error (#12, #13).
+  if (contentResult && contentResult.success === false) {
+    console.error(`  ↳ ${tenantId}: aborting build — content processing failed`);
+    return { success: false, changes };
   }
 
   // Apply file overrides from source FIRST (before branding/theme modifications)
@@ -3557,6 +3584,13 @@ async function main() {
     if (args.target) {
       console.log(`Tenant files deployed to: ${resolvePath(args.target)}`);
     }
+  }
+
+  // Exit non-zero when any tenant failed so CI can gate on it — e.g. the
+  // strictLinks broken-link gate (#12). Use exitCode (not exit()) so the
+  // return below still works when this script is imported programmatically.
+  if (failCount > 0) {
+    process.exitCode = 1;
   }
 
   // Return results for programmatic use (if this script is imported)
