@@ -1,13 +1,39 @@
+<div align="center">
+
 # Pagenary Publisher
 
-Static publishing component for Pagenary — "Where documentation takes shape."
+**Where documentation takes shape.**
 
-Transform shared documentation templates into tenant-specific bundles with custom branding, themes, and content. Zero runtime dependencies, hash-based routing, and full-text search make it ideal for white-label documentation portals.
+`@pagenary/publisher` is the static site generator behind Pagenary — it turns one shared template catalog into many branded, tenant-specific documentation sites. Zero runtime dependencies, hash-based routing, full-text search, and a Git-aware build pipeline. Install it as a dev dependency and drive it with the `pagenary` CLI.
+
+```bash
+npm install --save-dev @pagenary/publisher   # add Pagenary to your project
+npx pagenary build:tenants my-docs           # build your docs tenant
+npx pagenary serve                           # serve on http://localhost:5173
+```
+
+[![npm version](https://img.shields.io/npm/v/@pagenary/publisher?label=npm&color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@pagenary/publisher)
+[![npm downloads](https://img.shields.io/npm/dm/@pagenary/publisher?color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@pagenary/publisher)
+[![Docs](https://img.shields.io/badge/docs-docs.pagenary.com-22d3ee?style=flat-square&logo=readthedocs&logoColor=white)](https://docs.pagenary.com)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](../../LICENSE)
+[![Node Version](https://img.shields.io/badge/node-%E2%89%A516.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org)
+
+[**Docs Site**](https://docs.pagenary.com) · [**Quick Start**](#quick-start) · [**Features**](#features) · [**Tenant Workflow**](#tenant-content-workflow) · [**Documentation**](#documentation)
+
+</div>
+
+---
+
+## What It Is
+
+The publisher takes a catalog of shared section templates plus per-tenant content and configuration and produces a self-contained documentation bundle for each tenant. Each bundle is a static single-page app — hash-based routing (`#/page-id`), no server-side rendering, no runtime dependencies — that you build once and host anywhere that serves files. Tenants share the template catalog but keep isolated content, branding, navigation, and domains, so one repository can publish a dozen distinct sites.
+
+---
 
 ## Quick Start
 
 Install the package and drive it with the `pagenary` CLI — **no clone required**.
-New here? Follow the [Getting Started guide](docs/GETTING-STARTED.md).
+New here? Follow the **[Getting Started guide](docs/GETTING-STARTED.md)**.
 
 ```bash
 npm install --save-dev @pagenary/publisher
@@ -17,7 +43,7 @@ npx pagenary serve                   # preview on http://localhost:5173
 ```
 
 Commands: `build`, `build:tenants [id]`, `tenants:list`, `serve` (run
-`npx pagenary --help`). The package also ships a compiled reference site under `site/`.
+`npx pagenary --help`). The package also ships a compiled reference site under `site/` — the Pagenary docs, built by Pagenary itself.
 
 **Building from source** (contributors / modifying Pagenary):
 
@@ -27,71 +53,52 @@ npm run dev         # build + serve with watch mode
 npm run build       # build default bundle to dist/
 ```
 
+---
+
 ## Features
 
 ### Content Authoring
-- **Markdown** - Write in `.md` files with full CommonMark support
-- **HTML** - Direct markup control with `.html` files
-- **JavaScript Modules** - Dynamic content with `.js` files returning `{ html, afterRender? }`
-- **Nested Directories** - Organize content in subdirectories (`content/guides/setup.md`)
+- **Markdown** — write in `.md` files with full CommonMark support
+- **HTML** — direct markup control with `.html` files
+- **JavaScript Modules** — dynamic content with `.js` files returning `{ html, afterRender? }`
+- **Nested Directories** — organize content in subdirectories (`content/guides/setup.md`)
 
 ### Rich Content
-- **Mermaid Diagrams** - Flowcharts, sequence diagrams, state machines, and more
-- **Syntax Highlighting** - Prism.js with 10+ language support
-- **Markdown Tables** - Full table syntax with alignment support
-- **HTML Components** - Spec tables, layer stacks, box diagrams, cards
-- **Internal Links** - Auto-resolved `#section-id` links in Markdown
+- **Mermaid Diagrams** — flowcharts, sequence diagrams, state machines, and more
+- **Syntax Highlighting** — Prism.js with 10+ language support
+- **Markdown Tables** — full table syntax with alignment support
+- **HTML Components** — spec tables, layer stacks, box diagrams, cards
+- **Internal Links** — auto-resolved `#section-id` links in Markdown
 
 ### External Links
-- **Navigation Links** - Add external URLs directly in manifest with `url` property
-- **Smart Link Handling** - All external links open in new tab with security headers
-- **Visual Indicators** - Subtle ↗ icon shows external destinations
-- **CTA Styling** - Button-like `external-cta` class for prominent external links
-
-**External navigation example** (manifest.json):
-```json
-[
-  { "id": "welcome", "title": "Welcome", "file": "welcome.md" },
-  { "title": "External Resource", "url": "https://example.com" }
-]
-```
-
-**External links in Markdown** (auto-handled):
-```markdown
-Visit our [support portal](https://support.example.com) for help.
-```
-
-**Prominent CTA in HTML**:
-```html
-<a href="https://example.com" target="_blank" rel="noopener noreferrer" class="external-cta">
-  Get Started →
-</a>
-```
-
-**Security & UX:**
-- All external links use `target="_blank"` and `rel="noopener noreferrer"` by default
-- Navigation external links show ↗ indicator
-- Content external links styled with subtle ↗ after link text
-- No configuration needed - works automatically for `http://` and `https://` URLs
+- **Navigation Links** — add external URLs directly in the manifest with a `url` property
+- **Smart Link Handling** — external links open in a new tab with security headers (`rel="noopener noreferrer"`)
+- **Visual Indicators** — a subtle ↗ icon marks external destinations
+- **CTA Styling** — button-like `external-cta` class for prominent external links
 
 ### Navigation & Search
-- **Command Palette** - `Ctrl/Cmd+K` or `/` opens global finder
-- **Full-Text Search** - Searches all content, not just titles
-- **Manifest-Driven Nav** - Declarative navigation structure
-- **Keyboard Navigation** - Arrow keys, Enter to select
+- **Command Palette** — `Ctrl/Cmd+K` or `/` opens a global finder
+- **Full-Text Search** — searches all content, not just titles
+- **Manifest-Driven Nav** — declarative navigation structure
+- **Keyboard Navigation** — arrow keys, Enter to select
 
 ### Theming & Branding
-- **Custom Colors** - `accentColor` and `surfaceColor` per tenant
-- **Brand Identity** - Logo text, tagline, copyright
-- **Typography** - IBM Plex Sans/Mono defaults, customizable
+- **Custom Colors** — `accentColor` and `surfaceColor` per tenant
+- **Brand Identity** — logo text, tagline, copyright
+- **Typography** — IBM Plex Sans/Mono defaults, customizable
+
+### SEO (built in)
+- **Absolute URLs** — declare a `domain` (or `seo.siteUrl`) and the sitemap, canonical, `og:url`, and `robots` URLs become fully-qualified
+- **Static snapshots** — crawler-friendly `/pages/<id>.html` for every section, self-canonical (the SPA hash route isn't crawlable)
+- **`sitemap.xml`, `robots.txt`, `llms.txt`** — generated automatically
+- **JSON-LD + Open Graph** — `TechArticle`/`BreadcrumbList` per page, optional Organization data, and `og:image`/`twitter:image` via `seo.ogImage`
 
 ### Export & Sharing
-- **Export Options** - Choose between Current Page or Entire Site export
-- **Branded Exports** - Tenant logo, brand name, and tagline in export header
-- **Document Export** - One-click HTML export with TOC
-- **Print Styles** - Optimized for PDF generation
-- **Syntax Highlighting** - Preserved in exports
-- **Table Rendering** - Markdown tables render correctly in exports
+- **Export Options** — Current Page or Entire Site
+- **Branded Exports** — tenant logo, brand name, and tagline in the export header
+- **Document Export** — one-click HTML export with a table of contents, print-optimized for PDF
+
+---
 
 ## Tenant Content Workflow
 
@@ -99,7 +106,7 @@ Visit our [support portal](https://support.example.com) for help.
 
 ```
 my-tenant/
-├── config.json           # Branding and theme settings
+├── config.json           # Branding, theme, and SEO settings
 ├── manifest.json         # Navigation structure (optional)
 ├── content/              # Content files
 │   ├── welcome.md        # Root-level content
@@ -160,14 +167,10 @@ export async function load() {
 
 ### Manifest Configuration
 
-**Root manifest.json** (optional - auto-generated from content/ if omitted):
+**Root manifest.json** (optional — auto-generated from `content/` if omitted):
 ```json
 [
-  {
-    "id": "welcome",
-    "title": "Welcome",
-    "file": "welcome.md"
-  },
+  { "id": "welcome", "title": "Welcome", "file": "welcome.md" },
   {
     "id": "guides",
     "title": "Guides",
@@ -190,23 +193,15 @@ export async function load() {
 }
 ```
 
-**External links in manifest** (use `url` instead of `id`):
+**External links in the manifest** (use `url` instead of `file`):
 ```json
 [
   { "id": "welcome", "title": "Welcome", "file": "welcome.md" },
-  { "title": "Support Portal", "url": "https://support.example.com" },
-  {
-    "id": "resources",
-    "title": "Resources",
-    "subsections": [
-      { "id": "guides/overview", "title": "Overview", "file": "guides/overview.md" },
-      { "title": "API Docs", "url": "https://api.example.com/docs" }
-    ]
-  }
+  { "title": "Support Portal", "url": "https://support.example.com" }
 ]
 ```
 
-### Branding Configuration
+### Branding & SEO Configuration
 
 **config.json**:
 ```json
@@ -219,29 +214,29 @@ export async function load() {
   "copyright": "ACME Corp",
   "accentColor": "#6366F1",
   "surfaceColor": "#F7FAFC",
-  "export": {
-    "logo": "embed",
-    "logoPath": "favicon.png",
-    "showTagline": true,
-    "showDate": true
+  "domain": "docs.acme.com",
+  "seo": {
+    "siteUrl": "https://docs.acme.com",
+    "ogImage": "/assets/og-card.png",
+    "structuredData": { "organizationName": "ACME Corporation" }
   }
 }
 ```
 
 | Property | Description | Default |
 |----------|-------------|---------|
-| `title` | Browser tab title | "Docs Toolkit" |
+| `title` | Browser tab title | "Documentation" |
 | `description` | Meta description for SEO | - |
 | `brandMark` | Primary brand text (bold) | "DOCS" |
 | `brandSub` | Secondary brand text (light) | "TOOLKIT" |
 | `tagline` | Subtitle under brand | - |
-| `copyright` | Footer copyright text | "Modular Documentation Toolkit" |
+| `copyright` | Footer copyright text | - |
 | `accentColor` | Links, buttons, highlights | `#111111` |
 | `surfaceColor` | Background color (hex) | `#ffffff` |
-| `export.logo` | Logo mode: `"embed"`, `"reference"`, or `null` | `"embed"` |
-| `export.logoPath` | Path to logo in `.public/` directory | Auto-detect |
-| `export.showTagline` | Show tagline in export header | `true` |
-| `export.showDate` | Show generation date in export | `true` |
+| `domain` | Canonical domain; also the SEO base URL when `seo.siteUrl` is unset | - |
+| `seo` | SEO block — see [Tenant Configuration](docs/TENANT-CONFIG.md#seo-seo) | - |
+
+---
 
 ## Build Commands
 
@@ -265,6 +260,8 @@ npm run check:seo                    # verify SEO metadata
 npm run check                        # run all checks
 npm test                             # run test suite
 ```
+
+---
 
 ## Tenant Registry
 
@@ -296,6 +293,8 @@ Per-tenant options include `enabled` (default `true`), `strictLinks` (default
 `true` — fail the build on broken internal links), and `domains` (for the
 multi-tenant Caddy router). See [Tenant Configuration](docs/TENANT-CONFIG.md).
 
+---
+
 ## Docker Caddy Workflow
 
 For multi-tenant domain testing:
@@ -304,20 +303,19 @@ For multi-tenant domain testing:
 # Add to /etc/hosts:
 # 127.0.0.1 my-docs.local client-portal.local
 
-# Build tenants and start Caddy
-npm run build:tenants
-npm run caddy:up
-
+npm run build:tenants   # build tenants
+npm run caddy:up        # start Caddy
 # Visit http://my-docs.local or http://client-portal.local
 
-# Management commands
-npm run caddy:logs      # Tail logs
-npm run caddy:reload    # Reload config without restart
-npm run caddy:restart   # Full restart
-npm run caddy:down      # Stop container
+npm run caddy:logs      # tail logs
+npm run caddy:reload    # reload config without restart
+npm run caddy:restart   # full restart
+npm run caddy:down      # stop container
 ```
 
-Use non-privileged port: `DOCS_TOOLKIT_PORT=5173 npm run caddy:up`
+Use a non-privileged port: `DOCS_TOOLKIT_PORT=5173 npm run caddy:up`
+
+---
 
 ## Repository Layout
 
@@ -328,32 +326,46 @@ apps/publisher/
 │   ├── app.js              # Router and core logic
 │   ├── styles.css          # All styling
 │   ├── manifest.js         # Default navigation
-│   ├── seo.js              # Meta tag management
+│   ├── seo.js              # Runtime meta tag management
 │   ├── mermaid-init.js     # Diagram rendering
 │   ├── syntax-highlight.js # Code highlighting
-│   ├── lib/
-│   │   ├── search.js       # Full-text search
-│   │   ├── router.js       # Hash routing
-│   │   └── export.js       # Document export
-│   └── sections/           # Default section modules
+│   └── lib/                # search, router, export
 ├── scripts/
 │   ├── build.js            # Core build script
 │   ├── build-tenants.js    # Multi-tenant builder
 │   ├── serve.js            # Dev server
-│   └── sync-docs.js        # Template sync
+│   └── lib/seo-generator.js # Sitemap, robots, snapshots, JSON-LD
 ├── tenants/                # Built-in example tenants
 ├── docs/                   # Documentation
-├── dist/                   # Build output
-├── Caddyfile              # Multi-tenant routing
-└── docker-compose.yml     # Caddy container
+└── Caddyfile, docker-compose.yml  # Multi-tenant routing
 ```
+
+---
 
 ## Documentation
 
-- [Getting Started](docs/GETTING-STARTED.md) - **start here**: zero to a published site with the npm package
-- [Quick Start Guide](docs/QUICKSTART.md) - Step-by-step tenant creation
-- [Tenant Configuration](docs/TENANT-CONFIG.md) - All config options
-- [Architecture](docs/ARCHITECTURE.md) - System design
-- [API Reference](docs/API.md) - Module documentation
-- [Deployment](docs/DEPLOYMENT.md) - Hosting patterns
-- [Extending](docs/EXTENDING.md) - Customization guide
+The full documentation site is published at **[docs.pagenary.com](https://docs.pagenary.com)** — built by this publisher from the source below. Read it online, or browse the source:
+
+- [Getting Started](docs/GETTING-STARTED.md) — **start here**: zero to a published site with the npm package
+- [Quick Start Guide](docs/QUICKSTART.md) — step-by-step tenant creation
+- [Tenant Configuration](docs/TENANT-CONFIG.md) — all config options (branding, theme, SEO)
+- [Architecture](docs/ARCHITECTURE.md) — system design
+- [API Reference](docs/API.md) — module documentation
+- [Deployment](docs/DEPLOYMENT.md) — hosting patterns
+- [Extending](docs/EXTENDING.md) — customization guide
+
+---
+
+## License
+
+**GNU Affero General Public License v3.0** — strong copyleft. You may use, modify, and distribute Pagenary, but if you run a modified version to provide a network service, you must make the modified source available to its users. See [LICENSE](../../LICENSE).
+
+---
+
+<div align="center">
+
+**[Back to Top](#pagenary-publisher)**
+
+Made with care by [Joseph Magly](https://github.com/jmagly)
+
+</div>
