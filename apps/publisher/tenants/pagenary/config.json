@@ -7,6 +7,17 @@
   "description": "Pagenary developer documentation — building, configuring, deploying, and extending the multi-tenant documentation publisher, published with Pagenary itself.",
   "accentColor": "#111111",
   "copyright": "Pagenary",
+  "seo": {
+    "enabled": true,
+    "siteUrl": "https://docs.pagenary.com",
+    "generateSitemap": true,
+    "generateStaticPages": true,
+    "generateRobotsTxt": true,
+    "defaultChangeFreq": "weekly",
+    "structuredData": {
+      "organizationName": "Pagenary"
+    }
+  },
   "welcome": {
     "eyebrow": "Pagenary Platform",
     "headline": "Where documentation takes shape",

@@ -4,7 +4,7 @@ All notable changes to `@pagenary/publisher` are documented here.
 Format is based on [Keep a Changelog](https://keepachangelog.com/); versioning
 is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md`).
 
-## [Unreleased]
+## [2026.5.2] - 2026-05-27
 
 ### Added
 

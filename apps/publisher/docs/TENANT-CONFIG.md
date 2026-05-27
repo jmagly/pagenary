@@ -112,6 +112,54 @@ my-tenant/
 
 Color values must be 6-digit hex codes (e.g., `#6366F1`).
 
+#### SEO (`seo`)
+
+The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,
+`llms.txt`, static HTML snapshots, JSON-LD) and the runtime meta tags.
+
+```json
+{
+  "title": "ACME Documentation",
+  "domain": "docs.acme.com",
+  "seo": {
+    "enabled": true,
+    "siteUrl": "https://docs.acme.com",
+    "ogImage": "/assets/og-card.png",
+    "generateSitemap": true,
+    "generateStaticPages": true,
+    "generateRobotsTxt": true,
+    "defaultChangeFreq": "weekly",
+    "structuredData": {
+      "organizationName": "ACME Corporation",
+      "logoUrl": "https://docs.acme.com/assets/logo.svg"
+    }
+  }
+}
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enabled` | boolean | `true` | Set `false` to skip all SEO artifact generation |
+| `siteUrl` | string | falls back to `domain` | Absolute base URL for sitemap `<loc>`, canonical, `og:url`, and `robots` `Sitemap:`. **If omitted, the tenant's top-level `domain` is used** (https-prefixed). If neither is set, URLs are emitted relative and the build prints a warning. |
+| `ogImage` | string | - | Social share image for `og:image` / `twitter:image`. Absolute URL or site-relative path (joined to the base URL). When set, `twitter:card` is upgraded to `summary_large_image`. Per-section override: set `ogImage` on a manifest entry. |
+| `generateSitemap` | boolean | `true` | Emit `sitemap.xml` |
+| `generateStaticPages` | boolean | `true` | Emit per-section static HTML snapshots under `/pages/` (crawler-friendly; the SPA uses hash routing) |
+| `generateRobotsTxt` | boolean | `true` | Emit `robots.txt` |
+| `defaultChangeFreq` | string | `"weekly"` | `<changefreq>` for the sitemap root entry |
+| `structuredData.organizationName` | string | - | Organization name in the JSON-LD `publisher` |
+| `structuredData.logoUrl` | string | - | Organization logo URL in the JSON-LD `publisher` |
+
+**Absolute URLs:** declaring a `domain` (or `seo.siteUrl`) is what makes the
+sitemap, canonical, and Open Graph URLs absolute. The sitemap protocol requires
+fully-qualified URLs, so a tenant with neither set will emit a non-compliant
+sitemap — the build warns when this happens.
+
+**Canonical strategy:** static snapshots and the runtime SPA canonicalize to the
+crawlable static URL (`/pages/<id>.html`), not the SPA `#hash` route — search
+engines drop URL fragments, so hash canonicals would collapse every page onto the
+homepage. The `#hash` route is still used for the in-page "interactive version"
+link and the JS redirect.
+
 ## Navigation Manifest (manifest.json)
 
 ### Root Manifest
