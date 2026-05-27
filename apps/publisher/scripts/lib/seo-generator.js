@@ -7,6 +7,43 @@ import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 
 /**
+ * Resolve the absolute base URL for a tenant's SEO output.
+ *
+ * Precedence: `seo.siteUrl` > `domain` (https:// prefixed) > '' (relative fallback).
+ * Returns a URL with no trailing slash, or '' when neither is configured.
+ * Tenants that declare only `domain` (the common case) get absolute SEO URLs
+ * for free — see issue #15.
+ *
+ * @param {object} config - Tenant configuration
+ * @returns {string} Absolute base URL (no trailing slash) or ''
+ */
+export function resolveBaseUrl(config = {}) {
+  const seoConfig = config.seo || {};
+  const raw = String(seoConfig.siteUrl || config.domain || '').trim();
+  if (!raw) return '';
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  return withScheme.replace(/\/+$/, '');
+}
+
+/**
+ * Resolve a social-share image URL (og:image / twitter:image).
+ * Absolute URLs pass through; site-relative paths are joined to baseUrl.
+ * Returns '' when no image is configured. See issue #16.
+ *
+ * @param {object} config - Tenant configuration
+ * @param {string} baseUrl - Resolved base URL (may be '')
+ * @returns {string} Image URL, or '' when none configured
+ */
+export function resolveOgImage(config = {}, baseUrl = '') {
+  const seoConfig = config.seo || {};
+  const img = String(seoConfig.ogImage || '').trim();
+  if (!img) return '';
+  if (/^https?:\/\//i.test(img)) return img;
+  const pathPart = img.startsWith('/') ? img : `/${img}`;
+  return baseUrl ? `${baseUrl}${pathPart}` : pathPart;
+}
+
+/**
  * Encode section ID for use as filename (replace / with --)
  * @param {string} sectionId - Section ID like "guides/getting-started"
  * @returns {string} Filename-safe string like "guides--getting-started"
@@ -30,7 +67,8 @@ export function collectAllSections(manifest, parentTitle = null) {
         title: entry.title,
         summary: entry.summary || '',
         module: entry.module,
-        parent: parentTitle
+        parent: parentTitle,
+        ogImage: entry.ogImage || ''
       });
     }
     if (entry.subsections) {
@@ -85,7 +123,7 @@ export async function generateSitemap(distDir, manifest, config) {
   const seoConfig = config.seo || {};
   if (seoConfig.generateSitemap === false) return;
 
-  const baseUrl = seoConfig.siteUrl || '';
+  const baseUrl = resolveBaseUrl(config);
   const defaultChangeFreq = seoConfig.defaultChangeFreq || 'weekly';
   const urls = [];
 
@@ -125,7 +163,7 @@ export async function generateRobotsTxt(distDir, config) {
   const seoConfig = config.seo || {};
   if (seoConfig.generateRobotsTxt === false) return;
 
-  const baseUrl = seoConfig.siteUrl || '';
+  const baseUrl = resolveBaseUrl(config);
   const sitemapUrl = baseUrl ? `${baseUrl}/sitemap.xml` : '/sitemap.xml';
   const buildDate = new Date().toISOString();
 
@@ -153,8 +191,10 @@ Sitemap: ${sitemapUrl}
  */
 export function buildPageJsonLd(section, config) {
   const seoConfig = config.seo || {};
-  const baseUrl = seoConfig.siteUrl || '';
-  const canonicalUrl = `${baseUrl}/#${section.id}`;
+  const baseUrl = resolveBaseUrl(config);
+  // Canonical points at the crawlable static snapshot, not the SPA hash route
+  // (search engines ignore #fragments, which collapsed every page to home). #17
+  const canonicalUrl = `${baseUrl}/pages/${encodePathForFilename(section.id)}.html`;
   const buildDate = new Date().toISOString().split('T')[0];
 
   const articleSchema = {
@@ -229,7 +269,7 @@ export function buildPageJsonLd(section, config) {
  */
 export function buildHomePageJsonLd(config) {
   const seoConfig = config.seo || {};
-  const baseUrl = seoConfig.siteUrl || '';
+  const baseUrl = resolveBaseUrl(config);
 
   const schema = {
     '@context': 'https://schema.org',
@@ -265,10 +305,14 @@ export function buildStaticPage(options) {
     contentHtml,
     siteTitle,
     baseUrl,
+    ogImage = '',
     config
   } = options;
 
-  const canonicalUrl = `${baseUrl}/#${sectionId}`;
+  // Canonical = the crawlable static snapshot (#17). The SPA hash route is for
+  // humans (JS redirect / noscript / "interactive version" link).
+  const canonicalUrl = `${baseUrl}/pages/${encodePathForFilename(sectionId)}.html`;
+  const spaUrl = `${baseUrl}/#${sectionId}`;
   const jsonLd = buildPageJsonLd({
     id: sectionId,
     title: sectionTitle,
@@ -280,6 +324,13 @@ export function buildStaticPage(options) {
   const safeTitle = escapeHtml(sectionTitle);
   const safeSiteTitle = escapeHtml(siteTitle);
   const safeSummary = escapeHtml(sectionSummary || '');
+
+  // Social share image (#16): summary_large_image when present, else summary.
+  const safeImage = ogImage ? escapeHtml(ogImage) : '';
+  const twitterCard = safeImage ? 'summary_large_image' : 'summary';
+  const imageTags = safeImage
+    ? `\n  <meta property="og:image" content="${safeImage}" />\n  <meta name="twitter:image" content="${safeImage}" />`
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -294,10 +345,10 @@ export function buildStaticPage(options) {
   <meta property="og:title" content="${safeTitle}" />
   <meta property="og:description" content="${safeSummary}" />
   <meta property="og:type" content="article" />
-  <meta property="og:url" content="${canonicalUrl}" />
+  <meta property="og:url" content="${canonicalUrl}" />${imageTags}
 
   <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:card" content="${twitterCard}" />
   <meta name="twitter:title" content="${safeTitle}" />
   <meta name="twitter:description" content="${safeSummary}" />
 
@@ -309,11 +360,11 @@ ${jsonLd}
   <!-- Redirect to SPA for JavaScript-enabled browsers -->
   <script>
     if (typeof window !== 'undefined') {
-      window.location.replace('${baseUrl}/#${sectionId}');
+      window.location.replace('${spaUrl}');
     }
   </script>
   <noscript>
-    <meta http-equiv="refresh" content="0; url=${baseUrl}/#${sectionId}" />
+    <meta http-equiv="refresh" content="0; url=${spaUrl}" />
   </noscript>
 
   <link rel="stylesheet" href="../styles.css" />
@@ -332,7 +383,7 @@ ${contentHtml}
       </div>
     </article>
     <footer class="static-footer">
-      <p>View interactive version: <a href="${canonicalUrl}">${safeTitle}</a></p>
+      <p>View interactive version: <a href="${spaUrl}">${safeTitle}</a></p>
     </footer>
   </main>
 </body>
@@ -398,7 +449,8 @@ export async function generateStaticSnapshots(distDir, manifest, config) {
   const pagesDir = path.join(distDir, 'pages');
   await fsp.mkdir(pagesDir, { recursive: true });
 
-  const baseUrl = seoConfig.siteUrl || '';
+  const baseUrl = resolveBaseUrl(config);
+  const siteOgImage = resolveOgImage(config, baseUrl);
   const sections = collectAllSections(manifest);
   let generated = 0;
 
@@ -415,6 +467,11 @@ export async function generateStaticSnapshots(distDir, manifest, config) {
         continue;
       }
 
+      // Per-section og:image override (frontmatter) falls back to the site image
+      const pageOgImage = section.ogImage
+        ? resolveOgImage({ seo: { ogImage: section.ogImage } }, baseUrl)
+        : siteOgImage;
+
       // Generate static page
       const pageHtml = buildStaticPage({
         sectionId: section.id,
@@ -424,6 +481,7 @@ export async function generateStaticSnapshots(distDir, manifest, config) {
         contentHtml,
         siteTitle: config.title || 'Documentation',
         baseUrl,
+        ogImage: pageOgImage,
         config
       });
 
@@ -471,7 +529,7 @@ export async function readManifestFromDist(distDir) {
  */
 export async function generateLlmsTxt(distDir, manifest, config) {
   const seoConfig = config.seo || {};
-  const baseUrl = seoConfig.siteUrl || '';
+  const baseUrl = resolveBaseUrl(config);
   const title = config.title || 'Documentation';
   const description = config.description || '';
 
@@ -541,6 +599,12 @@ export async function generateSeoArtifacts(distDir, config) {
   // Skip if SEO is explicitly disabled
   if (seoConfig.enabled === false) {
     return;
+  }
+
+  // Warn when neither seo.siteUrl nor domain is set — SEO output will use
+  // relative URLs (invalid sitemap <loc>, weak canonicals). See #15.
+  if (!resolveBaseUrl(config)) {
+    console.warn(`  ⚠ SEO: no seo.siteUrl or domain set — sitemap/canonical URLs will be relative. Set "domain" or "seo.siteUrl" for absolute URLs.`);
   }
 
   // Read manifest from generated file

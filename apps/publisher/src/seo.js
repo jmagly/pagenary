@@ -1,5 +1,15 @@
-const DEFAULT_TITLE = 'Docs Toolkit';
+const DEFAULT_TITLE = 'Documentation';
 const DESCRIPTION_TAG = 'meta[name="description"]';
+
+/**
+ * Encode a section ID for use in a static-page filename (mirror of the
+ * build-time encodePathForFilename: replace "/" with "--").
+ * @param {string} sectionId
+ * @returns {string}
+ */
+function encodePathForFilename(sectionId) {
+  return String(sectionId).replace(/\//g, '--');
+}
 
 /**
  * Ensure a meta tag exists with the given selector, creating it if needed.
@@ -60,9 +70,10 @@ function setLink(rel, href) {
  * @param {string} [opts.description] - Page description
  * @param {string} [opts.siteTitle] - Site title (overrides DEFAULT_TITLE)
  * @param {string} [opts.siteUrl] - Base URL for canonical/og:url (e.g., 'https://docs.aiwg.io')
- * @param {string} [opts.sectionId] - Section ID for canonical URL hash fragment
+ * @param {string} [opts.sectionId] - Section ID; canonical points at its static snapshot
+ * @param {string} [opts.ogImage] - Absolute social share image URL
  */
-export function updateMetaTags({ title, description, siteTitle, siteUrl, sectionId }) {
+export function updateMetaTags({ title, description, siteTitle, siteUrl, sectionId, ogImage }) {
   const brand = siteTitle || DEFAULT_TITLE;
   const pageTitle = title ? `${title} · ${brand}` : brand;
   document.title = pageTitle;
@@ -76,14 +87,24 @@ export function updateMetaTags({ title, description, siteTitle, siteUrl, section
   setMeta('property', 'og:description', desc);
   setMeta('property', 'og:type', 'article');
 
-  // Twitter Card
-  setMeta('name', 'twitter:card', 'summary');
+  // Twitter Card — large card when a share image is available
+  setMeta('name', 'twitter:card', ogImage ? 'summary_large_image' : 'summary');
   setMeta('name', 'twitter:title', title || brand);
   setMeta('name', 'twitter:description', desc);
 
-  // Canonical URL and og:url
+  // Social share image (#16)
+  if (ogImage) {
+    setMeta('property', 'og:image', ogImage);
+    setMeta('name', 'twitter:image', ogImage);
+  }
+
+  // Canonical + og:url — for a section, point at the crawlable static snapshot
+  // (/pages/<id>.html), not the SPA #hash route which crawlers fold into the
+  // homepage. The home route canonicalizes to the site root. See #17.
   if (siteUrl) {
-    const canonical = sectionId ? `${siteUrl}/#${sectionId}` : siteUrl;
+    const canonical = sectionId
+      ? `${siteUrl}/pages/${encodePathForFilename(sectionId)}.html`
+      : siteUrl;
     setLink('canonical', canonical);
     setMeta('property', 'og:url', canonical);
   }

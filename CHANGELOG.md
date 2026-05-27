@@ -4,6 +4,31 @@ All notable changes to `@pagenary/publisher` are documented here.
 Format is based on [Keep a Changelog](https://keepachangelog.com/); versioning
 is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md`).
 
+## [Unreleased]
+
+### Added
+
+- **`og:image` / `twitter:image` support (#16):** new `seo.ogImage` config field
+  (absolute or site-relative) plus per-section `ogImage` override. When set,
+  static snapshots and the runtime SPA emit `og:image` + `twitter:image` and
+  upgrade `twitter:card` to `summary_large_image`. Absent → unchanged.
+
+### Changed
+
+- **Absolute SEO URLs by default (#15):** the SEO generator now resolves its
+  base URL as `seo.siteUrl` → tenant `domain` (https-prefixed) → relative.
+  Tenants that declare only `domain` now emit valid **absolute** sitemap
+  `<loc>`, canonical, `og:url`, and robots `Sitemap:` URLs — previously these
+  fell back to relative `/` (invalid per the sitemap spec) unless `seo.siteUrl`
+  was set explicitly. Builds now warn when neither `domain` nor `seo.siteUrl`
+  is configured.
+- **Self-canonical static snapshots (#17):** static pages and the runtime SPA
+  now canonicalize to the crawlable static URL (`/pages/<id>.html`) instead of
+  the SPA `#hash` route. Search engines ignore URL fragments, so the previous
+  `/#id` canonicals collapsed every page onto the homepage. The `#hash` route
+  is still used for the human-facing JS redirect and "interactive version" link.
+- Default site-title fallback changed from `Docs Toolkit` to `Documentation`.
+
 ## [2026.5.1] - 2026-05-26
 
 ### Fixed

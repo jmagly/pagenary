@@ -402,7 +402,8 @@ async function loadSection(entry) {
     description: entry.summary,
     siteTitle: SITE_CONFIG.siteTitle,
     siteUrl: SITE_CONFIG.siteUrl,
-    sectionId: entry.id
+    sectionId: entry.id,
+    ogImage: entry.ogImage || SITE_CONFIG.ogImage
   });
   rendered.set(entry.id, Date.now());
   const shouldScrollToHighlight = pendingHighlightScroll;

@@ -6,7 +6,7 @@ import path from 'path';
 import { spawn, execSync } from 'child_process';
 import { createHash } from 'crypto';
 import os from 'os';
-import { generateSeoArtifacts } from './lib/seo-generator.js';
+import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
 import { fileURLToPath } from 'node:url';
 
 const root = process.cwd();
@@ -2646,9 +2646,11 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   const siteConfig = {
     bottomNav: rootManifest?.bottomNav || 'mobile',
     bottomNavSections: rootManifest?.bottomNavSections || [],
-    // Pass SEO-relevant config to SPA for dynamic meta tag updates
+    // Pass SEO-relevant config to SPA for dynamic meta tag updates.
+    // siteUrl falls back to `domain` (#15); ogImage drives social cards (#16).
     siteTitle: config.title || '',
-    siteUrl: config.seo?.siteUrl || ''
+    siteUrl: resolveBaseUrl(config),
+    ogImage: resolveOgImage(config, resolveBaseUrl(config))
   };
 
   // Build export branding configuration
