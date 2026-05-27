@@ -1,0 +1,163 @@
+# Docsite Deploy
+#
+# Builds the Pagenary documentation tenant from source and deploys it to
+# docs.pagenary.com. Pagenary dogfoods itself: the docs portal is built by
+# the in-repo publisher (apps/publisher) from the `pagenary` tenant, not from
+# the published npm package.
+#
+# Target: integro-dev-004 — shared caddy:2-alpine container behind a
+# Cloudflare tunnel, hostname-routed on :80. rsync lands the static bundle in
+# ~/production-deploy/docs-pagenary-com/, which Caddy serves read-only from
+# /srv/docs-pagenary-com. (Mirrors the docs.aiwg.io setup on the same host.)
+#
+# Triggers:
+#   1. Release tags (v*) — deploy aligned with a cut release
+#   2. Pushes to main that change docs content, the tenant, the publisher, or
+#      this workflow — docs-only deploys between releases
+#   3. workflow_dispatch — manual operator-initiated deploy
+#
+# Required repo secrets: DEPLOY_SSH_KEY, DEPLOY_HOST, DEPLOY_PORT, DEPLOY_USER,
+# DEPLOY_PATH (DEPLOY_PATH = ~/production-deploy/docs-pagenary-com).
+
+name: Docsite Deploy
+
+on:
+  push:
+    tags: ['v*']
+    branches: [main]
+    paths:
+      - 'apps/publisher/docs/**'
+      - 'apps/publisher/tenants/pagenary/**'
+      - 'apps/publisher/src/**'
+      - 'apps/publisher/scripts/**'
+      - '.gitea/workflows/docsite-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you triggering this deploy? (logged to job output)'
+        required: false
+        type: string
+        default: 'Manual docs deploy'
+
+concurrency:
+  # Single group across tag releases and docs-only deploys so they serialize
+  # and never race against each other on the same target.
+  group: docsite-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-docs:
+    name: Build & Deploy Documentation
+    runs-on: ubuntu-latest
+    container: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  # node 20.20.2 (see ci/digests.txt)
+    timeout-minutes: 15
+    # Force bash so `set -o pipefail` works (gitea-runner-host default is sh/dash).
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build docs tenant
+        working-directory: apps/publisher
+        run: node scripts/build-tenants.js pagenary
+
+      - name: Verify build output
+        run: |
+          set -euo pipefail
+          OUT="${{ gitea.workspace }}/apps/publisher/dist/pagenary"
+          test -d "$OUT" || { echo "::error::Missing build output directory $OUT"; exit 1; }
+          test -f "$OUT/index.html" || { echo "::error::Missing index.html"; exit 1; }
+          test -d "$OUT/sections" || { echo "::error::Missing sections/ — refusing to deploy (would rsync --delete an incomplete site)"; exit 1; }
+          echo "Build verification passed: $(ls "$OUT/sections" | wc -l) section files"
+          ls -lah "$OUT/"
+
+      - name: Install SSH tools
+        run: apt-get update && apt-get install -y --no-install-recommends openssh-client rsync
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' '${{ secrets.DEPLOY_SSH_KEY }}' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Deploy to docs server
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          DEPLOY_ROOT="${DEPLOY_PATH%/}/"
+          if [[ "${DEPLOY_ROOT}" == "~/"* ]]; then
+            REMOTE_HOME="$(ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" -o StrictHostKeyChecking=accept-new "${DEPLOY_USER}@${DEPLOY_HOST}" 'printf %s "$HOME"')"
+            DEPLOY_ROOT="${REMOTE_HOME}/${DEPLOY_ROOT#~/}"
+          fi
+          echo "Deploying docsite to ${DEPLOY_ROOT}"
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" -o StrictHostKeyChecking=accept-new \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mkdir -p '${DEPLOY_ROOT}'"
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o StrictHostKeyChecking=accept-new" \
+            "${{ gitea.workspace }}/apps/publisher/dist/pagenary/" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_ROOT}"
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" -o StrictHostKeyChecking=accept-new \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -e
+             if [ ! -d '${DEPLOY_ROOT}sections' ]; then
+               echo '::error::Rsync completed but sections/ is missing at ${DEPLOY_ROOT}'
+               exit 1
+             fi"
+
+      - name: Verify deployment
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          DEPLOY_ROOT="${DEPLOY_PATH%/}/"
+          if [[ "${DEPLOY_ROOT}" == "~/"* ]]; then
+            REMOTE_HOME="$(ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" -o StrictHostKeyChecking=accept-new "${DEPLOY_USER}@${DEPLOY_HOST}" 'printf %s "$HOME"')"
+            DEPLOY_ROOT="${REMOTE_HOME}/${DEPLOY_ROOT#~/}"
+          fi
+          echo "Verifying docsite at ${DEPLOY_ROOT}"
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" -o StrictHostKeyChecking=accept-new \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -e
+             if [ ! -f '${DEPLOY_ROOT}index.html' ]; then
+               echo '::error::index.html missing at ${DEPLOY_ROOT} after deploy'
+               exit 1
+             fi
+             if [ ! -d '${DEPLOY_ROOT}sections' ]; then
+               echo '::error::sections/ missing at ${DEPLOY_ROOT} — pagenary output not deployed'
+               exit 1
+             fi
+             SECTION_COUNT=\$(ls '${DEPLOY_ROOT}sections' | wc -l)
+             echo \"Deploy verified: index.html present, sections/ has \${SECTION_COUNT} entries.\"
+             ls '${DEPLOY_ROOT}sections' | head -5"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+      - name: Log deployment result
+        if: success()
+        env:
+          DISPATCH_REASON: ${{ inputs.reason }}
+          GITEA_EVENT_NAME: ${{ gitea.event_name }}
+        run: |
+          echo "Deployed docs.pagenary.com"
+          echo "Ref: ${{ gitea.ref }}"
+          echo "Commit: ${{ gitea.sha }}"
+          echo "Event: ${GITEA_EVENT_NAME}"
+          if [ "${GITEA_EVENT_NAME}" = "workflow_dispatch" ] && [ -n "${DISPATCH_REASON}" ]; then
+            echo "Reason: ${DISPATCH_REASON}"
+          fi

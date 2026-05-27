@@ -3,7 +3,7 @@
   "tenants": [
     {
       "id": "pagenary",
-      "domains": ["pagenary.aiwg.io"],
+      "domains": ["docs.pagenary.com"],
       "strictLinks": true
     },
     {

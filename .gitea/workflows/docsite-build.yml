@@ -1,0 +1,59 @@
+# Docsite Build Validation
+#
+# Validates that the Pagenary documentation tenant (docs.pagenary.com) builds
+# successfully when docs, the tenant, or the publisher change. Catches broken
+# builds, bad config, and (with strictLinks:true) broken internal links before
+# they reach the deploy workflow. No secrets — safe to run on fork PRs.
+
+name: Docsite Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/publisher/docs/**'
+      - 'apps/publisher/tenants/pagenary/**'
+      - 'apps/publisher/src/**'
+      - 'apps/publisher/scripts/**'
+      - '.gitea/workflows/docsite-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/publisher/docs/**'
+      - 'apps/publisher/tenants/pagenary/**'
+      - 'apps/publisher/src/**'
+      - 'apps/publisher/scripts/**'
+      - '.gitea/workflows/docsite-build.yml'
+
+concurrency:
+  group: docsite-build-${{ gitea.head_ref || gitea.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    name: Build Documentation Site
+    runs-on: ubuntu-latest
+    container: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  # node 20.20.2 (see ci/digests.txt)
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build docs tenant
+        working-directory: apps/publisher
+        run: node scripts/build-tenants.js pagenary
+
+      - name: Verify build output
+        run: |
+          set -euo pipefail
+          OUT="${{ gitea.workspace }}/apps/publisher/dist/pagenary"
+          test -f "$OUT/index.html" || { echo "::error::doc-site build produced no index.html"; exit 1; }
+          test -d "$OUT/sections"   || { echo "::error::doc-site build produced no sections/"; exit 1; }
+          echo "Build OK: $(ls "$OUT/sections" | wc -l) section files"
