@@ -14,10 +14,11 @@ npx pagenary serve                           # serve on http://localhost:5173
 
 [![npm version](https://img.shields.io/npm/v/@pagenary/publisher?label=npm&color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@pagenary/publisher)
 [![npm downloads](https://img.shields.io/npm/dm/@pagenary/publisher?color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@pagenary/publisher)
+[![Docs](https://img.shields.io/badge/docs-docs.pagenary.com-22d3ee?style=flat-square&logo=readthedocs&logoColor=white)](https://docs.pagenary.com)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%E2%89%A516.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org)
 
-[**Quick Start**](#quick-start) · [**Features**](#features) · [**Architecture**](#architecture) · [**Documentation**](#documentation)
+[**Docs Site**](https://docs.pagenary.com) · [**Quick Start**](#quick-start) · [**Features**](#features) · [**Architecture**](#architecture) · [**Documentation**](#documentation)
 
 </div>
 
@@ -317,6 +318,8 @@ npm test                        # run test suite
 - **Multi-tenant domains** — the bundled `Caddyfile` + `docker-compose.yml` serve tenants by domain for local testing (`npm run caddy:up`)
 
 ## Documentation
+
+The full documentation site is published at **[docs.pagenary.com](https://docs.pagenary.com)** — built by Pagenary from the source files below (Pagenary dogfooding its own publisher). Read it online, or browse the source:
 
 - [Getting Started](apps/publisher/docs/GETTING-STARTED.md) — **start here**: zero to a published docs site using the npm package
 - [Publisher README](apps/publisher/README.md) — full feature documentation
