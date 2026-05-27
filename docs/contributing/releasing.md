@@ -21,22 +21,62 @@ opt-in hardening.
 ## Release steps
 
 ```bash
-# 1. Bump the version in apps/publisher/package.json (CalVer)
-#    e.g. 2026.5.0 -> 2026.5.1, or new month -> 2026.6.0
-#    No leading zeros: June is 2026.6.0, not 2026.06.0.
+# 1. Bump the version in apps/publisher/package.json (CalVer).
+#    e.g. 2026.5.1 -> 2026.5.2, or new month -> 2026.6.0.
+#    No leading zeros: June is 2026.6.0, not 2026.06.0. (See versioning rule.)
 
-# 2. Commit the bump
-git commit -am "release: v2026.5.1"
+# 2. Finalize the CHANGELOG: rename the "## [Unreleased]" heading to
+#    "## [VERSION] - YYYY-MM-DD". Keep it accurate — release notes link here.
 
-# 3. Tag with a matching v-prefixed tag (the workflow guards tag == version)
-git tag v2026.5.1            # or: git tag -s v2026.5.1   (if signed tags enabled)
+# 3. Update docs if the release changes config/behavior, then commit it all.
+git commit -am "release: v2026.5.2 — <one-line summary> (#refs)"
 
-# 4. Push commit + tag to origin (Gitea); CI publishes on the tag
-git push origin main --tags
+# 4. Tag with a SIGNED, v-prefixed tag (the workflow guards tag == version).
+#    Sign with the RELEASE key, not the default commit key — see note below.
+git tag -s -u 719AB63879E84CE8 v2026.5.2 -m "v2026.5.2 — <summary>"
+
+# 5. Push the commit, then the tag, to ORIGIN ONLY. The tag push is what
+#    triggers CI. Do NOT push the tag to the github mirror yourself (see pitfall).
+git push origin main
+git push origin v2026.5.2
 ```
 
-Preview without publishing: run the workflow manually with the `dry_run`
-input `true` (builds + `npm pack`, no publish).
+**A `v*` tag push triggers three workflows:** `npm-publish.yml` (publishes the
+package), `release.yml` (Gitea + GitHub release records), and `docsite-deploy.yml`
+(the tag matches its `v*` trigger, so docs.pagenary.com redeploys too).
+
+### Signing key (important)
+
+Release tags are signed with the **release key**, not the per-developer commit
+key:
+
+| Key | ID | Use |
+|-----|----|----|
+| Commit signing | `0117DAAA677A5BF2` | normal commits (`git config user.signingkey`) |
+| **Release signing** | `719AB63879E84CE8` — *AIWG Release Signing `<release@aiwg.io>`* | **release tags** |
+
+Because `user.signingkey` defaults to the commit key, a bare `git tag -s` signs
+with the *wrong* key. Always pass `-u 719AB63879E84CE8` explicitly. Use the
+**long key id** — the short form (`719AB638`) fails with `gpg: No secret key`.
+
+Preview without publishing: run `npm-publish.yml` manually
+(`workflow_dispatch`) with the `dry_run` input `true` (builds + `npm pack`, no
+publish).
+
+### Common pitfalls & recovery
+
+- **Don't push the tag to the `github` remote manually.** `release.yml` pushes
+  `main` + the tag to the GitHub mirror itself (via `GH_TOKEN`). If the tag is
+  already on the mirror, that step fails with *"Updates were rejected because the
+  tag already exists"* and the GitHub **release record** is not created (the
+  package + Gitea release are unaffected). Push only to `origin`.
+  - *Recovery:* create the GitHub release for the existing tag manually
+    (`gh release create v2026.5.2 …`), or delete the mirror tag and re-run
+    `release.yml` so it re-pushes and creates the record.
+- **`NPM_TOKEN` scope:** the publish needs a Gitea token with **both**
+  `package:write` and `repository:write`. If `npm-publish.yml` fails on auth,
+  fix the token scope and re-run it via `workflow_dispatch` (idempotent —
+  re-publishing the same version is a no-op, dist-tag promotion is safe to repeat).
 
 ## What the workflow enforces
 
