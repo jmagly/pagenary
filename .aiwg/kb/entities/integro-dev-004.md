@@ -17,7 +17,7 @@
 | OS | Ubuntu 24.04.4 LTS |
 | Edge | Two Cloudflare tunnels → container on localhost:80 (TLS terminates at CF) |
 | Web server | Caddy `caddy:2-alpine`, container `static-server`, config `~/serve-static/` |
-| Sites served | magly.net (default `:80` catch-all), aiwg.io, docs.aiwg.io, roko-docs, markdown-editor, stg, docs.pagenary.com |
+| Sites served | magly.net (default `:80` catch-all), aiwg.io, docs.aiwg.io, roko-docs, markdown-editor, stg, docs.pagenary.com, pagenary.com (+ www→apex redirect) |
 | CMDB | host public_id 263; service docs.aiwg.io public_id 284 |
 
 ## Relationships

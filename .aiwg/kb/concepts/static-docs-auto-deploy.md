@@ -26,7 +26,8 @@ Triggers: `v*` tags, pushes to `main` touching docs/tenant/publisher paths, and 
 
 1. **docs.aiwg.io** — AIWG repo, tenant `aiwg-docs`, publisher from npm. Reference implementation.
 2. **docs.pagenary.com** — Pagenary repo, tenant `pagenary`, publisher from source (dogfooding).
-3. **Counterexample** — a site with **no named Caddy block**: the Cloudflare tunnel still routes the host to `:80`, but the `:80` catch-all (magly.net) answers, so the domain returns 200 of the *wrong* content. A named block is mandatory for correct serving.
+3. **pagenary.com** (zero-build sibling) — the Pagenary *marketing* site (`roctinam/pagenary.com`) reuses the same serve-static + rsync + Cloudflare topology, but with **no build at all**: it's hand-authored zero-dependency static HTML/CSS/JS, so CI just rsyncs `site/` directly (no publisher, no tenant). Same per-site convention (`/srv/pagenary-com` ro mount + named Caddy block; `www`→apex 301). Served on `integro-dev-004`, public-pending the apex CF tunnel.
+4. **Counterexample** — a site with **no named Caddy block**: the Cloudflare tunnel still routes the host to `:80`, but the `:80` catch-all (magly.net) answers, so the domain returns 200 of the *wrong* content. A named block is mandatory for correct serving.
 
 ## Related Concepts
 
