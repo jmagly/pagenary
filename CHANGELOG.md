@@ -4,6 +4,17 @@ All notable changes to `@pagenary/publisher` are documented here.
 Format is based on [Keep a Changelog](https://keepachangelog.com/); versioning
 is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md`).
 
+## [Unreleased]
+
+### Fixed
+
+- **Nav disclosure arrow misaligned on Firefox:** the left-nav group arrow
+  (`.nav-parent` / `.nav-parent-with-content`) relied on CSS Grid auto-placement
+  mixed with a column-spanning summary, which Firefox resolved differently from
+  Chromium — bumping the arrow onto its own centered row instead of beside the
+  group title. Pinned the title, arrow/toggle, and summary to explicit grid
+  rows/columns so placement is deterministic cross-browser.
+
 ## [2026.5.3] - 2026-05-27
 
 ### Added

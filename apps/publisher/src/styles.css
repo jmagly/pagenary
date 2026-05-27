@@ -207,9 +207,12 @@ a:focus {
 
 .nav-parent > .nav-summary {
   grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 .nav-parent .nav-title {
+  grid-column: 1;
+  grid-row: 1;
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 0.2em;
@@ -217,6 +220,13 @@ a:focus {
 
 .nav-parent::after {
   content: '\25BE';
+  /* Explicit placement: keep the disclosure arrow in row 1 / column 2 beside
+     the title. Auto-placement here diverges in Firefox (the arrow lands on its
+     own centered row). */
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: center;
   font-size: 0.75rem;
   color: var(--muted);
   transform: rotate(-90deg);
@@ -231,6 +241,7 @@ a:focus {
 
 .nav-parent-with-content .nav-summary {
   grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 .nav-parent-with-content::after {
@@ -238,6 +249,8 @@ a:focus {
 }
 
 .nav-parent-with-content .nav-title-link {
+  grid-column: 1;
+  grid-row: 1;
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 0.2em;
@@ -250,6 +263,10 @@ a:focus {
 }
 
 .nav-parent-with-content .nav-expand-toggle {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
