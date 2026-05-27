@@ -1,6 +1,6 @@
 {
   "name": "@pagenary/publisher",
-  "version": "2026.5.2",
+  "version": "2026.5.3",
   "type": "module",
   "description": "Multi-tenant static publishing component for Pagenary platform.",
   "license": "AGPL-3.0-or-later",
@@ -59,8 +59,10 @@
   "engines": {
     "node": ">=16"
   },
-  "devDependencies": {
-    "jest": "^29.7.0",
+  "optionalDependencies": {
     "terser": "^5.44.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }

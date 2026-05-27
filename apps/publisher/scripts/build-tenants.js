@@ -7,6 +7,7 @@ import { spawn, execSync } from 'child_process';
 import { createHash } from 'crypto';
 import os from 'os';
 import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
+import { generateCollections } from './lib/collections-generator.js';
 import { fileURLToPath } from 'node:url';
 
 const root = process.cwd();
@@ -3213,6 +3214,14 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
 
   // Generate SEO artifacts (sitemap.xml, robots.txt, static pages)
   await generateSeoArtifacts(distDir, config);
+
+  // Generate collection manifests/feeds (#18) — opt-in via config.collections
+  if (Array.isArray(config.collections) && config.collections.length > 0) {
+    const collectionRoot = await findContentRoot(sourceDir);
+    if (collectionRoot.basePath) {
+      await generateCollections(distDir, config, collectionRoot.basePath);
+    }
+  }
 
   // Copy to final target if different from dist
   if (targetDir !== distDir) {

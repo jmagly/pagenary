@@ -4,6 +4,27 @@ All notable changes to `@pagenary/publisher` are documented here.
 Format is based on [Keep a Changelog](https://keepachangelog.com/); versioning
 is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md`).
 
+## [2026.5.3] - 2026-05-27
+
+### Added
+
+- **Collection support (#18):** mark a content folder as a collection via
+  `config.collections` (e.g. a blog) and the build emits a machine-readable
+  `index.json` — `{ title, route, count, generated, posts[] }` derived from each
+  post's YAML front matter (`title`, `date`, `summary`, `hero`, `tags`,
+  `reading_time`, absolute `canonical`, `path`), sorted by `sortBy`/`order`.
+  Optional RSS `feed.xml` (`feed: true`). Lets downstream sites consume posts
+  without scraping rendered HTML. Adds a minimal, zero-dependency front-matter
+  parser (`scripts/lib/frontmatter.js`).
+
+### Fixed
+
+- **Minification for installed consumers (#14):** `terser` is now an
+  `optionalDependency` instead of a clone-only `devDependency`. Consumers
+  building via the `pagenary` bin previously got `Terser not installed; skipping
+  minification` and shipped unminified section JS unless they added `terser`
+  themselves; it now installs and minifies by default.
+
 ## [2026.5.2] - 2026-05-27
 
 ### Added

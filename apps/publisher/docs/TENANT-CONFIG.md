@@ -160,6 +160,66 @@ engines drop URL fragments, so hash canonicals would collapse every page onto th
 homepage. The `#hash` route is still used for the in-page "interactive version"
 link and the JS redirect.
 
+## Collections
+
+A **collection** marks a content folder (e.g. a blog) so the build emits a
+machine-readable manifest — letting downstream sites consume the posts without
+scraping rendered HTML. Configure collections in the tenant `config.json`:
+
+```json
+{
+  "collections": [
+    {
+      "path": "blog",
+      "route": "/blog",
+      "title": "Blog",
+      "manifest": true,
+      "feed": true,
+      "sortBy": "date",
+      "order": "desc"
+    }
+  ]
+}
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `path` | string | required | Collection folder, relative to the content root (e.g. `blog` → `content/blog/`) |
+| `route` | string | `/<path>` | Public route; also the output subdirectory under `dist/` |
+| `title` | string | tenant `title` | Collection title (manifest + feed) |
+| `manifest` | boolean | `true` | Emit `index.json` |
+| `feed` | boolean | `false` | Emit RSS `feed.xml` |
+| `sortBy` | string | `"date"` | Front-matter field to sort by |
+| `order` | string | `"desc"` | `"desc"` or `"asc"` (entries missing the sort key sort last) |
+
+Each post (`<path>/<slug>.md`) supplies metadata via YAML **front matter**;
+files starting with `_` and `index.md` are skipped:
+
+```markdown
+---
+title: Shipping Pagenary Collections
+date: 2026-05-27
+summary: How the new collection manifest works.
+hero: /assets/blog/collections.png
+tags: [release, seo]
+---
+
+# Shipping Pagenary Collections
+
+Post body…
+```
+
+The build writes to `dist/<route>/`:
+
+- **`index.json`** — `{ title, route, count, generated, posts: [...] }`, where each
+  post is `{ slug, title, date, summary, hero, tags, reading_time, canonical, path }`,
+  sorted per `sortBy`/`order`. `canonical` is the absolute static-page URL (uses
+  the same base URL as [SEO](#seo-seo)); `reading_time` is estimated from the body.
+- **`feed.xml`** *(when `feed: true`)* — RSS 2.0 of the same set.
+
+> A collection's posts are still rendered as normal pages (each `.md` becomes a
+> section). The manifest/feed are additive, machine-readable indexes.
+
 ## Navigation Manifest (manifest.json)
 
 ### Root Manifest
