@@ -6,6 +6,12 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.5.4] - 2026-05-28
+
+### Changed
+
+- **Build pipeline documentation refreshed (#20/#21):** API, architecture, and developer docs now cover the build-time `scripts/lib/*` surface: SEO artifact generation, collection manifests/feeds, and frontmatter parsing. The architecture guide also shows the actual tenant build order through SEO and collections, and the developer guide now explains collection post authoring and SEO extension points.
+
 ### Fixed
 
 - **Page renderer leaked YAML frontmatter as visible text (#19):** the
