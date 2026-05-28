@@ -381,7 +381,9 @@ Options:
 
 ### scripts/build-tenants.js
 
-Multi-tenant build orchestrator.
+Multi-tenant build orchestrator. It processes tenant content, applies branding
+and overrides, copies public assets, then calls the build library modules for
+SEO artifacts and collections.
 
 ```bash
 node scripts/build-tenants.js [tenant-id] [--incremental]
@@ -390,6 +392,9 @@ node scripts/build-tenants.js [tenant-id] [--incremental]
 Arguments:
 - `tenant-id` - Build specific tenant (omit for all)
 - `--incremental` - Only rebuild changed files
+
+See [Build Library Modules](#build-library-modules) for the helper modules used
+by this orchestrator.
 
 ### scripts/serve.js
 
@@ -406,3 +411,131 @@ Regenerate section template modules.
 ```bash
 node scripts/sync-docs.js
 ```
+
+## Build Library Modules
+
+These modules are called by `scripts/build-tenants.js` during tenant builds.
+They generate files that ship in each tenant output, so they are part of the
+build-time API surface even though they do not run in the browser.
+
+### scripts/lib/seo-generator.js
+
+Generates crawler-facing SEO artifacts after tenant content, branding, theme,
+welcome, and public assets have been written.
+
+#### Exports
+
+**`resolveBaseUrl(config?: object): string`**
+
+Resolve the tenant absolute base URL. `seo.siteUrl` takes precedence over
+`domain`; domains without a scheme are treated as HTTPS. Returns an empty
+string when neither value is configured.
+
+```javascript
+const baseUrl = resolveBaseUrl({ domain: 'docs.example.com' });
+// 'https://docs.example.com'
+```
+
+**`resolveOgImage(config?: object, baseUrl?: string): string`**
+
+Resolve `seo.ogImage` for Open Graph and Twitter metadata. Absolute image URLs
+pass through; site-relative paths are joined to `baseUrl` when available.
+
+**`generateSeoArtifacts(distDir: string, config: object): Promise<void>`**
+
+Generate all enabled SEO artifacts for the tenant output directory:
+
+- `sitemap.xml`
+- `robots.txt`
+- `llms.txt`
+- static crawler snapshots under `pages/`
+- JSON-LD embedded in generated static pages
+
+Called from `scripts/build-tenants.js` after `.public/` assets are copied and
+before collection manifests are generated.
+
+```javascript
+await generateSeoArtifacts(distDir, config);
+```
+
+**`generateSitemap(distDir: string, manifest: SectionEntry[], config: object): Promise<void>`**
+
+Write `sitemap.xml` from the generated navigation manifest.
+
+**`generateRobotsTxt(distDir: string, config: object): Promise<void>`**
+
+Write `robots.txt`, including a sitemap pointer when a base URL is configured.
+
+**`generateStaticSnapshots(distDir: string, manifest: SectionEntry[], config: object): Promise<void>`**
+
+Write static HTML snapshots for each navigable section so crawlers can consume
+content without executing the SPA.
+
+**`generateLlmsTxt(distDir: string, manifest: SectionEntry[], config: object): Promise<void>`**
+
+Write `llms.txt` with tenant-level metadata and links to generated static pages.
+
+### scripts/lib/collections-generator.js
+
+Generates per-collection manifests and optional RSS feeds from Markdown posts'
+front matter. Collections are opt-in through `config.collections`.
+
+#### Exports
+
+**`generateCollections(distDir: string, config: object, contentBasePath: string): Promise<void>`**
+
+For each collection config, read posts under `contentBasePath/<collection.path>`
+and emit artifacts under the configured route:
+
+- `<route>/index.json` when `manifest !== false`
+- `<route>/feed.xml` when `feed === true`
+
+The `index.json` entry shape is:
+
+```typescript
+interface CollectionEntry {
+  slug: string;
+  title: string;
+  date: string | null;
+  summary: string;
+  hero: string | null;
+  tags: string[];
+  reading_time: number;
+  canonical: string;
+  path: string;
+}
+```
+
+Called from `scripts/build-tenants.js` after SEO artifacts are generated:
+
+```javascript
+const collectionRoot = await findContentRoot(sourceDir);
+await generateCollections(distDir, config, collectionRoot.basePath);
+```
+
+### scripts/lib/frontmatter.js
+
+Parses the Markdown front-matter subset used by collection posts and tenant
+content metadata.
+
+#### Exports
+
+**`parseFrontmatter(raw: string): { data: Record<string, any>, body: string }`**
+
+Parse a leading `---` fenced block of `key: value` pairs. Values are coerced to
+booleans, numbers, `null`, quoted strings, or inline lists such as
+`[docs, release]`. Nested maps are not supported; unsupported values remain
+strings.
+
+```javascript
+const { data, body } = parseFrontmatter(markdown);
+```
+
+**`estimateReadingTime(body: string): number`**
+
+Estimate reading time in minutes at roughly 200 words per minute, with a
+minimum of `1`.
+
+**`firstHeading(body: string): string | null`**
+
+Return the first Markdown H1 (`# Title`) in the body, or `null` when none is present.

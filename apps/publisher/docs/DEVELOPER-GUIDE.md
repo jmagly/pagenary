@@ -50,6 +50,49 @@ See TENANT-CONFIG.md for full configuration details and examples.
 - Run `npm run build:tenants` after editing content. The script regenerates `dist/<id>/manifest.js` plus section modules so the navigation immediately reflects the manifest.
 - Provide per-tenant overrides (styles, assets, app shell tweaks) inside `tenants/<id>/overrides/`; they copy into the tenant bundle after content generation, so you can replace generated files if needed.
 
+## Authoring Collection Posts
+
+Use collections when a tenant needs a feed-like content group such as a blog,
+release notes, news, or changelog. Configure the collection in
+`TENANT-CONFIG.md` under `collections`, then add Markdown posts under the
+configured content path.
+
+Each post can start with front matter parsed by `scripts/lib/frontmatter.js`:
+
+```markdown
+---
+title: Launch Notes
+date: 2026-05-28
+summary: What changed in this release
+tags: [release, platform]
+hero: /assets/blog/launch.png
+---
+
+# Launch Notes
+
+Post content starts here.
+```
+
+During `npm run build:tenants`, `scripts/lib/collections-generator.js` reads those
+posts and writes `index.json` plus optional `feed.xml` under the collection
+route. See `TENANT-CONFIG.md` for the collection config schema and `API.md` for
+the generated entry shape.
+
+## Extending SEO Output
+
+Tenant SEO settings live in `TENANT-CONFIG.md` under `seo`. The runtime
+`src/seo.js` module updates browser metadata after navigation, while the build-time
+`scripts/lib/seo-generator.js` module emits crawler-facing artifacts:
+
+- `sitemap.xml`
+- `robots.txt`
+- `llms.txt`
+- static snapshots under `pages/`
+- JSON-LD metadata for generated pages
+
+Extend `scripts/lib/seo-generator.js` when the output artifact set changes, and update
+`API.md` when adding or changing exported helpers.
+
 ## Tooling Philosophy
 - Zero framework lock-in; replace `app.js` with your own router if you outgrow it.
 - Scripts avoid third-party dependencies so they run in restricted environments.

@@ -71,6 +71,47 @@ Transforms source content into section modules:
 3. **Brand** - Apply tenant config (colors, text)
 4. **Override** - Replace files from `overrides/`
 
+### SEO Artifact Generation
+
+After content processing, branding, tenant overrides, and `.public/` assets are
+in place, `scripts/build-tenants.js` calls `scripts/lib/seo-generator.js` to emit
+crawler-facing files into the tenant output directory:
+
+- `sitemap.xml` from the generated manifest
+- `robots.txt` with a sitemap pointer
+- `llms.txt` for LLM-friendly site discovery
+- static snapshots under `pages/` for each navigable section
+- JSON-LD metadata embedded in the generated snapshots
+
+The generator resolves absolute URLs from `seo.siteUrl` or `domain`. Tenants can
+disable the whole stage with `seo.enabled: false` or individual artifact switches.
+
+### Collection Manifests
+
+If `config.collections` is configured, `buildTenant()` resolves the tenant content
+root and calls `scripts/lib/collections-generator.js` after SEO artifacts are
+written. Each collection reads Markdown posts from its configured `path`, parses
+front matter with `scripts/lib/frontmatter.js`, sorts entries by the configured
+field/order, and writes machine-readable output under the collection route:
+
+- `index.json` with `slug`, `title`, `date`, `summary`, `hero`, `tags`,
+  `reading_time`, `canonical`, and `path`
+- optional `feed.xml` when `feed: true`
+
+### Build Flow
+
+```text
+resolve source
+  -> run base build
+  -> process tenant content and manifest
+  -> apply overrides
+  -> apply branding/theme/navigation/welcome
+  -> copy .public assets
+  -> generate SEO artifacts
+  -> generate collection manifests/feeds
+  -> copy or sync to target
+```
+
 ## Runtime Architecture
 
 ### Shell Layout
@@ -103,16 +144,23 @@ src/
     ├── search.js       # Full-text search
     ├── router.js       # Hash routing utilities
     └── export.js       # Document export
+
+scripts/lib/
+├── seo-generator.js         # Build-time SEO artifacts
+├── collections-generator.js # Collection manifests and feeds
+└── frontmatter.js           # Markdown front-matter parsing
 ```
 
 ### Core Flow
 
 ```
-Hash Change → Router → Manifest Lookup → Module Import → Render → Post-Process
-                                              │
-                                              ├── Mermaid Diagrams
-                                              ├── Syntax Highlighting
-                                              └── SEO Meta Tags
+Build: Content → Manifest → Branding → Public Assets → SEO Artifacts → Collections
+
+Runtime: Hash Change → Router → Manifest Lookup → Module Import → Render → Post-Process
+                                                        │
+                                                        ├── Mermaid Diagrams
+                                                        ├── Syntax Highlighting
+                                                        └── SEO Meta Tags
 ```
 
 ## Key Components
