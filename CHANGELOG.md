@@ -8,6 +8,15 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ### Fixed
 
+- **Page renderer leaked YAML frontmatter as visible text (#19):** the
+  markdown render path (`markdownToHtml` in `scripts/build-tenants.js`) did not
+  strip a leading `---`-fenced frontmatter block, so collection posts — where
+  #18 made frontmatter mandatory — rendered the YAML keys as `<p>` paragraphs
+  above the first heading. Wired the existing `parseFrontmatter()` helper —
+  already used by `scripts/lib/collections-generator.js` — into the renderer
+  so every caller benefits. Added regression tests for the strip, the
+  no-op-without-frontmatter case, and preservation of mid-document `---`
+  horizontal rules in the body.
 - **Nav disclosure arrow misaligned on Firefox:** the left-nav group arrow
   (`.nav-parent` / `.nav-parent-with-content`) relied on CSS Grid auto-placement
   mixed with a column-spanning summary, which Firefox resolved differently from

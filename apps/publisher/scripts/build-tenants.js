@@ -8,6 +8,7 @@ import { createHash } from 'crypto';
 import os from 'os';
 import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
+import { parseFrontmatter } from './lib/frontmatter.js';
 import { fileURLToPath } from 'node:url';
 
 const root = process.cwd();
@@ -1374,6 +1375,12 @@ function parseInlineMarkdown(input, linkContext = null) {
  * @returns {string} HTML string
  */
 function markdownToHtml(markdown, linkContext = null) {
+  // Strip YAML frontmatter before rendering so the fence block doesn't leak
+  // into the page as <hr>/<p>… text (#19). #18 made frontmatter mandatory on
+  // collection posts; this wires the same parser the collections generator
+  // already uses into the page render path so every caller benefits.
+  const parsed = parseFrontmatter(markdown);
+  markdown = parsed.body;
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   const chunks = [];
   let inList = false;
@@ -3608,7 +3615,15 @@ async function main() {
   return results;
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only auto-run when this file is the process entrypoint, so unit tests can
+// import named exports (e.g. markdownToHtml — #19) without triggering main().
+const __isMainModule = process.argv[1]
+  && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (__isMainModule) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+export { markdownToHtml };
