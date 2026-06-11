@@ -1381,6 +1381,10 @@ function markdownToHtml(markdown, linkContext = null) {
   // already uses into the page render path so every caller benefits.
   const parsed = parseFrontmatter(markdown);
   markdown = parsed.body;
+  // Strip HTML comments before rendering: the renderer escapes raw HTML, so
+  // comments (e.g. editorial/citation annotations like <!-- fact:ID -->)
+  // would otherwise render as visible literal text in published pages.
+  markdown = markdown.replace(/<!--[\s\S]*?-->/g, '');
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   const chunks = [];
   let inList = false;
