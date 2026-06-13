@@ -6,6 +6,20 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.0] - 2026-06-13
+
+### Fixed
+
+- **Deep-linked nested routes hydrate correctly (#22):** shell asset URLs and
+  generated section module imports now resolve from the site root, and nested
+  section IDs emit deterministic encoded module filenames. Cold loads such as
+  `/blog/<slug>` now request `/styles.css`, `/app.js`, and the matching section
+  module instead of resolving relative to the nested route.
+- **Collection post metadata is rendered and ordered (#23):** auto-discovered
+  collection posts now use frontmatter title, summary, date, and reading time,
+  respect collection `sortBy`/`order`, and honor `showDate`, `showSummary`, and
+  `showReadingTime` on post pages.
+
 ## [2026.5.4] - 2026-05-28
 
 ### Changed
