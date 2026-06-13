@@ -1672,6 +1672,35 @@ async function ensureJavascriptModule(sourcePath, targetPath) {
   await fsp.copyFile(sourcePath, targetPath);
 }
 
+async function readMarkdownMetadata(sourcePath) {
+  const raw = await fsp.readFile(sourcePath, 'utf8');
+  const { data, body } = parseFrontmatter(raw);
+  return {
+    title: data.title || firstHeadingFromMarkdown(body) || null,
+    summary: data.summary || data.description || '',
+    date: data.date || null,
+    reading_time: estimateReadingTime(body)
+  };
+}
+
+function firstHeadingFromMarkdown(body) {
+  const match = body.match(/^#\s+(.+)$/m);
+  return match ? match[1].trim() : null;
+}
+
+function estimateReadingTime(body) {
+  const words = String(body || '').trim().split(/\s+/).filter(Boolean);
+  return Math.max(1, Math.ceil(words.length / 200));
+}
+
+async function readContentMetadata(sourcePath) {
+  const ext = path.extname(sourcePath).toLowerCase();
+  if (ext === '.md' || ext === '.markdown') {
+    return readMarkdownMetadata(sourcePath);
+  }
+  return {};
+}
+
 // ============================================================================
 // Internal Link Transformation (ADR-011)
 // ============================================================================
@@ -1992,6 +2021,46 @@ function deriveSectionId(parentId, name, isIndex = false) {
   return stem;
 }
 
+function routePath(value) {
+  return String(value || '').replace(/^\/+|\/+$/g, '');
+}
+
+function collectionForRelPath(relPath, collections = []) {
+  const normalized = relPath.split(path.sep).join('/');
+  return collections.find((collection) => {
+    const collectionPath = routePath(collection.path);
+    return collectionPath && (normalized === collectionPath || normalized.startsWith(`${collectionPath}/`));
+  }) || null;
+}
+
+function decorateCollectionEntry(entry, metadata, collection) {
+  if (!collection || !entry) return entry;
+  entry.collection = routePath(collection.path);
+  entry.showDate = collection.showDate === true;
+  entry.showSummary = collection.showSummary === true;
+  entry.showReadingTime = collection.showReadingTime !== false;
+  if (metadata.date) entry.date = metadata.date;
+  if (metadata.reading_time) entry.reading_time = metadata.reading_time;
+  return entry;
+}
+
+function sortCollectionEntries(entries, collection) {
+  if (!collection || !Array.isArray(entries)) return entries;
+  const sortBy = collection.sortBy || 'date';
+  const dir = (collection.order || 'desc').toLowerCase() === 'asc' ? 1 : -1;
+  entries.sort((a, b) => {
+    const av = a?.[sortBy];
+    const bv = b?.[sortBy];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+  return entries;
+}
+
 /**
  * Encode section ID for use in output filename
  * Replaces / with -- to create flat output structure
@@ -2107,19 +2176,21 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
   const indexFile = files.find(f => /^index\.(md|markdown|html|htm|js|mjs)$/i.test(f.name));
   if (indexFile) {
     const sectionId = parentId || path.basename(dirPath);
-    const title = manifest?.title || humanizeTitle(path.basename(dirPath));
-    const summary = manifest?.summary || '';
-
-    // Calculate relative path from content root
     const relPath = path.relative(context.contentRoot, path.join(dirPath, indexFile.name));
+    const metadata = await readContentMetadata(path.join(dirPath, indexFile.name));
+    const collection = collectionForRelPath(relPath, context.collections);
+    const title = manifest?.title || metadata.title || humanizeTitle(path.basename(dirPath));
+    const summary = manifest?.summary || metadata.summary || '';
 
-    sections.push({
+    const sectionEntry = {
       id: sectionId,
       title,
       summary,
       file: relPath,
       _isIndex: true
-    });
+    };
+    decorateCollectionEntry(sectionEntry, metadata, collection);
+    sections.push(sectionEntry);
   }
 
   // Process other content files
@@ -2131,10 +2202,12 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
       s.id === sectionId || s.file === file.name || s.id === file.name.replace(/\.[^.]+$/, '')
     );
 
-    const title = manifestEntry?.title || humanizeTitle(file.name);
-    const summary = manifestEntry?.summary || '';
-    const type = manifestEntry?.type || null;
     const relPath = path.relative(context.contentRoot, path.join(dirPath, file.name));
+    const metadata = await readContentMetadata(path.join(dirPath, file.name));
+    const collection = collectionForRelPath(relPath, context.collections);
+    const title = manifestEntry?.title || metadata.title || humanizeTitle(file.name);
+    const summary = manifestEntry?.summary || metadata.summary || '';
+    const type = manifestEntry?.type || null;
 
     const sectionEntry = {
       id: sectionId,
@@ -2142,6 +2215,7 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
       summary,
       file: relPath
     };
+    decorateCollectionEntry(sectionEntry, metadata, collection);
     if (type) sectionEntry.type = type;
     sections.push(sectionEntry);
   }
@@ -2170,6 +2244,7 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
       if (indexEntry) {
         // Remove index from subsections, it becomes the group itself
         const otherSections = subsections.filter(s => !s._isIndex);
+        sortCollectionEntries(otherSections, collectionForRelPath(path.relative(context.contentRoot, subdirPath), context.collections));
         const entry = {
           id: subdirId,
           title,
@@ -2185,7 +2260,7 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
           id: subdirId,
           title,
           summary,
-          subsections
+          subsections: sortCollectionEntries(subsections, collectionForRelPath(path.relative(context.contentRoot, subdirPath), context.collections))
         };
         if (collapsed) entry.collapsed = true;
         sections.push(entry);
@@ -2441,7 +2516,7 @@ async function materializeScannedSections(sections, context) {
   const processed = [];
 
   for (const section of sections) {
-    const { id, title, summary, file, subsections, url, type, collapsed } = section;
+    const { id, title, summary, file, subsections, url, type, collapsed, _isIndex, ...metadata } = section;
 
     // Pass through external links without processing
     if (url) {
@@ -2499,21 +2574,22 @@ async function materializeScannedSections(sections, context) {
           id,
           title,
           summary,
-          module: `./sections/${outFile}`,
+          ...metadata,
+          module: `/sections/${outFile}`,
           subsections: processedSubsections
         };
         if (type) entry.type = type;
         if (collapsed) entry.collapsed = true;
         processed.push(entry);
       } else {
-        const entry = { id, title, summary, module: `./sections/${outFile}` };
+        const entry = { id, title, summary, ...metadata, module: `/sections/${outFile}` };
         if (type) entry.type = type;
         if (collapsed) entry.collapsed = true;
         processed.push(entry);
       }
     } else if (processedSubsections && processedSubsections.length > 0) {
       // Group without its own content
-      const entry = { id, title, summary, subsections: processedSubsections };
+      const entry = { id, title, summary, ...metadata, subsections: processedSubsections };
       if (type) entry.type = type;
       if (collapsed) entry.collapsed = true;
       processed.push(entry);
@@ -2575,6 +2651,9 @@ function applyManifestHierarchy(scannedSections, rootManifest) {
       title: mEntry.title || scanned?.title || mEntry.id,
       summary: mEntry.summary || scanned?.summary || ''
     };
+    for (const key of ['collection', 'showDate', 'showSummary', 'showReadingTime', 'date', 'reading_time']) {
+      if (scanned?.[key] !== undefined) node[key] = scanned[key];
+    }
 
     if (mEntry.collapsed) node.collapsed = true;
     if (mEntry.type) node.type = mEntry.type;
@@ -2671,6 +2750,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     keepFiles,
     leafOrder: [],
     siteConfig,
+    collections: Array.isArray(config.collections) ? config.collections : [],
     // Link transformation context (populated after scan)
     sectionIndex: null,
     linkWarnings,
@@ -2779,7 +2859,7 @@ async function materializeSectionModule(entry, context) {
   }
 
   const ext = path.extname(sourcePath).toLowerCase();
-  const outFile = `${id}.js`;
+  const outFile = `${encodePathForFilename(id)}.js`;
   const targetPath = path.join(context.sectionsDir, outFile);
   context.keepFiles.add(outFile);
 
@@ -2807,7 +2887,7 @@ async function materializeSectionModule(entry, context) {
     return null;
   }
 
-  return `./sections/${outFile}`;
+  return `/sections/${outFile}`;
 }
 
 function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}, exportConfig = {}) {
@@ -3339,7 +3419,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
     const ext = path.extname(sourcePath).toLowerCase();
     // Use manifest section ID if available, otherwise fall back to filename
     const sectionId = fileToSectionId.get(relPath) || path.basename(relPath, ext);
-    const targetPath = path.join(sectionsDir, `${sectionId}.js`);
+    const targetPath = path.join(sectionsDir, `${encodePathForFilename(sectionId)}.js`);
 
     try {
       if (ext === '.md' || ext === '.markdown') {
@@ -3349,7 +3429,8 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
           contentRoot: contentRoot.basePath || contentDir,
           sectionIndex,
           linkWarnings,
-          strictLinks: options.strictLinks !== false
+          strictLinks: options.strictLinks !== false,
+          collections: Array.isArray(config.collections) ? config.collections : []
         };
         await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         console.log(`  ↳ updated: ${sectionId} (markdown)`);

@@ -8,7 +8,7 @@ function sectionEntry(input) {
     id: sectionId,
     title: meta.title,
     summary: meta.summary,
-    module: `./sections/${sectionId}.js`
+    module: `/sections/${sectionId}.js`
   };
 }
 

@@ -35,7 +35,7 @@ describe('lib/manifest-utils.js', () => {
       expect(entry.id).toBe('welcome');
       expect(entry.title).toBe('Welcome');
       expect(entry.summary).toBe('Welcome overview');
-      expect(entry.module).toBe('./sections/welcome.js');
+      expect(entry.module).toBe('/sections/welcome.js');
     });
 
     test('creates entry from object with ID', () => {
@@ -43,7 +43,7 @@ describe('lib/manifest-utils.js', () => {
 
       expect(entry.id).toBe('api-reference');
       expect(entry.title).toBe('API Reference');
-      expect(entry.module).toBe('./sections/api-reference.js');
+      expect(entry.module).toBe('/sections/api-reference.js');
     });
 
     test('applies title override from object', () => {
@@ -79,7 +79,7 @@ describe('lib/manifest-utils.js', () => {
 
     test('generates correct module path', () => {
       const entry = sectionEntry('developers-overview', mockGetSectionMetadata);
-      expect(entry.module).toBe('./sections/developers-overview.js');
+      expect(entry.module).toBe('/sections/developers-overview.js');
     });
 
     test('handles unknown section IDs', () => {
@@ -87,7 +87,7 @@ describe('lib/manifest-utils.js', () => {
 
       expect(entry.id).toBe('unknown-section');
       expect(entry.title).toBe('unknown-section'); // Falls back to ID
-      expect(entry.module).toBe('./sections/unknown-section.js');
+      expect(entry.module).toBe('/sections/unknown-section.js');
     });
   });
 
@@ -117,7 +117,7 @@ describe('lib/manifest-utils.js', () => {
       const subsection = group.subsections[0];
       expect(subsection.id).toBe('developers-overview');
       expect(subsection.title).toBe('Developers Overview');
-      expect(subsection.module).toBe('./sections/developers-overview.js');
+      expect(subsection.module).toBe('/sections/developers-overview.js');
     });
 
     test('supports object sections with overrides', () => {

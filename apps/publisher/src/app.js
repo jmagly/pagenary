@@ -380,6 +380,7 @@ async function loadSection(entry) {
   }
   const payload = await loader();
   app.innerHTML = payload.html || '';
+  renderEntryMetadata(entry);
 
   // Render any mermaid diagrams in the content
   await renderMermaidBlocks(app);
@@ -410,6 +411,51 @@ async function loadSection(entry) {
   pendingHighlightScroll = false;
   applyHighlight(shouldScrollToHighlight);
   focusCanvas();
+}
+
+function renderEntryMetadata(entry) {
+  if (!entry || (!entry.showDate && !entry.showReadingTime && !entry.showSummary)) return;
+  const content = app.querySelector('.doc-content') || app.querySelector('article, section') || app;
+  const heading = content.querySelector('h1');
+  if (!heading) return;
+
+  const fragments = [];
+  if (entry.showDate && entry.date) {
+    fragments.push(formatEntryDate(entry.date));
+  }
+  if (entry.showReadingTime && entry.reading_time) {
+    fragments.push(`${entry.reading_time} min read`);
+  }
+
+  let insertAfter = heading;
+  if (fragments.length > 0) {
+    const meta = document.createElement('p');
+    meta.className = 'doc-meta';
+    meta.textContent = fragments.join(' · ');
+    heading.after(meta);
+    insertAfter = meta;
+  }
+
+  if (entry.showSummary && entry.summary) {
+    const summary = document.createElement('p');
+    summary.className = 'doc-summary';
+    summary.textContent = entry.summary;
+    insertAfter.after(summary);
+  }
+}
+
+function formatEntryDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00Z` : raw;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return raw;
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC'
+  }).format(date);
 }
 
 /**

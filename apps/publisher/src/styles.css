@@ -684,6 +684,19 @@ mark.hl {
   color: var(--ink);
 }
 
+.doc-content .doc-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.doc-content .doc-summary {
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
 .doc-content ul,
 .doc-content ol {
   margin: 0;

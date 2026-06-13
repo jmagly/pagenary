@@ -92,7 +92,9 @@ async function createTestTenant(tenantId, config = {}, manifest = null, content 
     await fsp.mkdir(contentDir, { recursive: true });
 
     for (const [filename, fileContent] of Object.entries(content)) {
-      await fsp.writeFile(path.join(contentDir, filename), fileContent);
+      const target = path.join(contentDir, filename);
+      await fsp.mkdir(path.dirname(target), { recursive: true });
+      await fsp.writeFile(target, fileContent);
     }
   }
 
@@ -234,6 +236,80 @@ describe('build-tenants.js', () => {
       expect(sectionContent).toMatch(/Hello World/);
       // Headings now have auto-generated IDs (ADR-011)
       expect(sectionContent).toMatch(/h1 id=/);
+    });
+
+    test('emits root-based shell and module URLs for nested route deep links', async () => {
+      const manifest = {
+        sections: [
+          { id: 'blog/post', title: 'Post', file: 'blog/post.md' }
+        ]
+      };
+
+      const content = {
+        'blog/post.md': '# Post\n\nNested route content.'
+      };
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
+      const manifestJs = await fsp.readFile(path.join(distDir, 'manifest.js'), 'utf8');
+
+      expect(index).toContain('href="/styles.css"');
+      expect(index).toContain('src="/app.js"');
+      expect(manifestJs).toContain('"module": "/sections/blog--post.js"');
+      expect(manifestJs).not.toContain('"module": "./sections/');
+    });
+
+    test('uses collection frontmatter metadata for auto-discovered nav entries and sort order', async () => {
+      testTenantDir = path.join(PUBLISHER_ROOT, 'tenants', TEST_TENANT_ID);
+      await fsp.mkdir(path.join(testTenantDir, 'blog'), { recursive: true });
+      await fsp.writeFile(path.join(testTenantDir, '_manifest.json'), JSON.stringify({
+        title: 'Docs',
+        sections: [
+          { id: 'blog', title: 'Blog' }
+        ]
+      }, null, 2));
+      await fsp.writeFile(path.join(testTenantDir, 'config.json'), JSON.stringify({
+        title: 'Collection Test',
+        collections: [
+          {
+            path: 'blog',
+            route: '/blog',
+            sortBy: 'date',
+            order: 'desc',
+            showDate: true,
+            showSummary: true
+          }
+        ]
+      }, null, 2));
+      await fsp.writeFile(path.join(testTenantDir, 'blog', 'older.md'),
+        '---\ntitle: Older Frontmatter Title\ndate: 2026-06-01\nsummary: Older summary\n---\n# Older Heading\n\nBody.');
+      await fsp.writeFile(path.join(testTenantDir, 'blog', 'newer.md'),
+        '---\ntitle: Newer Frontmatter Title\ndate: 2026-06-12\nsummary: Newer summary\n---\n# Newer Heading\n\nBody.');
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const manifestJs = await fsp.readFile(
+        path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js'),
+        'utf8'
+      );
+      const newerIndex = manifestJs.indexOf('"title": "Newer Frontmatter Title"');
+      const olderIndex = manifestJs.indexOf('"title": "Older Frontmatter Title"');
+
+      expect(newerIndex).toBeGreaterThan(-1);
+      expect(olderIndex).toBeGreaterThan(-1);
+      expect(newerIndex).toBeLessThan(olderIndex);
+      expect(manifestJs).toContain('"summary": "Newer summary"');
+      expect(manifestJs).toContain('"date": "2026-06-12"');
+      expect(manifestJs).toContain('"reading_time": 1');
+      expect(manifestJs).toContain('"showDate": true');
+      expect(manifestJs).toContain('"showSummary": true');
+      expect(manifestJs).toContain('"showReadingTime": true');
     });
 
     test('processes HTML content files', async () => {
