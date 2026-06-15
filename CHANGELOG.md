@@ -6,6 +6,30 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.1] - 2026-06-15
+
+### Changed
+
+- **Search now runs on the real `@fortemi/core` static-index engine (ADR-015):**
+  the publisher's bespoke search reimplementation is replaced by the vendored
+  `@fortemi/core` `aiwg-index` engine. Builds emit a deterministic chunked index
+  per tenant under `dist/<tenant>/search-index/`; the command palette loads it via
+  an index controller with lazy chunk fetch (precache), ranked results with
+  snippets, and offset paging for infinite scroll. A legacy in-browser index
+  remains as a transparent fallback — bundles stay statically hostable (no server,
+  no WASM, no React).
+
+### Added
+
+- Build-time `scripts/lib/search-index-generator.js` and a shared, deterministic
+  corpus builder `src/lib/fortemi-corpus.js` (records sorted/deduped by id, content
+  `build_hash`), both validated against the vendored `@fortemi/core` contract.
+- `searchContentPage()` paged search and `buildCommunityGraph()` (Fortemi community
+  graph) in `src/lib/search.js`; command-palette infinite scroll in `app.js`.
+- `@fortemi/core` and `aiwg` npm badges in the root and publisher READMEs.
+- AIWG CalVer release process: `.aiwg/release.config` (flow-release gates) and
+  `RELEASING.md` runbook.
+
 ## [2026.6.0] - 2026-06-13
 
 ### Fixed
