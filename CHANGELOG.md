@@ -6,6 +6,16 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.7] - 2026-06-15
+
+### Fixed
+
+- **Allowlist `examples/` in the npm tarball audit so the package publishes.**
+  v2026.6.6 added `examples/` to the published `files` but not to
+  `ci/expected-tarball-top-level.txt`, so the supply-chain top-level audit failed
+  and the npm publish aborted (the docs site and Gitea release still shipped).
+  v2026.6.7 is the first npm build to include the publishing examples.
+
 ## [2026.6.6] - 2026-06-15
 
 ### Added
