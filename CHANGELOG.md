@@ -6,6 +6,19 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.5] - 2026-06-15
+
+### Changed
+
+- **Repositioned the docs and the pagenary.com landing** around low-cost,
+  self-hosted documentation for individual developers and app makers: turn a git
+  repo of Markdown into a fast, searchable, SEO-ready docs site you host yourself
+  for next to nothing, with the features you'd expect from a paid docs platform.
+  Multi-tenant is demoted from the lead to a "scales to many sites when you need
+  it" note. Refreshed value props and use cases across both READMEs,
+  `SEO-STRATEGY.md`, `QUICKSTART.md`, and the `pagenary` tenant landing
+  (`config.json` welcome block + `content/welcome.md`).
+
 ## [2026.6.4] - 2026-06-15
 
 ### Fixed
