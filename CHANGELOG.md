@@ -6,6 +6,17 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.6] - 2026-06-15
+
+### Added
+
+- **Publishing on-ramp for any docs repo.** New `docs/PUBLISHING.md` plus
+  copy-paste `examples/` (GitHub Pages + Gitea Pages workflows and a minimal
+  `tenants.json`) make it easy to turn any folder of Markdown into a deployed
+  Pagenary site — navigation and titles are auto-discovered, so no manifest is
+  required even when the layout isn't tidy. The `examples/` directory now ships in
+  the npm package, and both READMEs link the guide.
+
 ## [2026.6.5] - 2026-06-15
 
 ### Changed
