@@ -6,6 +6,22 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.4] - 2026-06-15
+
+### Fixed
+
+- **Shell `<title>` now derives from the default page's metadata title (#28).**
+  The crawler-visible root `<title>` was the generic brand; it now uses the
+  default section's metadata title as `"<page title> · <brand>"` (mirroring the
+  runtime), falling back to the generic brand only when no default title exists —
+  a stronger on-page SEO signal for the most-linked URL.
+
+### Changed
+
+- Update the vendored `@fortemi/core` static-index engine to **2026.6.3**
+  (additive: adds `buildAiwgChunkedIndex` / `createAiwgFetchDetailLoader`; the
+  API Pagenary uses is unchanged).
+
 ## [2026.6.3] - 2026-06-15
 
 ### Fixed
