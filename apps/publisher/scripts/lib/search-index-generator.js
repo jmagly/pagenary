@@ -24,6 +24,10 @@ import {
   stripHtml,
   DEFAULT_PART_SIZE
 } from '../../src/lib/fortemi-corpus.js';
+import {
+  assertAiwgFortemiChunkManifest,
+  assertAiwgFortemiChunkPart
+} from '../../src/vendor/fortemi-aiwg-index.js';
 import { flattenManifest } from '../../src/lib/search.js';
 
 const SEARCH_INDEX_DIR = 'search-index';
@@ -86,6 +90,19 @@ export async function generateSearchIndex(distDir, processedManifest, options = 
 
   const { index, buildHash } = buildFortemiIndexExport(entries, { repo: tenantId });
   const { manifest, parts } = chunkFortemiIndex(index, { partSize });
+
+  // Build-time validation gate (#25): assert the emitted artifact against the
+  // vendored @fortemi/core contract so an invalid index fails the build clearly,
+  // rather than only surfacing at runtime when the controller loads it.
+  try {
+    assertAiwgFortemiChunkManifest(manifest);
+    parts.forEach((part, i) => assertAiwgFortemiChunkPart(part, manifest.parts[i], manifest));
+  } catch (err) {
+    throw new Error(
+      `Generated Fortemi search index for tenant "${tenantId}" failed contract ` +
+      `validation: ${err && err.message ? err.message : err}`
+    );
+  }
 
   // Replace the directory wholesale so stale parts from a larger prior corpus
   // never linger (incremental-build correctness).

@@ -11,7 +11,8 @@ import path from 'path';
 import { generateSearchIndex } from '../../scripts/lib/search-index-generator.js';
 import {
   validateAiwgFortemiChunkManifest,
-  validateAiwgFortemiChunkPart
+  validateAiwgFortemiChunkPart,
+  assertAiwgFortemiChunkManifest
 } from '../../src/vendor/fortemi-aiwg-index.js';
 
 async function makeFixture() {
@@ -101,5 +102,14 @@ describe('search-index-generator', () => {
     await generateSearchIndex(dir, [MANIFEST[0]], { tenantId: 'fixture', partSize: 100 });
     const after = (await fsp.readdir(path.join(dir, 'search-index'))).filter((f) => f.startsWith('part-'));
     expect(after).toEqual(['part-0000.json']);
+  });
+
+  // #25: the build-time validation gate calls assertAiwgFortemiChunkManifest on the
+  // emitted manifest and re-throws as a clear build failure. Confirm that assertion
+  // — the gate's primitive — rejects a malformed artifact so an invalid index can
+  // never ship silently. (The valid-artifact path is covered by the emit test above.)
+  test('contract assertion rejects a malformed manifest (build-time gate primitive)', () => {
+    expect(() => assertAiwgFortemiChunkManifest({ not: 'a manifest' })).toThrow();
+    expect(() => assertAiwgFortemiChunkManifest(null)).toThrow();
   });
 });
