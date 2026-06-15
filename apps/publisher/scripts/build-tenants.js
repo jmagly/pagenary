@@ -3069,12 +3069,12 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}, 
 
   // Flat content/ structure with manifest - use legacy processing
   if (hasManifest && contentRoot.type === 'flat') {
-    return (await processTenantManifestLegacy(sourceDir, distDir, tenantId, options)) ?? { success: true };
+    return (await processTenantManifestLegacy(sourceDir, distDir, tenantId, options, config)) ?? { success: true };
   }
 
   // Fallback: try legacy processing
   if (hasManifest) {
-    return (await processTenantManifestLegacy(sourceDir, distDir, tenantId, options)) ?? { success: true };
+    return (await processTenantManifestLegacy(sourceDir, distDir, tenantId, options, config)) ?? { success: true };
   }
 
   return { success: true };
@@ -3089,7 +3089,7 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}, 
  * @param {string} tenantId - Tenant identifier
  * @param {object} [options] - Build options
  */
-async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options = {}) {
+async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options = {}, config = {}) {
   const manifestPath = path.join(sourceDir, TENANT_MANIFEST);
   if (!(await pathExists(manifestPath))) return;
   const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
@@ -3137,7 +3137,12 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
   // Extract site configuration from manifest
   const siteConfig = {
     bottomNav: manifestData.bottomNav || 'mobile',
-    bottomNavSections: manifestData.bottomNavSections || []
+    bottomNavSections: manifestData.bottomNavSections || [],
+    // SEO-relevant config for runtime meta updates — parity with the nested path
+    // so the runtime <title> brand matches config.title, not a generic fallback (#29).
+    siteTitle: config.title || manifestData.title || '',
+    siteUrl: resolveBaseUrl(config),
+    ogImage: resolveOgImage(config, resolveBaseUrl(config))
   };
 
   const context = {

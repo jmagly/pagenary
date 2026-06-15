@@ -9,3 +9,4 @@ coverage/
 .codex/
 nexus-marketing/
 roko-docs/
+.playwright-mcp/
