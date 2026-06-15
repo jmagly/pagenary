@@ -266,7 +266,7 @@ describe('build-tenants.js', () => {
       expect(record.text).toMatch(/quick brown fox jumps over the lazy dog/);
     });
 
-    test('emits tenant-relative shell and module URLs for mounted previews', async () => {
+    test('emits root-based shell and module URLs for nested route deep links', async () => {
       const manifest = {
         sections: [
           { id: 'blog/post', title: 'Post', file: 'blog/post.md' }
@@ -286,10 +286,10 @@ describe('build-tenants.js', () => {
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
       const manifestJs = await fsp.readFile(path.join(distDir, 'manifest.js'), 'utf8');
 
-      expect(index).toContain('href="styles.css"');
-      expect(index).toContain('src="app.js"');
-      expect(manifestJs).toContain('"module": "./sections/blog--post.js"');
-      expect(manifestJs).not.toContain('"module": "/sections/');
+      expect(index).toContain('href="/styles.css"');
+      expect(index).toContain('src="/app.js"');
+      expect(manifestJs).toContain('"module": "/sections/blog--post.js"');
+      expect(manifestJs).not.toContain('"module": "./sections/');
     });
 
     test('uses collection frontmatter metadata for auto-discovered nav entries and sort order', async () => {

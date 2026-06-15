@@ -2576,14 +2576,14 @@ async function materializeScannedSections(sections, context) {
           title,
           summary,
           ...metadata,
-          module: `./sections/${outFile}`,
+          module: `/sections/${outFile}`,
           subsections: processedSubsections
         };
         if (type) entry.type = type;
         if (collapsed) entry.collapsed = true;
         processed.push(entry);
       } else {
-        const entry = { id, title, summary, ...metadata, module: `./sections/${outFile}` };
+        const entry = { id, title, summary, ...metadata, module: `/sections/${outFile}` };
         if (type) entry.type = type;
         if (collapsed) entry.collapsed = true;
         processed.push(entry);
@@ -2896,7 +2896,7 @@ async function materializeSectionModule(entry, context) {
     return null;
   }
 
-  return `./sections/${outFile}`;
+  return `/sections/${outFile}`;
 }
 
 function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}, exportConfig = {}) {
