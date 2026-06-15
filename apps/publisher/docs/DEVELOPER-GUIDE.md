@@ -31,7 +31,7 @@ The dev command builds to `dist/` and serves the bundle with live reload. Open t
 
 4. **Bottom Navigation** - Configurable via `bottomNav` in root manifest. Options: "mobile" (default), "always", or "never".
 
-5. **Command Palette** - Press Ctrl+K (or Cmd+K) to search and navigate sections. Supports fuzzy search across section titles and summaries.
+5. **Command Palette** - Press Ctrl+K (or Cmd+K) to search and navigate sections. Ranked full-text search (titles, summaries, and rendered content) via the vendored `@fortemi/core` static index, with snippets and infinite scroll.
 
 See TENANT-CONFIG.md for full configuration details and examples.
 

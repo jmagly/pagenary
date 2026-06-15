@@ -298,7 +298,10 @@ Your built site is in `dist/my-docs/`. Deploy it anywhere that serves static fil
 
 ### Search not working?
 
-Search indexes content on first use. Wait for "Indexing content..." to complete.
+The command palette loads a prebuilt static index (`dist/<tenant>/search-index/`)
+on first open — wait a moment for "Indexing content…" to clear. If that directory
+is missing (e.g., an older build), search falls back to indexing in the browser on
+first use. Rebuild with `npm run build:tenants` to regenerate the static index.
 
 ## Resources
 

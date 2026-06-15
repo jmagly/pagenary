@@ -9,6 +9,7 @@ import os from 'os';
 import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
+import { generateSearchIndex } from './lib/search-index-generator.js';
 import { fileURLToPath } from 'node:url';
 
 const root = process.cwd();
@@ -2575,14 +2576,14 @@ async function materializeScannedSections(sections, context) {
           title,
           summary,
           ...metadata,
-          module: `/sections/${outFile}`,
+          module: `./sections/${outFile}`,
           subsections: processedSubsections
         };
         if (type) entry.type = type;
         if (collapsed) entry.collapsed = true;
         processed.push(entry);
       } else {
-        const entry = { id, title, summary, ...metadata, module: `/sections/${outFile}` };
+        const entry = { id, title, summary, ...metadata, module: `./sections/${outFile}` };
         if (type) entry.type = type;
         if (collapsed) entry.collapsed = true;
         processed.push(entry);
@@ -2811,6 +2812,14 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied nested content structure for ${tenantId} (${context.leafOrder.length} sections)`);
 
+  // Emit the static Fortemi chunked search index. Failure here never breaks the
+  // bundle — the runtime search adapter degrades to its legacy in-browser index.
+  try {
+    await generateSearchIndex(distDir, processedManifest, { tenantId });
+  } catch (err) {
+    console.warn(`  ↳ search index generation skipped for ${tenantId}: ${err.message}`);
+  }
+
   return { success: true, sectionsCount: context.leafOrder.length };
 }
 
@@ -2887,7 +2896,7 @@ async function materializeSectionModule(entry, context) {
     return null;
   }
 
-  return `/sections/${outFile}`;
+  return `./sections/${outFile}`;
 }
 
 function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}, exportConfig = {}) {
@@ -3111,6 +3120,14 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
   const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig);
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied manifest-driven content for ${tenantId}`);
+
+  // Emit the static Fortemi chunked search index (legacy manifest path).
+  try {
+    await generateSearchIndex(distDir, processedManifest, { tenantId });
+  } catch (err) {
+    console.warn(`  ↳ search index generation skipped for ${tenantId}: ${err.message}`);
+  }
+
   return { success: true };
 }
 

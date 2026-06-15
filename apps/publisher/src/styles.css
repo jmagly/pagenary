@@ -586,6 +586,7 @@ mark.hl {
   display: grid;
   gap: 0.3rem;
   cursor: pointer;
+  min-width: 0;
 }
 
 .cmd-item:last-child {
@@ -608,6 +609,22 @@ mark.hl {
   color: var(--muted);
 }
 
+.cmd-item-snippet {
+  font-size: 0.78rem;
+  color: var(--ink);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cmd-item-score {
+  justify-self: start;
+  font-size: 0.65rem;
+  color: var(--muted);
+  border: 1px solid var(--grid-line);
+  padding: 0.12rem 0.35rem;
+  line-height: 1.2;
+}
+
 .cmd-item-group {
   font-size: 0.65rem;
   color: var(--muted);
@@ -624,6 +641,19 @@ mark.hl {
   color: var(--muted);
   font-style: italic;
   text-align: center;
+}
+
+.cmd-more {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+.cmd-more:hover {
+  background: none;
 }
 
 .canvas {

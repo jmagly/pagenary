@@ -1,6 +1,6 @@
 import { MANIFEST, DEFAULT_SECTION, findSection, getAdjacentSections, SITE_CONFIG, EXPORT_CONFIG } from './manifest.js';
 import { updateMetaTags } from './seo.js';
-import { escapeRegExp, searchContent, flattenManifest, findPreferredIndex } from './lib/search.js';
+import { escapeRegExp, searchContentPage, flattenManifest, findPreferredIndex } from './lib/search.js';
 import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
 import { composeExportDocument, collectExportableSections } from './lib/export.js';
 import { renderMermaidBlocks } from './mermaid-init.js';
@@ -603,6 +603,15 @@ if (commandToggle && commandPalette && commandInput && commandList) {
     }
   });
 
+  // Infinite scroll: fetch the next page as the list nears its bottom.
+  commandList.addEventListener('scroll', () => {
+    if (searchState.loading || searchState.complete) return;
+    const nearBottom = commandList.scrollTop + commandList.clientHeight >= commandList.scrollHeight - 48;
+    if (nearBottom) {
+      loadSearchPage(false);
+    }
+  });
+
   window.addEventListener('keydown', (event) => {
     const target = event.target;
     const isTypingContext = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
@@ -642,9 +651,17 @@ function closeCommandPalette() {
 
 let searchDebounce = null;
 let isSearching = false;
+const COMMAND_PAGE_LIMIT = 25;
+// Paging state for command-palette infinite scroll. `query` is the live query so
+// in-flight pages from a superseded query can be discarded.
+let searchState = { query: '', offset: 0, total: 0, complete: true, loading: false };
 
 async function updateCommandEntries(query) {
   if (!commandList) return;
+
+  // New query: reset paging and selection.
+  searchState = { query, offset: 0, total: 0, complete: false, loading: false };
+  commandEntries = [];
 
   // Show loading state on first search
   if (!isSearching && query.trim()) {
@@ -655,13 +672,44 @@ async function updateCommandEntries(query) {
   // Debounce to avoid excessive searches while typing
   clearTimeout(searchDebounce);
   searchDebounce = setTimeout(async () => {
-    commandEntries = await searchContent(MANIFEST, query);
+    await loadSearchPage(true);
     const currentId = currentSectionId();
     commandIndex = findPreferredIndex(commandEntries, currentId);
-    renderCommandList();
     reflectCommandSelection();
     isSearching = false;
   }, query.trim() ? 150 : 0);
+}
+
+/**
+ * Load one page of results. `reset` replaces the list; otherwise it appends
+ * (infinite scroll). In-flight pages whose query no longer matches are dropped.
+ */
+async function loadSearchPage(reset = false) {
+  if (searchState.loading) return;
+  if (!reset && searchState.complete) return;
+  const query = searchState.query;
+  searchState.loading = true;
+  let page;
+  try {
+    page = await searchContentPage(MANIFEST, query, {
+      offset: searchState.offset,
+      limit: COMMAND_PAGE_LIMIT
+    });
+  } catch {
+    searchState.loading = false;
+    return;
+  }
+  // Discard stale responses from a superseded query.
+  if (query !== searchState.query) {
+    searchState.loading = false;
+    return;
+  }
+  commandEntries = reset ? page.items : commandEntries.concat(page.items);
+  searchState.offset = commandEntries.length;
+  searchState.total = page.total;
+  searchState.complete = page.complete || page.items.length === 0;
+  searchState.loading = false;
+  renderCommandList();
 }
 
 function renderCommandList() {
@@ -693,8 +741,30 @@ function renderCommandList() {
     summary.className = 'cmd-item-summary';
     summary.textContent = section.summary || '';
     item.append(title, summary);
+    if (section.searchSnippet && section.searchSnippet !== section.summary) {
+      const snippet = document.createElement('span');
+      snippet.className = 'cmd-item-snippet';
+      snippet.textContent = section.searchSnippet;
+      item.appendChild(snippet);
+    }
+    if (typeof section.searchRank === 'number' && section.searchRank > 0) {
+      const score = document.createElement('span');
+      score.className = 'cmd-item-score';
+      score.textContent = `Rank ${section.searchRank}`;
+      item.appendChild(score);
+    }
     commandList.appendChild(item);
   });
+
+  // Infinite-scroll sentinel: shows remaining count while more pages exist.
+  if (!searchState.complete && searchState.total > commandEntries.length) {
+    const more = document.createElement('li');
+    more.className = 'cmd-item cmd-more';
+    more.setAttribute('aria-selected', 'false');
+    more.setAttribute('role', 'presentation');
+    more.textContent = `Showing ${commandEntries.length} of ${searchState.total} — scroll for more`;
+    commandList.appendChild(more);
+  }
 }
 
 function reflectCommandSelection() {

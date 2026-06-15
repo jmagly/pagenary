@@ -127,9 +127,21 @@ updateMetaTags({
 
 ## Library Modules
 
-### lib/search.js - Full-Text Search
+### lib/search.js - Fortemi-backed search
 
-Search functionality with lazy content indexing.
+Search runs on the **real, vendored `@fortemi/core` static-index engine**
+(`src/vendor/fortemi-aiwg-index.js`). At build time, `scripts/build-tenants.js`
+emits a deterministic **chunked** index per tenant under `dist/<tenant>/search-index/`
+(`manifest.json` + `part-NNNN.json`, the `aiwg.fortemi.index.*.v1` contract). At
+runtime the adapter loads that index through an index controller +
+fetch chunk-loader: parts are fetched lazily and cached (**precache**), results
+are ranked with snippets, and pages are returned by offset for **infinite scroll**.
+If the static index is missing or invalid, the adapter falls back to an
+in-browser index built from section modules — same ranking engine, same result
+shape. See `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
+
+Build-time and fallback share the deterministic corpus builder in
+`lib/fortemi-corpus.js`.
 
 #### Functions
 
@@ -150,15 +162,6 @@ const flat = flattenManifest(MANIFEST);
 // Returns all navigable sections with group info
 ```
 
-**`buildSearchIndex(manifest: SectionEntry[]): Promise<IndexedSection[]>`**
-
-Build search index by loading all section modules. Cached after first call.
-
-```javascript
-const index = await buildSearchIndex(MANIFEST);
-// Each entry has searchContent: lowercase text for matching
-```
-
 **`filterSections(manifest: SectionEntry[], query: string): FlatSection[]`**
 
 Synchronous title/summary search (no content).
@@ -167,18 +170,51 @@ Synchronous title/summary search (no content).
 const results = filterSections(MANIFEST, 'setup');
 ```
 
-**`searchContent(manifest: SectionEntry[], query: string): Promise<IndexedSection[]>`**
+**`searchContentPage(manifest, query, options?): Promise<SearchPage>`**
 
-Full-text search across all content.
+Paged full-text search — the primary entry point, used for infinite scroll.
+
+```javascript
+const page = await searchContentPage(MANIFEST, 'auth', { offset: 0, limit: 25 });
+// page = { items, total, offset, limit, complete, source: 'static' | 'legacy' }
+// items: section objects with searchRank, searchSnippet, searchMatches
+```
+
+**`searchContent(manifest, query, options?): Promise<Section[]>`**
+
+First-page convenience wrapper (back-compatible array). Empty query returns all
+sections.
 
 ```javascript
 const results = await searchContent(MANIFEST, 'authentication');
-// Searches titles, summaries, and full content
+```
+
+**`buildCommunityGraph(manifest, options?): { nodes, edges, communities }`**
+
+Project the corpus into a Fortemi community graph (relationships/facets) — the
+"graph" capability, no full-text required.
+
+```javascript
+const graph = buildCommunityGraph(MANIFEST);
 ```
 
 **`findPreferredIndex(entries: Section[], currentId: string): number`**
 
 Find index of current section in filtered results.
+
+Re-exported from the vendored engine for advanced use:
+`queryAiwgFortemiIndex`, `getAiwgFortemiFacets`, `createAiwgIndexController`,
+`createAiwgFetchChunkLoader`, `aiwgFortemiIndexToCommunityGraph`.
+
+---
+
+### lib/fortemi-corpus.js - Deterministic corpus builder
+
+Pure, DOM-free, `Date.now()`-free helpers shared by the build-time generator and
+the runtime fallback: `buildFortemiIndexExport(entries, { repo })` (records sorted
+by id, deduped, content-hashed `generated_at` + `source.build_hash`),
+`chunkFortemiIndex(index, { partSize })`, `sectionToFortemiRecord`, `stripHtml`,
+`recordToSectionId`, `stableHash`.
 
 ---
 
@@ -345,8 +381,19 @@ interface FlatSection extends SectionEntry {
   group?: string;  // Parent group title
 }
 
-interface IndexedSection extends FlatSection {
-  searchContent: string;  // Lowercase text for searching
+interface SearchResultSection extends FlatSection {
+  searchRank?: number;       // Relevance rank from the Fortemi engine
+  searchSnippet?: string;    // Highlighted-context snippet
+  searchMatches?: { field: string; value: string }[];
+}
+
+interface SearchPage {
+  items: SearchResultSection[];
+  total: number;
+  offset: number;
+  limit: number;
+  complete: boolean;         // true when no further pages remain
+  source: 'static' | 'legacy';
 }
 
 interface SiteConfig {

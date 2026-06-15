@@ -1,10 +1,58 @@
 /**
  * Search and filtering utilities.
+ *
+ * Primary path: the real, vendored @fortemi/core static-index engine
+ * (../vendor/fortemi-aiwg-index.js) over a build-time chunked index served at
+ * `search-index/`. This gives ranking, snippets, offset-paged results (infinite
+ * scroll) and lazy chunk fetch with an in-memory part cache (precache).
+ *
+ * Fallback path: if the static index artifact is missing or fails to load, an
+ * in-browser index is built by importing section modules and extracting text,
+ * then queried with the SAME vendored engine + SAME corpus builder. Behaviour
+ * degrades gracefully and stays Fortemi-compatible.
  */
 
-// Cache for loaded section content
-let searchIndex = null;
-let indexPromise = null;
+import {
+  queryAiwgFortemiIndex,
+  getAiwgFortemiFacets,
+  createAiwgIndexController,
+  createAiwgFetchChunkLoader,
+  aiwgFortemiIndexToCommunityGraph,
+  validateAiwgFortemiChunkManifest,
+  validateAiwgFortemiIndexExport
+} from '../vendor/fortemi-aiwg-index.js';
+import {
+  buildFortemiIndexExport,
+  recordToSectionId
+} from './fortemi-corpus.js';
+
+// Re-export the real Fortemi static-index API so consumers (and tests) use the
+// vendored engine, not a local reimplementation.
+export {
+  queryAiwgFortemiIndex,
+  getAiwgFortemiFacets,
+  createAiwgIndexController,
+  createAiwgFetchChunkLoader,
+  aiwgFortemiIndexToCommunityGraph
+};
+
+const SEARCH_INDEX_DIR = 'search-index';
+const DEFAULT_MAX_CACHED_PARTS = 4;
+const DEFAULT_PAGE_LIMIT = 25;
+const DEFAULT_SNIPPET_LENGTH = 140;
+
+// Static-index controller state (primary path).
+let controller = null;
+let controllerPromise = null;
+let controllerFailed = false;
+
+// Legacy in-browser index state (fallback path).
+let legacyIndex = null;
+let legacyPromise = null;
+
+// Section lookup, keyed by Pagenary section id, rebuilt per manifest.
+let sectionLookup = null;
+let sectionLookupSource = null;
 
 /**
  * Escape special regex characters in a string.
@@ -50,54 +98,144 @@ export function flattenManifest(manifest, parentGroup = '') {
 }
 
 /**
- * Extract plain text from HTML string.
+ * Build (and cache) a section lookup map from a manifest.
+ * @param {Array} manifest
+ * @returns {Map<string, object>}
+ */
+function getSectionLookup(manifest) {
+  if (sectionLookup && sectionLookupSource === manifest) return sectionLookup;
+  sectionLookup = new Map();
+  for (const section of flattenManifest(manifest)) {
+    if (section && section.id && !sectionLookup.has(section.id)) {
+      sectionLookup.set(section.id, section);
+    }
+  }
+  sectionLookupSource = manifest;
+  return sectionLookup;
+}
+
+/**
+ * Extract plain text from an HTML string (browser DOM, fallback path only).
  * @param {string} html - HTML content
  * @returns {string} Plain text
  */
 function extractText(html) {
+  if (typeof document === 'undefined') return '';
   const div = document.createElement('div');
   div.innerHTML = html;
   return div.textContent || div.innerText || '';
 }
 
 /**
- * Build search index by loading all section modules.
- * @param {Array} manifest - The manifest array
- * @returns {Promise<Array>} Indexed sections with content
+ * Resolve the base URL for the static search index, honouring subpath deploys.
+ * @returns {string|null}
  */
-export async function buildSearchIndex(manifest) {
-  if (searchIndex) return searchIndex;
-  if (indexPromise) return indexPromise;
+function searchIndexBaseUrl() {
+  if (typeof document === 'undefined' || typeof URL === 'undefined') return null;
+  try {
+    return new URL(`${SEARCH_INDEX_DIR}/`, document.baseURI).toString();
+  } catch {
+    return null;
+  }
+}
 
-  indexPromise = (async () => {
-    const flat = flattenManifest(manifest);
-    const indexed = await Promise.all(
-      flat.map(async (section) => {
-        let content = '';
-        try {
-          if (section.module) {
-            // Adjust path: module paths are relative to root, but we're in lib/
-            const modulePath = section.module.replace('./', '../');
-            const mod = await import(modulePath);
-            if (mod.load) {
-              const result = await mod.load();
-              content = extractText(result.html || '');
-            }
-          }
-        } catch (e) {
-          // Module failed to load, search by title/summary only
-        }
-        return {
-          ...section,
-          searchContent: `${section.title || ''} ${section.summary || ''} ${section.group || ''} ${content}`.toLowerCase()
-        };
-      })
-    );
-    searchIndex = indexed;
-    return indexed;
+/**
+ * Load the static-index controller once. Resolves to null on any failure so the
+ * caller can fall back to the legacy in-browser index.
+ * @returns {Promise<object|null>} Controller or null
+ */
+async function loadStaticController() {
+  if (controller) return controller;
+  if (controllerFailed) return null;
+  if (controllerPromise) return controllerPromise;
+
+  controllerPromise = (async () => {
+    const base = searchIndexBaseUrl();
+    if (!base || typeof fetch !== 'function') return null;
+    try {
+      const response = await fetch(new URL('manifest.json', base).toString());
+      if (!response.ok) return null;
+      const manifest = await response.json();
+      if (!validateAiwgFortemiChunkManifest(manifest).valid) return null;
+      const instance = createAiwgIndexController();
+      instance.loadChunkedIndex(
+        manifest,
+        createAiwgFetchChunkLoader(base),
+        { maxCachedParts: DEFAULT_MAX_CACHED_PARTS }
+      );
+      controller = instance;
+      return instance;
+    } catch {
+      return null;
+    }
   })();
 
-  return indexPromise;
+  const result = await controllerPromise;
+  if (!result) controllerFailed = true;
+  controllerPromise = null;
+  return result;
+}
+
+/**
+ * Build the legacy in-browser index (fallback). Imports every section module,
+ * extracts rendered text, and assembles a Fortemi index export with the shared
+ * corpus builder so the fallback matches the build-time corpus.
+ * @param {Array} manifest
+ * @returns {Promise<object>} { index, byId }
+ */
+async function buildLegacyIndex(manifest) {
+  if (legacyIndex) return legacyIndex;
+  if (legacyPromise) return legacyPromise;
+
+  legacyPromise = (async () => {
+    const flat = flattenManifest(manifest);
+    const entries = await Promise.all(flat.map(async (section) => {
+      let content = '';
+      try {
+        if (section.module) {
+          const modulePath = section.module.replace('./', '../');
+          const mod = await import(modulePath);
+          if (mod.load) {
+            const result = await mod.load();
+            content = extractText(result.html || '');
+          }
+        }
+      } catch {
+        // Module failed to load; index by title/summary only.
+      }
+      const text = `${section.title || ''} ${section.summary || ''} ${section.group || ''} ${content}`.trim();
+      return { section, text };
+    }));
+
+    const { index } = buildFortemiIndexExport(entries, { repo: 'pagenary' });
+    const byId = new Map(flat.map((section) => [section.id, section]));
+    legacyIndex = { index, byId };
+    return legacyIndex;
+  })();
+
+  return legacyPromise;
+}
+
+/**
+ * Map a ranked Fortemi record back to a Pagenary command/section entry.
+ * @param {object} ranked - { item, rank, snippet, matches }
+ * @param {Map<string, object>} lookup - section id -> section
+ * @returns {object|null}
+ */
+function rankedToSection(ranked, lookup) {
+  const sectionId = recordToSectionId(ranked.item);
+  if (!sectionId) return null;
+  const base = lookup.get(sectionId) || {
+    id: sectionId,
+    title: ranked.item.title,
+    summary: ''
+  };
+  return {
+    ...base,
+    searchRank: ranked.rank,
+    searchSnippet: ranked.snippet,
+    searchMatches: ranked.matches || []
+  };
 }
 
 /**
@@ -117,17 +255,115 @@ export function filterSections(manifest, query) {
 }
 
 /**
- * Full-text search across all section content.
- * Loads all modules on first call (cached thereafter).
+ * Paged full-text search across all section content. Backed by the static
+ * chunked index when available (lazy fetch + precache + offset paging), else the
+ * legacy in-browser index. Both share the same vendored ranking engine.
+ *
  * @param {Array} manifest - The manifest array
  * @param {string} query - Search query
- * @returns {Promise<Array>} Matching sections
+ * @param {object} [options]
+ * @param {number} [options.offset=0]
+ * @param {number} [options.limit=DEFAULT_PAGE_LIMIT]
+ * @param {Function} [options.onProgress] - Static-index load progress callback
+ * @returns {Promise<{ items: Array, total: number, offset: number, limit: number, complete: boolean, source: string }>}
  */
-export async function searchContent(manifest, query) {
-  const index = await buildSearchIndex(manifest);
-  const q = query.trim().toLowerCase();
-  if (!q) return index;
-  return index.filter((section) => section.searchContent.includes(q));
+export async function searchContentPage(manifest, query, options = {}) {
+  const offset = Math.max(0, options.offset || 0);
+  const limit = Math.max(1, options.limit || DEFAULT_PAGE_LIMIT);
+  const lookup = getSectionLookup(manifest);
+  const queryOptions = {
+    types: ['docs.page'],
+    rank: true,
+    snippets: true,
+    includeMatches: true,
+    snippetLength: DEFAULT_SNIPPET_LENGTH,
+    limit,
+    offset
+  };
+
+  // Primary: static chunked index.
+  const ctl = await loadStaticController();
+  if (ctl) {
+    try {
+      const result = await ctl.queryChunked(query, {
+        ...queryOptions,
+        onProgress: options.onProgress
+      });
+      const ranked = result.rankedItems || [];
+      const items = ranked.map((entry) => rankedToSection(entry, lookup)).filter(Boolean);
+      return {
+        items,
+        total: result.total,
+        offset,
+        limit,
+        complete: offset + items.length >= result.total,
+        source: 'static'
+      };
+    } catch {
+      // Fall through to legacy on a query failure.
+    }
+  }
+
+  // Fallback: legacy in-browser index.
+  const legacy = await buildLegacyIndex(manifest);
+  if (!query.trim()) {
+    const all = Array.from(legacy.byId.values());
+    const page = all.slice(offset, offset + limit);
+    return { items: page, total: all.length, offset, limit, complete: offset + page.length >= all.length, source: 'legacy' };
+  }
+  const result = queryAiwgFortemiIndex(legacy.index, query, queryOptions);
+  const items = (result.rankedItems || []).map((entry) => rankedToSection(entry, legacy.byId)).filter(Boolean);
+  return {
+    items,
+    total: result.total,
+    offset,
+    limit,
+    complete: offset + items.length >= result.total,
+    source: 'legacy'
+  };
+}
+
+/**
+ * Full-text search across all section content (first page, back-compatible).
+ * Empty query returns all sections in index order.
+ * @param {Array} manifest - The manifest array
+ * @param {string} query - Search query
+ * @param {object} [options] - Paging options (see searchContentPage)
+ * @returns {Promise<Array>} Matching sections (first page)
+ */
+export async function searchContent(manifest, query, options = {}) {
+  if (!query.trim()) {
+    // No query: return every section, preferring the controller's order when
+    // present, else the manifest flatten order.
+    const page = await searchContentPage(manifest, '', {
+      offset: 0,
+      limit: Number.MAX_SAFE_INTEGER,
+      ...options
+    });
+    return page.items;
+  }
+  const page = await searchContentPage(manifest, query, { limit: DEFAULT_PAGE_LIMIT, ...options });
+  return page.items;
+}
+
+/**
+ * Build a community graph from the manifest (Fortemi graph capability).
+ * Uses record relationships/facets, so it does not require full-text content.
+ * @param {Array} manifest
+ * @param {object} [options] - AiwgIndexGraphOptions
+ * @returns {{ nodes: Array, edges: Array, communities: Array }}
+ */
+export function buildCommunityGraph(manifest, options = {}) {
+  const flat = flattenManifest(manifest);
+  const entries = flat.map((section) => ({
+    section,
+    text: `${section.title || ''} ${section.summary || ''}`.trim()
+  }));
+  const { index } = buildFortemiIndexExport(entries, { repo: 'pagenary' });
+  if (!validateAiwgFortemiIndexExport(index).valid) {
+    return { nodes: [], edges: [], communities: [] };
+  }
+  return aiwgFortemiIndexToCommunityGraph(index, options);
 }
 
 /**
@@ -148,4 +384,17 @@ export function parseSearchTerms(query) {
 export function findPreferredIndex(entries, currentId) {
   const index = entries.findIndex((entry) => entry.id === currentId);
   return index >= 0 ? index : 0;
+}
+
+/**
+ * Reset cached search state. Primarily for tests.
+ */
+export function resetSearchState() {
+  controller = null;
+  controllerPromise = null;
+  controllerFailed = false;
+  legacyIndex = null;
+  legacyPromise = null;
+  sectionLookup = null;
+  sectionLookupSource = null;
 }

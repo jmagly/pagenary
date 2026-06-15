@@ -7,7 +7,8 @@ import {
   escapeRegExp,
   filterSections,
   parseSearchTerms,
-  findPreferredIndex
+  findPreferredIndex,
+  queryAiwgFortemiIndex
 } from '../../../src/lib/search.js';
 
 // Test manifest data
@@ -23,6 +24,85 @@ const TEST_MANIFEST = [
 ];
 
 describe('lib/search.js', () => {
+  describe('queryAiwgFortemiIndex', () => {
+    const fortemiIndex = {
+      schema_version: 'aiwg.fortemi.index.export.v1',
+      generated_at: '2026-06-14T00:00:00.000Z',
+      source: {
+        repo: 'pagenary',
+        privacy: 'public'
+      },
+      items: [
+        {
+          schema_version: 'aiwg.fortemi.index.record.v1',
+          id: 'docs:page:welcome-overview',
+          type: 'docs.page',
+          source: {
+            path: 'sections/welcome-overview.js',
+            repo_relative_path: 'sections/welcome-overview.js',
+            locator: '#/welcome-overview'
+          },
+          title: 'Welcome',
+          text: 'Landing hub for introducing each tenant experience.',
+          facets: { section: ['welcome-overview'], group: ['documentation'] },
+          tags: [],
+          concepts: ['documentation'],
+          relationships: [],
+          provenance: [{ field: 'text', source: 'sections/welcome-overview.js', path: '$.text', confidence: 'source', privacy: 'public' }],
+          privacy: { classification: 'public', pii: false },
+          updated_at: '2026-06-14T00:00:00.000Z'
+        },
+        {
+          schema_version: 'aiwg.fortemi.index.record.v1',
+          id: 'docs:page:developers',
+          type: 'docs.page',
+          source: {
+            path: 'sections/developers.js',
+            repo_relative_path: 'sections/developers.js',
+            locator: '#/developers'
+          },
+          title: 'Developers',
+          text: 'SDKs, APIs, and engineering workflows for teams shipping integrations.',
+          facets: { section: ['developers'], group: ['documentation'] },
+          tags: ['guide'],
+          concepts: ['documentation', 'api'],
+          relationships: [],
+          provenance: [{ field: 'text', source: 'sections/developers.js', path: '$.text', confidence: 'source', privacy: 'public' }],
+          privacy: { classification: 'public', pii: false },
+          updated_at: '2026-06-14T00:00:00.000Z'
+        }
+      ]
+    };
+
+    test('returns docs.page records with ranking and snippets', () => {
+      const result = queryAiwgFortemiIndex(fortemiIndex, 'api', {
+        types: ['docs.page'],
+        rank: true,
+        snippets: true,
+        includeMatches: true,
+        snippetLength: 64
+      });
+
+      expect(result.total).toBe(1);
+      expect(result.items[0].id).toBe('docs:page:developers');
+      expect(result.rankedItems[0].rank).toBeGreaterThan(0);
+      expect(result.rankedItems[0].snippet).toContain('API');
+      expect(result.rankedItems[0].snippet).not.toContain('<mark>');
+      expect(result.rankedItems[0].matches.some((match) => match.field === 'text' || match.field === 'concept')).toBe(true);
+      expect(result.facets.type['docs.page']).toBe(1);
+    });
+
+    test('preserves export order unless ranking is requested', () => {
+      const result = queryAiwgFortemiIndex(fortemiIndex, '', { types: ['docs.page'] });
+
+      expect(result.items.map((item) => item.id)).toEqual([
+        'docs:page:welcome-overview',
+        'docs:page:developers'
+      ]);
+      expect(result.rankedItems).toBeUndefined();
+    });
+  });
+
   describe('escapeRegExp', () => {
     test('escapes special regex characters', () => {
       expect(escapeRegExp('.')).toBe('\\.');

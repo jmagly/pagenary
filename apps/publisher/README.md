@@ -6,6 +6,9 @@
 
 `@pagenary/publisher` is the static site generator behind Pagenary — it turns one shared template catalog into many branded, tenant-specific documentation sites. Zero runtime dependencies, hash-based routing, full-text search, and a Git-aware build pipeline. Install it as a dev dependency and drive it with the `pagenary` CLI.
 
+Built with [AIWG](https://aiwg.io), the multi-agent AI framework used to plan,
+audit, and ship this project.
+
 ```bash
 npm install --save-dev @pagenary/publisher   # add Pagenary to your project
 npx pagenary build:tenants my-docs           # build your docs tenant
@@ -17,6 +20,8 @@ npx pagenary serve                           # serve on http://localhost:5173
 [![Docs](https://img.shields.io/badge/docs-docs.pagenary.com-22d3ee?style=flat-square&logo=readthedocs&logoColor=white)](https://docs.pagenary.com)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](../../LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%E2%89%A516.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org)
+[![Search: @fortemi/core](https://img.shields.io/npm/v/@fortemi/core?label=search%20%C2%B7%20%40fortemi%2Fcore&color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@fortemi/core)
+[![Built with AIWG](https://img.shields.io/npm/v/aiwg?label=built%20with%20%C2%B7%20aiwg&color=7c3aed&logo=npm&style=flat-square)](https://www.npmjs.com/package/aiwg)
 
 [**Docs Site**](https://docs.pagenary.com) · [**Quick Start**](#quick-start) · [**Features**](#features) · [**Tenant Workflow**](#tenant-content-workflow) · [**Documentation**](#documentation)
 
@@ -53,6 +58,9 @@ npm run dev         # build + serve with watch mode
 npm run build       # build default bundle to dist/
 ```
 
+Pagenary development uses [AIWG](https://aiwg.io). On this host, maintainers can
+inspect, build, or run the AIWG project from `~/dev/aiwg`.
+
 ---
 
 ## Features
@@ -78,7 +86,10 @@ npm run build       # build default bundle to dist/
 
 ### Navigation & Search
 - **Command Palette** — `Ctrl/Cmd+K` or `/` opens a global finder
-- **Full-Text Search** — searches all content, not just titles
+- **Fortemi-backed full-text search** — ranked results with snippets over a static
+  chunked index emitted at build time; lazy chunk fetch (precache) and offset
+  paging for infinite scroll, with a clean in-browser fallback. No server, no WASM.
+  See `docs/ARCHITECTURE.md` and `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
 - **Manifest-Driven Nav** — declarative navigation structure
 - **Keyboard Navigation** — arrow keys, Enter to select
 

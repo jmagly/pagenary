@@ -98,6 +98,25 @@ field/order, and writes machine-readable output under the collection route:
   `reading_time`, `canonical`, and `path`
 - optional `feed.xml` when `feed: true`
 
+### Search Index Generation
+
+After `manifest.js` and `sections/` are materialized (both the nested-content and
+legacy-manifest paths), `scripts/lib/search-index-generator.js` emits a static
+**Fortemi** search index per tenant. It imports each section module, extracts
+plain text, and writes a deterministic chunked index under
+`dist/<tenant>/search-index/`:
+
+- `manifest.json` — `aiwg.fortemi.index.chunk-manifest.v1` (totals, facet counts,
+  contiguous part refs, and a content-derived `source.build_hash`)
+- `part-NNNN.json` — `aiwg.fortemi.index.chunk.v1` record pages
+
+The corpus contract and chunking live in the pure, DOM-free
+`src/lib/fortemi-corpus.js` (shared with the runtime fallback); the validated
+record/index shape comes from the vendored `@fortemi/core` engine
+(`src/vendor/fortemi-aiwg-index.js`). Generation is deterministic — repeat builds
+are byte-identical — and failure is non-fatal (search degrades to the in-browser
+fallback). See `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
+
 ### Build Flow
 
 ```text
@@ -107,6 +126,7 @@ resolve source
   -> apply overrides
   -> apply branding/theme/navigation/welcome
   -> copy .public assets
+  -> generate Fortemi search index (search-index/)
   -> generate SEO artifacts
   -> generate collection manifests/feeds
   -> copy or sync to target
@@ -141,7 +161,8 @@ src/
 ├── mermaid-init.js     # Diagram rendering
 ├── syntax-highlight.js # Code highlighting
 └── lib/
-    ├── search.js       # Full-text search
+    ├── search.js       # Fortemi-backed search adapter (ranking, paging, fallback)
+    ├── fortemi-corpus.js # Deterministic corpus builder (shared with build)
     ├── router.js       # Hash routing utilities
     └── export.js       # Document export
 
@@ -184,21 +205,23 @@ function handleRoute() {
 
 ### Search (lib/search.js)
 
-Full-text search with lazy indexing:
+Ranked full-text search on the vendored `@fortemi/core` static-index engine. The
+primary path loads the build-time chunked index from `search-index/` through an
+index controller + fetch chunk-loader (lazy part fetch, in-memory part cache),
+ranks with snippets, and returns results by offset for infinite scroll. If the
+static index is missing/invalid it falls back to an in-browser index built from
+section modules — same engine, same result shape.
 
 ```javascript
-// First search: load all modules, extract text, build index
-// Subsequent: search cached index
-
-async function buildSearchIndex(manifest) {
-  const sections = flattenManifest(manifest);
-  return Promise.all(sections.map(async (section) => {
-    const mod = await import(section.module);
-    const { html } = await mod.load();
-    return { ...section, searchContent: extractText(html) };
-  }));
-}
+// Primary: fetch the chunk manifest once (precache), then page through results.
+const page = await searchContentPage(MANIFEST, query, { offset, limit: 25 });
+// page = { items, total, offset, limit, complete, source: 'static' | 'legacy' }
+// items: section objects carrying searchRank, searchSnippet, searchMatches
 ```
+
+The chunked index is emitted at build time (see "Search Index Generation"); the
+runtime engine and the build-time corpus builder (`lib/fortemi-corpus.js`) share
+the `@fortemi/core` `aiwg.fortemi.index.*.v1` contract.
 
 ### Mermaid Integration (mermaid-init.js)
 
@@ -303,7 +326,7 @@ tenant-b.example.com → dist/tenant-b/
 1. **Critical Path** - Shell + manifest + first section
 2. **Lazy Load** - Other sections on navigation
 3. **On-Demand** - Mermaid/Prism when needed
-4. **Cached** - Search index after first search
+4. **Precached** - Search index chunks fetched on first palette open and cached in memory
 
 ## Extensibility Points
 

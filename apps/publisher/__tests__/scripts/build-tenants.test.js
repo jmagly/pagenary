@@ -238,7 +238,35 @@ describe('build-tenants.js', () => {
       expect(sectionContent).toMatch(/h1 id=/);
     });
 
-    test('emits root-based shell and module URLs for nested route deep links', async () => {
+    test('emits a Fortemi search index with full body text extracted', async () => {
+      const manifest = {
+        sections: [
+          { id: 'searchable', title: 'Searchable', file: 'searchable.md' }
+        ]
+      };
+      const content = {
+        'searchable.md': '# Searchable\n\nThe quick brown fox jumps over the lazy dog.'
+      };
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const indexDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'search-index');
+      const manifestJson = JSON.parse(await fsp.readFile(path.join(indexDir, 'manifest.json'), 'utf8'));
+      expect(manifestJson.schema_version).toBe('aiwg.fortemi.index.chunk-manifest.v1');
+      expect(manifestJson.total).toBeGreaterThanOrEqual(1);
+      expect(manifestJson.source.build_hash).toMatch(/^[0-9a-f]{16}$/);
+
+      // The real spawned build imports the section module and extracts body text
+      // (not just title/summary) — verify the page body made it into the index.
+      const part = JSON.parse(await fsp.readFile(path.join(indexDir, manifestJson.parts[0].href), 'utf8'));
+      const record = part.items.find((item) => item.id === 'docs:page:searchable');
+      expect(record).toBeTruthy();
+      expect(record.text).toMatch(/quick brown fox jumps over the lazy dog/);
+    });
+
+    test('emits tenant-relative shell and module URLs for mounted previews', async () => {
       const manifest = {
         sections: [
           { id: 'blog/post', title: 'Post', file: 'blog/post.md' }
@@ -258,10 +286,10 @@ describe('build-tenants.js', () => {
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
       const manifestJs = await fsp.readFile(path.join(distDir, 'manifest.js'), 'utf8');
 
-      expect(index).toContain('href="/styles.css"');
-      expect(index).toContain('src="/app.js"');
-      expect(manifestJs).toContain('"module": "/sections/blog--post.js"');
-      expect(manifestJs).not.toContain('"module": "./sections/');
+      expect(index).toContain('href="styles.css"');
+      expect(index).toContain('src="app.js"');
+      expect(manifestJs).toContain('"module": "./sections/blog--post.js"');
+      expect(manifestJs).not.toContain('"module": "/sections/');
     });
 
     test('uses collection frontmatter metadata for auto-discovered nav entries and sort order', async () => {

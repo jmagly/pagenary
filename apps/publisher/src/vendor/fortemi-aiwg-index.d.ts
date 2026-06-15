@@ -1,0 +1,212 @@
+type AiwgFortemiRecordType = 'crm.contact' | 'crm.organization' | 'crm.event' | 'crm.interaction' | 'aiwg.artifact' | 'docs.page';
+type AiwgPrivacyClassification = 'private' | 'sanitized' | 'public';
+type AiwgProvenanceConfidence = 'source' | 'candidate' | 'reviewed' | 'rejected';
+type AiwgReviewAction = 'accept' | 'reject' | 'defer';
+interface AiwgFortemiRecordSource {
+    path: string;
+    repo_relative_path: string;
+    locator: string;
+}
+interface AiwgFortemiRelationship {
+    type: string;
+    target_id: string;
+    source_path?: string;
+}
+interface AiwgFortemiProvenance {
+    field: string;
+    source: string;
+    path: string;
+    confidence: AiwgProvenanceConfidence;
+    privacy: AiwgPrivacyClassification;
+}
+interface AiwgFortemiRecord {
+    schema_version: 'aiwg.fortemi.index.record.v1';
+    id: string;
+    type: AiwgFortemiRecordType;
+    source: AiwgFortemiRecordSource;
+    title: string;
+    text: string;
+    facets: Record<string, string[]>;
+    tags: string[];
+    concepts: string[];
+    relationships: AiwgFortemiRelationship[];
+    provenance: AiwgFortemiProvenance[];
+    privacy: {
+        classification: AiwgPrivacyClassification;
+        pii: boolean;
+    };
+    updated_at: string;
+}
+interface AiwgFortemiIndexExport {
+    schema_version: 'aiwg.fortemi.index.export.v1';
+    generated_at: string;
+    source: {
+        repo: string;
+        privacy: AiwgPrivacyClassification;
+    };
+    items: AiwgFortemiRecord[];
+}
+interface AiwgFortemiChunkPartRef {
+    href: string;
+    offset: number;
+    count: number;
+}
+interface AiwgFortemiChunkManifest {
+    schema_version: 'aiwg.fortemi.index.chunk-manifest.v1';
+    generated_at: string;
+    source: AiwgFortemiIndexExport['source'];
+    total: number;
+    part_size: number;
+    facets?: Record<string, Record<string, number>>;
+    parts: AiwgFortemiChunkPartRef[];
+}
+interface AiwgFortemiChunkPart {
+    schema_version: 'aiwg.fortemi.index.chunk.v1';
+    manifest_schema_version: 'aiwg.fortemi.index.chunk-manifest.v1';
+    offset: number;
+    items: AiwgFortemiRecord[];
+}
+interface AiwgIndexValidationResult {
+    valid: boolean;
+    errors: string[];
+    counts: Partial<Record<AiwgFortemiRecordType, number>>;
+}
+interface AiwgChunkedIndexValidationResult {
+    valid: boolean;
+    errors: string[];
+}
+interface AiwgIndexQueryOptions {
+    types?: AiwgFortemiRecordType[];
+    facets?: Record<string, string[]>;
+    tags?: string[];
+    concepts?: string[];
+    privacy?: AiwgPrivacyClassification[];
+    relationshipTargetId?: string;
+    limit?: number;
+    offset?: number;
+    rank?: boolean;
+    snippets?: boolean;
+    snippetLength?: number;
+    weights?: Partial<AiwgIndexQueryWeights>;
+    includeMatches?: boolean;
+}
+interface AiwgIndexQueryWeights {
+    title: number;
+    text: number;
+    tag: number;
+    concept: number;
+}
+interface AiwgIndexQueryMatch {
+    field: 'title' | 'text' | 'tag' | 'concept';
+    value: string;
+}
+interface AiwgIndexQueryRankedItem {
+    item: AiwgFortemiRecord;
+    rank: number;
+    snippet?: string;
+    matches?: AiwgIndexQueryMatch[];
+}
+interface AiwgIndexQueryResult {
+    items: AiwgFortemiRecord[];
+    total: number;
+    facets: Record<string, Record<string, number>>;
+    rankedItems?: AiwgIndexQueryRankedItem[];
+}
+type AiwgChunkedIndexLoader = (part: AiwgFortemiChunkPartRef, manifest: AiwgFortemiChunkManifest) => Promise<unknown>;
+interface AiwgChunkedIndexLoadOptions {
+    maxCachedParts?: number;
+}
+type AiwgChunkedIndexProgressPhase = 'part' | 'query';
+interface AiwgChunkedIndexProgress {
+    phase: AiwgChunkedIndexProgressPhase;
+    done: number;
+    total: number;
+    href?: string;
+}
+interface AiwgChunkedIndexQueryOptions extends AiwgIndexQueryOptions {
+    onProgress?: (progress: AiwgChunkedIndexProgress) => void;
+}
+interface AiwgChunkedIndexQueryResult extends AiwgIndexQueryResult {
+    manifestTotal: number;
+    scannedParts: number;
+    fetchedParts: number;
+    complete: boolean;
+}
+interface AiwgReviewDecision {
+    item_id: string;
+    action: AiwgReviewAction;
+    reason?: string;
+    updated_at: string;
+}
+interface AiwgReviewDecisionExport {
+    schema_version: 'aiwg.fortemi.review-decisions.v1';
+    generated_at: string;
+    source_export_schema_version: string;
+    decisions: AiwgReviewDecision[];
+}
+interface AiwgIndexGraphOptions {
+    communityFacet?: string;
+    communityTagPrefix?: string;
+    relationshipWeights?: Record<string, number>;
+    includeDanglingRelationships?: boolean;
+}
+interface AiwgReviewInput {
+    item_id: string;
+    action: AiwgReviewAction;
+    reason?: string;
+}
+interface AiwgIndexControllerSnapshot {
+    index: AiwgFortemiIndexExport | null;
+    chunked: {
+        manifest: AiwgFortemiChunkManifest;
+        cachedParts: number;
+        maxCachedParts: number;
+    } | null;
+    data: AiwgIndexQueryResult | null;
+    error: Error | null;
+    reviewDecisions: AiwgReviewDecision[];
+}
+type AiwgIndexControllerListener = (snapshot: AiwgIndexControllerSnapshot) => void;
+interface AiwgIndexController {
+    loadIndex(value: unknown): AiwgFortemiIndexExport;
+    loadChunkedIndex(manifest: unknown, loader: AiwgChunkedIndexLoader, options?: AiwgChunkedIndexLoadOptions): AiwgFortemiChunkManifest;
+    getIndex(): AiwgFortemiIndexExport | null;
+    getChunkedManifest(): AiwgFortemiChunkManifest | null;
+    getSnapshot(): AiwgIndexControllerSnapshot;
+    query(query?: string, options?: AiwgIndexQueryOptions): AiwgIndexQueryResult;
+    queryChunked(query?: string, options?: AiwgChunkedIndexQueryOptions): Promise<AiwgChunkedIndexQueryResult>;
+    clearChunkCache(): void;
+    toCommunityGraph(options?: AiwgIndexGraphOptions): ReturnType<typeof aiwgFortemiIndexToCommunityGraph>;
+    setReviewDecision(input: AiwgReviewInput): AiwgReviewDecision;
+    clearReviewDecision(itemId: string): void;
+    createReviewDecisionExport(generatedAt?: string): AiwgReviewDecisionExport;
+    subscribe(listener: AiwgIndexControllerListener): () => void;
+}
+declare function validateAiwgFortemiIndexExport(value: unknown): AiwgIndexValidationResult;
+declare function assertAiwgFortemiIndexExport(value: unknown): AiwgFortemiIndexExport;
+declare function validateAiwgFortemiChunkManifest(value: unknown): AiwgChunkedIndexValidationResult;
+declare function assertAiwgFortemiChunkManifest(value: unknown): AiwgFortemiChunkManifest;
+declare function validateAiwgFortemiChunkPart(value: unknown, partRef?: AiwgFortemiChunkPartRef, manifest?: AiwgFortemiChunkManifest): AiwgChunkedIndexValidationResult;
+declare function assertAiwgFortemiChunkPart(value: unknown, partRef?: AiwgFortemiChunkPartRef, manifest?: AiwgFortemiChunkManifest): AiwgFortemiChunkPart;
+declare function createAiwgFetchChunkLoader(baseUrl?: string | URL): AiwgChunkedIndexLoader;
+declare function getAiwgFortemiFacets(items: AiwgFortemiRecord[]): Record<string, Record<string, number>>;
+declare function queryAiwgFortemiIndex(index: AiwgFortemiIndexExport, query?: string, options?: AiwgIndexQueryOptions): AiwgIndexQueryResult;
+declare function createAiwgReviewDecisionExport(source: AiwgFortemiIndexExport, decisions: AiwgReviewDecision[], generatedAt?: string): AiwgReviewDecisionExport;
+declare function createAiwgIndexController(initialIndex?: AiwgFortemiIndexExport): AiwgIndexController;
+declare function aiwgFortemiIndexToCommunityGraph(index: AiwgFortemiIndexExport, options?: AiwgIndexGraphOptions): {
+    nodes: {
+        id: string;
+    }[];
+    edges: {
+        source: string;
+        target: string;
+        kind: string;
+        weight: number;
+    }[];
+    communities: {
+        id: string;
+        nodes: string[];
+    }[];
+};
+
+export { type AiwgChunkedIndexLoadOptions, type AiwgChunkedIndexLoader, type AiwgChunkedIndexProgress, type AiwgChunkedIndexProgressPhase, type AiwgChunkedIndexQueryOptions, type AiwgChunkedIndexQueryResult, type AiwgChunkedIndexValidationResult, type AiwgFortemiChunkManifest, type AiwgFortemiChunkPart, type AiwgFortemiChunkPartRef, type AiwgFortemiIndexExport, type AiwgFortemiProvenance, type AiwgFortemiRecord, type AiwgFortemiRecordSource, type AiwgFortemiRecordType, type AiwgFortemiRelationship, type AiwgIndexController, type AiwgIndexControllerListener, type AiwgIndexControllerSnapshot, type AiwgIndexGraphOptions, type AiwgIndexQueryMatch, type AiwgIndexQueryOptions, type AiwgIndexQueryRankedItem, type AiwgIndexQueryResult, type AiwgIndexQueryWeights, type AiwgIndexValidationResult, type AiwgPrivacyClassification, type AiwgProvenanceConfidence, type AiwgReviewAction, type AiwgReviewDecision, type AiwgReviewDecisionExport, type AiwgReviewInput, aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, createAiwgFetchChunkLoader, createAiwgIndexController, createAiwgReviewDecisionExport, getAiwgFortemiFacets, queryAiwgFortemiIndex, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport };

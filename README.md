@@ -6,6 +6,9 @@
 
 Pagenary is a multi-tenant documentation publishing platform that turns one shared set of templates into many branded, tenant-specific static sites. Zero runtime dependencies, hash-based routing, and a Git-aware build pipeline make it suited to white-label documentation portals — one source of truth, any number of published sites.
 
+Built with [AIWG](https://aiwg.io), the multi-agent AI framework used to plan,
+audit, and ship this project.
+
 ```bash
 npm install --save-dev @pagenary/publisher   # add Pagenary to your project
 npx pagenary build:tenants my-docs           # build your docs tenant
@@ -17,6 +20,8 @@ npx pagenary serve                           # serve on http://localhost:5173
 [![Docs](https://img.shields.io/badge/docs-docs.pagenary.com-22d3ee?style=flat-square&logo=readthedocs&logoColor=white)](https://docs.pagenary.com)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](LICENSE)
 [![Node Version](https://img.shields.io/badge/node-%E2%89%A516.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org)
+[![Search: @fortemi/core](https://img.shields.io/npm/v/@fortemi/core?label=search%20%C2%B7%20%40fortemi%2Fcore&color=CB3837&logo=npm&style=flat-square)](https://www.npmjs.com/package/@fortemi/core)
+[![Built with AIWG](https://img.shields.io/npm/v/aiwg?label=built%20with%20%C2%B7%20aiwg&color=7c3aed&logo=npm&style=flat-square)](https://www.npmjs.com/package/aiwg)
 
 [**Docs Site**](https://docs.pagenary.com) · [**Quick Start**](#quick-start) · [**Features**](#features) · [**Architecture**](#architecture) · [**Documentation**](#documentation)
 
@@ -163,7 +168,7 @@ Templates + per-tenant content/config
 
 - **Multi-Tenant Architecture** — isolated content, branding, and configuration per tenant
 - **Zero Runtime Dependencies** — published output is vanilla HTML, CSS, and ES modules
-- **Full-Text Search** — command palette (`Ctrl/Cmd+K`) searches across all content
+- **Fortemi-backed search** — command palette (`Ctrl/Cmd+K`) ranks results with snippets over a static chunked index, with lazy precache and infinite scroll (no server, no WASM)
 - **Mermaid Diagrams** — native flowcharts, sequence diagrams, and more
 - **Syntax Highlighting** — Prism.js integration for code blocks
 - **Theming** — per-tenant colors, branding, and typography
@@ -206,6 +211,10 @@ cd pagenary && npm run bootstrap
 npm run publisher:build && npm run publisher:serve   # default bundle → http://localhost:5173
 npm run publisher:build:tenants                      # all tenant bundles
 ```
+
+This project is developed with [AIWG](https://aiwg.io). On this host, the AIWG
+project source is available at `~/dev/aiwg` for maintainers who want to inspect,
+build, or run the framework that supports Pagenary development.
 
 ## Creating Your First Tenant
 
