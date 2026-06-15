@@ -272,6 +272,23 @@ npm run lint:content                 # check trailing whitespace/tabs
 npm run check:seo                    # verify SEO metadata
 npm run check                        # run all checks
 npm test                             # run test suite
+npm run test:browser                 # optional real-browser smoke (see below)
+```
+
+### Browser smoke test (optional)
+
+`npm run test:browser` runs `scripts/smoke-browser.mjs`, a real-browser check for
+things the jest/node suite can't cover: `<base href>` resolution under a subpath
+mount, asset + section loading, the runtime `<title>` brand, and Fortemi
+command-palette search. It builds + serves the `pagenary` tenant and drives a
+headless Chromium, capturing a screenshot for review.
+
+Playwright is **not** a dependency (keeps the install lean); the script skips with
+instructions when it's absent. Enable it once:
+
+```bash
+npm i -D playwright && npx playwright install chromium
+SMOKE_REQUIRE=1 npm run test:browser   # fail (not skip) if Playwright is missing — use in CI
 ```
 
 ---
