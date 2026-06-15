@@ -33,7 +33,7 @@ npx pagenary serve                           # serve on http://localhost:5173
 
 Pagenary is a static site generator built around a multi-tenant model. The core application is the **publisher** (`apps/publisher/`): it takes a catalog of shared section templates plus per-tenant content and configuration, and produces a self-contained documentation bundle for each tenant.
 
-Each published bundle is a static single-page app — hash-based routing (`#/page-id`), no server-side rendering, no runtime dependencies. You build it once and host the output anywhere that serves files. Tenants share the template catalog but keep isolated content, branding, navigation, and domains, so a single repository can publish a dozen distinct documentation sites.
+Each published bundle is a static single-page app — hash-based routing (`#/page-id`), no server-side rendering, no runtime dependencies. You build it once and host the output anywhere that serves files. Asset and module URLs resolve through a per-tenant `<base>`, so the same bundle works whether a tenant is served at its own domain root **or** mounted under a subpath of a shared host. Tenants share the template catalog but keep isolated content, branding, navigation, and domains, so a single repository can publish a dozen distinct documentation sites — each with real ranked search and SEO-ready output, not just static pages.
 
 ## Building Blocks
 
@@ -132,7 +132,7 @@ The build pipeline tracks changes against Git to support incremental and diff-on
 
 ### Good Fit
 
-Publishing multiple documentation sites that share structure and conventions but differ in content and branding — white-label docs, multi-product portals, agency/client documentation, internal knowledge sites with per-team branding.
+Publishing multiple documentation sites that share structure and conventions but differ in content and branding — white-label docs, multi-product portals, agency/client documentation, internal knowledge sites with per-team branding. Especially strong when those sites need **real in-page search** and **clean SEO** out of the box, and when you want to host them flexibly: each tenant on its own domain, or many mounted under subpaths of a single host (e.g. `docs.example.com/product-a/`, `/product-b/`).
 
 ### Not the Best Fit
 
@@ -168,7 +168,9 @@ Templates + per-tenant content/config
 
 - **Multi-Tenant Architecture** — isolated content, branding, and configuration per tenant
 - **Zero Runtime Dependencies** — published output is vanilla HTML, CSS, and ES modules
-- **Fortemi-backed search** — command palette (`Ctrl/Cmd+K`) ranks results with snippets over a static chunked index, with lazy precache and infinite scroll (no server, no WASM)
+- **Fortemi-backed search** — command palette (`Ctrl/Cmd+K`) ranks results with snippets over a static chunked index ([`@fortemi/core`](https://www.npmjs.com/package/@fortemi/core)), with lazy precache, infinite scroll, and a community-graph view — all client-side (no server, no WASM)
+- **SEO-first output** — metadata-driven page titles, crawlable `/pages/` static snapshots, and `sitemap.xml` / `robots.txt` / `llms.txt` / JSON-LD / Open Graph generated at build time
+- **Flexible hosting** — per-tenant `<base>` resolution serves the same bundle at a domain root *or* under a subpath; any static host, CDN, or the bundled Caddy
 - **Mermaid Diagrams** — native flowcharts, sequence diagrams, and more
 - **Syntax Highlighting** — Prism.js integration for code blocks
 - **Theming** — per-tenant colors, branding, and typography

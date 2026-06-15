@@ -14,6 +14,7 @@ time by `scripts/lib/seo-generator.js` and configured via the tenant
 | `llms.txt` | LLM-friendly site index ([llmstxt.org](https://llmstxt.org/)) |
 | `/pages/<id>.html` | Per-section static snapshots with full metadata + JSON-LD, for crawlers |
 | JSON-LD | `TechArticle` + `BreadcrumbList` per page; `WebSite` + optional `Organization` site-wide |
+| Shell `<title>` | The build sets the static shell title from the **default page's metadata title** (`"<page title> · <brand>"`), so the crawler-visible root URL is specific, not generic. The brand alone is only a fallback |
 | Runtime meta | `src/seo.js` keeps `<title>`, description, canonical, OG, and Twitter tags in sync as the SPA navigates |
 
 ## Make URLs absolute

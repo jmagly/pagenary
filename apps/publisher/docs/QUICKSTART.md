@@ -28,7 +28,9 @@ npx pagenary --help            # confirm the CLI is available
 
 Pagenary includes several powerful features out of the box:
 
-- **Command Palette** - Press `Ctrl+K` (or `Cmd+K` on Mac) to quickly navigate, search, and export
+- **Command Palette** - Press `Ctrl+K` (or `Cmd+K` on Mac) for ranked full-text search (with snippets + infinite scroll), navigation, and export
+- **SEO-first output** - metadata-driven titles, crawlable `/pages/` snapshots, sitemap/robots/llms.txt, JSON-LD, and Open Graph, generated at build time
+- **Deploy anywhere** - the same bundle serves at a domain root or under a subpath; any static host, CDN, or the bundled Caddy
 - **Mermaid Diagrams** - Embed flowcharts, sequence diagrams, and more using Mermaid syntax
 - **Smart External Links** - External links automatically open in new tabs with security headers
 

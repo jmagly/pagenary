@@ -31,7 +31,7 @@ npx pagenary serve                           # serve on http://localhost:5173
 
 ## What It Is
 
-The publisher takes a catalog of shared section templates plus per-tenant content and configuration and produces a self-contained documentation bundle for each tenant. Each bundle is a static single-page app — hash-based routing (`#/page-id`), no server-side rendering, no runtime dependencies — that you build once and host anywhere that serves files. Tenants share the template catalog but keep isolated content, branding, navigation, and domains, so one repository can publish a dozen distinct sites.
+The publisher takes a catalog of shared section templates plus per-tenant content and configuration and produces a self-contained documentation bundle for each tenant. Each bundle is a static single-page app — hash-based routing (`#/page-id`), no server-side rendering, no runtime dependencies — that you build once and host anywhere that serves files. A per-tenant `<base>` resolves asset and module URLs to the tenant root, so the same bundle serves correctly at a domain root *or* under a subpath mount. Tenants share the template catalog but keep isolated content, branding, navigation, and domains — each with ranked client-side search and SEO-ready output — so one repository can publish a dozen distinct sites.
 
 ---
 
@@ -99,10 +99,12 @@ inspect, build, or run the AIWG project from `~/dev/aiwg`.
 - **Typography** — IBM Plex Sans/Mono defaults, customizable
 
 ### SEO (built in)
+- **Metadata-driven titles** — the shell `<title>` derives from the default page's metadata title (`"<page title> · <brand>"`), and each section sets its own title/description at runtime; the generic brand is only a fallback
 - **Absolute URLs** — declare a `domain` (or `seo.siteUrl`) and the sitemap, canonical, `og:url`, and `robots` URLs become fully-qualified
 - **Static snapshots** — crawler-friendly `/pages/<id>.html` for every section, self-canonical (the SPA hash route isn't crawlable)
 - **`sitemap.xml`, `robots.txt`, `llms.txt`** — generated automatically
 - **JSON-LD + Open Graph** — `TechArticle`/`BreadcrumbList` per page, optional Organization data, and `og:image`/`twitter:image` via `seo.ogImage`
+- **Subpath-safe assets** — a per-tenant `<base>` keeps stylesheet/script/snapshot URLs valid whether served at a domain root or a subpath
 
 ### Export & Sharing
 - **Export Options** — Current Page or Entire Site
