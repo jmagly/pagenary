@@ -4,7 +4,9 @@
 
 **Where documentation takes shape.**
 
-Pagenary is a multi-tenant documentation publishing platform that turns one shared set of templates into many branded, tenant-specific static sites. Zero runtime dependencies, hash-based routing, and a Git-aware build pipeline make it suited to white-label documentation portals — one source of truth, any number of published sites.
+Pagenary turns a folder of Markdown in a git repo into a fast, searchable, SEO-ready documentation site you host yourself — for next to nothing. Write your docs, run one tool, and deploy the static output to any free static host (GitHub/Gitea Pages, Netlify, Cloudflare Pages, S3, a CDN, or your own box). No server, no database, no monthly SaaS bill — just the things you'd expect from a paid docs platform: command-palette search with ranking, theming and branding, Mermaid diagrams, syntax highlighting, SEO, and one-click export.
+
+It's a great fit if you're shipping a project, an app, or a side project and want real docs without the overhead. And when you outgrow one site, the same tool publishes many from a shared template catalog — so it scales from a weekend project to a multi-product portal without changing tools.
 
 Built with [AIWG](https://aiwg.io), the multi-agent AI framework used to plan,
 audit, and ship this project.
@@ -31,7 +33,7 @@ npx pagenary serve                           # serve on http://localhost:5173
 
 ## What Pagenary Is
 
-Pagenary is a static site generator built around a multi-tenant model. The core application is the **publisher** (`apps/publisher/`): it takes a catalog of shared section templates plus per-tenant content and configuration, and produces a self-contained documentation bundle for each tenant.
+Pagenary is a static site generator for documentation. The core application is the **publisher** (`apps/publisher/`): point it at your content (Markdown, HTML, or JS) plus a small config file, and it produces a self-contained docs site with search, navigation, theming, and SEO built in. The same engine scales to many sites through a shared template/tenant model, so one repository can publish anywhere from a single site to a dozen.
 
 Each published bundle is a static single-page app — hash-based routing (`#/page-id`), no server-side rendering, no runtime dependencies. You build it once and host the output anywhere that serves files. Asset and module URLs resolve through a per-tenant `<base>`, so the same bundle works whether a tenant is served at its own domain root **or** mounted under a subpath of a shared host. Tenants share the template catalog but keep isolated content, branding, navigation, and domains, so a single repository can publish a dozen distinct documentation sites — each with real ranked search and SEO-ready output, not just static pages.
 
@@ -66,7 +68,9 @@ The result is that the marginal cost of an additional documentation site trends 
 
 ## Who It's For
 
-Teams and platforms that publish **more than one** documentation site from shared conventions: white-label SaaS docs, multi-product portals, agency-managed client documentation, or any case where you want consistent structure across sites without maintaining each one by hand.
+Developers and app makers who want real documentation for a project without standing up — or paying for — a hosted docs platform: solo devs, indie hackers, and small teams shipping fast. You get a searchable, SEO-ready site from a git repo and a free static host.
+
+It scales up cleanly, too: teams publishing **many** sites from shared conventions — white-label SaaS docs, multi-product portals, agency-managed client docs — use the same template/tenant model to keep them consistent without maintaining each one by hand.
 
 ---
 
@@ -132,15 +136,15 @@ The build pipeline tracks changes against Git to support incremental and diff-on
 
 ### Good Fit
 
-Publishing multiple documentation sites that share structure and conventions but differ in content and branding — white-label docs, multi-product portals, agency/client documentation, internal knowledge sites with per-team branding. Especially strong when those sites need **real in-page search** and **clean SEO** out of the box, and when you want to host them flexibly: each tenant on its own domain, or many mounted under subpaths of a single host (e.g. `docs.example.com/product-a/`, `/product-b/`).
+Shipping a project or app and wanting polished, searchable docs you host yourself for ~free — no SaaS subscription, no server to run, just a git repo and a static host. It's equally at home publishing **many** sites that share structure but differ in content and branding (white-label docs, multi-product portals, agency/client documentation). Especially strong when you want **real in-page search** and **clean SEO** out of the box, with flexible hosting: a site on its own domain, or many mounted under subpaths of a single host (e.g. `docs.example.com/product-a/`, `/product-b/`).
 
 ### Not the Best Fit
 
-A single one-off documentation site with no white-labeling needs, or content that must be edited by non-technical authors through a web UI rather than committed as files.
+Content that must be edited by non-technical authors through a web UI (you write Markdown/HTML/JS in the repo, not in a CMS), or a site that genuinely needs server-side rendering or dynamic, per-request content. Pagenary produces static files.
 
 ### The Trade-off
 
-Pagenary adds a template/tenant abstraction that pays off across many sites. For a single site, a conventional static-site generator is simpler. Past two or three sites that should stay consistent, the shared-catalog model is what keeps them from drifting.
+Your docs live as files in git, not in a hosted CMS behind a login. In return you get zero hosting cost, full version control, and no vendor lock-in — and the option to scale from one site to many on the same shared-catalog model, which is what keeps a fleet of sites from drifting apart.
 
 ```
 Templates + per-tenant content/config

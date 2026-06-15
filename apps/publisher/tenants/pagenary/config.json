@@ -4,7 +4,7 @@
   "brandSub": "Docs",
   "domain": "docs.pagenary.com",
   "tagline": "Where documentation takes shape.",
-  "description": "Pagenary developer documentation — building, configuring, deploying, and extending the multi-tenant documentation publisher, published with Pagenary itself.",
+  "description": "Turn a git repo of Markdown into a fast, searchable, SEO-ready docs site you host yourself for next to nothing — with the features you'd expect from a paid docs platform. Pagenary's own developer docs, built and published with Pagenary.",
   "accentColor": "#111111",
   "copyright": "Pagenary",
   "seo": {
@@ -19,24 +19,24 @@
     }
   },
   "welcome": {
-    "eyebrow": "Pagenary Platform",
+    "eyebrow": "Docs that ship with your repo",
     "headline": "Where documentation takes shape",
-    "lead": "Pagenary turns one shared template catalog into many branded, tenant-specific static sites. This portal is built by Pagenary, from Pagenary's own docs.",
+    "lead": "Pagenary turns a git repo of Markdown into a fast, searchable, SEO-ready docs site you host yourself — for next to nothing. This portal is built by Pagenary, from Pagenary's own docs.",
     "pillars": [
-      "Zero runtime dependencies — every published bundle is a static single-page app.",
-      "Branding and navigation are data, not code: a tenant is config plus content.",
-      "A Git-aware build pipeline rebuilds only what changed across every tenant."
+      "Free to host — every site is plain static files; deploy to any free static host or CDN.",
+      "Batteries included — ranked search, SEO, diagrams, theming, and export, with no plugins to wire up.",
+      "Just a git repo and a tool — your docs are versioned files: no server, no database, no SaaS bill."
     ],
     "checklist": [
-      "Read the Quickstart to build your first bundle.",
-      "Define a tenant with config.json and a manifest.",
-      "Deploy the static output anywhere that serves files."
+      "Read the Quickstart to build your first site.",
+      "Write your docs in Markdown (or HTML/JS).",
+      "Deploy the static output to any free static host."
     ],
     "quickLinks": [
       { "label": "Quickstart", "href": "#/quickstart" },
       { "label": "Architecture", "href": "#/architecture" },
       { "label": "Tenant Configuration", "href": "#/tenant-config" }
     ],
-    "quote": "One source of truth, any number of published sites."
+    "quote": "Real docs from a git repo — host them yourself, for next to nothing."
   }
 }

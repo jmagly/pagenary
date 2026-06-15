@@ -1,25 +1,27 @@
 # Where documentation takes shape
 
-Pagenary is a multi-tenant documentation publishing platform that turns one
-shared set of templates into many branded, tenant-specific static sites. Zero
-runtime dependencies, hash-based routing, and a Git-aware build pipeline make
-it suited to white-label documentation portals — one source of truth, any
-number of published sites.
+Pagenary turns a folder of Markdown in a git repo into a fast, searchable,
+SEO-ready documentation site you host yourself — for next to nothing. Write your
+docs, run one tool, and deploy the static output to any free static host
+(GitHub/Gitea Pages, Netlify, Cloudflare Pages, S3, a CDN, or your own box). No
+server, no database, no monthly SaaS bill — just the things you'd expect from a
+paid docs platform: command-palette search with ranking, theming and branding,
+Mermaid diagrams, syntax highlighting, SEO, and one-click export.
 
 **This portal is built by Pagenary, from Pagenary's own documentation.** Every
-page you see here is the same publisher pipeline applied to the developer docs
-in the repository, served as a static single-page app.
+page you see here is the same publisher pipeline applied to the developer docs in
+the repository, served as a static single-page app.
 
 ## Start here
 
-- **[Quickstart](quickstart.md)** — install, build the default bundle, and serve it locally.
-- **[Architecture](architecture.md)** — the static SPA pattern, build pipeline, and tenant content model.
-- **[Tenant Configuration](tenant-config.md)** — every `config.json` option for branding, theming, and export.
+- **[Quickstart](quickstart.md)** — install, build your first site, and serve it locally.
+- **[Architecture](architecture.md)** — the static SPA pattern, build pipeline, and content model.
+- **[Tenant Configuration](tenant-config.md)** — every `config.json` option for branding, theming, SEO, and export.
 
-## How a tenant works
+## Scale to many sites when you need to
 
-A tenant is a thin layer — content, a `config.json`, and a `manifest.json` —
-over the shared template catalog. Branding, theming, and navigation are **data,
-not code**: a tenant changes its look through configuration, never by forking
-the generator. The build produces a self-contained bundle under
-`dist/<tenant-id>/` that you can host anywhere that serves files.
+One site is just content, a `config.json`, and a `manifest.json`. Need more than
+one? The same tool publishes many sites from a shared template catalog — branding,
+theming, and navigation are **data, not code**, so standing up another branded
+site is cheap, and a Git-aware build rebuilds only what changed. Pagenary scales
+from a weekend project to a multi-product portal without changing tools.
