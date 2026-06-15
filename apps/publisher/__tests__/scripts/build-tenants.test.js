@@ -266,7 +266,7 @@ describe('build-tenants.js', () => {
       expect(record.text).toMatch(/quick brown fox jumps over the lazy dog/);
     });
 
-    test('emits root-based shell and module URLs for nested route deep links', async () => {
+    test('emits base-relative shell + module URLs resolved via the tenant base', async () => {
       const manifest = {
         sections: [
           { id: 'blog/post', title: 'Post', file: 'blog/post.md' }
@@ -286,10 +286,17 @@ describe('build-tenants.js', () => {
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
       const manifestJs = await fsp.readFile(path.join(distDir, 'manifest.js'), 'utf8');
 
-      expect(index).toContain('href="/styles.css"');
-      expect(index).toContain('src="/app.js"');
-      expect(manifestJs).toContain('"module": "/sections/blog--post.js"');
-      expect(manifestJs).not.toContain('"module": "./sections/');
+      // Shell assets are base-relative (resolve against the runtime <base href>),
+      // which works for both domain-root (base "/") and subpath (base "/<tenant>/").
+      expect(index).toContain('href="./styles.css"');
+      expect(index).toContain('src="./app.js"');
+      // The base-resolution bootstrap is wired with this tenant id.
+      expect(index).toContain("document.write('<base");
+      expect(index).toContain(`var t = "${TEST_TENANT_ID}"`);
+      // Module paths are relative so dynamic import() resolves against app.js's
+      // (base-resolved) URL.
+      expect(manifestJs).toContain('"module": "./sections/blog--post.js"');
+      expect(manifestJs).not.toContain('"module": "/sections/');
     });
 
     test('uses collection frontmatter metadata for auto-discovered nav entries and sort order', async () => {

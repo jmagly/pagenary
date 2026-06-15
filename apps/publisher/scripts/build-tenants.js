@@ -959,6 +959,23 @@ async function applyBranding(distDir, config, tenantId) {
   }
 }
 
+/**
+ * Replace the shell's `__PAGENARY_TENANT__` base-resolution placeholder with the
+ * real tenant id. Runs for every tenant so the runtime `<base href>` bootstrap
+ * can resolve asset/module URLs against the tenant root under subpath mounts
+ * (e.g. /tenant/) while domain-root deploys fall back to "/".
+ * @param {string} distDir - Tenant output directory
+ * @param {string} tenantId - Tenant identifier
+ */
+async function injectTenantBase(distDir, tenantId) {
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+  const html = await fsp.readFile(indexPath, 'utf8');
+  if (!html.includes('__PAGENARY_TENANT__')) return;
+  await fsp.writeFile(indexPath, html.split('__PAGENARY_TENANT__').join(tenantId), 'utf8');
+  console.log(`  ↳ wired tenant base for ${tenantId}`);
+}
+
 function hexToRgb(hex) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return null;
@@ -2576,14 +2593,14 @@ async function materializeScannedSections(sections, context) {
           title,
           summary,
           ...metadata,
-          module: `/sections/${outFile}`,
+          module: `./sections/${outFile}`,
           subsections: processedSubsections
         };
         if (type) entry.type = type;
         if (collapsed) entry.collapsed = true;
         processed.push(entry);
       } else {
-        const entry = { id, title, summary, ...metadata, module: `/sections/${outFile}` };
+        const entry = { id, title, summary, ...metadata, module: `./sections/${outFile}` };
         if (type) entry.type = type;
         if (collapsed) entry.collapsed = true;
         processed.push(entry);
@@ -2896,7 +2913,7 @@ async function materializeSectionModule(entry, context) {
     return null;
   }
 
-  return `/sections/${outFile}`;
+  return `./sections/${outFile}`;
 }
 
 function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}, exportConfig = {}) {
@@ -3312,6 +3329,11 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyNavPosition(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }
+
+  // Inject the tenant id into the shell's base-resolution bootstrap for EVERY
+  // tenant (regardless of branding config) so subpath mounts resolve assets
+  // against the tenant root. Domain-root deploys fall back to "/".
+  await injectTenantBase(distDir, tenantId);
 
   // Copy static assets from .public/ directory
   await copyPublicAssets(sourceDir, distDir, tenantId);

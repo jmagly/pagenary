@@ -5,8 +5,22 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Docs Toolkit</title>
     <meta name="description" content="Reusable documentation toolkit for multi-tenant services." />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="stylesheet" href="/styles.css" />
+    <script>
+      // Resolve all asset/module URLs against the tenant root in both deploy
+      // modes: domain-per-tenant at root (production, with SPA fallback) and a
+      // subpath mount such as /<tenant>/ (the dev preview server). The tenant id
+      // is injected at build time. On a domain root the path never starts with
+      // "/<tenant>/", so the base falls back to "/". For the un-replaced default
+      // build the placeholder starts with "_", which also yields "/".
+      (function () {
+        var t = "__PAGENARY_TENANT__";
+        var p = location.pathname;
+        var base = t && p.indexOf("/" + t + "/") === 0 ? "/" + t + "/" : "/";
+        document.write('<base href="' + base + '">');
+      })();
+    </script>
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#app">Skip to content</a>
@@ -51,6 +65,6 @@
         <ul id="commandList" class="cmd-list" role="listbox"></ul>
       </div>
     </div>
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>
