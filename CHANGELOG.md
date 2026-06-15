@@ -6,6 +6,22 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.8] - 2026-06-15
+
+### Fixed
+
+- **Runtime page `<title>` uses the tenant title, not the generic brand (#29).**
+  The legacy manifest build path (the one Pagenary uses) dropped `siteTitle` from
+  `SITE_CONFIG`, so `src/seo.js` rendered the runtime `<title>` as
+  "<page> · Documentation" even though the static shell title (#28) was correct.
+  `processTenantManifestLegacy` now receives `config` and sets
+  `siteTitle`/`siteUrl`/`ogImage` (parity with the nested path). Verified in a real
+  browser: "Welcome · Pagenary Docs". Caught only by a live check — static build
+  tests passed throughout.
+- **Tighter sidebar spacing (#30).** Reduced the default nav gap (`0.75rem` →
+  `0.15rem`), item padding, and title↔summary gap so the left navigation reads
+  denser and cleaner.
+
 ## [2026.6.7] - 2026-06-15
 
 ### Fixed
