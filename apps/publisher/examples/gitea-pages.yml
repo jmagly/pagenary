@@ -1,0 +1,33 @@
+# Pagenary → Gitea Pages
+# Copy to .gitea/workflows/docs.yml in your docs repo. Gitea Pages serves a
+# branch (commonly "pages"); this builds the site and force-pushes it there.
+# Set a PAGES_TOKEN secret (a token with repo write). See ../docs/PUBLISHING.md.
+name: Publish docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build the docs site
+        run: |
+          npm install --no-save @pagenary/publisher \
+            --registry=https://git.integrolabs.net/api/packages/pagenary/npm/
+          npx pagenary build:tenants mydocs --target ./_site
+      - name: Publish to the pages branch
+        env:
+          GIT_TOKEN: ${{ secrets.PAGES_TOKEN }}
+        run: |
+          cd ./_site/mydocs
+          touch .nojekyll
+          git init -q && git add -A
+          git -c user.name=ci -c user.email=ci@local commit -qm "docs build"
+          git push -f "https://oauth2:${GIT_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git" HEAD:pages

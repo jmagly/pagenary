@@ -1,0 +1,9 @@
+{
+  "tenants": [
+    {
+      "id": "mydocs",
+      "source": { "type": "local", "path": "./docs" },
+      "config": { "title": "My Project Docs", "brandMark": "My", "brandSub": "Docs" }
+    }
+  ]
+}

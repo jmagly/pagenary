@@ -339,6 +339,7 @@ The full documentation site is published at **[docs.pagenary.com](https://docs.p
 - [Getting Started](apps/publisher/docs/GETTING-STARTED.md) — **start here**: zero to a published docs site using the npm package
 - [Publisher README](apps/publisher/README.md) — full feature documentation
 - [Quick Start Guide](apps/publisher/docs/QUICKSTART.md) — step-by-step tenant setup
+- [Publish with GitHub/Gitea Actions](apps/publisher/docs/PUBLISHING.md) — make any docs repo Pagenary-ready: copy-paste CI workflows + auto-discovery (no manifest required)
 - [Tenant Configuration](apps/publisher/docs/TENANT-CONFIG.md) — all config options
 - [Architecture](apps/publisher/docs/ARCHITECTURE.md) — system design
 - [API Reference](apps/publisher/docs/API.md) — module documentation

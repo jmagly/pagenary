@@ -20,6 +20,7 @@
     "src/",
     "scripts/",
     "site/",
+    "examples/",
     "build.config.json",
     "tenants.schema.json",
     "tenants.json.example",
