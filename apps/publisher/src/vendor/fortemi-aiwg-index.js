@@ -1,8 +1,8 @@
 /**
  * VENDORED — @fortemi/core/aiwg-index
  *
- * Source : @fortemi/core@2026.6.2  →  dist/aiwg-index.js
- * SHA-256: fea23e545e604b1b93438f8bec73520dd16bf4f0ba2a81e35ee8d716495732ac (upstream dist file)
+ * Source : @fortemi/core@2026.6.3  →  dist/aiwg-index.js
+ * SHA-256: f2e6793fd7e52e20441459e18633a9546c7cfc6281cbc63ab28f0767422946bf (upstream dist file)
  * License: AGPL-3.0-only (compatible with this package's AGPL-3.0-or-later)
  * Why    : Pagenary's publisher build is a no-bundler copy-src→dist pipeline that
  *          loads ES modules by relative path; bare specifiers (`@fortemi/core`)
@@ -11,8 +11,20 @@
  *          browser (runtime search). See .aiwg/architecture/adr/ADR-015-*.md.
  * Update : Re-vendor by copying the dist file from a newer @fortemi/core release
  *          and refreshing the SHA-256 above. Do not hand-edit below this banner.
+ *          6.3 adds buildAiwgChunkedIndex / createAiwgFetchDetailLoader (additive).
  */
 // src/aiwg-index.ts
+var AIWG_SCAN_REQUIRED_FIELDS = [
+  "schema_version",
+  "id",
+  "type",
+  "title",
+  "text",
+  "facets",
+  "tags",
+  "concepts",
+  "privacy"
+];
 var REQUIRED_RECORD_FIELDS = [
   "schema_version",
   "id",
@@ -124,6 +136,20 @@ function validateAiwgFortemiChunkManifest(value) {
   if (data.facets !== void 0 && !isFacetCounts(data.facets)) {
     errors.push("facets must be a nested string-to-number count object");
   }
+  if (data.projection !== void 0) {
+    if (!Array.isArray(data.projection) || !data.projection.every((field) => typeof field === "string")) {
+      errors.push("projection must be an array of field names");
+    } else {
+      const present = new Set(data.projection);
+      for (const field of AIWG_SCAN_REQUIRED_FIELDS) {
+        if (!present.has(field)) errors.push("projection must include scan-required field " + field);
+      }
+    }
+  }
+  if (data.detail !== void 0) {
+    if (!hasString(data.detail.href)) errors.push("detail.href is required");
+    else if (!data.detail.href.includes("{id}")) errors.push("detail.href must contain the {id} placeholder");
+  }
   if (!Array.isArray(data?.parts)) errors.push("parts must be an array");
   let expectedOffset = 0;
   const parts = Array.isArray(data?.parts) ? data.parts : [];
@@ -148,6 +174,35 @@ function assertAiwgFortemiChunkManifest(value) {
   }
   return value;
 }
+function validateProjectedRecords(items) {
+  const errors = [];
+  const ids = /* @__PURE__ */ new Set();
+  let previousId = "";
+  for (const [index, item] of items.entries()) {
+    if (item.schema_version !== "aiwg.fortemi.index.record.v1") {
+      errors.push("items[" + index + "].schema_version must be aiwg.fortemi.index.record.v1");
+    }
+    if (!hasString(item.id)) errors.push("items[" + index + "].id is required");
+    if (hasString(item.id) && ids.has(item.id)) errors.push("duplicate id: " + item.id);
+    if (hasString(item.id)) ids.add(item.id);
+    if (previousId && hasString(item.id) && previousId.localeCompare(item.id) > 0) {
+      errors.push("items must be sorted by id: " + previousId + " before " + item.id);
+    }
+    if (hasString(item.id)) previousId = item.id;
+    if (!item.type || !VALID_TYPES.has(item.type)) errors.push("items[" + index + "].type is invalid");
+    if (!hasString(item.title)) errors.push("items[" + index + "].title is required");
+    if (typeof item.text !== "string") errors.push("items[" + index + "].text is required");
+    if (!item.facets || typeof item.facets !== "object" || Array.isArray(item.facets)) {
+      errors.push("items[" + index + "].facets must be an object");
+    }
+    if (!Array.isArray(item.tags)) errors.push("items[" + index + "].tags must be an array");
+    if (!Array.isArray(item.concepts)) errors.push("items[" + index + "].concepts must be an array");
+    if (!item.privacy || !hasString(item.privacy.classification)) {
+      errors.push("items[" + index + "].privacy.classification is required");
+    }
+  }
+  return errors;
+}
 function validateAiwgFortemiChunkPart(value, partRef, manifest) {
   const errors = [];
   const data = value;
@@ -166,13 +221,17 @@ function validateAiwgFortemiChunkPart(value, partRef, manifest) {
     errors.push("items length must match manifest part count " + partRef.count);
   }
   if (Array.isArray(data?.items)) {
-    const validation = validateAiwgFortemiIndexExport({
-      schema_version: "aiwg.fortemi.index.export.v1",
-      generated_at: manifest?.generated_at ?? "1970-01-01T00:00:00.000Z",
-      source: manifest?.source ?? { repo: "chunk", privacy: "public" },
-      items: data.items
-    });
-    errors.push(...validation.errors.map((error) => "items." + error));
+    if (manifest?.projection) {
+      errors.push(...validateProjectedRecords(data.items).map((error) => "items." + error));
+    } else {
+      const validation = validateAiwgFortemiIndexExport({
+        schema_version: "aiwg.fortemi.index.export.v1",
+        generated_at: manifest?.generated_at ?? "1970-01-01T00:00:00.000Z",
+        source: manifest?.source ?? { repo: "chunk", privacy: "public" },
+        items: data.items
+      });
+      errors.push(...validation.errors.map((error) => "items." + error));
+    }
   }
   return { valid: errors.length === 0, errors };
 }
@@ -191,6 +250,16 @@ function createAiwgFetchChunkLoader(baseUrl) {
     return response.json();
   };
 }
+function createAiwgFetchDetailLoader(baseUrl) {
+  return async (id, manifest) => {
+    if (!manifest.detail?.href) throw new Error("Manifest has no detail.href for record resolution");
+    const relative = manifest.detail.href.replace("{id}", encodeURIComponent(id));
+    const href = baseUrl ? new URL(relative, baseUrl).toString() : relative;
+    const response = await fetch(href);
+    if (!response.ok) throw new Error("Failed to fetch AIWG index detail " + href + ": " + response.status);
+    return response.json();
+  };
+}
 function getAiwgFortemiFacets(items) {
   const result = {};
   for (const item of items) {
@@ -203,6 +272,49 @@ function getAiwgFortemiFacets(items) {
     }
   }
   return result;
+}
+function buildAiwgChunkedIndex(index, options = {}) {
+  const partSize = hasPositiveInteger(options.partSize) ? options.partSize : 500;
+  const projection = options.projection;
+  const items = index.items;
+  const pad = (value) => String(value).padStart(4, "0");
+  const project = (record) => {
+    if (!projection) return record;
+    const slim = {};
+    for (const field of projection) slim[field] = record[field];
+    return slim;
+  };
+  const parts = [];
+  const partRefs = [];
+  for (let offset = 0, partIndex = 0; offset < items.length; offset += partSize, partIndex += 1) {
+    const slice = items.slice(offset, offset + partSize);
+    const href = "part-" + pad(partIndex) + ".json";
+    parts.push({
+      href,
+      part: {
+        schema_version: "aiwg.fortemi.index.chunk.v1",
+        manifest_schema_version: "aiwg.fortemi.index.chunk-manifest.v1",
+        offset,
+        items: slice.map(project)
+      }
+    });
+    partRefs.push({ href, offset, count: slice.length });
+  }
+  const manifest = {
+    schema_version: "aiwg.fortemi.index.chunk-manifest.v1",
+    generated_at: options.generatedAt ?? index.generated_at,
+    source: index.source,
+    total: items.length,
+    part_size: partSize,
+    facets: getAiwgFortemiFacets(items),
+    parts: partRefs,
+    ...projection ? { projection, detail: { href: options.detailHref ?? "detail/{id}.json" } } : {}
+  };
+  return {
+    manifest,
+    parts,
+    details: projection ? items.map((record) => ({ id: record.id, record })) : []
+  };
 }
 function includesAll(actual, expected) {
   if (!expected || expected.length === 0) return true;
@@ -258,7 +370,7 @@ function createRankedEntries(items, q, options, ordinalBase = 0) {
     if (!includesAll(item.tags, options.tags)) return false;
     if (!includesAll(item.concepts, options.concepts)) return false;
     if (!matchesFacetFilters(item, options.facets)) return false;
-    if (options.relationshipTargetId && !item.relationships.some((rel) => rel.target_id === options.relationshipTargetId)) {
+    if (options.relationshipTargetId && !(item.relationships ?? []).some((rel) => rel.target_id === options.relationshipTargetId)) {
       return false;
     }
     return true;
@@ -307,6 +419,10 @@ function clampMaxCachedParts(value) {
   if (!hasPositiveInteger(value)) return 3;
   return value;
 }
+function clampMaxCachedDetails(value) {
+  if (!hasPositiveInteger(value)) return 32;
+  return value;
+}
 function isDirectChunkBrowse(query, options) {
   return query.trim() === "" && !options.rank && !options.snippets && !options.includeMatches && !options.types && !options.facets && !options.tags && !options.concepts && !options.privacy && !options.relationshipTargetId;
 }
@@ -330,6 +446,40 @@ async function loadChunkPart(runtime, part) {
     runtime.partCache.delete(oldest);
   }
   return { part: parsed, fetched: true };
+}
+async function getChunkRecord(runtime, id) {
+  const cached = runtime.detailCache.get(id);
+  if (cached) {
+    runtime.detailCache.delete(id);
+    runtime.detailCache.set(id, cached);
+    return cached;
+  }
+  if (!runtime.manifest.projection) {
+    for (const part of runtime.partCache.values()) {
+      const found = part.items.find((item) => item.id === id);
+      if (found) return found;
+    }
+  }
+  if (!runtime.detailLoader) {
+    throw new Error("No detailLoader configured to resolve record " + id);
+  }
+  const raw = await runtime.detailLoader(id, runtime.manifest);
+  const record = assertAiwgFortemiIndexExport({
+    schema_version: "aiwg.fortemi.index.export.v1",
+    generated_at: runtime.manifest.generated_at,
+    source: runtime.manifest.source,
+    items: [raw]
+  }).items[0];
+  if (record.id !== id) {
+    throw new Error("Detail record id mismatch: expected " + id + ", got " + record.id);
+  }
+  runtime.detailCache.set(id, record);
+  while (runtime.detailCache.size > runtime.maxCachedDetails) {
+    const oldest = runtime.detailCache.keys().next().value;
+    if (oldest === void 0) break;
+    runtime.detailCache.delete(oldest);
+  }
+  return record;
 }
 async function queryChunkedAiwgFortemiIndex(runtime, query = "", options = {}) {
   const q = query.trim().toLowerCase();
@@ -435,7 +585,10 @@ function createAiwgIndexController(initialIndex) {
           manifest: parsed,
           loader,
           maxCachedParts: clampMaxCachedParts(options.maxCachedParts),
-          partCache: /* @__PURE__ */ new Map()
+          partCache: /* @__PURE__ */ new Map(),
+          detailLoader: options.detailLoader,
+          maxCachedDetails: clampMaxCachedDetails(options.maxCachedDetails),
+          detailCache: /* @__PURE__ */ new Map()
         };
         data = null;
         reviewDecisions = [];
@@ -478,8 +631,23 @@ function createAiwgIndexController(initialIndex) {
         throw error;
       }
     },
+    async getRecord(id) {
+      if (chunked) {
+        try {
+          return await getChunkRecord(chunked, id);
+        } catch (err) {
+          error = err instanceof Error ? err : new Error(String(err));
+          notify();
+          throw error;
+        }
+      }
+      const found = requireIndex().items.find((item) => item.id === id);
+      if (!found) throw new Error("Record not found: " + id);
+      return found;
+    },
     clearChunkCache() {
       chunked?.partCache.clear();
+      chunked?.detailCache.clear();
       error = null;
       notify();
     },
@@ -559,6 +727,6 @@ function communityIdsFor(item, options) {
   return [`type:${item.type}`];
 }
 
-export { aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, createAiwgFetchChunkLoader, createAiwgIndexController, createAiwgReviewDecisionExport, getAiwgFortemiFacets, queryAiwgFortemiIndex, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport };
+export { AIWG_SCAN_REQUIRED_FIELDS, aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, buildAiwgChunkedIndex, createAiwgFetchChunkLoader, createAiwgFetchDetailLoader, createAiwgIndexController, createAiwgReviewDecisionExport, getAiwgFortemiFacets, queryAiwgFortemiIndex, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport };
 //# sourceMappingURL=aiwg-index.js.map
 //# sourceMappingURL=aiwg-index.js.map
