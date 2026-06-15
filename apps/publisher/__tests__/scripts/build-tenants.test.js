@@ -299,6 +299,29 @@ describe('build-tenants.js', () => {
       expect(manifestJs).not.toContain('"module": "/sections/');
     });
 
+    test('sets the shell <title> from the default page metadata title (#28)', async () => {
+      const manifest = {
+        sections: [
+          { id: 'home', title: 'Getting Started', file: 'home.md' },
+          { id: 'other', title: 'Other', file: 'other.md' }
+        ]
+      };
+      const content = {
+        'home.md': '# Getting Started\n\nIntro.',
+        'other.md': '# Other\n\nMore.'
+      };
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, { title: 'Acme Docs' }, manifest, content);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
+      // Default page's metadata title + brand — not the generic brand alone.
+      expect(index).toContain('<title>Getting Started · Acme Docs</title>');
+      expect(index).not.toContain('<title>Acme Docs</title>');
+    });
+
     test('uses collection frontmatter metadata for auto-discovered nav entries and sort order', async () => {
       testTenantDir = path.join(PUBLISHER_ROOT, 'tenants', TEST_TENANT_ID);
       await fsp.mkdir(path.join(testTenantDir, 'blog'), { recursive: true });

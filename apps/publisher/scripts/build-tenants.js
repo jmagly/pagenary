@@ -10,7 +10,7 @@ import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-
 import { generateCollections } from './lib/collections-generator.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
 import { generateSearchIndex } from './lib/search-index-generator.js';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = process.cwd();
 // The package's own directory (this file lives at <pkg>/scripts/build-tenants.js).
@@ -974,6 +974,42 @@ async function injectTenantBase(distDir, tenantId) {
   if (!html.includes('__PAGENARY_TENANT__')) return;
   await fsp.writeFile(indexPath, html.split('__PAGENARY_TENANT__').join(tenantId), 'utf8');
   console.log(`  ↳ wired tenant base for ${tenantId}`);
+}
+
+/**
+ * Set the shell <title> to the default page's metadata title for SEO (#28).
+ * Reads the generated manifest.js for DEFAULT_SECTION and its (metadata-derived)
+ * title, producing "<page title> · <brand>" to mirror the runtime seo.js format.
+ * Generic brand is used only as a fallback when no default title is available,
+ * so the crawler-visible root URL gets a specific, descriptive title.
+ * @param {string} distDir - Tenant output directory
+ * @param {object} config - Tenant config (for the brand title)
+ */
+async function applyDefaultPageTitle(distDir, config) {
+  const indexPath = path.join(distDir, 'index.html');
+  const manifestPath = path.join(distDir, 'manifest.js');
+  if (!(await pathExists(indexPath)) || !(await pathExists(manifestPath))) return;
+
+  let defaultTitle = null;
+  try {
+    // Cache-bust so incremental rebuilds re-read the freshly written manifest.
+    const mod = await import(`${pathToFileURL(manifestPath).href}?t=${Date.now()}`);
+    const id = mod.DEFAULT_SECTION;
+    const entry = id && typeof mod.findSection === 'function' ? mod.findSection(id) : null;
+    if (entry && entry.title) defaultTitle = entry.title;
+  } catch {
+    // Manifest not importable — keep the existing (branded/generic) title.
+  }
+  if (!defaultTitle) return;
+
+  const brand = config.title || null;
+  const shellTitle = brand ? `${defaultTitle} · ${brand}` : defaultTitle;
+  let html = await fsp.readFile(indexPath, 'utf8');
+  const replaced = html.replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(shellTitle)}</title>`);
+  if (replaced !== html) {
+    await fsp.writeFile(indexPath, replaced, 'utf8');
+    console.log(`  ↳ default page title: ${shellTitle}`);
+  }
 }
 
 function hexToRgb(hex) {
@@ -3334,6 +3370,10 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   // tenant (regardless of branding config) so subpath mounts resolve assets
   // against the tenant root. Domain-root deploys fall back to "/".
   await injectTenantBase(distDir, tenantId);
+
+  // Set the shell <title> from the default page's metadata title (SEO, #28),
+  // falling back to the generic brand only when no default title exists.
+  await applyDefaultPageTitle(distDir, config);
 
   // Copy static assets from .public/ directory
   await copyPublicAssets(sourceDir, distDir, tenantId);
