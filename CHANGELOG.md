@@ -6,6 +6,21 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.3] - 2026-06-15
+
+### Fixed
+
+- **Shell asset URLs resolve correctly under both domain-root and subpath
+  serving.** The shell used root-absolute `/styles.css` / `/app.js` / `/sections/`
+  (needed for production domain-root deploys with SPA fallback) which 404'd under
+  a subpath mount such as the dev preview server's `/<tenant>/`. The shell now uses
+  `./`-relative URLs plus a build-injected `<base href>` bootstrap that resolves to
+  the tenant root — `/<tenant>/` under a subpath, `/` on a domain root (where
+  `./styles.css` equals the previous `/styles.css`, so production behaviour is
+  unchanged). Module paths emit `./sections/` so dynamic `import()` resolves
+  against `app.js`'s base-resolved URL. Also satisfies the SEO smoke stylesheet
+  check.
+
 ## [2026.6.2] - 2026-06-15
 
 ### Fixed
