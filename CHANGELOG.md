@@ -6,6 +6,19 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.2] - 2026-06-15
+
+### Fixed
+
+- **Publish the Fortemi search feature (v2026.6.1 publish failed).** v2026.6.1's
+  npm publish aborted on a failing build test: an unreleased, in-progress
+  shell/module URL rework (tenant-relative `styles.css` / `./sections/`) had
+  leaked into `build-tenants.js` and its build test while the matching
+  `index.html` change was excluded, conflicting with the shipped #22 root-based
+  URLs. Reverted `build-tenants.js` and the build test to the #22 root-based
+  behavior so the release carries only the Fortemi search feature. **v2026.6.2 is
+  the first published build of that feature** (see the 2026.6.1 notes below).
+
 ## [2026.6.1] - 2026-06-15
 
 ### Changed
