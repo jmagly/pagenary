@@ -15,6 +15,7 @@ LICENSE
 README.md
 bin
 build.config.json
+examples
 package.json
 scripts
 site
