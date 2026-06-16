@@ -24,16 +24,16 @@ thing — not just a screenshot:
 
 | Recipe | Live demo |
 | --- | --- |
-| Custom palette | <https://docs.pagenary.com/theme-colors/> |
-| Dark preset | <https://docs.pagenary.com/theme-dark/> |
-| Matrix preset | <https://docs.pagenary.com/theme-matrix/> |
-| Fonts + brand | <https://docs.pagenary.com/basic-styles/> |
-| Nav: left | <https://docs.pagenary.com/nav-left/> |
-| Nav: right | <https://docs.pagenary.com/nav-right/> |
-| Nav: top | <https://docs.pagenary.com/nav-top/> |
-| Nav: bottom | <https://docs.pagenary.com/nav-bottom/> |
-| Nav: hybrid | <https://docs.pagenary.com/nav-hybrid/> |
-| Interocitor showcase | <https://docs.pagenary.com/interocitor/> |
+| Custom palette | [docs.pagenary.com/theme-colors/](https://docs.pagenary.com/theme-colors/) |
+| Dark preset | [docs.pagenary.com/theme-dark/](https://docs.pagenary.com/theme-dark/) |
+| Matrix preset | [docs.pagenary.com/theme-matrix/](https://docs.pagenary.com/theme-matrix/) |
+| Fonts + brand | [docs.pagenary.com/basic-styles/](https://docs.pagenary.com/basic-styles/) |
+| Nav: left | [docs.pagenary.com/nav-left/](https://docs.pagenary.com/nav-left/) |
+| Nav: right | [docs.pagenary.com/nav-right/](https://docs.pagenary.com/nav-right/) |
+| Nav: top | [docs.pagenary.com/nav-top/](https://docs.pagenary.com/nav-top/) |
+| Nav: bottom | [docs.pagenary.com/nav-bottom/](https://docs.pagenary.com/nav-bottom/) |
+| Nav: hybrid | [docs.pagenary.com/nav-hybrid/](https://docs.pagenary.com/nav-hybrid/) |
+| Interocitor showcase | [docs.pagenary.com/interocitor/](https://docs.pagenary.com/interocitor/) |
 
 > **Where recipes get their content.** The color/style/nav recipes share one
 > small docs set in [`../examples/content-base/`](../examples/content-base/) and
