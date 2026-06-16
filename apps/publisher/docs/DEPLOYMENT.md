@@ -247,13 +247,25 @@ tenant-b.example.com {
 
 ## Cache Strategy
 
-| Asset | Cache Policy |
-|-------|-------------|
-| `index.html` | `no-cache` or short TTL (1 minute) |
-| `*.js`, `*.css` | Long TTL with immutable (`max-age=31536000, immutable`) |
-| `sections/*.js` | Long TTL (content-addressed) |
+Pagenary emits **stable filenames** (`styles.css`, `sections/<id>.js`,
+`assets/*`) — they are *not* content-addressed. A long immutable TTL on those
+files means edits to existing pages are masked at a CDN edge until the TTL
+expires. Pick one of:
 
-The hash-based router means all navigation works client-side, so `index.html` is the only file that needs frequent updates.
+| Asset | Recommended policy |
+|-------|-------------|
+| `index.html` | `no-cache` or short TTL (≤1 minute) — always re-validate |
+| `styles.css`, `*.js`, `sections/*.js`, `assets/*` | **Short TTL** (e.g. `max-age=300, must-revalidate`) **or** long TTL **plus a cache purge on every deploy** |
+
+The hash-based router means all navigation works client-side, so `index.html`
+changes rarely — but the section modules and stylesheet *do* change on content
+edits, so don't cache them as `immutable`.
+
+> **CDN in front (e.g. Cloudflare)?** Purge the edge cache on each deploy so
+> edits go live immediately. The docs.pagenary.com workflow does this when
+> `CLOUDFLARE_ZONE_ID` + `CLOUDFLARE_API_TOKEN` secrets are set
+> (`.gitea/workflows/docsite-deploy.yml`). A future option is content-addressed
+> filenames so long-immutable caching is safe — tracked in issue #37.
 
 ## Monitoring
 

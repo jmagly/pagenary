@@ -18,6 +18,12 @@
 #
 # Required repo secrets: DEPLOY_SSH_KEY, DEPLOY_HOST, DEPLOY_PORT, DEPLOY_USER,
 # DEPLOY_PATH (DEPLOY_PATH = ~/production-deploy/docs-pagenary-com).
+#
+# Optional (edge-cache purge, #37): CLOUDFLARE_ZONE_ID + CLOUDFLARE_API_TOKEN
+# (token scoped to Zone.Cache Purge). When both are set, the deploy purges the
+# Cloudflare edge cache so edits to existing pages/assets (stable filenames,
+# max-age=14400) appear immediately instead of after the 4h TTL. When unset, the
+# step is skipped and content propagates on TTL expiry.
 
 name: Docsite Deploy
 
@@ -93,7 +99,7 @@ jobs:
           ls -lah "$OUT/"
 
       - name: Install SSH tools
-        run: apt-get update && apt-get install -y --no-install-recommends openssh-client rsync
+        run: apt-get update && apt-get install -y --no-install-recommends openssh-client rsync curl ca-certificates
 
       - name: Configure SSH key
         run: |
@@ -158,6 +164,32 @@ jobs:
              SECTION_COUNT=\$(ls '${DEPLOY_ROOT}sections' | wc -l)
              echo \"Deploy verified: index.html present, sections/ has \${SECTION_COUNT} entries.\"
              ls '${DEPLOY_ROOT}sections' | head -5"
+
+      - name: Purge Cloudflare edge cache (#37)
+        if: success()
+        env:
+          CF_ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_ZONE:-}" ] || [ -z "${CF_TOKEN:-}" ]; then
+            echo "Cloudflare purge secrets not set — skipping edge purge."
+            echo "Edits to existing pages/assets will propagate on the 4h cache TTL (see #37)."
+            exit 0
+          fi
+          echo "Purging Cloudflare edge cache for docs.pagenary.com…"
+          CODE=$(curl -s -o /tmp/cf-purge.json -w '%{http_code}' -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+            -H "Authorization: Bearer ${CF_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          cat /tmp/cf-purge.json || true
+          echo
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Cloudflare purge failed (HTTP ${CODE})"
+            exit 1
+          fi
+          echo "Edge cache purged — edits are live immediately."
 
       - name: Cleanup SSH key
         if: always()
