@@ -17,6 +17,24 @@ npm run serve:dev           # then open http://localhost:5173/<recipe-id>/
 The screenshots below were captured from those builds. For the full list of
 config keys, see [`TENANT-CONFIG.md`](TENANT-CONFIG.md).
 
+### Live demos
+
+Every recipe is deployed alongside this site, so you can click through the real
+thing — not just a screenshot:
+
+| Recipe | Live demo |
+| --- | --- |
+| Custom palette | <https://docs.pagenary.com/theme-colors/> |
+| Dark preset | <https://docs.pagenary.com/theme-dark/> |
+| Matrix preset | <https://docs.pagenary.com/theme-matrix/> |
+| Fonts + brand | <https://docs.pagenary.com/basic-styles/> |
+| Nav: left | <https://docs.pagenary.com/nav-left/> |
+| Nav: right | <https://docs.pagenary.com/nav-right/> |
+| Nav: top | <https://docs.pagenary.com/nav-top/> |
+| Nav: bottom | <https://docs.pagenary.com/nav-bottom/> |
+| Nav: hybrid | <https://docs.pagenary.com/nav-hybrid/> |
+| Interocitor showcase | <https://docs.pagenary.com/interocitor/> |
+
 > **Where recipes get their content.** The color/style/nav recipes share one
 > small docs set in [`../examples/content-base/`](../examples/content-base/) and
 > override only their branding/theme/layout via the registry's inline `config`.
@@ -202,6 +220,20 @@ and a bespoke wordmark and tagline. Same toolkit, same build, zero forks.
 
 The full config (every theme key) is in
 [`../examples/interocitor/config.json`](../examples/interocitor/config.json).
+
+---
+
+## In the wild
+
+Real documentation sites built with Pagenary — each a different brand, theme,
+and content set from the same toolkit:
+
+- [docs.pagenary.com](https://docs.pagenary.com) — this site (Pagenary's own docs)
+- [docs.aiwg.io](https://docs.aiwg.io) — AI Writing Guide
+- [docs.fortemi.io](https://docs.fortemi.io) — Fortemi
+- [docs.roko.network](https://docs.roko.network) — Roko Network
+
+Running a Pagenary site you'd like listed here? Open a PR adding it.
 
 ---
 

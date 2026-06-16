@@ -28,6 +28,7 @@ on:
     paths:
       - 'apps/publisher/docs/**'
       - 'apps/publisher/tenants/pagenary/**'
+      - 'apps/publisher/examples/**'
       - 'apps/publisher/src/**'
       - 'apps/publisher/scripts/**'
       - '.gitea/workflows/docsite-deploy.yml'
@@ -67,6 +68,17 @@ jobs:
         working-directory: apps/publisher
         run: node scripts/build-tenants.js pagenary
 
+      - name: Build example recipes into the docsite
+        # Each recipe builds to dist/pagenary/<id>/ so it deploys live to
+        # docs.pagenary.com/<id>/ (flat id => correct <base> resolution).
+        # Must run AFTER the pagenary build, which owns dist/pagenary/.
+        working-directory: apps/publisher
+        run: |
+          set -euo pipefail
+          npm run build:examples:site
+          # Serve the gallery's screenshots at /images/ for the live docs page.
+          cp -rL docs/images dist/pagenary/images
+
       - name: Verify build output
         run: |
           set -euo pipefail
@@ -74,7 +86,10 @@ jobs:
           test -d "$OUT" || { echo "::error::Missing build output directory $OUT"; exit 1; }
           test -f "$OUT/index.html" || { echo "::error::Missing index.html"; exit 1; }
           test -d "$OUT/sections" || { echo "::error::Missing sections/ — refusing to deploy (would rsync --delete an incomplete site)"; exit 1; }
-          echo "Build verification passed: $(ls "$OUT/sections" | wc -l) section files"
+          test -f "$OUT/nav-top/index.html"     || { echo "::error::example recipe build missing (nav-top) — refusing to deploy"; exit 1; }
+          test -f "$OUT/interocitor/index.html" || { echo "::error::interocitor showcase build missing — refusing to deploy"; exit 1; }
+          test -d "$OUT/images/recipes" || { echo "::error::gallery images not staged — refusing to deploy"; exit 1; }
+          echo "Build verification passed: $(ls "$OUT/sections" | wc -l) section files, $(ls -d "$OUT"/*/ | wc -l) top-level dirs"
           ls -lah "$OUT/"
 
       - name: Install SSH tools

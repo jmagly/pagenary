@@ -19,7 +19,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
   Build them with the new `npm run build:examples` (registry:
   `examples/recipes.tenants.json`). Documented in
   [`docs/THEMING-RECIPES.md`](apps/publisher/docs/THEMING-RECIPES.md) with a
-  Playwright screenshot per recipe.
+  Playwright screenshot per recipe — and is itself a page on the docs site
+  (Guides → Theming Recipes).
+- **Live recipe demos on the docs site (#31).** The docsite build now also
+  builds every example recipe into `dist/pagenary/<id>/`, so each is deployed
+  and clickable at `https://docs.pagenary.com/<id>/` (e.g. `/nav-top/`,
+  `/interocitor/`). The gallery links each live demo and lists real-world
+  Pagenary sites (docs.aiwg.io, docs.fortemi.io, docs.roko.network). Wired into
+  both `docsite-build.yml` (validation) and `docsite-deploy.yml`.
 - **`navPosition: top | bottom | hybrid` (#31).** Navigation can now render as a
   horizontal bar above (`top`) or below (`bottom`) the content, or as a `hybrid`
   layout — a horizontal primary strip (generated from the tenant's top-level

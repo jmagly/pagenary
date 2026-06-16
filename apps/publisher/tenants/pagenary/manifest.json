@@ -38,6 +38,12 @@
           "file": "TENANT-CONFIG.md"
         },
         {
+          "id": "theming-recipes",
+          "title": "Theming Recipes",
+          "summary": "Copy-paste recipes for colors, fonts, and nav positions — with live demos.",
+          "file": "THEMING-RECIPES.md"
+        },
+        {
           "id": "extending",
           "title": "Extending",
           "summary": "Add section templates, content types, and build behaviors.",

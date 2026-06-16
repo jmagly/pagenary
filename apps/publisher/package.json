@@ -34,6 +34,7 @@
     "build:tenants": "node scripts/build-tenants.js",
     "build:tenant": "node scripts/build-tenants.js",
     "build:examples": "node scripts/build-tenants.js --registry examples/recipes.tenants.json",
+    "build:examples:site": "node scripts/build-tenants.js --registry examples/recipes.tenants.json --target dist/pagenary",
     "build:site": "node scripts/build-tenants.js pagenary && node scripts/build-site.js",
     "prepack": "node scripts/build-tenants.js pagenary >&2 && node scripts/build-site.js >&2",
     "build:incremental": "node scripts/build-tenants.js --incremental",
