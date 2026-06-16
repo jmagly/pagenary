@@ -26,10 +26,17 @@ html, body {
 }
 
 body {
+  /* App shell: header / content / footer. The `1fr` content row auto-fits to
+     whatever space the header+footer leave — no viewport math — and the canvas
+     scrolls within it. `dvh` (with `vh` fallback) tracks the dynamic viewport,
+     so the shell re-fits on orientation change and when browser UI bars show or
+     hide; that, plus the grid 1fr, is what keeps it from clipping. */
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -742,8 +749,15 @@ mark.hl {
 .canvas {
   padding: clamp(2rem, 5vw, 5.5rem) clamp(1.5rem, 7vw, 7rem);
   display: grid;
+  /* Keep rows AND items at their natural (content) height. Without these, a
+     fixed-height grid stretches its single child to the container, so the
+     child's overflow is clipped instead of scrolling the canvas — content was
+     unreachable on short/landscape viewports. */
+  align-content: start;
+  align-items: start;
   gap: 2.5rem;
   min-height: 0;
+  min-width: 0;
   height: 100%;
   overflow-y: auto;
   scrollbar-gutter: stable;
@@ -1067,7 +1081,10 @@ mark.hl {
 
   .layout {
     grid-template-columns: 1fr;
-    height: calc(100vh - 120px);
+    /* No explicit height: the body grid's 1fr row already sizes the layout to
+       the exact space left by the header/footer, at any viewport/orientation.
+       The old calc(100vh - 120px) assumed a fixed chrome height and overflowed
+       (footer clipped) when the header/footer were taller. */
     position: relative;
   }
 
@@ -1077,7 +1094,7 @@ mark.hl {
     left: -100%;
     width: 85%;
     max-width: 320px;
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     background: white;
     border-right: 2px solid var(--ink);
     z-index: 99;
@@ -1428,7 +1445,9 @@ mark.hl {
     width: 100%;
     border-radius: 0;
     max-height: 100vh;
+    max-height: 100dvh;
     height: 100vh;
+    height: 100dvh;
   }
 }
 
