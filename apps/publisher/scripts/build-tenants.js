@@ -1454,6 +1454,27 @@ function parseInlineMarkdown(input, linkContext = null) {
     // Don't escape label here - it will be escaped by the final escapeHtml call
     return `<a href="${escapeAttribute(resolvedHref)}"${attrs}>${label}</a>`;
   });
+  // GFM angle-bracket autolinks: <https://…>, <http://…>, <mailto:…>
+  // (literal angle brackets in the source — distinct from the [label](href) form)
+  output = output.replace(/<((?:https?:\/\/|mailto:)[^>\s]+)>/g, (_, url) => {
+    const isExternal = /^https?:\/\//i.test(url);
+    const attrs = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+    const label = url.replace(/^mailto:/i, '');
+    return `<a href="${escapeAttribute(url)}"${attrs}>${label}</a>`;
+  });
+  // GFM bare-URL autolinks: linkify naked http(s):// URLs in prose. Protect the
+  // anchors/images already built above so their href/text URLs aren't re-wrapped.
+  // (Fenced code blocks never reach this function; inline backticks are literal.)
+  const protectedSpans = [];
+  output = output.replace(/<a [^>]*>[\s\S]*?<\/a>|<img [^>]*>/g, (m) => {
+    protectedSpans.push(m);
+    return ` ${protectedSpans.length - 1} `;
+  });
+  output = output.replace(
+    /(^|[\s(])(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g,
+    (_, pre, url) => `${pre}<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer">${url}</a>`
+  );
+  output = output.replace(/ (\d+) /g, (_, i) => protectedSpans[Number(i)]);
   // Bold: **text**
   output = output.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   // Italic: *text* (single asterisks, after bold replacement)

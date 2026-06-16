@@ -597,6 +597,66 @@ describe('build-tenants.js', () => {
     });
   });
 
+  describe('GFM autolinks', () => {
+    const AL_ID = '__test-autolink-' + Date.now();
+    let alDir;
+
+    afterEach(async () => {
+      if (alDir) await cleanup(alDir);
+      await cleanup(path.join(PUBLISHER_ROOT, 'dist', AL_ID));
+      alDir = undefined;
+    });
+
+    async function renderAutolinkPage(body) {
+      const manifest = { default: 'al', sections: [{ id: 'al', title: 'AL', file: 'al.md' }] };
+      alDir = await createTestTenant(AL_ID, { title: 'AL' }, manifest, { 'al.md': body });
+      const res = await runBuildTenantsWithRegistry([{ id: AL_ID }]);
+      expect(res.code).toBe(0);
+      const sec = path.join(PUBLISHER_ROOT, 'dist', AL_ID, 'sections', 'al.js');
+      return await fsp.readFile(sec, 'utf8');
+    }
+
+    // Tolerate the JSON-string escaping of the embedded HTML (href=\"…\").
+    const href = (u) => new RegExp('href=\\\\?"' + u.replace(/[.\/]/g, '\\$&') + '\\\\?"');
+
+    test('angle-bracket autolink <https://…> becomes a link', async () => {
+      const html = await renderAutolinkPage('Visit <https://example.com/a> today.');
+      expect(html).toMatch(href('https://example.com/a'));
+      expect(html).not.toMatch(/&lt;https:\/\/example\.com\/a&gt;/);
+    });
+
+    test('mailto autolink <mailto:…> becomes a link', async () => {
+      const html = await renderAutolinkPage('Mail <mailto:hi@example.com> now.');
+      expect(html).toMatch(href('mailto:hi@example.com'));
+    });
+
+    test('bare URL in prose is linkified', async () => {
+      const html = await renderAutolinkPage('See https://example.com/bare for details.');
+      expect(html).toMatch(href('https://example.com/bare'));
+    });
+
+    test('bare URL trailing punctuation is not absorbed', async () => {
+      const html = await renderAutolinkPage('(visit https://example.com/x).');
+      expect(html).toMatch(href('https://example.com/x'));
+      // The closing paren/period must not end up inside the href.
+      expect(html).not.toMatch(href('https://example.com/x\\)'));
+    });
+
+    test('existing [label](url) link is not double-wrapped', async () => {
+      const html = await renderAutolinkPage('An [example](https://example.com/link) link.');
+      const matches = html.match(/example\.com\/link/g) || [];
+      // Appears once in href; the visible label is the word "example", not the URL.
+      expect(matches.length).toBe(1);
+      expect(html).not.toMatch(/<a[^>]*><a/);
+    });
+
+    test('URL inside a fenced code block is left as text', async () => {
+      const html = await renderAutolinkPage('```\nsee https://example.com/incode\n```');
+      // Code blocks never reach the inline autolinker → no anchor for this URL.
+      expect(html).not.toMatch(href('https://example.com/incode'));
+    });
+  });
+
   describe('error handling', () => {
     test('handles missing content files gracefully', async () => {
       const testTenantId = '__test-missing-' + Date.now();
