@@ -1224,58 +1224,110 @@ async function applyThemeColors(distDir, config, tenantId) {
   }
 }
 
+const NAV_POSITIONS = new Set(['left', 'right', 'top', 'bottom', 'hybrid']);
+
 /**
- * Apply nav position configuration to styles.css
- * Supports: navPosition: "left" (default) | "right"
+ * Apply nav position configuration.
+ *
+ * Supports navPosition: "left" (default) | "right" | "top" | "bottom" | "hybrid".
+ * Rather than appending generated CSS per build, the layout rules live in the
+ * source stylesheet scoped to `body[data-nav-position="…"]`; this only sets that
+ * attribute. "left" is the default and needs no attribute. "hybrid" additionally
+ * injects a horizontal primary nav strip (built from the tenant's top-level
+ * sections) under the header, giving a top bar + left rail.
  */
 async function applyNavPosition(distDir, config, tenantId) {
-  if (config.navPosition !== 'right') return;
+  const pos = typeof config.navPosition === 'string'
+    ? config.navPosition.toLowerCase()
+    : 'left';
 
-  const stylesPath = path.join(distDir, 'styles.css');
-  if (!(await pathExists(stylesPath))) return;
+  if (pos === 'left') return; // default layout, nothing to do
 
-  let css = await fsp.readFile(stylesPath, 'utf8');
-
-  // CSS rules to flip the layout for right-side nav
-  const navRightCSS = `
-/* ─────────────────────────────────────────────────────────
-   Nav Position: Right
-   ───────────────────────────────────────────────────────── */
-
-.layout {
-  grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
-}
-
-.sidebar {
-  order: 2;
-  border-right: none;
-  border-left: 1px solid var(--grid-line);
-}
-
-.canvas {
-  order: 1;
-}
-
-/* Mobile adjustments for right nav */
-@media (max-width: 960px) {
-  .sidebar {
-    left: auto;
-    right: -100%;
-    border-left: 2px solid var(--ink);
-    border-right: none;
+  if (!NAV_POSITIONS.has(pos)) {
+    console.warn(`  ↳ ${tenantId}: unknown navPosition "${config.navPosition}" ` +
+      `(expected left|right|top|bottom|hybrid) — leaving default`);
+    return;
   }
 
-  .sidebar.mobile-open {
-    left: auto;
-    right: 0;
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+
+  let html = await fsp.readFile(indexPath, 'utf8');
+
+  // Tag <body> so the scoped stylesheet rules activate.
+  if (!/<body[^>]*data-nav-position=/.test(html)) {
+    html = html.replace(/<body(?=[\s>])/, `<body data-nav-position="${pos}"`);
+  }
+
+  // Hybrid layout adds a horizontal primary strip beneath the header.
+  if (pos === 'hybrid') {
+    html = await injectHybridNavStrip(html, distDir);
+  }
+
+  await fsp.writeFile(indexPath, html, 'utf8');
+  console.log(`  ↳ applied ${pos}-position nav for ${tenantId}`);
+}
+
+/**
+ * Parse the built manifest.js back into the MANIFEST array so the hybrid strip
+ * can be generated from the tenant's actual top-level sections. The generated
+ * module is `export const MANIFEST = [ … ];` of plain JSON, so a narrow match
+ * + JSON.parse is sufficient and avoids importing the module.
+ */
+async function readTenantManifestEntries(distDir) {
+  const manifestPath = path.join(distDir, 'manifest.js');
+  if (!(await pathExists(manifestPath))) return [];
+  const src = await fsp.readFile(manifestPath, 'utf8');
+  const match = src.match(/export const MANIFEST\s*=\s*(\[[\s\S]*?\n\]);/);
+  if (!match) return [];
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return [];
   }
 }
-`;
 
-  // Append the nav position CSS at the end
-  css += navRightCSS;
-  await fsp.writeFile(stylesPath, css, 'utf8');
-  console.log(`  ↳ applied right-side nav position for ${tenantId}`);
+/**
+ * Resolve a manifest entry to the hash route of its first navigable page.
+ * A leaf section links to its own id; a group links to its first descendant.
+ */
+function firstRouteId(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  if (entry.module) return entry.id;
+  const subs = entry.subsections || entry.sections;
+  if (Array.isArray(subs) && subs.length > 0) {
+    return firstRouteId(subs[0]) || entry.id;
+  }
+  return entry.id;
+}
+
+/**
+ * Build and inject the hybrid horizontal nav strip after </header>.
+ * Returns the original html unchanged when there is nothing to link or no
+ * header to anchor against, so the flag-off path stays inert.
+ */
+async function injectHybridNavStrip(html, distDir) {
+  if (html.includes('class="nav-strip"')) return html; // idempotent
+  const entries = await readTenantManifestEntries(distDir);
+  const links = entries
+    .map((entry) => {
+      const target = firstRouteId(entry);
+      if (!target) return '';
+      const label = escapeHtml(entry.title || entry.id);
+      return `        <a class="nav-strip-link" href="#${escapeAttr(target)}">${label}</a>`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  if (!links || !html.includes('</header>')) return html;
+
+  const strip = [
+    '    <nav class="nav-strip" aria-label="Primary sections">',
+    links,
+    '    </nav>'
+  ].join('\n');
+
+  return html.replace('</header>', `</header>\n${strip}`);
 }
 
 function renderList(items, tag) {

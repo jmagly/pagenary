@@ -1,0 +1,61 @@
+{
+  "default": "home",
+  "sections": [
+    {
+      "id": "home",
+      "title": "Home",
+      "summary": "Start here — what this sample docs set demonstrates.",
+      "file": "home.md"
+    },
+    {
+      "id": "guides",
+      "title": "Guides",
+      "summary": "Practical, task-focused walkthroughs.",
+      "sections": [
+        {
+          "id": "install",
+          "title": "Install",
+          "summary": "Get the toolkit onto your machine.",
+          "file": "install.md"
+        },
+        {
+          "id": "configure",
+          "title": "Configure",
+          "summary": "Tune behavior with a single config file.",
+          "file": "configure.md"
+        }
+      ]
+    },
+    {
+      "id": "components",
+      "title": "Components",
+      "summary": "The building blocks and how they behave.",
+      "sections": [
+        {
+          "id": "buttons",
+          "title": "Buttons",
+          "summary": "Actions, variants, and states.",
+          "file": "buttons.md"
+        },
+        {
+          "id": "forms",
+          "title": "Forms",
+          "summary": "Inputs, validation, and submission.",
+          "file": "forms.md"
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "Reference",
+      "summary": "Every option in one place.",
+      "file": "reference.md"
+    },
+    {
+      "id": "changelog",
+      "title": "Changelog",
+      "summary": "What changed, release by release.",
+      "file": "changelog.md"
+    }
+  ]
+}

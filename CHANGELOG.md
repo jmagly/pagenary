@@ -6,6 +6,30 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.9] - 2026-06-15
+
+### Added
+
+- **Theming recipe gallery (#31).** A copy-paste gallery of common
+  customization patterns — colors (custom palette, `dark`, `matrix`), basic
+  style changes (fonts + brand), and every navigation position — plus a
+  fully-custom showcase tenant. All recipes share one small docs set in
+  `apps/publisher/examples/content-base/` and differ only by `config.json`; the
+  showcase ("Interocitor Labs") lives in `apps/publisher/examples/interocitor/`.
+  Build them with the new `npm run build:examples` (registry:
+  `examples/recipes.tenants.json`). Documented in
+  [`docs/THEMING-RECIPES.md`](apps/publisher/docs/THEMING-RECIPES.md) with a
+  Playwright screenshot per recipe.
+- **`navPosition: top | bottom | hybrid` (#31).** Navigation can now render as a
+  horizontal bar above (`top`) or below (`bottom`) the content, or as a `hybrid`
+  layout — a horizontal primary strip (generated from the tenant's top-level
+  sections) plus the full left rail. Layout rules are scoped to a
+  `data-nav-position` attribute set at build time; `left` (default) and the
+  existing `right` are unchanged. Now documented in
+  [`docs/TENANT-CONFIG.md`](apps/publisher/docs/TENANT-CONFIG.md), which also
+  gains the previously-undocumented `theme`/`inkColor`/`mutedColor`/
+  `gridLineColor`/`fontBody`/`fontMono` keys.
+
 ## [2026.6.8] - 2026-06-15
 
 ### Fixed

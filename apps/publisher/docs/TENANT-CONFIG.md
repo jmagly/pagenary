@@ -107,10 +107,38 @@ my-tenant/
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
+| `theme` | string \| object | `light` | Preset (`light` \| `dark` \| `matrix`) or a full custom theme object (see below) |
 | `accentColor` | hex string | "#111111" | Links, buttons, active states |
 | `surfaceColor` | hex string | "#ffffff" | Page background color |
+| `inkColor` | hex string | "#0b0b0b" | Primary text color |
+| `mutedColor` | hex string | "#5a5a5a" | Secondary / muted text |
+| `gridLineColor` | CSS color | rgba(0,0,0,0.08) | Borders and dividers |
 
-Color values must be 6-digit hex codes (e.g., `#6366F1`).
+Color values must be 6-digit hex codes (e.g., `#6366F1`); `gridLineColor` may be
+any CSS color (rgba is common).
+
+A custom `theme` **object** merges over the `light` base and accepts the keys
+above plus `colorScheme` (`light` \| `dark`) and dark-mode surface keys
+(`sidebarBg`, `codeBackground`, `tableBorder`, …). See the
+[interocitor config](../examples/interocitor/config.json) for a complete example.
+
+#### Typography
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `fontBody` | CSS font stack | IBM Plex Sans stack | Font for prose |
+| `fontMono` | CSS font stack | IBM Plex Mono stack | Font for code |
+
+#### Layout
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `navPosition` | string | `left` | Navigation placement: `left` \| `right` \| `top` \| `bottom` \| `hybrid` |
+
+`top` and `bottom` render navigation as a horizontal bar; `hybrid` adds a
+horizontal primary strip (built from your top-level sections) above the left
+rail. See the [Theming Recipes gallery](THEMING-RECIPES.md) for screenshots of
+each.
 
 #### SEO (`seo`)
 

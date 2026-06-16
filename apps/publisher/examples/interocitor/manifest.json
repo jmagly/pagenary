@@ -1,0 +1,61 @@
+{
+  "default": "overview",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "summary": "What an interocitor is, and why you'd build one.",
+      "file": "overview.md"
+    },
+    {
+      "id": "interocitor",
+      "title": "The Interocitor",
+      "summary": "The array itself: principles and assembly.",
+      "sections": [
+        {
+          "id": "how-it-works",
+          "title": "How It Works",
+          "summary": "Triangulated relay across the Metaluna band.",
+          "file": "how-it-works.md"
+        },
+        {
+          "id": "assembly",
+          "title": "Assembly",
+          "summary": "From component kit to a calibrated array.",
+          "file": "assembly.md"
+        }
+      ]
+    },
+    {
+      "id": "operations",
+      "title": "Operations",
+      "summary": "Running an interocitor day to day.",
+      "sections": [
+        {
+          "id": "calibration",
+          "title": "Calibration",
+          "summary": "Tuning the focal triad before first contact.",
+          "file": "calibration.md"
+        },
+        {
+          "id": "safety",
+          "title": "Safety",
+          "summary": "Interlocks, exclusion zones, and the prime directive.",
+          "file": "safety.md"
+        }
+      ]
+    },
+    {
+      "id": "specifications",
+      "title": "Specifications",
+      "summary": "Power, range, and the numbers that matter.",
+      "file": "specifications.md"
+    },
+    {
+      "id": "contact",
+      "title": "Contact",
+      "summary": "Reach the Labs — by ordinary means.",
+      "file": "contact.md"
+    }
+  ]
+}

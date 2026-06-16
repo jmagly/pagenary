@@ -1,0 +1,97 @@
+{
+  "$comment": "Theming recipe gallery (issue #31). Every nav/style/color recipe reuses the shared docs in examples/content-base and differs only by its inline `config`. The interocitor showcase uses its own richer content. Build with: npm run build:examples",
+  "tenants": [
+    {
+      "id": "theme-colors",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Aurora",
+        "brandSub": "Docs",
+        "accentColor": "#7c3aed",
+        "surfaceColor": "#faf5ff",
+        "inkColor": "#2e1065",
+        "mutedColor": "#6d5b9c",
+        "gridLineColor": "rgba(124, 58, 237, 0.16)"
+      }
+    },
+    {
+      "id": "theme-dark",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Nocturne",
+        "brandSub": "Docs",
+        "theme": "dark"
+      }
+    },
+    {
+      "id": "theme-matrix",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Oracle",
+        "brandSub": "Terminal",
+        "theme": "matrix"
+      }
+    },
+    {
+      "id": "basic-styles",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Foundry",
+        "brandSub": "Press",
+        "accentColor": "#b45309",
+        "fontBody": "Georgia, 'Times New Roman', serif",
+        "fontMono": "'Courier New', Courier, monospace"
+      }
+    },
+    {
+      "id": "nav-left",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Layout",
+        "brandSub": "Left",
+        "navPosition": "left"
+      }
+    },
+    {
+      "id": "nav-right",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Layout",
+        "brandSub": "Right",
+        "navPosition": "right"
+      }
+    },
+    {
+      "id": "nav-top",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Layout",
+        "brandSub": "Top",
+        "navPosition": "top"
+      }
+    },
+    {
+      "id": "nav-bottom",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Layout",
+        "brandSub": "Bottom",
+        "navPosition": "bottom"
+      }
+    },
+    {
+      "id": "nav-hybrid",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Layout",
+        "brandSub": "Hybrid",
+        "accentColor": "#2563eb",
+        "navPosition": "hybrid"
+      }
+    },
+    {
+      "id": "interocitor",
+      "source": { "type": "local", "path": "./examples/interocitor" }
+    }
+  ]
+}

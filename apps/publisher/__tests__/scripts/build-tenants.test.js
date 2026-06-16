@@ -517,6 +517,86 @@ describe('build-tenants.js', () => {
     });
   });
 
+  describe('nav positions', () => {
+    const NAV_MANIFEST = {
+      default: 'home',
+      sections: [
+        { id: 'home', title: 'Home', file: 'home.md' },
+        {
+          id: 'guides',
+          title: 'Guides',
+          sections: [
+            { id: 'install', title: 'Install', file: 'install.md' }
+          ]
+        },
+        { id: 'reference', title: 'Reference', file: 'reference.md' }
+      ]
+    };
+    const NAV_CONTENT = {
+      'home.md': '# Home\n\nHome page.',
+      'install.md': '# Install\n\nInstall page.',
+      'reference.md': '# Reference\n\nReference page.'
+    };
+
+    let navTenantDir;
+    let navTenantId;
+    let navCounter = 0;
+
+    async function buildWithNavPosition(navPosition) {
+      navTenantId = '__test-nav-' + Date.now() + '-' + (navCounter++);
+      const config = navPosition === undefined ? { title: 'Nav Test' } : { title: 'Nav Test', navPosition };
+      navTenantDir = await createTestTenant(navTenantId, config, NAV_MANIFEST, NAV_CONTENT);
+      const result = await runBuildTenantsWithRegistry([{ id: navTenantId }]);
+      const indexPath = path.join(PUBLISHER_ROOT, 'dist', navTenantId, 'index.html');
+      const html = await fsp.readFile(indexPath, 'utf8');
+      return { result, html };
+    }
+
+    afterEach(async () => {
+      if (navTenantDir) await cleanup(navTenantDir);
+      if (navTenantId) await cleanup(path.join(PUBLISHER_ROOT, 'dist', navTenantId));
+      navTenantDir = undefined;
+      navTenantId = undefined;
+    });
+
+    test.each(['right', 'top', 'bottom', 'hybrid'])(
+      'tags <body> with data-nav-position="%s"',
+      async (pos) => {
+        const { result, html } = await buildWithNavPosition(pos);
+        expect(result.code).toBe(0);
+        expect(html).toMatch(new RegExp(`<body[^>]*data-nav-position="${pos}"`));
+      }
+    );
+
+    test('hybrid injects a horizontal nav strip from top-level sections', async () => {
+      const { html } = await buildWithNavPosition('hybrid');
+      expect(html).toMatch(/<nav class="nav-strip"/);
+      // One strip link per top-level section, each resolving to a real route.
+      const links = html.match(/class="nav-strip-link" href="#[a-z-]+"/g) || [];
+      expect(links.length).toBe(3);
+      // Group "guides" links to its first navigable child, not the group id.
+      expect(html).toMatch(/class="nav-strip-link" href="#install">Guides</);
+    });
+
+    test('left (default) adds no data-nav-position attribute', async () => {
+      const { html } = await buildWithNavPosition('left');
+      expect(html).not.toMatch(/data-nav-position=/);
+      expect(html).not.toMatch(/class="nav-strip"/);
+    });
+
+    test('omitted navPosition adds no data-nav-position attribute', async () => {
+      const { html } = await buildWithNavPosition(undefined);
+      expect(html).not.toMatch(/data-nav-position=/);
+    });
+
+    test('unknown navPosition warns and leaves the default layout', async () => {
+      const { result, html } = await buildWithNavPosition('sideways');
+      expect(result.code).toBe(0);
+      expect(result.stdout + result.stderr).toMatch(/unknown navPosition/i);
+      expect(html).not.toMatch(/data-nav-position=/);
+    });
+  });
+
   describe('error handling', () => {
     test('handles missing content files gracefully', async () => {
       const testTenantId = '__test-missing-' + Date.now();

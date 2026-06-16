@@ -2040,3 +2040,158 @@ pre.highlighted code {
 .token.italic {
   font-style: italic;
 }
+
+/* ─────────────────────────────────────────────────────────
+   Nav Position
+   Activated by a [data-nav-position] attribute on <body>,
+   injected at build time from a tenant's `navPosition` config
+   ("left" | "right" | "top" | "bottom" | "hybrid"). The default
+   (left) needs no attribute, so these rules cost nothing until a
+   tenant opts in. Colors use var() so they track the active theme.
+   ───────────────────────────────────────────────────────── */
+
+/* Right: sidebar on the trailing edge. */
+body[data-nav-position="right"] .layout {
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+}
+
+body[data-nav-position="right"] .sidebar {
+  order: 2;
+  border-right: none;
+  border-left: 1px solid var(--grid-line);
+}
+
+body[data-nav-position="right"] .canvas {
+  order: 1;
+}
+
+/* Top / Bottom: sidebar becomes a horizontal nav bar. The single
+   .layout column stacks the bar and the canvas in two rows. */
+body[data-nav-position="top"] .layout,
+body[data-nav-position="bottom"] .layout {
+  grid-template-columns: 1fr;
+}
+
+body[data-nav-position="top"] .layout {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+body[data-nav-position="bottom"] .layout {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+body[data-nav-position="top"] .sidebar {
+  order: 1;
+  border-right: none;
+  border-bottom: 1px solid var(--grid-line);
+}
+
+body[data-nav-position="bottom"] .sidebar {
+  order: 2;
+  border-right: none;
+  border-top: 1px solid var(--grid-line);
+}
+
+body[data-nav-position="top"] .canvas {
+  order: 2;
+}
+
+body[data-nav-position="bottom"] .canvas {
+  order: 1;
+}
+
+body[data-nav-position="top"] .sidebar,
+body[data-nav-position="bottom"] .sidebar {
+  overflow: visible;
+}
+
+body[data-nav-position="top"] .sidebar-inner,
+body[data-nav-position="bottom"] .sidebar-inner {
+  height: auto;
+  max-height: 40vh;
+  padding: clamp(0.75rem, 2vw, 1.25rem) clamp(1.25rem, 3vw, 2rem);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+body[data-nav-position="top"] .nav,
+body[data-nav-position="bottom"] .nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.25rem 1.5rem;
+}
+
+body[data-nav-position="top"] .nav-group,
+body[data-nav-position="bottom"] .nav-group {
+  min-width: max-content;
+}
+
+/* Hybrid: a horizontal primary strip (built from the tenant's
+   top-level sections) under the header, plus the full left rail.
+   The build injects <nav class="nav-strip"> after </header>, so the
+   body grid grows from three rows to four. */
+body[data-nav-position="hybrid"] {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.nav-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0 clamp(1.5rem, 4vw, 4rem);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--grid-line);
+  background: rgba(var(--surface-rgb), 0.85);
+}
+
+.nav-strip-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.nav-strip-link:hover,
+.nav-strip-link:focus-visible {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+  text-decoration: none;
+}
+
+/* On small screens the base stylesheet pins .sidebar off-canvas
+   (fixed, left: -100%). For top/bottom that would hide the bar, so
+   restore in-flow rendering. The hybrid strip already flows inline. */
+@media (max-width: 960px) {
+  body[data-nav-position="top"] .sidebar,
+  body[data-nav-position="bottom"] .sidebar {
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: auto;
+    max-width: none;
+    height: auto;
+    z-index: auto;
+    transition: none;
+  }
+
+  body[data-nav-position="right"] .sidebar {
+    left: auto;
+    right: -100%;
+    border-left: 2px solid var(--ink);
+    border-right: none;
+  }
+
+  body[data-nav-position="right"] .sidebar.mobile-open {
+    left: auto;
+    right: 0;
+  }
+}

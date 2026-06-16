@@ -341,6 +341,7 @@ The full documentation site is published at **[docs.pagenary.com](https://docs.p
 - [Quick Start Guide](apps/publisher/docs/QUICKSTART.md) — step-by-step tenant setup
 - [Publish with GitHub/Gitea Actions](apps/publisher/docs/PUBLISHING.md) — make any docs repo Pagenary-ready: copy-paste CI workflows + auto-discovery (no manifest required)
 - [Tenant Configuration](apps/publisher/docs/TENANT-CONFIG.md) — all config options
+- [Theming Recipes](apps/publisher/docs/THEMING-RECIPES.md) — copy-paste recipes for colors, fonts, and nav positions, with screenshots
 - [Architecture](apps/publisher/docs/ARCHITECTURE.md) — system design
 - [API Reference](apps/publisher/docs/API.md) — module documentation
 - [Deployment](apps/publisher/docs/DEPLOYMENT.md) — hosting patterns

@@ -1,0 +1,31 @@
+{
+  "title": "Interocitor Labs — Deep-Tech Communications",
+  "brandMark": "INTEROCITOR",
+  "brandSub": "Labs",
+  "tagline": "We build interociters. You reach across the void.",
+  "description": "Interocitor Labs designs and manufactures interociters: modular deep-space communication and matter-relay arrays.",
+  "navPosition": "hybrid",
+  "fontBody": "'Space Grotesk', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  "fontMono": "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+  "theme": {
+    "colorScheme": "dark",
+    "surface": "#070b16",
+    "ink": "#e6ecff",
+    "muted": "#8a93b5",
+    "accent": "#7c5cff",
+    "gridLine": "rgba(124, 92, 255, 0.18)",
+    "highlightBg": "rgba(124, 92, 255, 0.18)",
+    "highlightBorder": "rgba(124, 92, 255, 0.5)",
+    "codeBackground": "rgba(124, 92, 255, 0.08)",
+    "codeBorder": "rgba(124, 92, 255, 0.18)",
+    "hoverBackground": "rgba(124, 92, 255, 0.10)",
+    "activeBackground": "rgba(124, 92, 255, 0.16)",
+    "inputBackground": "rgba(255, 255, 255, 0.03)",
+    "tableHeaderBg": "rgba(124, 92, 255, 0.10)",
+    "tableBorder": "rgba(124, 92, 255, 0.22)",
+    "blockquoteBorder": "rgba(124, 92, 255, 0.45)",
+    "sidebarBg": "#0b1020",
+    "modalBg": "#0b1020",
+    "modalBorder": "#7c5cff"
+  }
+}
