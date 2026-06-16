@@ -1,0 +1,334 @@
+/* ============================================================
+   Interocitor Labs — bespoke overlay (#36)
+   Layered on top of the base Pagenary stylesheet via
+   overrides/index.html. Restyles the shell into a deep-space
+   instrument console so the tenant bears no resemblance to the
+   default look — using only config + overrides + .public assets.
+   All rules are scoped under body.interocitor.
+   ============================================================ */
+
+body.interocitor {
+  --ink-cosmic: #eaf0ff;
+  --ink-dim: #97a3c9;
+  --violet: #8b6cff;
+  --cyan: #38e6ff;
+  --void: #05060f;
+  --panel: rgba(18, 22, 44, 0.62);
+  --panel-edge: rgba(139, 108, 255, 0.28);
+  --glow: 0 0 24px rgba(139, 108, 255, 0.45);
+  --display: 'Space Grotesk', 'IBM Plex Sans', -apple-system, sans-serif;
+
+  background: var(--void);
+  color: var(--ink-cosmic);
+  position: relative;
+}
+
+/* ---- Cosmic backdrop + the focal-triad aperture motif ---- */
+body.interocitor::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 600px at 78% -10%, rgba(56, 230, 255, 0.10), transparent 60%),
+    radial-gradient(1100px 700px at 12% 110%, rgba(139, 108, 255, 0.14), transparent 60%),
+    var(--void);
+}
+
+/* The aperture: a slow-spinning conic ring, parked top-right. */
+body.interocitor::after {
+  content: '';
+  position: fixed;
+  top: -180px;
+  right: -180px;
+  width: 520px;
+  height: 520px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg,
+    transparent 0deg,
+    rgba(139, 108, 255, 0.55) 90deg,
+    transparent 120deg,
+    rgba(56, 230, 255, 0.5) 210deg,
+    transparent 240deg,
+    rgba(139, 108, 255, 0.45) 330deg,
+    transparent 360deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 64%, #000 65%, #000 78%, transparent 80%);
+          mask: radial-gradient(closest-side, transparent 64%, #000 65%, #000 78%, transparent 80%);
+  opacity: 0.6;
+  filter: blur(0.5px);
+  animation: interocitor-spin 36s linear infinite;
+}
+
+@keyframes interocitor-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  body.interocitor::after { animation: none; }
+}
+
+/* Lift the real UI above the backdrop. */
+body.interocitor > * { position: relative; z-index: 1; }
+
+/* ---- Header: floating console bar, no boxy border ---- */
+body.interocitor .topbar {
+  background: linear-gradient(180deg, rgba(5, 6, 15, 0.92), rgba(5, 6, 15, 0.4));
+  border-bottom: none;
+  backdrop-filter: blur(10px);
+  padding-top: 1.6rem;
+  padding-bottom: 1.6rem;
+}
+
+body.interocitor .brand {
+  position: relative;
+  padding-left: 2.5rem;
+  letter-spacing: 0.34em;
+}
+
+/* A small aperture mark to the left of the wordmark. */
+body.interocitor .brand::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1.7rem;
+  height: 1.7rem;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: conic-gradient(from 45deg, var(--violet), var(--cyan), var(--violet));
+  -webkit-mask: radial-gradient(closest-side, transparent 52%, #000 54%);
+          mask: radial-gradient(closest-side, transparent 52%, #000 54%);
+  box-shadow: var(--glow);
+}
+
+body.interocitor .brand-mark {
+  font-family: var(--display);
+  font-weight: 600;
+  background: linear-gradient(90deg, var(--ink-cosmic), var(--cyan));
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+body.interocitor .brand-sub {
+  color: var(--violet);
+  letter-spacing: 0.4em;
+}
+
+body.interocitor .ghost-button {
+  border-color: var(--panel-edge);
+  background: rgba(139, 108, 255, 0.06);
+  border-radius: 4px;
+  color: var(--ink-dim);
+}
+body.interocitor .ghost-button:hover,
+body.interocitor .ghost-button:focus-visible {
+  border-color: var(--violet);
+  color: var(--ink-cosmic);
+  box-shadow: var(--glow);
+  background: rgba(139, 108, 255, 0.12);
+}
+
+/* ---- Hybrid top strip: glowing console tabs ---- */
+body.interocitor .nav-strip {
+  background: rgba(10, 13, 30, 0.6);
+  border-bottom: 1px solid var(--panel-edge);
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+}
+body.interocitor .nav-strip-link {
+  color: var(--ink-dim);
+  letter-spacing: 0.22em;
+}
+body.interocitor .nav-strip-link:hover,
+body.interocitor .nav-strip-link:focus-visible {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+  text-shadow: 0 0 12px rgba(56, 230, 255, 0.6);
+}
+
+/* ---- Sidebar: dark glass rail ---- */
+body.interocitor .sidebar {
+  background: linear-gradient(180deg, rgba(18, 22, 44, 0.5), rgba(5, 6, 15, 0.2));
+  border-right: 1px solid var(--panel-edge);
+}
+body.interocitor .nav-title { color: var(--ink-cosmic); }
+body.interocitor .nav-summary { color: var(--ink-dim); }
+body.interocitor .nav a:hover .nav-title,
+body.interocitor .nav button:hover .nav-title { color: var(--cyan); }
+
+/* Active/section accents pick up the violet. */
+body.interocitor .nav .active,
+body.interocitor .nav [aria-current="page"] {
+  color: var(--cyan);
+}
+
+/* ---- Canvas + typography ---- */
+body.interocitor .canvas { color: var(--ink-cosmic); }
+
+body.interocitor .doc h1,
+body.interocitor .doc-content h1,
+body.interocitor h1 {
+  font-family: var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(92deg, var(--ink-cosmic), var(--violet) 60%, var(--cyan));
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+body.interocitor h2,
+body.interocitor h3 {
+  font-family: var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-cosmic);
+}
+body.interocitor h2 {
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--panel-edge);
+}
+
+body.interocitor a { color: var(--cyan); }
+body.interocitor a:hover { text-shadow: 0 0 10px rgba(56, 230, 255, 0.5); }
+
+/* Blockquote becomes a "prime directive" console callout. */
+body.interocitor blockquote {
+  border-left: 2px solid var(--cyan);
+  background: linear-gradient(90deg, rgba(56, 230, 255, 0.08), transparent);
+  padding: 1rem 1.25rem;
+  border-radius: 0 6px 6px 0;
+  box-shadow: inset 0 0 30px rgba(56, 230, 255, 0.05);
+  color: var(--ink-cosmic);
+}
+
+/* Code: terminal slab. */
+body.interocitor pre,
+body.interocitor code {
+  background: rgba(8, 10, 24, 0.85) !important;
+  border: 1px solid var(--panel-edge) !important;
+  color: var(--cyan);
+}
+body.interocitor pre { box-shadow: inset 0 0 40px rgba(139, 108, 255, 0.06); border-radius: 8px; }
+
+/* Tables: instrument readout. */
+body.interocitor table { border: 1px solid var(--panel-edge); }
+body.interocitor th {
+  background: rgba(139, 108, 255, 0.12);
+  color: var(--ink-cosmic);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: var(--display);
+}
+body.interocitor td, body.interocitor th { border-color: var(--panel-edge); }
+
+/* Footer: faint glowing rule. */
+body.interocitor .footnote {
+  border-top: 1px solid var(--panel-edge);
+  background: transparent;
+  color: var(--ink-dim);
+}
+
+/* ---- Command palette restyle ---- */
+body.interocitor .cmd-surface {
+  background: var(--panel);
+  border: 1px solid var(--violet);
+  box-shadow: var(--glow);
+  backdrop-filter: blur(14px);
+}
+body.interocitor .cmd-input { color: var(--ink-cosmic); }
+
+/* ============================================================
+   Custom hero (rendered from overview.html)
+   ============================================================ */
+body.interocitor .iox-hero {
+  position: relative;
+  padding: clamp(2rem, 6vw, 5rem) 0 2rem;
+  display: grid;
+  gap: 1.5rem;
+  max-width: 60rem;
+}
+body.interocitor .iox-eyebrow {
+  font-family: var(--display);
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  color: var(--cyan);
+}
+body.interocitor .iox-title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: 0.02em;
+  margin: 0;
+  text-transform: uppercase;
+  background: linear-gradient(100deg, var(--ink-cosmic), var(--violet) 55%, var(--cyan));
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+body.interocitor .iox-lede {
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+  color: var(--ink-dim);
+  max-width: 42rem;
+  line-height: 1.6;
+}
+body.interocitor .iox-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+body.interocitor .iox-chip {
+  font-family: var(--display);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--panel-edge);
+  border-radius: 999px;
+  color: var(--ink-cosmic);
+  background: rgba(139, 108, 255, 0.07);
+}
+body.interocitor .iox-chip strong { color: var(--cyan); font-weight: 600; }
+body.interocitor .iox-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.8rem 1.4rem;
+  width: max-content;
+  font-family: var(--display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  color: var(--void);
+  background: linear-gradient(92deg, var(--cyan), var(--violet));
+  border-radius: 6px;
+  box-shadow: var(--glow);
+}
+body.interocitor .iox-cta:hover { text-decoration: none; filter: brightness(1.08); }
+
+/* The hero aperture, inline, big. */
+body.interocitor .iox-aperture {
+  position: absolute;
+  right: -2rem;
+  top: 1rem;
+  width: clamp(8rem, 22vw, 18rem);
+  height: clamp(8rem, 22vw, 18rem);
+  border-radius: 50%;
+  background: conic-gradient(from 30deg, var(--violet), var(--cyan), var(--violet), var(--cyan), var(--violet));
+  -webkit-mask: radial-gradient(closest-side, transparent 58%, #000 60%, #000 76%, transparent 78%);
+          mask: radial-gradient(closest-side, transparent 58%, #000 60%, #000 76%, transparent 78%);
+  opacity: 0.85;
+  box-shadow: var(--glow);
+  animation: interocitor-spin 26s linear infinite reverse;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.interocitor .iox-aperture { animation: none; }
+}
+@media (max-width: 760px) {
+  body.interocitor .iox-aperture { display: none; }
+}

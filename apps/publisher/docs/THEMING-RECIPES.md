@@ -38,8 +38,9 @@ thing — not just a screenshot:
 > **Where recipes get their content.** The color/style/nav recipes share one
 > small docs set in [`../examples/content-base/`](../examples/content-base/) and
 > override only their branding/theme/layout via the registry's inline `config`.
-> The [interocitor showcase](#fully-custom-showcase-interocitor) has its own
-> richer content under [`../examples/interocitor/`](../examples/interocitor/).
+> The [interocitor showcase](#fully-bespoke-showcase-interocitor) goes beyond
+> config — its own content, overlay stylesheet, and overrides under
+> [`../examples/interocitor/`](../examples/interocitor/).
 
 ---
 
@@ -188,38 +189,36 @@ from the tenant's manifest — no extra config.
 
 ---
 
-## Fully-custom showcase: Interocitor
+## Fully-bespoke showcase: Interocitor
 
-A complete, opinionated tenant for a fictitious deep-tech company that builds
-**interociters** — proof of how far the look can be pushed with config alone. It
-combines a **custom dark `theme` object**, a `hybrid` nav layout, custom fonts,
-and a bespoke wordmark and tagline. Same toolkit, same build, zero forks.
+The recipes above are **config-only**. This one is the other tier: a tenant that
+bears **no resemblance to the default shell** — a deep-space instrument console
+for a fictitious company that builds **interociters** — yet still uses nothing
+but Pagenary's own tools. No generator fork, `src/` untouched.
 
 ![Interocitor showcase](images/recipes/recipe-interocitor.png)
 
-```json
-{
-  "title": "Interocitor Labs — Deep-Tech Communications",
-  "brandMark": "INTEROCITOR",
-  "brandSub": "Labs",
-  "tagline": "We build interociters. You reach across the void.",
-  "navPosition": "hybrid",
-  "fontBody": "'Space Grotesk', 'IBM Plex Sans', -apple-system, sans-serif",
-  "fontMono": "'IBM Plex Mono', ui-monospace, monospace",
-  "theme": {
-    "colorScheme": "dark",
-    "surface": "#070b16",
-    "ink": "#e6ecff",
-    "muted": "#8a93b5",
-    "accent": "#7c5cff",
-    "gridLine": "rgba(124, 92, 255, 0.18)",
-    "sidebarBg": "#0b1020"
-  }
-}
-```
+It layers three mechanisms on top of the config theme:
 
-The full config (every theme key) is in
-[`../examples/interocitor/config.json`](../examples/interocitor/config.json).
+| Mechanism | What it does here |
+| --- | --- |
+| `config.json` | Custom dark `theme` object, `hybrid` nav, custom fonts, wordmark |
+| [`overrides/`](../examples/interocitor/overrides/index.html) | Replaces `index.html` to link a bespoke overlay stylesheet (and tag `<body class="interocitor">`) |
+| [`.public/`](../examples/interocitor/.public/interocitor.css) | Ships `interocitor.css` — restyles header, nav, rail, type, tables, code, and adds the focal-triad aperture motif |
+| Custom content | [`overview.html`](../examples/interocitor/content/overview.html) is a hand-authored hero, not the stock doc layout |
+
+The base stylesheet still provides all the *behavior* (routing, command palette,
+search, mobile nav); the overlay only restyles the *look*. Every Pagenary control
+still works — try Quick Find on the [live demo](https://docs.pagenary.com/interocitor/).
+
+The config is in
+[`../examples/interocitor/config.json`](../examples/interocitor/config.json); the
+overlay stylesheet in
+[`../examples/interocitor/.public/interocitor.css`](../examples/interocitor/.public/interocitor.css).
+
+> **Two tiers, one toolkit.** Reach for config for the common cases above; reach
+> for `overrides/` + `.public/` + custom content when you need a wholly distinct
+> product surface like this one.
 
 ---
 

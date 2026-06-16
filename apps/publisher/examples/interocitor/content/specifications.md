@@ -9,8 +9,8 @@ the emitter count and power budget; the geometry stays the same.
 | --- | --- |
 | Focal emitters | 3 (matched set) |
 | Reference oscillator | Single, thermally stabilized |
-| Phase error (calibrated) | &lt; 2 mrad across triad |
-| Settling time | &lt; 400 ms, range-independent |
+| Phase error (calibrated) | < 2 mrad across triad |
+| Settling time | < 400 ms, range-independent |
 | Aperture diameter | ~14 mm at focus |
 
 ## Power

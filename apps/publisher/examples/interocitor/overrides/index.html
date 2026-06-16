@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Docs Toolkit</title>
+    <meta name="description" content="Reusable documentation toolkit for multi-tenant services." />
+    <script>
+      // Resolve all asset/module URLs against the tenant root in both deploy
+      // modes: domain-per-tenant at root (production, with SPA fallback) and a
+      // subpath mount such as /<tenant>/ (the dev preview server). The tenant id
+      // is injected at build time. On a domain root the path never starts with
+      // "/<tenant>/", so the base falls back to "/". For the un-replaced default
+      // build the placeholder starts with "_", which also yields "/".
+      (function () {
+        var t = "__PAGENARY_TENANT__";
+        var p = location.pathname;
+        var base = t && p.indexOf("/" + t + "/") === 0 ? "/" + t + "/" : "/";
+        document.write('<base href="' + base + '">');
+      })();
+    </script>
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./assets/interocitor.css" />
+  </head>
+  <body class="interocitor">
+    <a class="skip-link" href="#app">Skip to content</a>
+    <header class="shell topbar">
+      <button type="button" id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span class="menu-icon"></span>
+      </button>
+      <div class="brand">
+        <span class="brand-mark">Docs</span>
+        <span class="brand-sub">Toolkit</span>
+      </div>
+      <div class="top-actions">
+        <button type="button" id="commandToggle" class="ghost-button" aria-haspopup="dialog" aria-controls="commandPalette">
+          <span class="ghost-icon">⌘K</span>
+          <span class="ghost-label">Quick Find</span>
+        </button>
+        <button type="button" id="exportBtn" class="ghost-button">
+          <span class="ghost-icon">⇣</span>
+          <span class="ghost-label">Export</span>
+        </button>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar" aria-label="Section navigation">
+        <div class="sidebar-inner">
+          <nav id="nav" class="nav" aria-label="Primary"></nav>
+        </div>
+      </aside>
+      <main id="app" class="canvas" tabindex="-1" aria-live="polite"></main>
+    </div>
+    <footer class="shell footnote">
+      <span>© <span id="year"></span> Modular Documentation Toolkit</span>
+      <span class="divider"></span>
+      <span>Reusable patterns for multi-tenant services.</span>
+    </footer>
+    <div id="commandPalette" class="cmd" role="dialog" aria-modal="true" aria-labelledby="commandLabel" hidden>
+      <div class="cmd-surface" role="document">
+        <div class="cmd-header">
+          <label id="commandLabel" class="cmd-title" for="commandInput">Jump to section</label>
+          <input id="commandInput" class="cmd-input" type="search" name="query" autocomplete="off" placeholder="Start typing…" />
+        </div>
+        <ul id="commandList" class="cmd-list" role="listbox"></ul>
+      </div>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
