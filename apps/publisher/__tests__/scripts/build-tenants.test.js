@@ -774,6 +774,44 @@ describe('build-tenants.js', () => {
       expect(has('sections/docs-map.js')).toBe(false);
       expect(manifest).not.toMatch(/"id":\s*"docs-map"/);
     });
+
+    test('rich corpus: embeds a concept graph with edges + communities', async () => {
+      const manifest = {
+        default: 'auth',
+        sections: [
+          { id: 'concepts', title: 'Concepts', sections: [
+            { id: 'auth', title: 'Authentication', file: 'auth.md' }
+          ] },
+          { id: 'guides', title: 'Guides', sections: [
+            { id: 'keys', title: 'API Keys', file: 'keys.md' },
+            { id: 'errors', title: 'Errors', file: 'errors.md' }
+          ] }
+        ]
+      };
+      const content = {
+        'auth.md': '# Authentication\nAuthentication authorizes requests using keys. Failures return errors.',
+        'keys.md': '# API Keys\nAPI keys authorize requests. Authentication uses keys under rate limits.',
+        'errors.md': '# Errors\nErrors share one shape. Authentication failures and rate limit errors.'
+      };
+      dmDir = await createTestTenant(DM_ID, { docsMap: { enabled: true } }, manifest, content);
+      const res = await runBuildTenantsWithRegistry([{ id: DM_ID }]);
+      expect(res.code).toBe(0);
+
+      const dist = path.join(PUBLISHER_ROOT, 'dist', DM_ID);
+      expect(fs.existsSync(path.join(dist, 'docs-map-data.js'))).toBe(true);
+
+      const data = await fsp.readFile(path.join(dist, 'docs-map-data.js'), 'utf8');
+      const m = data.match(/^export const DOCS_MAP_GRAPH = (.+);$/m);
+      expect(m).not.toBeNull();
+      const graph = JSON.parse(m[1]);
+      expect(graph.nodes.length).toBe(3);
+      expect(graph.edges.length).toBeGreaterThan(0);     // concept-derived edges
+      expect(graph.communities.length).toBe(2);          // Concepts + Guides
+
+      const sect = await fsp.readFile(path.join(dist, 'sections', 'docs-map.js'), 'utf8');
+      expect(sect).toMatch(/docs-map-data\.js/);
+      expect(sect).toMatch(/loadDocsMap/);
+    });
   });
 
   describe('error handling', () => {

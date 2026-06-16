@@ -104,10 +104,8 @@
     },
     {
       "id": "docs-map",
-      "source": { "type": "local", "path": "./examples/content-base" },
+      "source": { "type": "local", "path": "./examples/docs-map-corpus" },
       "config": {
-        "brandMark": "Mapped",
-        "brandSub": "Docs",
         "docsMap": { "enabled": true }
       }
     },

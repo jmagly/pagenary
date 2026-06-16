@@ -10,6 +10,8 @@ import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-
 import { generateCollections } from './lib/collections-generator.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
 import { generateSearchIndex } from './lib/search-index-generator.js';
+import { buildFortemiIndexExport, stripHtml } from '../src/lib/fortemi-corpus.js';
+import { aiwgFortemiIndexToCommunityGraph } from '../src/vendor/fortemi-aiwg-index.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = process.cwd();
@@ -1271,11 +1273,33 @@ async function applyDocsMap(distDir, config, tenantId) {
 
   const sectionsDir = path.join(distDir, 'sections');
   await fsp.mkdir(sectionsDir, { recursive: true });
-  await fsp.writeFile(
-    path.join(sectionsDir, 'docs-map.js'),
-    "export { load } from '../lib/docs-map.js';\n",
-    'utf8'
-  );
+
+  // Compute the relationship graph at build time, where full page text is
+  // available (the runtime only sees title+summary). Concepts are extracted
+  // from each page's body and shared concepts become communities + edges.
+  const graphArtifact = await buildDocsMapGraph(distDir, tenantId);
+  if (graphArtifact) {
+    await fsp.writeFile(
+      path.join(distDir, 'docs-map-data.js'),
+      `export const DOCS_MAP_GRAPH = ${JSON.stringify(graphArtifact.graph)};\n` +
+      `export const DOCS_MAP_LABELS = ${JSON.stringify(graphArtifact.labels)};\n`,
+      'utf8'
+    );
+    await fsp.writeFile(
+      path.join(sectionsDir, 'docs-map.js'),
+      "import { DOCS_MAP_GRAPH, DOCS_MAP_LABELS } from '../docs-map-data.js';\n" +
+      "import { loadDocsMap } from '../lib/docs-map.js';\n" +
+      'export const load = () => loadDocsMap(DOCS_MAP_GRAPH, DOCS_MAP_LABELS);\n',
+      'utf8'
+    );
+  } else {
+    // No content to analyze — fall back to the runtime (MANIFEST-derived) graph.
+    await fsp.writeFile(
+      path.join(sectionsDir, 'docs-map.js'),
+      "export { load } from '../lib/docs-map.js';\n",
+      'utf8'
+    );
+  }
 
   const title = typeof docsMap.title === 'string' ? docsMap.title : 'Docs Map';
   const entry = [
@@ -1298,6 +1322,85 @@ async function applyDocsMap(distDir, config, tenantId) {
   }
   await fsp.writeFile(manifestPath, js, 'utf8');
   console.log(`  ↳ wired docs-map view for ${tenantId}`);
+}
+
+/**
+ * Flatten built MANIFEST entries to navigable leaf pages, carrying the parent
+ * group title so the Fortemi record gets a structural group concept.
+ */
+function flattenDocsMapEntries(entries, parentGroup = '') {
+  const out = [];
+  for (const entry of entries || []) {
+    if (!entry || typeof entry !== 'object') continue;
+    const subs = entry.subsections || entry.sections;
+    if (entry.module && entry.id) {
+      out.push({
+        id: entry.id,
+        title: entry.title || entry.id,
+        summary: entry.summary || '',
+        group: parentGroup || entry.title || 'Documentation',
+        type: 'docs.page'
+      });
+    }
+    if (Array.isArray(subs) && subs.length) {
+      out.push(...flattenDocsMapEntries(subs, entry.title || parentGroup));
+    }
+  }
+  return out;
+}
+
+/** Extract the rendered page body from a built section module, as plain text. */
+async function readSectionBodyText(sectionsDir, sectionId) {
+  const file = path.join(sectionsDir, `${sectionId}.js`);
+  if (!(await pathExists(file))) return '';
+  const src = await fsp.readFile(file, 'utf8');
+  // Built .md modules store HTML as a JSON string: `return { html: "..." }`.
+  const json = src.match(/html:\s*("(?:\\.|[^"\\])*")/);
+  if (json) {
+    try {
+      return stripHtml(JSON.parse(json[1]));
+    } catch {
+      /* fall through */
+    }
+  }
+  return '';
+}
+
+/**
+ * Build the docs-map community graph from the tenant's actual page content.
+ * Concepts are extracted from each page's full text and shared concepts become
+ * both communities and `related` edges (see fortemi-corpus). Returns null when
+ * there is too little content to map, so the caller can fall back to runtime.
+ */
+async function buildDocsMapGraph(distDir, tenantId) {
+  const entries = await readTenantManifestEntries(distDir);
+  const sections = flattenDocsMapEntries(entries).filter((s) => s.id !== 'docs-map');
+  if (sections.length < 2) return null;
+
+  const sectionsDir = path.join(distDir, 'sections');
+  const corpus = [];
+  for (const section of sections) {
+    const body = await readSectionBodyText(sectionsDir, section.id);
+    const text = body || `${section.title} ${section.summary}`.trim();
+    corpus.push({ section, text });
+  }
+
+  const { index } = buildFortemiIndexExport(corpus, {
+    repo: tenantId,
+    extractConcepts: true,
+    relateByConcept: true
+  });
+  // Communities cluster by nav group (a handful of clean clusters); the
+  // extracted concepts drive the cross-cutting `related` edges between them.
+  const graph = aiwgFortemiIndexToCommunityGraph(index, { communityFacet: 'group' });
+  if (!graph.nodes || graph.nodes.length < 2) return null;
+
+  const labels = sections.map((s) => [s.id, s.title]);
+  console.log(
+    `  ↳ docs-map graph for ${tenantId}: ${graph.nodes.length} nodes, ` +
+    `${graph.edges.length} edges, ${graph.communities.length} communities`
+  );
+  return { graph, labels };
 }
 
 const NAV_POSITIONS = new Set(['left', 'right', 'top', 'bottom', 'hybrid']);

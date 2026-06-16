@@ -135,7 +135,7 @@ export function renderDocsMap(container, graph, opts = {}) {
     label.setAttribute('text-anchor', 'middle');
     label.setAttribute('class', 'docs-map-community');
     label.setAttribute('fill', `hsl(${hue(anchor.index)} 60% 55%)`);
-    label.textContent = String(anchor.id).replace(/^concept:/, '').replace(/[-_]/g, ' ');
+    label.textContent = String(anchor.id).replace(/^[a-z]+:/, '').replace(/[-_]/g, ' ');
     svg.appendChild(label);
   });
 
@@ -177,23 +177,49 @@ export function renderDocsMap(container, graph, opts = {}) {
   container.appendChild(svg);
 }
 
+const DOCS_MAP_HTML = [
+  '<section class="section doc">',
+  '  <div class="doc-content">',
+  '    <header>',
+  '      <p class="eyebrow">Overview</p>',
+  '      <h1>Docs Map</h1>',
+  '      <p class="lead">How these pages cluster and relate. Click a node to jump to it.</p>',
+  '    </header>',
+  '    <div id="docsMapRoot" class="docs-map"></div>',
+  '  </div>',
+  '</section>'
+].join('\n');
+
+/**
+ * Render a pre-built graph embedded at build time. The build extracts concepts
+ * from full page text (which the runtime, seeing only title+summary, cannot),
+ * so the embedded graph has richer communities and concept-derived edges.
+ *
+ * @param {object} graph - { nodes, edges, communities }
+ * @param {Array<[string,string]>|Record<string,string>} [labels] - id → title
+ * @returns {{ html: string, afterRender: (app: Element) => void }}
+ */
+export function loadDocsMap(graph, labels) {
+  const labelMap = labels instanceof Map
+    ? labels
+    : new Map(Array.isArray(labels) ? labels : Object.entries(labels || {}));
+  return {
+    html: DOCS_MAP_HTML,
+    afterRender(app) {
+      const root = app.querySelector('#docsMapRoot');
+      if (!root) return;
+      renderDocsMap(root, graph || { nodes: [], edges: [], communities: [] }, {
+        labelFor: (nodeId) => labelMap.get(sectionIdFromNode(nodeId)) || sectionIdFromNode(nodeId),
+        onNavigate: (sectionId) => { location.hash = `#${sectionId}`; }
+      });
+    }
+  };
+}
+
 /** Section-module entry point. Computes the graph client-side from MANIFEST. */
 export async function load() {
-  const html = [
-    '<section class="section doc">',
-    '  <div class="doc-content">',
-    '    <header>',
-    '      <p class="eyebrow">Overview</p>',
-    '      <h1>Docs Map</h1>',
-    '      <p class="lead">How these pages cluster and relate. Click a node to jump to it.</p>',
-    '    </header>',
-    '    <div id="docsMapRoot" class="docs-map"></div>',
-    '  </div>',
-    '</section>'
-  ].join('\n');
-
   return {
-    html,
+    html: DOCS_MAP_HTML,
     afterRender(app) {
       const root = app.querySelector('#docsMapRoot');
       if (!root) return;

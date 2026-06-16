@@ -182,9 +182,19 @@ readers can see how the docs relate. It appears in the nav and at `#docs-map`.
 { "docsMap": { "enabled": true } }
 ```
 
-The graph is computed client-side from the manifest (no server, no React); small
-or empty corpora render a friendly placeholder. When disabled, nothing is
-emitted.
+The graph is computed **at build time** from your actual page content. Each
+page's body is run through a concept-extraction procedure (the same Fortemi
+model that powers search): pages cluster into communities by nav group, and
+pages that share salient concepts are linked with `related` edges. The richer
+and more cross-referenced your docs, the denser the graph. The build embeds the
+result as `docs-map-data.js` and the page renders it client-side (no server, no
+React). Tenants with too little content fall back to a lightweight
+manifest-derived graph, and small or empty corpora render a friendly
+placeholder. When disabled, nothing is emitted.
+
+> See `examples/docs-map-corpus/` (the **docs-map** recipe) for a fully
+> cross-linked sample corpus — 14 interconnected pages that produce a graph of
+> 5 clusters and dozens of concept edges.
 
 #### SEO (`seo`)
 

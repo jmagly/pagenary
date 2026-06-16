@@ -10,12 +10,15 @@ import {
   normalizeFacetValue,
   recordToSectionId,
   stableHash,
+  extractConcepts,
+  addConceptRelationships,
   DEFAULT_PART_SIZE
 } from '../../../src/lib/fortemi-corpus.js';
 import {
   validateAiwgFortemiIndexExport,
   validateAiwgFortemiChunkManifest,
-  validateAiwgFortemiChunkPart
+  validateAiwgFortemiChunkPart,
+  aiwgFortemiIndexToCommunityGraph
 } from '../../../src/vendor/fortemi-aiwg-index.js';
 
 const SECTIONS = [
@@ -127,6 +130,94 @@ describe('fortemi-corpus', () => {
       expect(manifest.total).toBe(0);
       expect(parts).toHaveLength(1);
       expect(validateAiwgFortemiChunkManifest(manifest).valid).toBe(true);
+    });
+  });
+
+  describe('extractConcepts (defined procedure)', () => {
+    test('ranks salient terms, drops stopwords and short tokens', () => {
+      const text = 'Authentication authorizes requests. Authentication uses API keys. '
+        + 'The errors shape is shared. With this and that, you should keep it.';
+      const concepts = extractConcepts(text, { max: 4 });
+      expect(concepts).toContain('authentication'); // most frequent
+      expect(concepts).not.toContain('the');         // stopword
+      expect(concepts).not.toContain('and');          // stopword
+      expect(concepts.every((c) => c.length >= 4)).toBe(true);
+    });
+
+    test('is deterministic and capped, output sorted', () => {
+      const text = 'webhooks events retries webhooks events webhooks rate limits errors';
+      const a = extractConcepts(text, { max: 3 });
+      const b = extractConcepts(text, { max: 3 });
+      expect(a).toEqual(b);
+      expect(a.length).toBeLessThanOrEqual(3);
+      expect([...a]).toEqual([...a].sort()); // returned sorted
+    });
+
+    test('empty / whitespace text yields no concepts', () => {
+      expect(extractConcepts('')).toEqual([]);
+      expect(extractConcepts('   ')).toEqual([]);
+      expect(extractConcepts(null)).toEqual([]);
+    });
+  });
+
+  describe('addConceptRelationships', () => {
+    test('relates records that share concepts, capped per record', () => {
+      const items = [
+        { id: 'a', relationships: [] },
+        { id: 'b', relationships: [] },
+        { id: 'c', relationships: [] },
+        { id: 'd', relationships: [] }
+      ];
+      const concepts = [
+        ['auth', 'errors'],   // a
+        ['auth', 'keys'],     // b shares auth with a
+        ['errors', 'rate'],   // c shares errors with a
+        ['unrelated']         // d shares nothing
+      ];
+      addConceptRelationships(items, concepts, { maxRelations: 2 });
+      const targets = (id) => items.find((i) => i.id === id).relationships.map((r) => r.target_id);
+      expect(targets('a')).toEqual(expect.arrayContaining(['b', 'c']));
+      expect(targets('d')).toEqual([]); // no shared concepts
+      items.forEach((i) => expect(i.relationships.length).toBeLessThanOrEqual(2));
+      items.forEach((i) => i.relationships.forEach((r) => expect(r.type).toBe('related')));
+    });
+  });
+
+  describe('buildFortemiIndexExport with concept options', () => {
+    const rich = [
+      { section: { id: 'auth', title: 'Authentication', group: 'Concepts' },
+        text: 'Authentication authorizes requests using keys. Failures return errors.' },
+      { section: { id: 'keys', title: 'API Keys', group: 'Guides' },
+        text: 'API keys authorize requests. Keep keys under rate limits. Authentication uses keys.' },
+      { section: { id: 'errors', title: 'Errors', group: 'Guides' },
+        text: 'Errors share one shape. Authentication failures and rate limit errors included.' }
+    ];
+
+    test('default build adds no relationships and is still valid', () => {
+      const { index } = buildFortemiIndexExport(rich);
+      expect(validateAiwgFortemiIndexExport(index).valid).toBe(true);
+      index.items.forEach((it) => expect(it.relationships).toEqual([]));
+    });
+
+    test('extractConcepts merges content concepts into records', () => {
+      const { index } = buildFortemiIndexExport(rich, { extractConcepts: true });
+      expect(validateAiwgFortemiIndexExport(index).valid).toBe(true);
+      const auth = index.items.find((i) => i.id === 'docs:page:auth');
+      expect(auth.concepts).toContain('authentication');
+      // structural concepts still present
+      expect(auth.concepts).toContain('concepts');
+    });
+
+    test('relateByConcept yields a connected community graph with edges', () => {
+      const { index } = buildFortemiIndexExport(rich, {
+        extractConcepts: true,
+        relateByConcept: true
+      });
+      expect(validateAiwgFortemiIndexExport(index).valid).toBe(true);
+      const graph = aiwgFortemiIndexToCommunityGraph(index, { communityFacet: 'group' });
+      expect(graph.nodes.length).toBe(3);
+      expect(graph.edges.length).toBeGreaterThan(0);   // concept-derived edges
+      expect(graph.communities.length).toBe(2);        // Concepts + Guides
     });
   });
 });

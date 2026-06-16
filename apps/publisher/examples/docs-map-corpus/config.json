@@ -1,0 +1,9 @@
+{
+  "title": "Lumen API — Docs Map demo",
+  "brandMark": "Lumen",
+  "brandSub": "API",
+  "description": "A fictional API platform whose richly cross-linked docs power the Pagenary docs-map demo.",
+  "tagline": "Interconnected docs, visualized.",
+  "accentColor": "#2563eb",
+  "docsMap": { "enabled": true, "title": "Docs Map" }
+}

@@ -1,0 +1,52 @@
+{
+  "default": "overview",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "summary": "What Lumen is and how the pieces fit together.",
+      "file": "overview.md"
+    },
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "summary": "From zero to your first API call.",
+      "sections": [
+        { "id": "quickstart", "title": "Quickstart", "summary": "The fastest path to a working request.", "file": "quickstart.md" },
+        { "id": "installation", "title": "Installation", "summary": "Install the CLI and SDKs.", "file": "installation.md" },
+        { "id": "first-request", "title": "Your First Request", "summary": "Call an endpoint and read the response.", "file": "first-request.md" }
+      ]
+    },
+    {
+      "id": "concepts",
+      "title": "Core Concepts",
+      "summary": "The model behind the API.",
+      "sections": [
+        { "id": "resources", "title": "Resources", "summary": "The objects you read and write.", "file": "resources.md" },
+        { "id": "authentication", "title": "Authentication", "summary": "How requests are authorized.", "file": "authentication.md" },
+        { "id": "webhooks", "title": "Webhooks", "summary": "Receive events as they happen.", "file": "webhooks.md" }
+      ]
+    },
+    {
+      "id": "guides",
+      "title": "Guides",
+      "summary": "Task-focused walkthroughs.",
+      "sections": [
+        { "id": "api-keys", "title": "API Keys", "summary": "Create, scope, and rotate keys.", "file": "api-keys.md" },
+        { "id": "oauth", "title": "OAuth", "summary": "Delegated access for third parties.", "file": "oauth.md" },
+        { "id": "pagination", "title": "Pagination", "summary": "Page through large result sets.", "file": "pagination.md" },
+        { "id": "rate-limits", "title": "Rate Limits", "summary": "Quotas and how to stay under them.", "file": "rate-limits.md" },
+        { "id": "errors", "title": "Errors", "summary": "Error shapes and how to handle them.", "file": "errors.md" }
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "Reference",
+      "summary": "Lookup material.",
+      "sections": [
+        { "id": "events", "title": "Event Types", "summary": "Every webhook event Lumen emits.", "file": "events.md" },
+        { "id": "configuration", "title": "Configuration", "summary": "Environment and client options.", "file": "configuration.md" }
+      ]
+    }
+  ]
+}
