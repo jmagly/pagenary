@@ -1593,12 +1593,25 @@ function markdownToHtml(markdown, linkContext = null) {
   let codeBlockLang = '';
   let inTable = false;
   let tableRows = [];
+  let paragraphLines = [];
   const headingIds = new Map(); // Track heading IDs for uniqueness
 
   function closeList() {
     if (inList) {
       chunks.push('</ul>');
       inList = false;
+    }
+  }
+
+  // Flush buffered paragraph lines as a single <p>. Consecutive non-blank text
+  // lines are joined with a space (CommonMark soft-wrap), so a paragraph that
+  // was hard-wrapped in the source renders as one paragraph instead of one <p>
+  // per line (which the grid gap was spacing out — the "awkward line spacing").
+  function closeParagraph() {
+    if (paragraphLines.length > 0) {
+      const joined = paragraphLines.join(' ').replace(/\s+/g, ' ').trim();
+      if (joined) chunks.push(`<p>${parseInlineMarkdown(joined, linkContext)}</p>`);
+      paragraphLines = [];
     }
   }
 
@@ -1727,6 +1740,7 @@ function markdownToHtml(markdown, linkContext = null) {
         codeBlockLang = '';
       } else {
         // Start code block
+        closeParagraph();
         closeList();
         closeBlockquote();
         inCodeBlock = true;
@@ -1741,6 +1755,7 @@ function markdownToHtml(markdown, linkContext = null) {
     }
 
     if (!line) {
+      closeParagraph();
       closeList();
       closeBlockquote();
       continue;
@@ -1748,6 +1763,7 @@ function markdownToHtml(markdown, linkContext = null) {
 
     const headingMatch = /^(#{1,6})\s+(.*)$/.exec(line);
     if (headingMatch) {
+      closeParagraph();
       closeList();
       closeBlockquote();
       closeTable();
@@ -1765,6 +1781,7 @@ function markdownToHtml(markdown, linkContext = null) {
 
     const listMatch = /^[-*+]\s+(.*)$/.exec(line);
     if (listMatch) {
+      closeParagraph();
       closeBlockquote();
       closeTable();
       if (!inList) {
@@ -1778,6 +1795,7 @@ function markdownToHtml(markdown, linkContext = null) {
 
     const quoteMatch = /^>\s?(.*)$/.exec(line);
     if (quoteMatch) {
+      closeParagraph();
       closeList();
       closeTable();
       openBlockquote();
@@ -1788,6 +1806,7 @@ function markdownToHtml(markdown, linkContext = null) {
 
     // Table row: starts with |
     if (line.startsWith('|')) {
+      closeParagraph();
       closeList();
       closeBlockquote();
       inTable = true;
@@ -1802,6 +1821,7 @@ function markdownToHtml(markdown, linkContext = null) {
 
     // Horizontal rule: ---, ***, or ___
     if (/^[-*_]{3,}$/.test(line)) {
+      closeParagraph();
       closeList();
       closeBlockquote();
       chunks.push('<hr>');
@@ -1810,8 +1830,8 @@ function markdownToHtml(markdown, linkContext = null) {
 
     closeList();
     closeBlockquote();
-    const paragraph = parseInlineMarkdown(line, linkContext);
-    chunks.push(`<p>${paragraph}</p>`);
+    // Buffer the line; consecutive text lines flush together as one paragraph.
+    paragraphLines.push(line);
   }
 
   // Close any open code block
@@ -1821,6 +1841,7 @@ function markdownToHtml(markdown, linkContext = null) {
     chunks.push(`<pre><code${langAttr}>${escapedCode}</code></pre>`);
   }
 
+  closeParagraph();
   closeList();
   closeBlockquote();
   closeTable();
