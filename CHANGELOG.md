@@ -6,7 +6,7 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
-## [2026.6.9] - 2026-06-15
+## [2026.6.9] - 2026-06-16
 
 ### Added
 
@@ -36,6 +36,48 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
   [`docs/TENANT-CONFIG.md`](apps/publisher/docs/TENANT-CONFIG.md), which also
   gains the previously-undocumented `theme`/`inkColor`/`mutedColor`/
   `gridLineColor`/`fontBody`/`fontMono` keys.
+- **Docs Map relationship view (#33).** Opt-in `docsMap.enabled` adds a
+  standalone, framework-free SVG view of how a tenant's pages relate. The build
+  runs each page's full body through a concept-extraction procedure (the same
+  Fortemi model that powers search): pages cluster into communities by nav group
+  and pages that share salient concepts are linked with `related` edges, then
+  the graph is embedded as `docs-map-data.js` and rendered client-side (sparse
+  tenants fall back to a manifest-derived graph). The new
+  `examples/docs-map-corpus/` recipe is a 14-page interconnected "Lumen API"
+  sample that produces 5 clusters and dozens of concept edges.
+- **Runtime theme/color picker (#35).** Opt-in `themePicker` emits a per-theme
+  stylesheet for each selectable theme and injects a `<select>` control that
+  swaps the active stylesheet, persists the choice to `localStorage`, and
+  honors `prefers-color-scheme` on first load — no rebuild required.
+- **GFM autolinks (#34).** The markdown parser now linkifies angle-bracket
+  autolinks (`<https://…>`, `<mailto:…>`) and bare URLs in prose, without
+  double-wrapping existing `[label](url)` links or touching fenced code.
+- **Bespoke Interocitor showcase (#36).** The Interocitor Labs example now
+  demonstrates a fully-custom look that shares Pagenary's controls/data but
+  bears no resemblance to the defaults — built with a `.public/` CSS overlay and
+  post-build `overrides/`, the supported deep-customization path.
+
+### Changed
+
+- **Cloudflare edge-cache purge on deploy (#37).** The docsite deploy now purges
+  the Cloudflare edge cache after publishing (guarded on `CLOUDFLARE_ZONE_ID` +
+  `CLOUDFLARE_API_TOKEN`), so edits to stable filenames are visible immediately
+  instead of after the 4-hour TTL. Cache guidance in
+  [`docs/DEPLOYMENT.md`](apps/publisher/docs/DEPLOYMENT.md) corrected.
+
+### Fixed
+
+- **App-shell clipping on orientation change & short viewports.** The mobile
+  layout used a static `calc(100vh - 120px)` that overflowed the real
+  header+footer height (chopping content and the footer when rotating between
+  portrait and landscape). Replaced with the grid app-shell's natural `1fr`
+  sizing plus dynamic-viewport (`dvh`) units, and gave the scroll canvas
+  `align-content: start` so tall sections are no longer clipped to the
+  container height.
+- **Awkward line spacing from soft-wrapped markdown.** Source lines within a
+  paragraph were each emitted as a separate `<p>`, so the inter-paragraph grid
+  gap appeared mid-sentence. Soft-wrapped lines are now merged into one
+  paragraph; blank lines still separate paragraphs.
 
 ## [2026.6.8] - 2026-06-15
 
