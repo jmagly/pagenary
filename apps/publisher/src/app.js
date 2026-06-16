@@ -533,8 +533,64 @@ function focusCanvas() {
   requestAnimationFrame(() => app.focus());
 }
 
+// Runtime theme picker (#35). No-op unless the build injected the control
+// (config.themePicker.enabled). Swaps the stylesheet <link> href, persists the
+// choice to localStorage, and honors prefers-color-scheme on first visit.
+function initThemePicker() {
+  const select = document.getElementById('themePicker');
+  const link = document.getElementById('themeStylesheet');
+  if (!select || !link) return;
+
+  let themes;
+  try {
+    themes = JSON.parse(select.dataset.themes || '[]');
+  } catch {
+    return;
+  }
+  if (!Array.isArray(themes) || themes.length === 0) return;
+
+  const STORAGE_KEY = 'pagenary:theme';
+  const fileFor = (name) => {
+    const t = themes.find((entry) => entry.name === name);
+    return t ? t.file : null;
+  };
+
+  function apply(name) {
+    const file = fileFor(name);
+    if (!file) return;
+    link.setAttribute('href', file);
+    select.value = name;
+  }
+
+  let stored = null;
+  try {
+    stored = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    stored = null;
+  }
+
+  const prefersDark = window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initial = (stored && fileFor(stored)) ? stored
+    : (prefersDark && fileFor('dark')) ? 'dark'
+    : (select.dataset.default && fileFor(select.dataset.default)) ? select.dataset.default
+    : themes[0].name;
+
+  apply(initial);
+
+  select.addEventListener('change', () => {
+    apply(select.value);
+    try {
+      localStorage.setItem(STORAGE_KEY, select.value);
+    } catch {
+      /* storage unavailable — selection still applies for this session */
+    }
+  });
+}
+
 function boot() {
   initNav();
+  initThemePicker();
   if (highlightQuery) {
     pendingHighlightScroll = true;
   }

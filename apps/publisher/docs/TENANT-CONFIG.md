@@ -140,6 +140,33 @@ horizontal primary strip (built from your top-level sections) above the left
 rail. See the [Theming Recipes gallery](THEMING-RECIPES.md) for screenshots of
 each.
 
+#### Theme picker (runtime)
+
+Opt-in `themePicker` adds a header control that lets readers switch theme at
+runtime; the choice persists in `localStorage` and the first visit honors the
+reader's `prefers-color-scheme`.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `themePicker.enabled` | boolean | `false` | Add the picker control |
+| `themePicker.themes` | string[] | `["light","dark","matrix"]` | Selectable themes — presets and/or `"custom"` (your `theme` object) |
+| `themePicker.default` | string | `theme` or `light` | Theme shown on first visit |
+
+```json
+{
+  "themePicker": {
+    "enabled": true,
+    "themes": ["light", "dark", "matrix"],
+    "default": "light"
+  }
+}
+```
+
+The build emits one full stylesheet per selectable theme (`theme-<name>.css`)
+and swaps the active `<link>` at runtime, so switching is instant and
+pixel-correct (including code blocks and tables). When disabled, no control,
+script behavior, or extra stylesheets are emitted.
+
 #### SEO (`seo`)
 
 The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,

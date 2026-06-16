@@ -113,6 +113,32 @@ a:focus {
   color: var(--muted);
 }
 
+/* Runtime theme picker (#35) — injected into .top-actions when enabled. */
+.theme-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.theme-picker-select {
+  border: 1px solid var(--grid-line);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  padding: 0.4rem 0.6rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.theme-picker-select:hover,
+.theme-picker-select:focus-visible {
+  border-color: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.04);
+}
+
 .brand {
   display: flex;
   align-items: baseline;

@@ -33,6 +33,7 @@ thing — not just a screenshot:
 | Nav: top | [docs.pagenary.com/nav-top/](https://docs.pagenary.com/nav-top/) |
 | Nav: bottom | [docs.pagenary.com/nav-bottom/](https://docs.pagenary.com/nav-bottom/) |
 | Nav: hybrid | [docs.pagenary.com/nav-hybrid/](https://docs.pagenary.com/nav-hybrid/) |
+| Theme picker (runtime) | [docs.pagenary.com/theme-picker/](https://docs.pagenary.com/theme-picker/) |
 | Interocitor showcase | [docs.pagenary.com/interocitor/](https://docs.pagenary.com/interocitor/) |
 
 > **Where recipes get their content.** The color/style/nav recipes share one
@@ -186,6 +187,29 @@ from the tenant's manifest — no extra config.
 > `<body>`, set at build time from `navPosition`. `left` is the default and adds
 > nothing. `hybrid` additionally injects a `<nav class="nav-strip">` after the
 > header, linking each top-level section to its first page.
+
+---
+
+## Runtime theme picker (`theme-picker`)
+
+Let readers choose the theme themselves. `themePicker` adds a header control;
+the choice persists across visits and the first visit honors the reader's
+`prefers-color-scheme`. The build emits one stylesheet per theme and swaps it
+live — instant and pixel-correct.
+
+```json
+{
+  "themePicker": {
+    "enabled": true,
+    "themes": ["light", "dark", "matrix"],
+    "default": "light"
+  }
+}
+```
+
+Try it on the [live demo](https://docs.pagenary.com/theme-picker/) — the
+**Theme** dropdown is in the header. Full options in
+[`TENANT-CONFIG.md`](TENANT-CONFIG.md).
 
 ---
 

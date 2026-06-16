@@ -90,6 +90,19 @@
       }
     },
     {
+      "id": "theme-picker",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Switchable",
+        "brandSub": "Docs",
+        "themePicker": {
+          "enabled": true,
+          "themes": ["light", "dark", "matrix"],
+          "default": "light"
+        }
+      }
+    },
+    {
       "id": "interocitor",
       "source": { "type": "local", "path": "./examples/interocitor" }
     }

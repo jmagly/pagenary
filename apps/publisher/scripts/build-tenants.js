@@ -1092,55 +1092,37 @@ const THEME_PRESETS = {
 };
 
 /**
- * Apply theme configuration to styles.css
- * Supports:
- * - theme: "light" | "dark" (presets)
- * - theme: { ...custom colors } (full customization)
- * - Legacy: accentColor, surfaceColor (backwards compatible)
- * - Fonts: fontBody, fontMono
+ * Resolve a theme spec into a full theme object + dark-mode flag.
+ * @param {string|object} themeSpec - "light" | "dark" | "matrix" | custom object
+ * @param {object} [overrides] - legacy/individual color + font overrides (config)
  */
-async function applyThemeColors(distDir, config, tenantId) {
-  const stylesPath = path.join(distDir, 'styles.css');
-  if (!(await pathExists(stylesPath))) return;
+function resolveTheme(themeSpec, overrides = {}) {
+  const theme = { ...THEME_PRESETS.light };
+  if (themeSpec === 'dark') Object.assign(theme, THEME_PRESETS.dark);
+  else if (themeSpec === 'matrix') Object.assign(theme, THEME_PRESETS.matrix);
+  else if (themeSpec === 'light') Object.assign(theme, THEME_PRESETS.light);
+  else if (themeSpec && typeof themeSpec === 'object') Object.assign(theme, themeSpec);
 
-  let css = await fsp.readFile(stylesPath, 'utf8');
-  let modified = false;
+  // Legacy/individual overrides
+  if (overrides.accentColor) theme.accent = overrides.accentColor;
+  if (overrides.surfaceColor) theme.surface = overrides.surfaceColor;
+  if (overrides.inkColor) theme.ink = overrides.inkColor;
+  if (overrides.mutedColor) theme.muted = overrides.mutedColor;
+  if (overrides.gridLineColor) theme.gridLine = overrides.gridLineColor;
+  if (overrides.fontBody) theme.fontBody = overrides.fontBody;
+  if (overrides.fontMono) theme.fontMono = overrides.fontMono;
 
-  // Determine theme settings
-  let theme = {};
+  const isDarkMode = themeSpec === 'dark' || themeSpec === 'matrix' ||
+    (themeSpec && typeof themeSpec === 'object' && themeSpec.colorScheme === 'dark');
+  return { theme, isDarkMode };
+}
 
-  // Start with light preset as base
-  Object.assign(theme, THEME_PRESETS.light);
-
-  // Apply preset if specified
-  if (config.theme === 'dark') {
-    Object.assign(theme, THEME_PRESETS.dark);
-  } else if (config.theme === 'matrix') {
-    Object.assign(theme, THEME_PRESETS.matrix);
-  } else if (typeof config.theme === 'object' && config.theme !== null) {
-    // Custom theme object - merge with current base
-    Object.assign(theme, config.theme);
-  }
-
-  // Legacy support: individual color overrides
-  if (config.accentColor) theme.accent = config.accentColor;
-  if (config.surfaceColor) theme.surface = config.surfaceColor;
-  if (config.inkColor) theme.ink = config.inkColor;
-  if (config.mutedColor) theme.muted = config.mutedColor;
-  if (config.gridLineColor) theme.gridLine = config.gridLineColor;
-
-  // Font overrides
-  if (config.fontBody) theme.fontBody = config.fontBody;
-  if (config.fontMono) theme.fontMono = config.fontMono;
-
-  // Check if any customization is needed
-  const hasCustomization = config.theme || config.accentColor || config.surfaceColor ||
-    config.inkColor || config.mutedColor || config.gridLineColor ||
-    config.fontBody || config.fontMono;
-
-  if (!hasCustomization) return;
-
-  // Apply CSS variable replacements
+/**
+ * Apply a resolved theme to a base stylesheet, returning the transformed CSS.
+ * Pure — used both for the baked default (applyThemeColors) and for the
+ * per-theme stylesheets emitted by the runtime picker (applyThemePicker).
+ */
+function renderThemedCss(css, theme, isDarkMode) {
   const replacements = [
     { pattern: /(color-scheme:\s*)([^;]+);/, value: theme.colorScheme },
     { pattern: /(--surface:\s*)([^;]+);/, value: theme.surface },
@@ -1151,77 +1133,126 @@ async function applyThemeColors(distDir, config, tenantId) {
     { pattern: /(--highlight-bg:\s*)([^;]+);/, value: theme.highlightBg },
     { pattern: /(--highlight-border:\s*)([^;]+);/, value: theme.highlightBorder }
   ];
-
-  // Apply font replacements if specified
-  if (theme.fontBody) {
-    replacements.push({ pattern: /(--font-body:\s*)([^;]+);/, value: theme.fontBody });
-  }
-  if (theme.fontMono) {
-    replacements.push({ pattern: /(--font-mono:\s*)([^;]+);/, value: theme.fontMono });
-  }
+  if (theme.fontBody) replacements.push({ pattern: /(--font-body:\s*)([^;]+);/, value: theme.fontBody });
+  if (theme.fontMono) replacements.push({ pattern: /(--font-mono:\s*)([^;]+);/, value: theme.fontMono });
 
   for (const { pattern, value } of replacements) {
-    if (value) {
-      const updated = css.replace(pattern, `$1${value};`);
-      if (updated !== css) {
-        css = updated;
-        modified = true;
-      }
-    }
+    if (value) css = css.replace(pattern, `$1${value};`);
   }
 
-  // Update --surface-rgb for rgba() usage
   if (theme.surface) {
     const rgb = hexToRgb(theme.surface);
-    if (rgb) {
-      const updated = css.replace(/(--surface-rgb:\s*)([^;]+);/, `$1${rgb};`);
-      if (updated !== css) {
-        css = updated;
-        modified = true;
-      }
-    }
+    if (rgb) css = css.replace(/(--surface-rgb:\s*)([^;]+);/, `$1${rgb};`);
   }
 
-  // For dark/matrix themes, apply additional hardcoded color overrides
-  const isDarkMode = config.theme === 'dark' || config.theme === 'matrix' ||
-    (typeof config.theme === 'object' && config.theme?.colorScheme === 'dark');
   if (isDarkMode) {
     const darkOverrides = [
-      // Code blocks
       { pattern: /background:\s*rgba\(0,\s*0,\s*0,\s*0\.04\)/g, value: `background: ${theme.codeBackground}` },
       { pattern: /border:\s*1px solid rgba\(0,\s*0,\s*0,\s*0\.08\)/g, value: `border: 1px solid ${theme.codeBorder}` },
-      // Hover states
       { pattern: /background:\s*rgba\(0,\s*0,\s*0,\s*0\.03\)/g, value: `background: ${theme.hoverBackground}` },
       { pattern: /background:\s*rgba\(0,\s*0,\s*0,\s*0\.05\)/g, value: `background: ${theme.activeBackground}` },
-      // Input backgrounds
       { pattern: /background:\s*rgba\(0,\s*0,\s*0,\s*0\.02\)/g, value: `background: ${theme.inputBackground}` },
-      // Table styling
       { pattern: /border:\s*1px solid rgba\(0,\s*0,\s*0,\s*0\.12\)/g, value: `border: 1px solid ${theme.tableBorder}` },
-      // Blockquote border
       { pattern: /border-left:\s*3px solid rgba\(0,\s*0,\s*0,\s*0\.2\)/g, value: `border-left: 3px solid ${theme.blockquoteBorder}` },
-      // Sidebar background (mobile)
       { pattern: /background:\s*white;/g, value: `background: ${theme.sidebarBg};` },
-      // Modal backgrounds
       { pattern: /background:\s*white;\s*\n\s*border:\s*2px solid #000;/g, value: `background: ${theme.modalBg};\n  border: 2px solid ${theme.modalBorder};` }
     ];
-
-    for (const { pattern, value } of darkOverrides) {
-      const updated = css.replace(pattern, value);
-      if (updated !== css) {
-        css = updated;
-        modified = true;
-      }
-    }
+    for (const { pattern, value } of darkOverrides) css = css.replace(pattern, value);
   }
+  return css;
+}
 
-  if (modified) {
-    await fsp.writeFile(stylesPath, css, 'utf8');
+/**
+ * Apply theme configuration to styles.css (the baked default).
+ * Supports theme presets, a custom object, legacy color keys, and fonts.
+ */
+async function applyThemeColors(distDir, config, tenantId) {
+  const stylesPath = path.join(distDir, 'styles.css');
+  if (!(await pathExists(stylesPath))) return;
+
+  const hasCustomization = config.theme || config.accentColor || config.surfaceColor ||
+    config.inkColor || config.mutedColor || config.gridLineColor ||
+    config.fontBody || config.fontMono;
+  if (!hasCustomization) return;
+
+  const css = await fsp.readFile(stylesPath, 'utf8');
+  const { theme, isDarkMode } = resolveTheme(config.theme, config);
+  const out = renderThemedCss(css, theme, isDarkMode);
+
+  if (out !== css) {
+    await fsp.writeFile(stylesPath, out, 'utf8');
     const themeLabel = config.theme === 'dark' ? 'dark theme' :
       config.theme === 'matrix' ? 'matrix theme' :
       config.theme === 'light' ? 'light theme' :
       typeof config.theme === 'object' ? 'custom theme' : 'theme colors';
     console.log(`  ↳ applied ${themeLabel} for ${tenantId}`);
   }
+}
+
+const PICKER_THEME_LABELS = { light: 'Light', dark: 'Dark', matrix: 'Matrix', custom: 'Custom' };
+
+/**
+ * Runtime theme/color picker (#35). Opt-in via config.themePicker.enabled.
+ * Emits one full themed stylesheet per selectable theme (reusing the exact
+ * build-time transform, so switches are pixel-correct) and injects a header
+ * <select> + a swappable stylesheet <link>. app.js wires selection +
+ * localStorage persistence + prefers-color-scheme. Disabled => zero output.
+ *
+ * Runs BEFORE applyThemeColors so it reads the pristine base stylesheet.
+ */
+async function applyThemePicker(distDir, config, tenantId) {
+  const picker = config.themePicker;
+  if (!picker || !picker.enabled) return;
+
+  const stylesPath = path.join(distDir, 'styles.css');
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(stylesPath)) || !(await pathExists(indexPath))) return;
+
+  const baseCss = await fsp.readFile(stylesPath, 'utf8');
+  const requested = Array.isArray(picker.themes) && picker.themes.length
+    ? picker.themes.slice()
+    : ['light', 'dark', 'matrix'];
+  const defaultName = picker.default ||
+    (typeof config.theme === 'string' ? config.theme : 'light');
+  if (!requested.includes(defaultName)) requested.unshift(defaultName);
+
+  const emitted = [];
+  for (const name of requested) {
+    let spec;
+    if (name === 'custom') {
+      if (!(config.theme && typeof config.theme === 'object')) continue;
+      spec = config.theme;
+    } else if (['light', 'dark', 'matrix'].includes(name)) {
+      spec = name;
+    } else {
+      console.warn(`  ↳ ${tenantId}: themePicker theme "${name}" is not a preset or "custom" — skipping`);
+      continue;
+    }
+    const { theme, isDarkMode } = resolveTheme(spec, config);
+    const file = `theme-${name}.css`;
+    await fsp.writeFile(path.join(distDir, file), renderThemedCss(baseCss, theme, isDarkMode), 'utf8');
+    emitted.push({ name, file });
+  }
+  if (emitted.length < 2) return; // nothing meaningful to switch between
+
+  let html = await fsp.readFile(indexPath, 'utf8');
+  // Give the base stylesheet link an id so the picker can swap its href.
+  if (!/id="themeStylesheet"/.test(html)) {
+    html = html.replace(/<link rel="stylesheet" href="\.\/styles\.css" \/>/,
+      '<link id="themeStylesheet" rel="stylesheet" href="./styles.css" />');
+  }
+  const optionsHtml = emitted
+    .map((e) => `<option value="${escapeAttr(e.name)}">${escapeHtml(PICKER_THEME_LABELS[e.name] || e.name)}</option>`)
+    .join('');
+  const themesData = escapeAttr(JSON.stringify(emitted));
+  const control = `<label class="theme-picker"><span class="ghost-label">Theme</span>` +
+    `<select id="themePicker" class="theme-picker-select" aria-label="Color theme" ` +
+    `data-themes="${themesData}" data-default="${escapeAttr(defaultName)}">${optionsHtml}</select></label>`;
+  if (html.includes('<div class="top-actions">')) {
+    html = html.replace('<div class="top-actions">', `<div class="top-actions">\n        ${control}`);
+  }
+  await fsp.writeFile(indexPath, html, 'utf8');
+  console.log(`  ↳ wired theme picker (${emitted.map((e) => e.name).join(', ')}) for ${tenantId}`);
 }
 
 const NAV_POSITIONS = new Set(['left', 'right', 'top', 'bottom', 'hybrid']);
@@ -3439,6 +3470,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   // Apply branding and config (on top of overrides)
   if (Object.keys(config).length > 0) {
     await applyBranding(distDir, config, tenantId);
+    await applyThemePicker(distDir, config, tenantId);
     await applyThemeColors(distDir, config, tenantId);
     await applyNavPosition(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);

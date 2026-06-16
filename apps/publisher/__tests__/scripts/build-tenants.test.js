@@ -657,6 +657,75 @@ describe('build-tenants.js', () => {
     });
   });
 
+  describe('theme picker (#35)', () => {
+    const TP_ID = '__test-themepicker-' + Date.now();
+    let tpDir;
+
+    afterEach(async () => {
+      if (tpDir) await cleanup(tpDir);
+      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TP_ID));
+      tpDir = undefined;
+    });
+
+    async function buildWithConfig(config) {
+      tpDir = await createTestTenant(TP_ID, config);
+      const res = await runBuildTenantsWithRegistry([{ id: TP_ID }]);
+      expect(res.code).toBe(0);
+      const dist = path.join(PUBLISHER_ROOT, 'dist', TP_ID);
+      return {
+        index: await fsp.readFile(path.join(dist, 'index.html'), 'utf8'),
+        has: (f) => fs.existsSync(path.join(dist, f))
+      };
+    }
+
+    test('enabled: emits per-theme stylesheets + injects control', async () => {
+      const { index, has } = await buildWithConfig({
+        title: 'TP',
+        themePicker: { enabled: true, themes: ['light', 'dark', 'matrix'], default: 'light' }
+      });
+      expect(has('theme-light.css')).toBe(true);
+      expect(has('theme-dark.css')).toBe(true);
+      expect(has('theme-matrix.css')).toBe(true);
+      expect(index).toMatch(/id="themePicker"/);
+      expect(index).toMatch(/id="themeStylesheet"/);
+      expect(index).toMatch(/data-themes=/);
+      expect(index).toMatch(/data-default="light"/);
+    });
+
+    test('emitted dark variant carries dark palette + dark overrides', async () => {
+      const { has } = await buildWithConfig({
+        title: 'TP',
+        themePicker: { enabled: true, themes: ['light', 'dark'] }
+      });
+      const dark = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-dark.css'), 'utf8');
+      expect(dark).toMatch(/color-scheme: dark;/);
+      expect(dark).toMatch(/--surface: #0a0a0e;/);
+      // The build-time dark override replaced the hardcoded light code background.
+      expect(dark).not.toMatch(/rgba\(0, 0, 0, 0\.04\)/);
+    });
+
+    test('disabled/absent: no picker output, no extra markup', async () => {
+      const { index, has } = await buildWithConfig({ title: 'TP' });
+      expect(has('theme-light.css')).toBe(false);
+      expect(has('theme-dark.css')).toBe(false);
+      expect(index).not.toMatch(/id="themePicker"/);
+      expect(index).not.toMatch(/id="themeStylesheet"/);
+    });
+
+    test('custom theme object is selectable as "custom"', async () => {
+      const { index, has } = await buildWithConfig({
+        title: 'TP',
+        theme: { colorScheme: 'dark', surface: '#101820', accent: '#ff8800' },
+        themePicker: { enabled: true, themes: ['light', 'custom'], default: 'custom' }
+      });
+      expect(has('theme-custom.css')).toBe(true);
+      const custom = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-custom.css'), 'utf8');
+      expect(custom).toMatch(/--surface: #101820;/);
+      expect(custom).toMatch(/--accent: #ff8800;/);
+      expect(index).toMatch(/<option value="custom">/);
+    });
+  });
+
   describe('error handling', () => {
     test('handles missing content files gracefully', async () => {
       const testTenantId = '__test-missing-' + Date.now();
