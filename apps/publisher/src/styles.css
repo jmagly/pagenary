@@ -113,6 +113,63 @@ a:focus {
   color: var(--muted);
 }
 
+/* Docs Map (#33) — framework-free relationship view. */
+.docs-map {
+  margin-top: 1.5rem;
+}
+
+.docs-map-svg {
+  width: 100%;
+  height: auto;
+  max-height: 75vh;
+  border: 1px solid var(--grid-line);
+  border-radius: 8px;
+  background: rgba(var(--surface-rgb), 0.4);
+}
+
+.docs-map-node {
+  cursor: pointer;
+}
+
+.docs-map-node circle {
+  transition: r 120ms ease, opacity 120ms ease;
+}
+
+.docs-map-node:hover circle,
+.docs-map-node:focus-visible circle {
+  r: 11;
+}
+
+.docs-map-node:focus-visible {
+  outline: none;
+}
+
+.docs-map-label {
+  font-size: 13px;
+  fill: var(--ink);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+.docs-map-community {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.docs-map-edge {
+  stroke: var(--grid-line);
+  stroke-width: 1.5;
+}
+
+.docs-map-empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
 /* Runtime theme picker (#35) — injected into .top-actions when enabled. */
 .theme-picker {
   display: inline-flex;

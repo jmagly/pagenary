@@ -1255,6 +1255,51 @@ async function applyThemePicker(distDir, config, tenantId) {
   console.log(`  ↳ wired theme picker (${emitted.map((e) => e.name).join(', ')}) for ${tenantId}`);
 }
 
+/**
+ * Optional docs-map view (#33). Opt-in via config.docsMap.enabled. Emits a
+ * section module that re-exports the framework-free renderer (src/lib/docs-map.js,
+ * copied to dist/lib/) and injects a `docs-map` entry into MANIFEST so the
+ * standard router/nav/command-palette drive it — no app.js changes. Disabled =>
+ * zero output.
+ */
+async function applyDocsMap(distDir, config, tenantId) {
+  const docsMap = config.docsMap;
+  if (!docsMap || !docsMap.enabled) return;
+
+  const manifestPath = path.join(distDir, 'manifest.js');
+  if (!(await pathExists(manifestPath))) return;
+
+  const sectionsDir = path.join(distDir, 'sections');
+  await fsp.mkdir(sectionsDir, { recursive: true });
+  await fsp.writeFile(
+    path.join(sectionsDir, 'docs-map.js'),
+    "export { load } from '../lib/docs-map.js';\n",
+    'utf8'
+  );
+
+  const title = typeof docsMap.title === 'string' ? docsMap.title : 'Docs Map';
+  const entry = [
+    '  {',
+    '    "id": "docs-map",',
+    `    "title": ${JSON.stringify(title)},`,
+    '    "summary": "How these pages cluster and relate.",',
+    '    "module": "./sections/docs-map.js"',
+    '  }'
+  ].join('\n');
+
+  let js = await fsp.readFile(manifestPath, 'utf8');
+  if (/"id":\s*"docs-map"/.test(js)) return; // idempotent
+  if (/export const MANIFEST = \[\s*\];/.test(js)) {
+    js = js.replace(/export const MANIFEST = \[\s*\];/, `export const MANIFEST = [\n${entry}\n];`);
+  } else {
+    const updated = js.replace(/(export const MANIFEST = \[[\s\S]*?)\n\];/, `$1,\n${entry}\n];`);
+    if (updated === js) return; // couldn't locate the array — leave manifest untouched
+    js = updated;
+  }
+  await fsp.writeFile(manifestPath, js, 'utf8');
+  console.log(`  ↳ wired docs-map view for ${tenantId}`);
+}
+
 const NAV_POSITIONS = new Set(['left', 'right', 'top', 'bottom', 'hybrid']);
 
 /**
@@ -3473,6 +3518,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyThemePicker(distDir, config, tenantId);
     await applyThemeColors(distDir, config, tenantId);
     await applyNavPosition(distDir, config, tenantId);
+    await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }
 

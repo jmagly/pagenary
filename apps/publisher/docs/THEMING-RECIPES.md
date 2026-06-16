@@ -34,6 +34,7 @@ thing — not just a screenshot:
 | Nav: bottom | [docs.pagenary.com/nav-bottom/](https://docs.pagenary.com/nav-bottom/) |
 | Nav: hybrid | [docs.pagenary.com/nav-hybrid/](https://docs.pagenary.com/nav-hybrid/) |
 | Theme picker (runtime) | [docs.pagenary.com/theme-picker/](https://docs.pagenary.com/theme-picker/) |
+| Docs map (relationship view) | [docs.pagenary.com/docs-map/#docs-map](https://docs.pagenary.com/docs-map/#docs-map) |
 | Interocitor showcase | [docs.pagenary.com/interocitor/](https://docs.pagenary.com/interocitor/) |
 
 > **Where recipes get their content.** The color/style/nav recipes share one
@@ -210,6 +211,22 @@ live — instant and pixel-correct.
 Try it on the [live demo](https://docs.pagenary.com/theme-picker/) — the
 **Theme** dropdown is in the header. Full options in
 [`TENANT-CONFIG.md`](TENANT-CONFIG.md).
+
+---
+
+## Docs map (`docs-map`)
+
+An opt-in **Docs Map** page — a framework-free SVG view that clusters your pages
+by concept (from the same index that powers search) so readers can see how the
+docs relate. It appears in the nav and at `#docs-map`; nodes are clickable.
+
+```json
+{ "docsMap": { "enabled": true } }
+```
+
+See the [live demo](https://docs.pagenary.com/docs-map/#docs-map). Computed
+client-side from the manifest — no server, no React; small corpora get a
+friendly placeholder. Options in [`TENANT-CONFIG.md`](TENANT-CONFIG.md).
 
 ---
 

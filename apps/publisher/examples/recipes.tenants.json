@@ -103,6 +103,15 @@
       }
     },
     {
+      "id": "docs-map",
+      "source": { "type": "local", "path": "./examples/content-base" },
+      "config": {
+        "brandMark": "Mapped",
+        "brandSub": "Docs",
+        "docsMap": { "enabled": true }
+      }
+    },
+    {
       "id": "interocitor",
       "source": { "type": "local", "path": "./examples/interocitor" }
     }

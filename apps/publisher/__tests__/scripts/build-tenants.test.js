@@ -726,6 +726,56 @@ describe('build-tenants.js', () => {
     });
   });
 
+  describe('docs map (#33)', () => {
+    const DM_ID = '__test-docsmap-' + Date.now();
+    let dmDir;
+    const DM_MANIFEST = {
+      default: 'a',
+      sections: [
+        { id: 'a', title: 'Alpha', file: 'a.md' },
+        { id: 'b', title: 'Bravo', file: 'b.md' },
+        { id: 'c', title: 'Charlie', file: 'c.md' }
+      ]
+    };
+    const DM_CONTENT = { 'a.md': '# Alpha', 'b.md': '# Bravo', 'c.md': '# Charlie' };
+
+    afterEach(async () => {
+      if (dmDir) await cleanup(dmDir);
+      await cleanup(path.join(PUBLISHER_ROOT, 'dist', DM_ID));
+      dmDir = undefined;
+    });
+
+    async function buildDocsMap(config) {
+      dmDir = await createTestTenant(DM_ID, config, DM_MANIFEST, DM_CONTENT);
+      const res = await runBuildTenantsWithRegistry([{ id: DM_ID }]);
+      expect(res.code).toBe(0);
+      const dist = path.join(PUBLISHER_ROOT, 'dist', DM_ID);
+      return {
+        has: (f) => fs.existsSync(path.join(dist, f)),
+        manifest: await fsp.readFile(path.join(dist, 'manifest.js'), 'utf8')
+      };
+    }
+
+    test('enabled: emits section module + injects MANIFEST entry', async () => {
+      const { has, manifest } = await buildDocsMap({ title: 'DM', docsMap: { enabled: true } });
+      expect(has('sections/docs-map.js')).toBe(true);
+      expect(has('lib/docs-map.js')).toBe(true); // copied from src/lib by the base build
+      expect(manifest).toMatch(/"id":\s*"docs-map"/);
+      expect(manifest).toMatch(/"module":\s*"\.\/sections\/docs-map\.js"/);
+    });
+
+    test('custom title is used for the MANIFEST entry', async () => {
+      const { manifest } = await buildDocsMap({ title: 'DM', docsMap: { enabled: true, title: 'Atlas' } });
+      expect(manifest).toMatch(/"title":\s*"Atlas"/);
+    });
+
+    test('disabled/absent: no docs-map output or entry', async () => {
+      const { has, manifest } = await buildDocsMap({ title: 'DM' });
+      expect(has('sections/docs-map.js')).toBe(false);
+      expect(manifest).not.toMatch(/"id":\s*"docs-map"/);
+    });
+  });
+
   describe('error handling', () => {
     test('handles missing content files gracefully', async () => {
       const testTenantId = '__test-missing-' + Date.now();

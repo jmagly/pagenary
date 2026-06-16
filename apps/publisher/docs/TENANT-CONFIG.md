@@ -167,6 +167,25 @@ and swaps the active `<link>` at runtime, so switching is instant and
 pixel-correct (including code blocks and tables). When disabled, no control,
 script behavior, or extra stylesheets are emitted.
 
+#### Docs map (relationship view)
+
+Opt-in `docsMap` adds a standalone **Docs Map** page — a framework-free SVG view
+that clusters your pages by concept (from the same index that powers search) so
+readers can see how the docs relate. It appears in the nav and at `#docs-map`.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `docsMap.enabled` | boolean | `false` | Add the Docs Map page + nav entry |
+| `docsMap.title` | string | `"Docs Map"` | Nav/heading label |
+
+```json
+{ "docsMap": { "enabled": true } }
+```
+
+The graph is computed client-side from the manifest (no server, no React); small
+or empty corpora render a friendly placeholder. When disabled, nothing is
+emitted.
+
 #### SEO (`seo`)
 
 The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,
