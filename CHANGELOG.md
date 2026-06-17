@@ -6,6 +6,25 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+### Added
+
+- **`docs/VENDORING.md`** — documents how third-party runtime code is vendored
+  (the `@fortemi/core` process: pull upstream dist → commit under a provenance
+  banner with `Source`/`SHA-256` → verify the body reproduces the hash → run the
+  suite), why (no-bundler, relative-path module loading), and the supply-chain
+  caveats: vendoring bypasses the `min-release-age` gate, and PrismJS/Mermaid are
+  still loaded from the `esm.sh` CDN at runtime (with Mermaid floating on `@10`).
+  Links the canonical definition of vendoring.
+
+### Notes
+
+- **Dependency-declaration audit.** `@fortemi/core` is correctly absent from
+  `dependencies` (vendored, never imported by specifier). Tracking it in
+  `devDependencies` (pinned to the vendored `2026.6.6`) is intended but currently
+  blocked by the repo's own `min-release-age=7` gate until 6.6 ages out
+  (~2026-06-24); it will be added then. The genuine undeclared deps are the
+  runtime CDN loads (PrismJS, Mermaid) — documented in `docs/VENDORING.md`.
+
 ## [2026.6.10] - 2026-06-17
 
 ### Changed

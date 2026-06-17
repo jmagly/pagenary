@@ -89,7 +89,9 @@ inspect, build, or run the AIWG project from `~/dev/aiwg`.
 - **Fortemi-backed full-text search** — ranked results with snippets over a static
   chunked index emitted at build time; lazy chunk fetch (precache) and offset
   paging for infinite scroll, with a clean in-browser fallback. No server, no WASM.
-  See `docs/ARCHITECTURE.md` and `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
+  The engine is *vendored* (`@fortemi/core`) — see `docs/VENDORING.md` for the
+  process, `docs/ARCHITECTURE.md`, and
+  `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
 - **Manifest-Driven Nav** — declarative navigation structure
 - **Keyboard Navigation** — arrow keys, Enter to select
 
