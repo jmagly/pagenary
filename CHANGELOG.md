@@ -6,6 +6,8 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.10] - 2026-06-17
+
 ### Changed
 
 - **Re-vendored `@fortemi/core` 2026.6.3 → 2026.6.6** (`src/vendor/fortemi-aiwg-index.js`
