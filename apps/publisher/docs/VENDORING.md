@@ -75,12 +75,18 @@ upstream releases automatically, instead of relying on a human to notice.
 
 > **Release-age gate interaction.** The repo's `.npmrc` sets
 > `min-release-age=7` (refuse any dependency published less than 7 days ago — a
-> defense against brand-new-malicious-publish supply-chain attacks). A
-> freshly-published version therefore **cannot** be added to `devDependencies` /
-> the lockfile until it has aged 7 days; `npm install` rejects it with
-> `ETARGET … with a date before …`. The tracking entry is added once the
-> version clears the cooldown. `npm ci` against the committed lockfile does not
-> re-resolve, so the gate only bites on `npm install`.
+> defense against brand-new-malicious-publish supply-chain attacks), so a
+> freshly-published *external* version cannot normally be locked until it ages.
+> **First-party exception:** because the vendored libraries are our own
+> Gitea-hosted projects (e.g. `@fortemi/core` from
+> [`Fortemi/fortemi-react`](https://git.integrolabs.net/Fortemi/fortemi-react)),
+> we control the source and adopt them fresh via a one-time gate override at
+> lock-write time — see the policy block in [`.npmrc`](../../../.npmrc). The
+> entry is committed to the lockfile with its integrity hash; `npm ci` then
+> installs it without re-tripping the gate, which still guards every other
+> `npm install`. Before committing such an entry: verify the upstream SHA-256,
+> run `npm audit` (the addition must introduce no new advisories), and confirm
+> every resolved version is from `registry.npmjs.org` with integrity.
 
 ## Caveat: vendoring bypasses the release-age gate
 

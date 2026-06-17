@@ -1,6 +1,6 @@
 {
   "name": "@pagenary/publisher",
-  "version": "2026.6.10",
+  "version": "2026.6.11",
   "type": "module",
   "description": "Multi-tenant static publishing component for Pagenary platform.",
   "license": "AGPL-3.0-or-later",
@@ -67,6 +67,7 @@
     "terser": "^5.44.0"
   },
   "devDependencies": {
+    "@fortemi/core": "2026.6.6",
     "jest": "^29.7.0"
   }
 }

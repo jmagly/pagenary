@@ -6,24 +6,29 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.11] - 2026-06-17
+
 ### Added
 
+- **Traceable `@fortemi/core` declaration.** The vendored search engine is now
+  declared in `devDependencies`, pinned to the exact vendored version
+  (`@fortemi/core` `2026.6.6`), so the dependency is visible and auditable in
+  `package.json` + the lockfile (integrity hashes, `npm audit signatures`) and
+  tracked by `npm outdated` / dependabot — not just recorded in a code comment.
+  It stays out of `dependencies` (the build never imports it; the vendored copy
+  is self-contained). Adding it fresh required a documented **first-party
+  exception** to the `min-release-age=7` gate, valid because `@fortemi/core` is
+  our own Gitea-hosted lib ([`Fortemi/fortemi-react`](https://git.integrolabs.net/Fortemi/fortemi-react));
+  the policy is recorded in `.npmrc`. The addition introduces **no new audit
+  findings** (the 22 pre-existing advisories are all in the jest dev-tree), and
+  `npm ci` installs the locked version without re-tripping the gate.
 - **`docs/VENDORING.md`** — documents how third-party runtime code is vendored
   (the `@fortemi/core` process: pull upstream dist → commit under a provenance
-  banner with `Source`/`SHA-256` → verify the body reproduces the hash → run the
-  suite), why (no-bundler, relative-path module loading), and the supply-chain
-  caveats: vendoring bypasses the `min-release-age` gate, and PrismJS/Mermaid are
-  still loaded from the `esm.sh` CDN at runtime (with Mermaid floating on `@10`).
-  Links the canonical definition of vendoring.
-
-### Notes
-
-- **Dependency-declaration audit.** `@fortemi/core` is correctly absent from
-  `dependencies` (vendored, never imported by specifier). Tracking it in
-  `devDependencies` (pinned to the vendored `2026.6.6`) is intended but currently
-  blocked by the repo's own `min-release-age=7` gate until 6.6 ages out
-  (~2026-06-24); it will be added then. The genuine undeclared deps are the
-  runtime CDN loads (PrismJS, Mermaid) — documented in `docs/VENDORING.md`.
+  banner with `Source`/`SHA-256` → verify the hash against the upstream dist →
+  run the suite), why (no-bundler, relative-path module loading), the
+  first-party release-age-gate exception, and the remaining undeclared runtime
+  CDN loads (PrismJS pinned, Mermaid floating on `@10` via `esm.sh`). Links the
+  canonical definition of vendoring.
 
 ## [2026.6.10] - 2026-06-17
 
