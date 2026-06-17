@@ -43,10 +43,16 @@ Using `@fortemi/core` as the worked example:
    - `Source : <pkg>@<version> → dist/<file>`
    - `SHA-256: <hash of the upstream dist file>`
    - `License:` and a short `Why` + `Update` note.
-3. **Verify reproducibility** — stripping the banner must reproduce the recorded
-   hash, so anyone can confirm the body is untouched upstream:
+   The committed file is therefore `banner + upstream body + a terminating
+   newline` (the trailing newline satisfies `lint:content`; it is the only
+   addition to the upstream bytes).
+3. **Verify provenance** — re-download the upstream dist for the recorded
+   version and confirm its hash matches the banner. This is the authoritative
+   check (it compares against the real upstream source, independent of the
+   banner/newline the vendored file adds):
    ```bash
-   tail -n +<banner-lines+1> src/vendor/<name>.js | sha256sum   # == banner SHA-256
+   curl -fsSL "https://cdn.jsdelivr.net/npm/<pkg>@<version>/dist/<file>" | sha256sum
+   # == the SHA-256 recorded in the banner
    ```
 4. **Run the suite.** The tests validate against the *real* vendored engine
    (e.g. `__tests__/src/lib/fortemi-corpus.test.js` runs its output through the
