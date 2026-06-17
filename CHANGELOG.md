@@ -6,6 +6,18 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+### Changed
+
+- **Re-vendored `@fortemi/core` 2026.6.3 → 2026.6.6** (`src/vendor/fortemi-aiwg-index.js`
+  + `.d.ts`). The only code change landed in 6.5 (6.4 and 6.6 ship identical
+  `aiwg-index` dist — doc-only); it is purely additive: two new exports
+  (`encodeAiwgDetailId`, `aiwgDetailHrefForId` for `base64url` detail-id
+  encoding) and a transparent LRU match-cache inside `queryAiwgFortemiIndex`
+  that speeds repeated command-palette searches at no API cost. Every existing
+  export is signature- and behavior-stable, so no Pagenary code changed; the
+  match-cache benefit is gained automatically. Banner SHA-256 refreshed to the
+  upstream 6.6 dist; all 303 tests pass against the re-vendored engine.
+
 ## [2026.6.9] - 2026-06-16
 
 ### Added

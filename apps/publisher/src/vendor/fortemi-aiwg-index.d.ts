@@ -53,8 +53,10 @@ interface AiwgFortemiChunkPartRef {
 }
 declare const AIWG_SCAN_REQUIRED_FIELDS: Array<keyof AiwgFortemiRecord>;
 type AiwgFortemiProjectedRecord = Pick<AiwgFortemiRecord, 'schema_version' | 'id' | 'type' | 'title' | 'text' | 'facets' | 'tags' | 'concepts' | 'privacy'> & Partial<AiwgFortemiRecord>;
+type AiwgDetailIdEncoding = 'uri' | 'base64url';
 interface AiwgFortemiChunkDetailRef {
     href: string;
+    encoding?: AiwgDetailIdEncoding;
 }
 interface AiwgFortemiChunkManifest {
     schema_version: 'aiwg.fortemi.index.chunk-manifest.v1';
@@ -125,6 +127,7 @@ interface AiwgChunkedIndexLoadOptions {
     maxCachedParts?: number;
     detailLoader?: AiwgChunkedIndexDetailLoader;
     maxCachedDetails?: number;
+    maxCachedMatches?: number;
 }
 type AiwgChunkedIndexProgressPhase = 'part' | 'query';
 interface AiwgChunkedIndexProgress {
@@ -200,12 +203,15 @@ declare function assertAiwgFortemiChunkManifest(value: unknown): AiwgFortemiChun
 declare function validateAiwgFortemiChunkPart(value: unknown, partRef?: AiwgFortemiChunkPartRef, manifest?: AiwgFortemiChunkManifest): AiwgChunkedIndexValidationResult;
 declare function assertAiwgFortemiChunkPart(value: unknown, partRef?: AiwgFortemiChunkPartRef, manifest?: AiwgFortemiChunkManifest): AiwgFortemiChunkPart;
 declare function createAiwgFetchChunkLoader(baseUrl?: string | URL): AiwgChunkedIndexLoader;
+declare function encodeAiwgDetailId(id: string, encoding?: AiwgDetailIdEncoding): string;
+declare function aiwgDetailHrefForId(detail: AiwgFortemiChunkDetailRef, id: string): string;
 declare function createAiwgFetchDetailLoader(baseUrl?: string | URL): AiwgChunkedIndexDetailLoader;
 declare function getAiwgFortemiFacets(items: AiwgFortemiRecord[]): Record<string, Record<string, number>>;
 interface AiwgChunkedIndexBuildOptions {
     partSize?: number;
     projection?: Array<keyof AiwgFortemiRecord>;
     detailHref?: string;
+    idEncoding?: AiwgDetailIdEncoding;
     generatedAt?: string;
 }
 interface AiwgChunkedIndexBuildResult {
@@ -216,12 +222,13 @@ interface AiwgChunkedIndexBuildResult {
     }>;
     details: Array<{
         id: string;
+        href: string;
         record: AiwgFortemiRecord;
     }>;
 }
 declare function buildAiwgChunkedIndex(index: AiwgFortemiIndexExport, options?: AiwgChunkedIndexBuildOptions): AiwgChunkedIndexBuildResult;
 declare function queryAiwgFortemiIndex(index: AiwgFortemiIndexExport, query?: string, options?: AiwgIndexQueryOptions): AiwgIndexQueryResult;
-declare function createAiwgReviewDecisionExport(source: AiwgFortemiIndexExport, decisions: AiwgReviewDecision[], generatedAt?: string): AiwgReviewDecisionExport;
+declare function createAiwgReviewDecisionExport(source: Pick<AiwgFortemiIndexExport, 'schema_version'>, decisions: AiwgReviewDecision[], generatedAt?: string): AiwgReviewDecisionExport;
 declare function createAiwgIndexController(initialIndex?: AiwgFortemiIndexExport): AiwgIndexController;
 declare function aiwgFortemiIndexToCommunityGraph(index: AiwgFortemiIndexExport, options?: AiwgIndexGraphOptions): {
     nodes: {
@@ -239,4 +246,4 @@ declare function aiwgFortemiIndexToCommunityGraph(index: AiwgFortemiIndexExport,
     }[];
 };
 
-export { AIWG_SCAN_REQUIRED_FIELDS, type AiwgChunkedIndexBuildOptions, type AiwgChunkedIndexBuildResult, type AiwgChunkedIndexDetailLoader, type AiwgChunkedIndexLoadOptions, type AiwgChunkedIndexLoader, type AiwgChunkedIndexProgress, type AiwgChunkedIndexProgressPhase, type AiwgChunkedIndexQueryOptions, type AiwgChunkedIndexQueryResult, type AiwgChunkedIndexValidationResult, type AiwgFortemiChunkDetailRef, type AiwgFortemiChunkManifest, type AiwgFortemiChunkPart, type AiwgFortemiChunkPartRef, type AiwgFortemiIndexExport, type AiwgFortemiProjectedRecord, type AiwgFortemiProvenance, type AiwgFortemiRecord, type AiwgFortemiRecordSource, type AiwgFortemiRecordType, type AiwgFortemiRelationship, type AiwgIndexController, type AiwgIndexControllerListener, type AiwgIndexControllerSnapshot, type AiwgIndexGraphOptions, type AiwgIndexQueryMatch, type AiwgIndexQueryOptions, type AiwgIndexQueryRankedItem, type AiwgIndexQueryResult, type AiwgIndexQueryWeights, type AiwgIndexValidationResult, type AiwgPrivacyClassification, type AiwgProvenanceConfidence, type AiwgReviewAction, type AiwgReviewDecision, type AiwgReviewDecisionExport, type AiwgReviewInput, aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, buildAiwgChunkedIndex, createAiwgFetchChunkLoader, createAiwgFetchDetailLoader, createAiwgIndexController, createAiwgReviewDecisionExport, getAiwgFortemiFacets, queryAiwgFortemiIndex, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport };
+export { AIWG_SCAN_REQUIRED_FIELDS, type AiwgChunkedIndexBuildOptions, type AiwgChunkedIndexBuildResult, type AiwgChunkedIndexDetailLoader, type AiwgChunkedIndexLoadOptions, type AiwgChunkedIndexLoader, type AiwgChunkedIndexProgress, type AiwgChunkedIndexProgressPhase, type AiwgChunkedIndexQueryOptions, type AiwgChunkedIndexQueryResult, type AiwgChunkedIndexValidationResult, type AiwgDetailIdEncoding, type AiwgFortemiChunkDetailRef, type AiwgFortemiChunkManifest, type AiwgFortemiChunkPart, type AiwgFortemiChunkPartRef, type AiwgFortemiIndexExport, type AiwgFortemiProjectedRecord, type AiwgFortemiProvenance, type AiwgFortemiRecord, type AiwgFortemiRecordSource, type AiwgFortemiRecordType, type AiwgFortemiRelationship, type AiwgIndexController, type AiwgIndexControllerListener, type AiwgIndexControllerSnapshot, type AiwgIndexGraphOptions, type AiwgIndexQueryMatch, type AiwgIndexQueryOptions, type AiwgIndexQueryRankedItem, type AiwgIndexQueryResult, type AiwgIndexQueryWeights, type AiwgIndexValidationResult, type AiwgPrivacyClassification, type AiwgProvenanceConfidence, type AiwgReviewAction, type AiwgReviewDecision, type AiwgReviewDecisionExport, type AiwgReviewInput, aiwgDetailHrefForId, aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, buildAiwgChunkedIndex, createAiwgFetchChunkLoader, createAiwgFetchDetailLoader, createAiwgIndexController, createAiwgReviewDecisionExport, encodeAiwgDetailId, getAiwgFortemiFacets, queryAiwgFortemiIndex, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport };
