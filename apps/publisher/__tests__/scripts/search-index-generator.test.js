@@ -85,6 +85,16 @@ describe('search-index-generator', () => {
 
   test('is deterministic across runs (byte-identical manifest)', async () => {
     dir = await makeFixture();
+    // Warm the module registry once before the two measured runs. Under jest's
+    // --experimental-vm-modules loader (jest >=30) the FIRST dynamic import() of
+    // a temp ESM section is misclassified ("Unexpected export statement in CJS
+    // module") and degrades to title/summary, while a SECOND import of the same
+    // path succeeds and extracts the module body — a sandbox-only cold/warm
+    // asymmetry that does NOT occur in the real Node build (scripts/build-tenants.js,
+    // exercised end-to-end in build-tenants.test.js). Warming first makes both
+    // measured runs extract identical text, so this asserts the generator's
+    // determinism contract rather than jest's import cache.
+    await generateSearchIndex(dir, MANIFEST, { tenantId: 'fixture', partSize: 2 });
     await generateSearchIndex(dir, MANIFEST, { tenantId: 'fixture', partSize: 2 });
     const first = fs.readFileSync(path.join(dir, 'search-index', 'manifest.json'), 'utf8');
     await generateSearchIndex(dir, MANIFEST, { tenantId: 'fixture', partSize: 2 });

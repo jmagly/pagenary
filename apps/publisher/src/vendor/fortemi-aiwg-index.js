@@ -1,7 +1,7 @@
 /**
  * VENDORED — @fortemi/core/aiwg-index
  *
- * Source : @fortemi/core@2026.6.6  →  dist/aiwg-index.js
+ * Source : @fortemi/core@2026.6.7  →  dist/aiwg-index.js
  * SHA-256: 70cb729f18d7fb901606737b5ede8dcb2eac7704176aae60d7d6fc10f9508c42 (upstream dist file)
  * License: AGPL-3.0-only (compatible with this package's AGPL-3.0-or-later)
  * Why    : Pagenary's publisher build is a no-bundler copy-src→dist pipeline that
@@ -12,7 +12,9 @@
  * Update : Re-vendor by copying the dist file from a newer @fortemi/core release
  *          and refreshing the SHA-256 above. Do not hand-edit below this banner.
  *          6.5 adds encodeAiwgDetailId / aiwgDetailHrefForId + a transparent
- *          query match-cache (additive); 6.4 and 6.6 are doc-only.
+ *          query match-cache (additive); 6.4, 6.6 and 6.7 ship an identical
+ *          aiwg-index dist (the 6.7 dist is byte-for-byte equal to 6.6 — the
+ *          6.7 release changed other parts of the package, not this surface).
  */
 // src/aiwg-index.ts
 var AIWG_SCAN_REQUIRED_FIELDS = [

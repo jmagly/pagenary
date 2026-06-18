@@ -6,6 +6,40 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.12] - 2026-06-18
+
+### Changed
+
+- **Updated dev tooling to latest gate-eligible versions: `jest` 29.7 → 30.4.2,
+  `terser` 5.44 → 5.48.0.** Both cleared the `.npmrc` `min-release-age=7` gate
+  (jest 30.4.2 published 40 days ago, terser 5.48.0 27 days ago — neither needed
+  an override) and resolve from `registry.npmjs.org` with integrity. The jest 30
+  major **reduced** the dev-tree audit surface from 22 advisories (incl. 2 high)
+  to 17 (all moderate, all still dev-only — no production/runtime exposure). The
+  production build (terser-minified) and SEO smoke checks pass unchanged.
+- **Fixed the search-index determinism test for jest 30's ESM loader.** jest 30's
+  `--experimental-vm-modules` changed dynamic-`import()` behavior: the *first*
+  import of a temp ESM section module is misclassified ("Unexpected export
+  statement in CJS module") and degrades to title/summary, while a *second*
+  import of the same path succeeds and extracts the body — a sandbox-only
+  cold/warm asymmetry. The "byte-identical across runs" test now warms the module
+  registry before its two measured runs, so it asserts the generator's
+  determinism contract rather than jest's import cache. No product code changed;
+  real-Node determinism is independently covered by `build-tenants.test.js`'s
+  spawned build. Full suite (303 tests) green.
+- **Tracked `@fortemi/core` 2026.6.6 → 2026.6.7** (devDependency pin + lockfile).
+  The 6.7 release's `aiwg-index` dist is **byte-for-byte identical** to 6.6 — both
+  the `.js` and `.d.ts` — verified by SHA-256 (`70cb729f…`, unchanged) against the
+  upstream CDN; the 6.7 release changed other parts of the package, not the surface
+  Pagenary vendors. So `src/vendor/fortemi-aiwg-index.js` needed only a banner
+  `Source` bump (no body change), and the `.d.ts` is unchanged. Adopting the
+  fresh (<7-day) version used the documented **first-party gate exception** in
+  `.npmrc` (`@fortemi/core` is our own Gitea-hosted lib); the lockfile resolves it
+  from `registry.npmjs.org` with an integrity hash, and `npm audit` shows **no new
+  advisories** (the 22 pre-existing are all in the jest dev-tree). Provenance
+  re-verified, `lint:content` clean, full suite (303 tests) green. `VENDORING.md`
+  manifest updated to `2026.6.7`.
+
 ## [2026.6.11] - 2026-06-17
 
 ### Added
