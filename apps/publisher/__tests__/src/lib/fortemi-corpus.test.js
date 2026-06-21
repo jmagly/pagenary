@@ -5,7 +5,9 @@
 
 import {
   buildFortemiIndexExport,
+  buildFortemiMetadataExport,
   chunkFortemiIndex,
+  fortemiRecordToPageMetadata,
   stripHtml,
   normalizeFacetValue,
   recordToSectionId,
@@ -99,6 +101,57 @@ describe('fortemi-corpus', () => {
         expect(SECTIONS.map((s) => s.id)).toContain(recordToSectionId(item));
       }
     });
+
+    test('projects compact page metadata without duplicating record text', () => {
+      const { index } = buildFortemiIndexExport(entries());
+      const developers = index.items.find((item) => item.id === 'docs:page:developers');
+      developers.skos_concepts = [{ id: 'c:api', prefLabel: 'API', definition: 'Application interface' }];
+      developers.skos_relations = [{ source_id: 'c:api', type: 'related', target_id: 'c:sdk' }];
+      developers.provenance_events = [{ activity: 'built', agent: 'pagenary', attributes: { source: 'test' } }];
+
+      const metadata = fortemiRecordToPageMetadata(developers);
+      expect(metadata.section_id).toBe('developers');
+      expect(metadata.record_id).toBe('docs:page:developers');
+      expect(metadata.source.path).toBe('developers.md');
+      expect(metadata.facets.group).toEqual(['build']);
+      expect(metadata.tags).toEqual(['guide']);
+      expect(metadata.provenance[0].confidence).toBe('source');
+      expect(metadata.skos_concepts[0].prefLabel).toBe('API');
+      expect(metadata.skos_relations[0].target_id).toBe('c:sdk');
+      expect(metadata.provenance_events[0].activity).toBe('built');
+      expect(metadata.text).toBeUndefined();
+    });
+
+    test('adds Fortemi rich metadata fields to generated records', () => {
+      const { index } = buildFortemiIndexExport(entries());
+      const developers = index.items.find((item) => item.id === 'docs:page:developers');
+      expect(developers.skos_concepts).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'concept:build', prefLabel: 'Build', notation: 'build' }),
+        expect.objectContaining({ id: 'concept:guide', prefLabel: 'Guide', notation: 'guide' })
+      ]));
+      expect(developers.skos_relations).toEqual([]);
+      expect(developers.provenance_events).toEqual([
+        expect.objectContaining({
+          activity: 'built',
+          agent: 'pagenary',
+          confidence: 'source',
+          privacy: 'public',
+          attributes: expect.objectContaining({
+            record_id: 'docs:page:developers',
+            section_id: 'developers'
+          })
+        })
+      ]);
+    });
+
+    test('builds a page-addressable metadata export', () => {
+      const { index } = buildFortemiIndexExport(entries());
+      const metadata = buildFortemiMetadataExport(index);
+      expect(metadata.schema_version).toBe('pagenary.fortemi.metadata.v1');
+      expect(metadata.source.repo).toBe('pagenary');
+      expect(metadata.pages.map((page) => page.section_id)).toEqual(['developers', 'security', 'welcome']);
+      expect(metadata.pages.find((page) => page.section_id === 'welcome').text).toBeUndefined();
+    });
   });
 
   describe('chunkFortemiIndex', () => {
@@ -180,6 +233,12 @@ describe('fortemi-corpus', () => {
       expect(targets('d')).toEqual([]); // no shared concepts
       items.forEach((i) => expect(i.relationships.length).toBeLessThanOrEqual(2));
       items.forEach((i) => i.relationships.forEach((r) => expect(r.type).toBe('related')));
+      items.forEach((i) => i.relationships.forEach((r) => {
+        expect(r.label).toMatch(/^Shares \d+ concept/);
+        expect(r.confidence).toBeGreaterThan(0);
+        expect(r.privacy).toBe('public');
+        expect(Array.isArray(r.metadata.shared_concepts)).toBe(true);
+      }));
     });
   });
 
@@ -215,6 +274,14 @@ describe('fortemi-corpus', () => {
       });
       expect(validateAiwgFortemiIndexExport(index).valid).toBe(true);
       const graph = aiwgFortemiIndexToCommunityGraph(index, { communityFacet: 'group' });
+      const auth = index.items.find((i) => i.id === 'docs:page:auth');
+      expect(auth.relationships[0]).toEqual(expect.objectContaining({
+        label: expect.stringMatching(/^Shares \d+ concept/),
+        confidence: expect.any(Number),
+        metadata: expect.objectContaining({
+          shared_concepts: expect.any(Array)
+        })
+      }));
       expect(graph.nodes.length).toBe(3);
       expect(graph.edges.length).toBeGreaterThan(0);   // concept-derived edges
       expect(graph.communities.length).toBe(2);        // Concepts + Guides

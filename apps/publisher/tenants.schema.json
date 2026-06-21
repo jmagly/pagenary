@@ -168,6 +168,32 @@
         "welcome": {
           "$ref": "#/definitions/welcomeConfig",
           "description": "Welcome section customization"
+        },
+        "docsMap": {
+          "$ref": "#/definitions/docsMapConfig",
+          "description": "Optional documentation relationship map"
+        }
+      }
+    },
+    "docsMapConfig": {
+      "type": "object",
+      "description": "Docs Map relationship view configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Add the Docs Map page and navigation entry"
+        },
+        "title": {
+          "type": "string",
+          "default": "Docs Map",
+          "description": "Docs Map page title"
+        },
+        "renderer": {
+          "type": "string",
+          "enum": ["svg", "cytoscape"],
+          "default": "svg",
+          "description": "Graph renderer. svg is the default and fallback; cytoscape is reserved for the richer optional renderer."
         }
       }
     },

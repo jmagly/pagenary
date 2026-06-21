@@ -92,6 +92,9 @@ inspect, build, or run the AIWG project from `~/dev/aiwg`.
   The engine is *vendored* (`@fortemi/core`) — see `docs/VENDORING.md` for the
   process, `docs/ARCHITECTURE.md`, and
   `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
+- **Docs Map** — opt-in static graph view over the same Fortemi corpus, with
+  weighted relationships, zoom/pan controls, neighbor highlighting, and node
+  metadata popups.
 - **Manifest-Driven Nav** — declarative navigation structure
 - **Keyboard Navigation** — arrow keys, Enter to select
 

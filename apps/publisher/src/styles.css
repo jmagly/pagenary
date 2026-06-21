@@ -123,6 +123,7 @@ a:focus {
 /* Docs Map (#33) — framework-free relationship view. */
 .docs-map {
   margin-top: 1.5rem;
+  position: relative;
 }
 
 .docs-map-svg {
@@ -132,6 +133,48 @@ a:focus {
   border: 1px solid var(--grid-line);
   border-radius: 8px;
   background: rgba(var(--surface-rgb), 0.4);
+  touch-action: none;
+  cursor: grab;
+}
+
+.docs-map-svg:active {
+  cursor: grabbing;
+}
+
+.docs-map-controls {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(2rem, auto));
+  gap: 0.25rem;
+  pointer-events: auto;
+}
+
+.docs-map-control {
+  min-width: 2rem;
+  height: 1.85rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--grid-line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1;
+  opacity: 0.92;
+  padding: 0 0.45rem;
+  white-space: nowrap;
+}
+
+.docs-map-control:hover,
+.docs-map-control:focus-visible {
+  border-color: var(--muted);
+  opacity: 1;
+  outline: none;
 }
 
 .docs-map-node {
@@ -139,12 +182,25 @@ a:focus {
 }
 
 .docs-map-node circle {
-  transition: r 120ms ease, opacity 120ms ease;
+  transition: r 120ms ease, opacity 120ms ease, stroke-width 120ms ease;
 }
 
 .docs-map-node:hover circle,
-.docs-map-node:focus-visible circle {
+.docs-map-node:focus-visible circle,
+.docs-map-node.is-active circle {
   r: 11;
+  stroke: var(--surface);
+  stroke-width: 3px;
+}
+
+.docs-map-node.is-neighbor circle {
+  r: 10;
+  stroke: var(--ink);
+  stroke-width: 2px;
+}
+
+.docs-map-node.is-dimmed {
+  opacity: 0.28;
 }
 
 .docs-map-node:focus-visible {
@@ -169,7 +225,107 @@ a:focus {
 
 .docs-map-edge {
   stroke: var(--grid-line);
-  stroke-width: 1.5;
+  transition: opacity 120ms ease, stroke 120ms ease, stroke-width 120ms ease;
+}
+
+.docs-map-edge:hover,
+.docs-map-edge.is-active {
+  opacity: 0.9;
+  stroke: var(--muted);
+}
+
+.docs-map-edge.is-dimmed {
+  opacity: 0.12;
+}
+
+.docs-map-popup {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  width: min(20rem, calc(100% - 1.5rem));
+  max-height: min(65vh, 28rem);
+  overflow: auto;
+  border: 1px solid var(--grid-line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.12);
+  padding: 0.85rem;
+}
+
+.docs-map-popup[hidden] {
+  display: none;
+}
+
+.docs-map-popup h2 {
+  margin: 0 1.6rem 0.35rem 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.docs-map-popup-source {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.docs-map-popup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.65rem;
+}
+
+.docs-map-popup-chips span {
+  border: 1px solid var(--grid-line);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 0.3rem 0.45rem;
+}
+
+.docs-map-popup-open {
+  margin-top: 0.85rem;
+  border: 1px solid var(--grid-line);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  padding: 0.45rem 0.6rem;
+  text-transform: uppercase;
+}
+
+.docs-map-popup-open:hover,
+.docs-map-popup-open:focus-visible {
+  border-color: var(--muted);
+  outline: none;
+}
+
+.docs-map-popup-close {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.docs-map-popup-close:hover,
+.docs-map-popup-close:focus-visible {
+  border-color: var(--grid-line);
+  color: var(--ink);
+  outline: none;
 }
 
 .docs-map-empty {
@@ -787,6 +943,7 @@ mark.hl {
   gap: 1.75rem;
   line-height: 1.7;
   max-width: 78ch;
+  position: relative;
 }
 
 .doc-content h1,
@@ -822,6 +979,132 @@ mark.hl {
   color: var(--muted);
   font-size: 1.05rem;
   line-height: 1.6;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.doc-fortemi-tools {
+  position: absolute;
+  top: 0.1rem;
+  right: 0;
+  z-index: 6;
+}
+
+.doc-fortemi-button {
+  width: 1.45rem;
+  height: 1.45rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.58;
+}
+
+.doc-fortemi-button:hover,
+.doc-fortemi-button:focus-visible,
+.doc-fortemi-button[aria-expanded="true"] {
+  color: var(--ink);
+  border-color: var(--grid-line);
+  background: var(--surface);
+  opacity: 1;
+  outline: none;
+}
+
+.doc-fortemi-panel {
+  position: absolute;
+  top: 2rem;
+  right: 0;
+  z-index: 7;
+  width: min(34rem, calc(100vw - 3rem));
+  max-height: min(70vh, 36rem);
+  overflow: auto;
+  border: 1px solid var(--grid-line);
+  background: var(--surface);
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.12);
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.doc-fortemi-panel[hidden] {
+  display: none;
+}
+
+.doc-fortemi-section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.doc-fortemi-section h2 {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.doc-fortemi-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr);
+  gap: 1rem;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.doc-fortemi-key {
+  color: var(--muted);
+}
+
+.doc-fortemi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.doc-fortemi-chip {
+  border: 1px solid var(--grid-line);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+}
+
+.doc-fortemi-links {
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0;
+}
+
+.doc-fortemi-link {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--grid-line);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding: 0;
+  text-align: left;
 }
 
 .doc-content ul,

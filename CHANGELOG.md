@@ -6,6 +6,22 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.13] - 2026-06-21
+
+### Changed
+
+- **Re-vendored `@fortemi/core` 2026.6.7 → 2026.6.8** and updated the exact
+  devDependency/lockfile pin. The new `aiwg-index` contract adds relationship
+  labels/confidence/privacy/metadata plus optional SKOS concepts/relations and
+  PROV-style provenance events. Pagenary now emits those rich fields in generated
+  Fortemi records, preserves them in `search-index/metadata.json`, and surfaces
+  them through the quiet per-page metadata panel.
+- **Docs Map now consumes the Fortemi graph artifact directly.** Build-time
+  docs-map output includes the Fortemi weighted community graph plus compact
+  node/relationship metadata, and the SVG renderer uses that data for edge
+  weight, relationship confidence, shared-concept context, zoom/pan controls,
+  neighbor highlighting, and node-inspection popups before navigation.
+
 ## [2026.6.12] - 2026-06-18
 
 ### Changed

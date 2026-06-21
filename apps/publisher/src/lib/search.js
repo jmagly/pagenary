@@ -22,6 +22,7 @@ import {
   validateAiwgFortemiIndexExport
 } from '../vendor/fortemi-aiwg-index.js';
 import {
+  buildFortemiMetadataExport,
   buildFortemiIndexExport,
   recordToSectionId
 } from './fortemi-corpus.js';
@@ -49,6 +50,11 @@ let controllerFailed = false;
 // Legacy in-browser index state (fallback path).
 let legacyIndex = null;
 let legacyPromise = null;
+
+// Compact Fortemi metadata, keyed by Pagenary section id.
+let metadataExport = null;
+let metadataPromise = null;
+let metadataFailed = false;
 
 // Section lookup, keyed by Pagenary section id, rebuilt per manifest.
 let sectionLookup = null;
@@ -173,6 +179,38 @@ async function loadStaticController() {
   const result = await controllerPromise;
   if (!result) controllerFailed = true;
   controllerPromise = null;
+  return result;
+}
+
+/**
+ * Load compact page metadata emitted beside the chunked search index.
+ * @returns {Promise<object|null>} Metadata export or null
+ */
+async function loadStaticMetadata() {
+  if (metadataExport) return metadataExport;
+  if (metadataFailed) return null;
+  if (metadataPromise) return metadataPromise;
+
+  metadataPromise = (async () => {
+    const base = searchIndexBaseUrl();
+    if (!base || typeof fetch !== 'function') return null;
+    try {
+      const response = await fetch(new URL('metadata.json', base).toString());
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (data?.schema_version !== 'pagenary.fortemi.metadata.v1' || !Array.isArray(data.pages)) {
+        return null;
+      }
+      metadataExport = data;
+      return data;
+    } catch {
+      return null;
+    }
+  })();
+
+  const result = await metadataPromise;
+  if (!result) metadataFailed = true;
+  metadataPromise = null;
   return result;
 }
 
@@ -367,6 +405,38 @@ export function buildCommunityGraph(manifest, options = {}) {
 }
 
 /**
+ * Resolve compact Fortemi metadata for a section id. Prefers the build-time
+ * artifact, then falls back to a locally-built in-browser index.
+ * @param {Array} manifest
+ * @param {string} sectionId
+ * @returns {Promise<object|null>}
+ */
+export async function resolveSectionMetadata(manifest, sectionId) {
+  if (!sectionId) return null;
+
+  const staticMetadata = await loadStaticMetadata();
+  if (staticMetadata) {
+    const page = staticMetadata.pages.find((entry) => entry.section_id === sectionId);
+    if (page) return page;
+  }
+
+  const legacy = await buildLegacyIndex(manifest);
+  const fallback = buildFortemiMetadataExport(legacy.index);
+  return fallback.pages.find((entry) => entry.section_id === sectionId) || null;
+}
+
+/**
+ * Resolve all compact Fortemi metadata keyed by section id.
+ * @param {Array} manifest
+ * @returns {Promise<Map<string, object>>}
+ */
+export async function resolveSectionMetadataMap(manifest) {
+  const staticMetadata = await loadStaticMetadata();
+  const metadata = staticMetadata || buildFortemiMetadataExport((await buildLegacyIndex(manifest)).index);
+  return new Map((metadata.pages || []).map((page) => [page.section_id, page]));
+}
+
+/**
  * Parse search query into individual terms.
  * @param {string} query - Search query
  * @returns {Array<string>} Array of search terms
@@ -395,6 +465,9 @@ export function resetSearchState() {
   controllerFailed = false;
   legacyIndex = null;
   legacyPromise = null;
+  metadataExport = null;
+  metadataPromise = null;
+  metadataFailed = false;
   sectionLookup = null;
   sectionLookupSource = null;
 }

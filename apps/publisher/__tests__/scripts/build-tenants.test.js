@@ -769,6 +769,18 @@ describe('build-tenants.js', () => {
       expect(manifest).toMatch(/"title":\s*"Atlas"/);
     });
 
+    test('renderer option is emitted for optional renderer selection', async () => {
+      await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'cytoscape' } });
+      const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
+      expect(sect).toMatch(/renderer:\s*"cytoscape"/);
+    });
+
+    test('unknown renderer values normalize to svg fallback', async () => {
+      await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'unknown' } });
+      const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
+      expect(sect).toMatch(/renderer:\s*"svg"/);
+    });
+
     test('disabled/absent: no docs-map output or entry', async () => {
       const { has, manifest } = await buildDocsMap({ title: 'DM' });
       expect(has('sections/docs-map.js')).toBe(false);
@@ -807,9 +819,27 @@ describe('build-tenants.js', () => {
       expect(graph.nodes.length).toBe(3);
       expect(graph.edges.length).toBeGreaterThan(0);     // concept-derived edges
       expect(graph.communities.length).toBe(2);          // Concepts + Guides
+      expect(graph.edges[0]).toEqual(expect.objectContaining({
+        source: expect.any(String),
+        target: expect.any(String),
+        kind: 'related',
+        weight: expect.any(Number)
+      }));
+
+      const metadataMatch = data.match(/^export const DOCS_MAP_METADATA = (.+);$/m);
+      expect(metadataMatch).not.toBeNull();
+      const metadata = JSON.parse(metadataMatch[1]);
+      expect(metadata.nodes.length).toBe(3);
+      expect(metadata.edges.length).toBeGreaterThan(0);
+      expect(metadata.edges[0][1]).toEqual(expect.objectContaining({
+        label: expect.stringMatching(/^Shares \d+ concept/),
+        confidence: expect.any(Number),
+        shared_concepts: expect.any(Array)
+      }));
 
       const sect = await fsp.readFile(path.join(dist, 'sections', 'docs-map.js'), 'utf8');
       expect(sect).toMatch(/docs-map-data\.js/);
+      expect(sect).toMatch(/DOCS_MAP_DATA\.DOCS_MAP_METADATA/);
       expect(sect).toMatch(/loadDocsMap/);
     });
   });

@@ -63,6 +63,10 @@ describe('search-index-generator', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(indexDir, 'manifest.json'), 'utf8'));
     expect(validateAiwgFortemiChunkManifest(manifest).valid).toBe(true);
     expect(manifest.parts.length).toBe(2); // partSize 2 over 3 records
+    const metadata = JSON.parse(fs.readFileSync(path.join(indexDir, 'metadata.json'), 'utf8'));
+    expect(metadata.schema_version).toBe('pagenary.fortemi.metadata.v1');
+    expect(metadata.pages.map((page) => page.section_id)).toEqual(['broken', 'developers', 'welcome']);
+    expect(metadata.pages.find((page) => page.section_id === 'developers').text).toBeUndefined();
 
     let items = [];
     for (const ref of manifest.parts) {

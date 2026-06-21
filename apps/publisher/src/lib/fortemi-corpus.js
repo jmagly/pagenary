@@ -17,6 +17,7 @@ export const FORTEMI_INDEX_SCHEMA = 'aiwg.fortemi.index.export.v1';
 export const FORTEMI_RECORD_SCHEMA = 'aiwg.fortemi.index.record.v1';
 export const FORTEMI_CHUNK_MANIFEST_SCHEMA = 'aiwg.fortemi.index.chunk-manifest.v1';
 export const FORTEMI_CHUNK_PART_SCHEMA = 'aiwg.fortemi.index.chunk.v1';
+export const FORTEMI_METADATA_SCHEMA = 'pagenary.fortemi.metadata.v1';
 
 export const DEFAULT_PART_SIZE = 100;
 
@@ -155,15 +156,23 @@ export function addConceptRelationships(items, conceptsPerItem, options = {}) {
     const scored = [];
     for (let j = 0; j < items.length; j += 1) {
       if (j === i) continue;
-      let shared = 0;
-      for (const concept of mine) if (sets[j].has(concept)) shared += 1;
-      if (shared >= minShared) scored.push({ id: items[j].id, shared });
+      const sharedConcepts = [];
+      for (const concept of mine) if (sets[j].has(concept)) sharedConcepts.push(concept);
+      const shared = sharedConcepts.length;
+      if (shared >= minShared) scored.push({ id: items[j].id, shared, sharedConcepts: sharedConcepts.sort() });
     }
     scored.sort((a, b) => (b.shared - a.shared) || a.id.localeCompare(b.id));
     const existing = new Set(items[i].relationships.map((r) => r.target_id));
     for (const peer of scored.slice(0, Math.max(0, maxRelations))) {
       if (existing.has(peer.id)) continue;
-      items[i].relationships.push({ target_id: peer.id, type: 'related' });
+      items[i].relationships.push({
+        target_id: peer.id,
+        type: 'related',
+        label: `Shares ${peer.shared} concept${peer.shared === 1 ? '' : 's'}`,
+        confidence: Math.min(1, peer.shared / Math.max(1, mine.size)),
+        privacy: 'public',
+        metadata: { shared_concepts: peer.sharedConcepts }
+      });
       existing.add(peer.id);
     }
   }
@@ -182,6 +191,133 @@ export function recordToSectionId(record) {
   const sectionFacet = record.facets?.section?.[0];
   if (sectionFacet) return sectionFacet;
   return record.id?.replace(/^docs:page:/, '') || null;
+}
+
+function cloneJson(value, fallback) {
+  if (value == null) return fallback;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function optionalObject(record, keys) {
+  for (const key of keys) {
+    if (record && record[key] != null) return cloneJson(record[key], null);
+  }
+  return null;
+}
+
+function conceptPrefLabel(concept) {
+  return String(concept || '')
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part ? part[0].toUpperCase() + part.slice(1) : part)
+    .join(' ');
+}
+
+function conceptToSkos(concept) {
+  return {
+    id: `concept:${concept}`,
+    prefLabel: conceptPrefLabel(concept),
+    notation: concept,
+    uri: `urn:pagenary:concept:${concept}`
+  };
+}
+
+function applyRichRecordMetadata(items) {
+  for (const item of items) {
+    item.skos_concepts = Array.from(new Set(item.concepts || []))
+      .sort()
+      .map(conceptToSkos);
+    item.skos_relations = [];
+    item.provenance_events = [
+      {
+        activity: 'built',
+        agent: 'pagenary',
+        source: item.source?.repo_relative_path || item.source?.path,
+        path: '$',
+        confidence: 'source',
+        privacy: item.privacy?.classification || 'public',
+        attributes: {
+          record_id: item.id,
+          section_id: recordToSectionId(item)
+        }
+      }
+    ];
+  }
+}
+
+/**
+ * Project a Fortemi record into compact, page-addressable metadata.
+ * Deliberately excludes `text` so static metadata artifacts do not duplicate
+ * full document bodies. Unknown richer SKOS/PROV fields are copied only when
+ * present, preserving forward compatibility with newer Fortemi contracts.
+ *
+ * @param {object} record - AiwgFortemiRecord or compatible future record
+ * @returns {object|null}
+ */
+export function fortemiRecordToPageMetadata(record) {
+  const sectionId = recordToSectionId(record);
+  if (!record || !sectionId) return null;
+
+  const metadata = {
+    section_id: sectionId,
+    record_id: record.id,
+    type: record.type,
+    title: record.title || sectionId,
+    source: cloneJson(record.source, null),
+    facets: cloneJson(record.facets || {}, {}),
+    tags: cloneJson(record.tags || [], []),
+    concepts: cloneJson(record.concepts || [], []),
+    relationships: cloneJson(record.relationships || [], []),
+    provenance: cloneJson(record.provenance || [], []),
+    privacy: cloneJson(record.privacy || null, null),
+    updated_at: record.updated_at || null
+  };
+
+  const richConcepts = optionalObject(record, [
+    'skos_concepts',
+    'skosConcepts',
+    'concept_details',
+    'conceptDetails'
+  ]);
+  if (richConcepts) metadata.skos_concepts = richConcepts;
+
+  const skosRelations = optionalObject(record, [
+    'skos_relations',
+    'skosRelations',
+    'concept_relations',
+    'conceptRelations'
+  ]);
+  if (skosRelations) metadata.skos_relations = skosRelations;
+
+  const provenanceEvents = optionalObject(record, [
+    'provenance_events',
+    'provenanceEvents',
+    'prov',
+    'prov_events',
+    'provEvents'
+  ]);
+  if (provenanceEvents) metadata.provenance_events = provenanceEvents;
+
+  return metadata;
+}
+
+/**
+ * Build a compact metadata export from an AiwgFortemiIndexExport.
+ * @param {object} index - AiwgFortemiIndexExport
+ * @returns {{ schema_version: string, generated_at: string|null, source: object|null, pages: object[] }}
+ */
+export function buildFortemiMetadataExport(index) {
+  const pages = (index?.items || [])
+    .map((record) => fortemiRecordToPageMetadata(record))
+    .filter(Boolean)
+    .sort((a, b) => a.section_id.localeCompare(b.section_id));
+
+  return {
+    schema_version: FORTEMI_METADATA_SCHEMA,
+    generated_at: index?.generated_at || null,
+    source: cloneJson(index?.source || null, null),
+    pages
+  };
 }
 
 /**
@@ -294,6 +430,8 @@ export function buildFortemiIndexExport(entries, options = {}) {
       addConceptRelationships(items, conceptsPerItem, options.relationOptions);
     }
   }
+
+  applyRichRecordMetadata(items);
 
   const index = {
     schema_version: FORTEMI_INDEX_SCHEMA,

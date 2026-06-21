@@ -216,17 +216,20 @@ Try it on the [live demo](https://docs.pagenary.com/theme-picker/) — the
 
 ## Docs map (`docs-map`)
 
-An opt-in **Docs Map** page — a framework-free SVG view that clusters your pages
-by concept (from the same index that powers search) so readers can see how the
-docs relate. It appears in the nav and at `#docs-map`; nodes are clickable.
+An opt-in **Docs Map** page — a framework-free SVG view powered by the Fortemi
+graph artifact. It clusters pages by nav group, draws weighted concept
+relationships, and gives readers an inspectable viewport with zoom, drag-pan,
+neighbor highlighting, and pinned node details before they choose to open a page.
 
 ```json
-{ "docsMap": { "enabled": true } }
+{ "docsMap": { "enabled": true, "renderer": "svg" } }
 ```
 
-See the [live demo](https://docs.pagenary.com/docs-map/#docs-map). Computed
-client-side from the manifest — no server, no React; small corpora get a
-friendly placeholder. Options in [`TENANT-CONFIG.md`](TENANT-CONFIG.md).
+See the [live demo](https://docs.pagenary.com/docs-map/#docs-map). The graph is
+computed at build time from page content and emitted as static JS — no server,
+no React; small corpora get a friendly placeholder. `svg` is the
+default/fallback renderer. Options in
+[`TENANT-CONFIG.md`](TENANT-CONFIG.md).
 
 ---
 

@@ -1,6 +1,6 @@
 import { MANIFEST, DEFAULT_SECTION, findSection, getAdjacentSections, SITE_CONFIG, EXPORT_CONFIG } from './manifest.js';
 import { updateMetaTags } from './seo.js';
-import { escapeRegExp, searchContentPage, flattenManifest, findPreferredIndex } from './lib/search.js';
+import { escapeRegExp, searchContentPage, flattenManifest, findPreferredIndex, resolveSectionMetadata } from './lib/search.js';
 import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
 import { composeExportDocument, collectExportableSections } from './lib/export.js';
 import { renderMermaidBlocks } from './mermaid-init.js';
@@ -414,7 +414,7 @@ async function loadSection(entry) {
 }
 
 function renderEntryMetadata(entry) {
-  if (!entry || (!entry.showDate && !entry.showReadingTime && !entry.showSummary)) return;
+  if (!entry) return;
   const content = app.querySelector('.doc-content') || app.querySelector('article, section') || app;
   const heading = content.querySelector('h1');
   if (!heading) return;
@@ -441,7 +441,187 @@ function renderEntryMetadata(entry) {
     summary.className = 'doc-summary';
     summary.textContent = entry.summary;
     insertAfter.after(summary);
+    insertAfter = summary;
   }
+
+  renderFortemiMetadataTools(entry, insertAfter);
+}
+
+function hasFortemiMetadata(metadata) {
+  if (!metadata) return false;
+  return Boolean(
+    (metadata.concepts && metadata.concepts.length) ||
+    (metadata.skos_concepts && metadata.skos_concepts.length) ||
+    (metadata.relationships && metadata.relationships.length) ||
+    (metadata.provenance && metadata.provenance.length) ||
+    (metadata.provenance_events && metadata.provenance_events.length) ||
+    metadata.source ||
+    metadata.privacy
+  );
+}
+
+function humanizeMetadataValue(value) {
+  return String(value || '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatConfidence(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return `${Math.round(Math.max(0, Math.min(1, numeric)) * 100)}%`;
+}
+
+function relationshipTargetId(relationship) {
+  return String(relationship?.target_id || relationship?.target || '').replace(/^docs:page:/, '');
+}
+
+function conceptLabel(concept) {
+  if (typeof concept === 'string') return humanizeMetadataValue(concept);
+  return concept.prefLabel || concept.pref_label || concept.label || concept.id || 'concept';
+}
+
+function addMetadataRow(parent, key, value) {
+  if (value == null || value === '') return;
+  const row = document.createElement('div');
+  row.className = 'doc-fortemi-row';
+  const label = document.createElement('span');
+  label.className = 'doc-fortemi-key';
+  label.textContent = key;
+  const body = document.createElement('span');
+  body.textContent = String(value);
+  row.append(label, body);
+  parent.appendChild(row);
+}
+
+function addMetadataChips(parent, values) {
+  const list = document.createElement('div');
+  list.className = 'doc-fortemi-chips';
+  values.forEach((value) => {
+    const chip = document.createElement('span');
+    chip.className = 'doc-fortemi-chip';
+    chip.textContent = conceptLabel(value);
+    if (typeof value === 'object' && value) {
+      if (value.definition) chip.title = value.definition;
+    }
+    list.appendChild(chip);
+  });
+  parent.appendChild(list);
+}
+
+function addMetadataSection(panel, title, render) {
+  const section = document.createElement('section');
+  section.className = 'doc-fortemi-section';
+  const heading = document.createElement('h2');
+  heading.textContent = title;
+  section.appendChild(heading);
+  render(section);
+  panel.appendChild(section);
+}
+
+function renderFortemiPanel(panel, metadata) {
+  panel.textContent = '';
+
+  addMetadataSection(panel, 'Concepts', (section) => {
+    const concepts = metadata.skos_concepts && metadata.skos_concepts.length
+      ? metadata.skos_concepts
+      : metadata.concepts || [];
+    if (concepts.length) addMetadataChips(section, concepts);
+    else addMetadataRow(section, 'concepts', 'none');
+    (metadata.skos_relations || []).forEach((relation) => {
+      const source = conceptLabel({ id: relation.source_id || relation.source });
+      const target = conceptLabel({ id: relation.target_id || relation.target });
+      addMetadataRow(section, relation.type || 'related', `${humanizeMetadataValue(source)} -> ${humanizeMetadataValue(target)}`);
+    });
+  });
+
+  addMetadataSection(panel, 'Source and Provenance', (section) => {
+    addMetadataRow(section, 'source', metadata.source?.repo_relative_path || metadata.source?.path);
+    addMetadataRow(section, 'locator', metadata.source?.locator);
+    addMetadataRow(section, 'updated', metadata.updated_at);
+    addMetadataRow(section, 'privacy', metadata.privacy?.classification);
+    (metadata.provenance || []).forEach((entry) => {
+      addMetadataRow(section, entry.field || 'field', `${entry.source || 'source'} (${entry.confidence || 'unknown'})`);
+    });
+    (metadata.provenance_events || []).forEach((event) => {
+      const details = [
+        event.agent || 'unknown agent',
+        event.source,
+        event.started_at || event.ended_at
+      ].filter(Boolean).join(' · ');
+      addMetadataRow(section, event.activity || 'activity', details);
+    });
+  });
+
+  addMetadataSection(panel, 'Related Pages', (section) => {
+    const relationships = metadata.relationships || [];
+    if (!relationships.length) {
+      addMetadataRow(section, 'related', 'none');
+      return;
+    }
+    const list = document.createElement('ul');
+    list.className = 'doc-fortemi-links';
+    relationships.forEach((relationship) => {
+      const item = document.createElement('li');
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'doc-fortemi-link';
+      const target = relationshipTargetId(relationship);
+      const confidence = formatConfidence(relationship.confidence);
+      const label = relationship.label || relationship.type || 'related';
+      const shared = Array.isArray(relationship.metadata?.shared_concepts)
+        ? relationship.metadata.shared_concepts.map(humanizeMetadataValue).join(', ')
+        : null;
+      link.textContent = `${label}: ${humanizeMetadataValue(target)}${confidence ? ` (${confidence})` : ''}`;
+      if (shared) link.title = `Shared concepts: ${shared}`;
+      link.addEventListener('click', () => {
+        if (target) navigate(target);
+      });
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+    section.appendChild(list);
+  });
+}
+
+async function renderFortemiMetadataTools(entry, insertAfter) {
+  const sectionId = entry.id;
+  const docContent = insertAfter.closest('.doc-content') || insertAfter.parentElement;
+  let metadata = null;
+  try {
+    metadata = await resolveSectionMetadata(MANIFEST, sectionId);
+  } catch {
+    return;
+  }
+  if (currentSectionId() !== sectionId || !hasFortemiMetadata(metadata)) return;
+
+  const tools = document.createElement('div');
+  tools.className = 'doc-fortemi-tools';
+  const panelId = `docFortemiPanel-${sectionId}`;
+  const panel = document.createElement('div');
+  panel.id = panelId;
+  panel.className = 'doc-fortemi-panel';
+  panel.hidden = true;
+  panel.setAttribute('role', 'region');
+  panel.setAttribute('aria-label', 'Page metadata');
+  renderFortemiPanel(panel, metadata);
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'doc-fortemi-button';
+  button.setAttribute('aria-expanded', 'false');
+  button.setAttribute('aria-controls', panelId);
+  button.title = 'Show page metadata';
+  button.innerHTML = '<span aria-hidden="true">i</span><span class="sr-only">Show page metadata</span>';
+  button.addEventListener('click', () => {
+    const next = panel.hidden;
+    panel.hidden = !next;
+    button.setAttribute('aria-expanded', String(next));
+  });
+
+  tools.appendChild(button);
+  docContent.append(tools, panel);
 }
 
 function formatEntryDate(value) {

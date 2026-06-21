@@ -83,11 +83,115 @@ function edgeEnds(edge) {
   return [s, t];
 }
 
+function normalizeMap(value) {
+  if (value instanceof Map) return value;
+  return new Map(Array.isArray(value) ? value : Object.entries(value || {}));
+}
+
+function humanize(value) {
+  return String(value || '')
+    .replace(/^concept:/, '')
+    .replace(/^docs:page:/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function edgeKey(source, target, kind) {
+  return `${source}\0${target}\0${kind || 'related'}`;
+}
+
+function formatPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return `${Math.round(Math.max(0, Math.min(1, numeric)) * 100)}%`;
+}
+
+function titleText(parts) {
+  return parts.filter(Boolean).join('\n');
+}
+
+function closestSvgClass(target, className) {
+  let current = target;
+  while (current && current.nodeType === 1) {
+    if (current.classList && current.classList.contains(className)) return current;
+    current = current.parentNode;
+  }
+  return null;
+}
+
+function createGraphButton(label, title, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'docs-map-control';
+  button.textContent = label;
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function createGraphPopup(onNavigate) {
+  const panel = document.createElement('aside');
+  panel.className = 'docs-map-popup';
+  panel.hidden = true;
+  panel.dataset.pinned = 'false';
+  panel.setAttribute('aria-live', 'polite');
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'docs-map-popup-close';
+  close.textContent = 'x';
+  close.setAttribute('aria-label', 'Close graph details');
+  close.addEventListener('click', () => {
+    panel.hidden = true;
+    panel.dataset.pinned = 'false';
+  });
+  panel.appendChild(close);
+
+  panel.renderDetails = (detail, pinned = false) => {
+    panel.dataset.pinned = String(pinned);
+    panel.hidden = false;
+    panel.querySelectorAll(':scope > :not(.docs-map-popup-close)').forEach((node) => node.remove());
+
+    const title = document.createElement('h2');
+    title.textContent = detail.title;
+    panel.appendChild(title);
+
+    if (detail.source) {
+      const source = document.createElement('p');
+      source.className = 'docs-map-popup-source';
+      source.textContent = detail.source;
+      panel.appendChild(source);
+    }
+
+    if (detail.concepts.length) {
+      const chips = document.createElement('div');
+      chips.className = 'docs-map-popup-chips';
+      detail.concepts.slice(0, 8).forEach((concept) => {
+        const chip = document.createElement('span');
+        chip.textContent = concept;
+        chips.appendChild(chip);
+      });
+      panel.appendChild(chips);
+    }
+
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'docs-map-popup-open';
+    open.textContent = 'Open page';
+    open.addEventListener('click', () => onNavigate(detail.sectionId));
+    panel.appendChild(open);
+  };
+
+  return panel;
+}
+
 /**
  * Render the graph into `container`. Pure-ish: no globals beyond the DOM passed.
  * @param {Element} container
  * @param {object} graph - { nodes, edges, communities }
- * @param {object} opts - { labelFor(nodeId)->string, onNavigate(sectionId) }
+ * @param {object} opts - { labelFor(nodeId)->string, onNavigate(sectionId), metadata }
  */
 export function renderDocsMap(container, graph, opts = {}) {
   if (!container) return;
@@ -104,8 +208,27 @@ export function renderDocsMap(container, graph, opts = {}) {
 
   const labelFor = opts.labelFor || ((id) => sectionIdFromNode(id));
   const onNavigate = opts.onNavigate || (() => {});
+  const nodeMetadata = normalizeMap(opts.metadata?.nodes);
+  const edgeMetadata = normalizeMap(opts.metadata?.edges);
   const { positions, anchors, communityCount } = layout(graph);
   const hue = (ci) => (ci < 0 ? 0 : Math.round((360 * ci) / Math.max(1, communityCount)));
+  const adjacency = new Map();
+  for (const edge of (graph.edges || [])) {
+    const [s, t] = edgeEnds(edge);
+    if (!s || !t) continue;
+    if (!adjacency.has(s)) adjacency.set(s, new Set());
+    if (!adjacency.has(t)) adjacency.set(t, new Set());
+    adjacency.get(s).add(t);
+    adjacency.get(t).add(s);
+  }
+
+  let zoom = 1;
+  const pan = { x: 0, y: 0 };
+  let dragging = false;
+  let dragStart = null;
+
+  const controls = document.createElement('div');
+  controls.className = 'docs-map-controls';
 
   const svg = document.createElementNS(SVGNS, 'svg');
   svg.setAttribute('class', 'docs-map-svg');
@@ -113,17 +236,95 @@ export function renderDocsMap(container, graph, opts = {}) {
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', `Relationship map of ${nodes.length} documentation pages`);
 
+  const viewport = document.createElementNS(SVGNS, 'g');
+  viewport.setAttribute('class', 'docs-map-viewport');
+  svg.appendChild(viewport);
+
+  const updateTransform = () => {
+    viewport.setAttribute('transform', `translate(${pan.x} ${pan.y}) scale(${zoom})`);
+  };
+  const setZoom = (next) => {
+    zoom = Math.max(0.55, Math.min(2.8, next));
+    updateTransform();
+  };
+  const resetView = () => {
+    zoom = 1;
+    pan.x = 0;
+    pan.y = 0;
+    updateTransform();
+  };
+  const panBy = (dx, dy) => {
+    pan.x += dx;
+    pan.y += dy;
+    updateTransform();
+  };
+
+  controls.append(
+    createGraphButton('+ Zoom', 'Zoom in', () => setZoom(zoom * 1.2)),
+    createGraphButton('- Zoom', 'Zoom out', () => setZoom(zoom / 1.2)),
+    createGraphButton('←', 'Pan left', () => panBy(48, 0)),
+    createGraphButton('↑', 'Pan up', () => panBy(0, 48)),
+    createGraphButton('↓', 'Pan down', () => panBy(0, -48)),
+    createGraphButton('→', 'Pan right', () => panBy(-48, 0)),
+    createGraphButton('Reset', 'Reset view', resetView)
+  );
+
+  const popup = createGraphPopup(onNavigate);
+
+  svg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    setZoom(zoom * (e.deltaY < 0 ? 1.12 : 0.88));
+  }, { passive: false });
+  svg.addEventListener('pointerdown', (e) => {
+    if (closestSvgClass(e.target, 'docs-map-node')) return;
+    dragging = true;
+    dragStart = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (!dragging || !dragStart) return;
+    pan.x = dragStart.panX + (e.clientX - dragStart.x);
+    pan.y = dragStart.panY + (e.clientY - dragStart.y);
+    updateTransform();
+  });
+  svg.addEventListener('pointerup', (e) => {
+    dragging = false;
+    dragStart = null;
+    if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+  });
+  svg.addEventListener('pointercancel', () => {
+    dragging = false;
+    dragStart = null;
+  });
+
   // Edges (under nodes). Sparse corpora may have none — that's fine.
   for (const edge of (graph.edges || [])) {
     const [s, t] = edgeEnds(edge);
     const a = positions.get(s);
     const b = positions.get(t);
     if (!a || !b) continue;
+    const meta = edgeMetadata.get(edgeKey(s, t, edge.kind));
+    const confidence = formatPercent(meta?.confidence);
+    const shared = Array.isArray(meta?.shared_concepts) && meta.shared_concepts.length
+      ? meta.shared_concepts.map(humanize).join(', ')
+      : null;
     const line = document.createElementNS(SVGNS, 'line');
     line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
     line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
     line.setAttribute('class', 'docs-map-edge');
-    svg.appendChild(line);
+    line.setAttribute('data-kind', edge.kind || 'related');
+    line.dataset.source = s;
+    line.dataset.target = t;
+    line.setAttribute('stroke-width', String(Math.max(1, Math.min(5, 1 + Number(edge.weight || 1) * 0.6))));
+    line.setAttribute('opacity', String(Math.max(0.28, Math.min(0.82, 0.34 + Number(edge.weight || 1) * 0.08))));
+    const title = document.createElementNS(SVGNS, 'title');
+    title.textContent = titleText([
+      meta?.label || edge.kind || 'related',
+      confidence ? `Confidence: ${confidence}` : null,
+      shared ? `Shared concepts: ${shared}` : null
+    ]);
+    line.appendChild(title);
+    viewport.appendChild(line);
   }
 
   // Community labels.
@@ -136,7 +337,7 @@ export function renderDocsMap(container, graph, opts = {}) {
     label.setAttribute('class', 'docs-map-community');
     label.setAttribute('fill', `hsl(${hue(anchor.index)} 60% 55%)`);
     label.textContent = String(anchor.id).replace(/^[a-z]+:/, '').replace(/[-_]/g, ' ');
-    svg.appendChild(label);
+    viewport.appendChild(label);
   });
 
   // Nodes (interactive).
@@ -145,12 +346,30 @@ export function renderDocsMap(container, graph, opts = {}) {
     if (!pos) continue;
     const sectionId = sectionIdFromNode(node.id);
     const title = labelFor(node.id);
+    const meta = nodeMetadata.get(node.id);
+    const concepts = Array.isArray(meta?.skos_concepts) && meta.skos_concepts.length
+      ? meta.skos_concepts.map((concept) => concept.prefLabel || concept.id)
+      : (meta?.concepts || []).map(humanize);
+    const detail = {
+      sectionId,
+      title,
+      concepts,
+      source: meta?.source?.repo_relative_path || meta?.source?.path || ''
+    };
 
     const g = document.createElementNS(SVGNS, 'g');
     g.setAttribute('class', 'docs-map-node');
+    g.dataset.nodeId = node.id;
     g.setAttribute('tabindex', '0');
-    g.setAttribute('role', 'link');
+    g.setAttribute('role', 'button');
     g.setAttribute('aria-label', title);
+    const titleNode = document.createElementNS(SVGNS, 'title');
+    titleNode.textContent = titleText([
+      title,
+      concepts.length ? `Concepts: ${concepts.slice(0, 8).join(', ')}` : null,
+      meta?.source?.repo_relative_path || meta?.source?.path
+    ]);
+    g.appendChild(titleNode);
 
     const circle = document.createElementNS(SVGNS, 'circle');
     circle.setAttribute('cx', pos.x);
@@ -166,15 +385,50 @@ export function renderDocsMap(container, graph, opts = {}) {
     text.textContent = title;
     g.appendChild(text);
 
-    const go = () => onNavigate(sectionId);
-    g.addEventListener('click', go);
-    g.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    const highlight = () => {
+      const neighbors = adjacency.get(node.id) || new Set();
+      viewport.querySelectorAll('.docs-map-node').forEach((candidate) => {
+        const candidateId = candidate.dataset.nodeId;
+        candidate.classList.toggle('is-active', candidateId === node.id);
+        candidate.classList.toggle('is-neighbor', neighbors.has(candidateId));
+        candidate.classList.toggle('is-dimmed', candidateId !== node.id && !neighbors.has(candidateId));
+      });
+      viewport.querySelectorAll('.docs-map-edge').forEach((candidate) => {
+        const connected = candidate.dataset.source === node.id || candidate.dataset.target === node.id;
+        candidate.classList.toggle('is-active', connected);
+        candidate.classList.toggle('is-dimmed', !connected);
+      });
+    };
+    const clearHighlight = () => {
+      viewport.querySelectorAll('.is-active, .is-neighbor, .is-dimmed').forEach((candidate) => {
+        candidate.classList.remove('is-active', 'is-neighbor', 'is-dimmed');
+      });
+    };
+
+    g.addEventListener('mouseenter', () => {
+      highlight();
+      if (popup.dataset.pinned !== 'true') popup.renderDetails(detail, false);
     });
-    svg.appendChild(g);
+    g.addEventListener('mouseleave', () => {
+      if (popup.dataset.pinned !== 'true') clearHighlight();
+      if (popup.dataset.pinned !== 'true') popup.hidden = true;
+    });
+    g.addEventListener('click', (e) => {
+      e.preventDefault();
+      highlight();
+      popup.renderDetails(detail, true);
+    });
+    g.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        popup.renderDetails(detail, true);
+      }
+    });
+    viewport.appendChild(g);
   }
 
-  container.appendChild(svg);
+  updateTransform();
+  container.append(controls, svg, popup);
 }
 
 const DOCS_MAP_HTML = [
@@ -183,7 +437,7 @@ const DOCS_MAP_HTML = [
   '    <header>',
   '      <p class="eyebrow">Overview</p>',
   '      <h1>Docs Map</h1>',
-  '      <p class="lead">How these pages cluster and relate. Click a node to jump to it.</p>',
+  '      <p class="lead">How these pages cluster and relate.</p>',
   '    </header>',
   '    <div id="docsMapRoot" class="docs-map"></div>',
   '  </div>',
@@ -199,7 +453,25 @@ const DOCS_MAP_HTML = [
  * @param {Array<[string,string]>|Record<string,string>} [labels] - id → title
  * @returns {{ html: string, afterRender: (app: Element) => void }}
  */
-export function loadDocsMap(graph, labels) {
+function normalizeRenderer(value) {
+  return String(value || 'svg').trim().toLowerCase() === 'cytoscape' ? 'cytoscape' : 'svg';
+}
+
+function renderDocsMapWithRenderer(root, graph, opts = {}) {
+  const renderer = normalizeRenderer(opts.renderer);
+  if (renderer !== 'svg') {
+    // Optional renderers are installed behind this adapter. Until a renderer is
+    // implemented, the stable SVG renderer remains the safe fallback.
+    root.dataset.docsMapRenderer = renderer;
+    root.dataset.docsMapFallback = 'svg';
+  } else {
+    root.dataset.docsMapRenderer = 'svg';
+    delete root.dataset.docsMapFallback;
+  }
+  renderDocsMap(root, graph, opts);
+}
+
+export function loadDocsMap(graph, labels, options = {}) {
   const labelMap = labels instanceof Map
     ? labels
     : new Map(Array.isArray(labels) ? labels : Object.entries(labels || {}));
@@ -208,7 +480,9 @@ export function loadDocsMap(graph, labels) {
     afterRender(app) {
       const root = app.querySelector('#docsMapRoot');
       if (!root) return;
-      renderDocsMap(root, graph || { nodes: [], edges: [], communities: [] }, {
+      renderDocsMapWithRenderer(root, graph || { nodes: [], edges: [], communities: [] }, {
+        renderer: options.renderer,
+        metadata: options.metadata,
         labelFor: (nodeId) => labelMap.get(sectionIdFromNode(nodeId)) || sectionIdFromNode(nodeId),
         onNavigate: (sectionId) => { location.hash = `#${sectionId}`; }
       });
@@ -217,7 +491,7 @@ export function loadDocsMap(graph, labels) {
 }
 
 /** Section-module entry point. Computes the graph client-side from MANIFEST. */
-export async function load() {
+export async function loadManifestDocsMap(options = {}) {
   return {
     html: DOCS_MAP_HTML,
     afterRender(app) {
@@ -230,10 +504,15 @@ export async function load() {
         graph = { nodes: [], edges: [], communities: [] };
       }
       const labels = buildLabelMap(MANIFEST);
-      renderDocsMap(root, graph, {
+      renderDocsMapWithRenderer(root, graph, {
+        renderer: options.renderer,
         labelFor: (nodeId) => labels.get(sectionIdFromNode(nodeId)) || sectionIdFromNode(nodeId),
         onNavigate: (sectionId) => { location.hash = `#${sectionId}`; }
       });
     }
   };
+}
+
+export async function load() {
+  return loadManifestDocsMap();
 }

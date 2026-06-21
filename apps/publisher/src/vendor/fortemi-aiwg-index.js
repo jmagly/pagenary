@@ -1,8 +1,8 @@
 /**
  * VENDORED — @fortemi/core/aiwg-index
  *
- * Source : @fortemi/core@2026.6.7  →  dist/aiwg-index.js
- * SHA-256: 70cb729f18d7fb901606737b5ede8dcb2eac7704176aae60d7d6fc10f9508c42 (upstream dist file)
+ * Source : @fortemi/core@2026.6.8  →  dist/aiwg-index.js
+ * SHA-256: 73ee49c8ec2daa75a3828544901a5789be6f124d7855943f8079303966fdb1a4 (upstream dist file)
  * License: AGPL-3.0-only (compatible with this package's AGPL-3.0-or-later)
  * Why    : Pagenary's publisher build is a no-bundler copy-src→dist pipeline that
  *          loads ES modules by relative path; bare specifiers (`@fortemi/core`)
@@ -11,10 +11,9 @@
  *          browser (runtime search). See .aiwg/architecture/adr/ADR-015-*.md.
  * Update : Re-vendor by copying the dist file from a newer @fortemi/core release
  *          and refreshing the SHA-256 above. Do not hand-edit below this banner.
- *          6.5 adds encodeAiwgDetailId / aiwgDetailHrefForId + a transparent
- *          query match-cache (additive); 6.4, 6.6 and 6.7 ship an identical
- *          aiwg-index dist (the 6.7 dist is byte-for-byte equal to 6.6 — the
- *          6.7 release changed other parts of the package, not this surface).
+ *          2026.6.8 adds optional rich SKOS concepts/relations, W3C PROV-style
+ *          provenance events, and relationship metadata to the aiwg-index record
+ *          contract for static consumers.
  */
 // src/aiwg-index.ts
 var AIWG_SCAN_REQUIRED_FIELDS = [
@@ -74,6 +73,61 @@ function isFacetCounts(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   return Object.values(value).every((counts) => !!counts && typeof counts === "object" && !Array.isArray(counts) && Object.values(counts).every((count) => hasNonNegativeInteger(count)));
 }
+function isPlainRecord(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function isOptionalStringArray(value) {
+  return value === void 0 || Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+function validateOptionalRichMetadata(item, index, errors) {
+  if (item.skos_concepts !== void 0) {
+    if (!Array.isArray(item.skos_concepts)) {
+      errors.push("items[" + index + "].skos_concepts must be an array when present");
+    } else {
+      for (const [conceptIndex, concept] of item.skos_concepts.entries()) {
+        if (!hasString(concept.id)) errors.push("items[" + index + "].skos_concepts[" + conceptIndex + "].id is required");
+        if (!hasString(concept.prefLabel)) errors.push("items[" + index + "].skos_concepts[" + conceptIndex + "].prefLabel is required");
+        if (!isOptionalStringArray(concept.altLabels)) errors.push("items[" + index + "].skos_concepts[" + conceptIndex + "].altLabels must be a string array");
+        if (concept.metadata !== void 0 && !isPlainRecord(concept.metadata)) {
+          errors.push("items[" + index + "].skos_concepts[" + conceptIndex + "].metadata must be an object");
+        }
+      }
+    }
+  }
+  if (item.skos_relations !== void 0) {
+    if (!Array.isArray(item.skos_relations)) {
+      errors.push("items[" + index + "].skos_relations must be an array when present");
+    } else {
+      for (const [relationIndex, relation] of item.skos_relations.entries()) {
+        if (!hasString(relation.type)) errors.push("items[" + index + "].skos_relations[" + relationIndex + "].type is required");
+        if (!hasString(relation.source_id)) errors.push("items[" + index + "].skos_relations[" + relationIndex + "].source_id is required");
+        if (!hasString(relation.target_id)) errors.push("items[" + index + "].skos_relations[" + relationIndex + "].target_id is required");
+        if (relation.metadata !== void 0 && !isPlainRecord(relation.metadata)) {
+          errors.push("items[" + index + "].skos_relations[" + relationIndex + "].metadata must be an object");
+        }
+      }
+    }
+  }
+  if (item.provenance_events !== void 0) {
+    if (!Array.isArray(item.provenance_events)) {
+      errors.push("items[" + index + "].provenance_events must be an array when present");
+    } else {
+      for (const [eventIndex, event] of item.provenance_events.entries()) {
+        if (!hasString(event.activity)) errors.push("items[" + index + "].provenance_events[" + eventIndex + "].activity is required");
+        if (event.attributes !== void 0 && !isPlainRecord(event.attributes)) {
+          errors.push("items[" + index + "].provenance_events[" + eventIndex + "].attributes must be an object");
+        }
+      }
+    }
+  }
+  if (Array.isArray(item.relationships)) {
+    for (const [relationshipIndex, relationship] of item.relationships.entries()) {
+      if (relationship.metadata !== void 0 && !isPlainRecord(relationship.metadata)) {
+        errors.push("items[" + index + "].relationships[" + relationshipIndex + "].metadata must be an object");
+      }
+    }
+  }
+}
 function validateAiwgFortemiIndexExport(value) {
   const errors = [];
   const counts = {};
@@ -112,6 +166,7 @@ function validateAiwgFortemiIndexExport(value) {
     if (!Array.isArray(item.provenance) || item.provenance.length === 0) {
       errors.push("items[" + index + "].provenance must be a non-empty array");
     }
+    validateOptionalRichMetadata(item, index, errors);
     if (!item.privacy || typeof item.privacy.pii !== "boolean" || !hasString(item.privacy.classification)) {
       errors.push("items[" + index + "].privacy requires classification and pii");
     }

@@ -1267,6 +1267,7 @@ async function applyThemePicker(distDir, config, tenantId) {
 async function applyDocsMap(distDir, config, tenantId) {
   const docsMap = config.docsMap;
   if (!docsMap || !docsMap.enabled) return;
+  const renderer = normalizeDocsMapRenderer(docsMap.renderer);
 
   const manifestPath = path.join(distDir, 'manifest.js');
   if (!(await pathExists(manifestPath))) return;
@@ -1282,21 +1283,23 @@ async function applyDocsMap(distDir, config, tenantId) {
     await fsp.writeFile(
       path.join(distDir, 'docs-map-data.js'),
       `export const DOCS_MAP_GRAPH = ${JSON.stringify(graphArtifact.graph)};\n` +
-      `export const DOCS_MAP_LABELS = ${JSON.stringify(graphArtifact.labels)};\n`,
+      `export const DOCS_MAP_LABELS = ${JSON.stringify(graphArtifact.labels)};\n` +
+      `export const DOCS_MAP_METADATA = ${JSON.stringify(graphArtifact.metadata)};\n`,
       'utf8'
     );
     await fsp.writeFile(
       path.join(sectionsDir, 'docs-map.js'),
-      "import { DOCS_MAP_GRAPH, DOCS_MAP_LABELS } from '../docs-map-data.js';\n" +
+      "import * as DOCS_MAP_DATA from '../docs-map-data.js';\n" +
       "import { loadDocsMap } from '../lib/docs-map.js';\n" +
-      'export const load = () => loadDocsMap(DOCS_MAP_GRAPH, DOCS_MAP_LABELS);\n',
+      `export const load = () => loadDocsMap(DOCS_MAP_DATA.DOCS_MAP_GRAPH, DOCS_MAP_DATA.DOCS_MAP_LABELS, { renderer: ${JSON.stringify(renderer)}, metadata: DOCS_MAP_DATA.DOCS_MAP_METADATA });\n`,
       'utf8'
     );
   } else {
     // No content to analyze — fall back to the runtime (MANIFEST-derived) graph.
     await fsp.writeFile(
       path.join(sectionsDir, 'docs-map.js'),
-      "export { load } from '../lib/docs-map.js';\n",
+      "import { loadManifestDocsMap } from '../lib/docs-map.js';\n" +
+      `export const load = () => loadManifestDocsMap({ renderer: ${JSON.stringify(renderer)} });\n`,
       'utf8'
     );
   }
@@ -1321,7 +1324,12 @@ async function applyDocsMap(distDir, config, tenantId) {
     js = updated;
   }
   await fsp.writeFile(manifestPath, js, 'utf8');
-  console.log(`  ↳ wired docs-map view for ${tenantId}`);
+  console.log(`  ↳ wired docs-map view for ${tenantId} (${renderer} renderer)`);
+}
+
+function normalizeDocsMapRenderer(value) {
+  const renderer = String(value || 'svg').trim().toLowerCase();
+  return renderer === 'cytoscape' ? 'cytoscape' : 'svg';
 }
 
 /**
@@ -1395,12 +1403,40 @@ async function buildDocsMapGraph(distDir, tenantId) {
   const graph = aiwgFortemiIndexToCommunityGraph(index, { communityFacet: 'group' });
   if (!graph.nodes || graph.nodes.length < 2) return null;
 
+  const recordIds = new Set(index.items.map((item) => item.id));
+  const nodeMetadata = index.items.map((item) => [item.id, {
+    title: item.title,
+    section_id: String(item.id).replace(/^docs:page:/, ''),
+    concepts: item.concepts || [],
+    skos_concepts: item.skos_concepts || [],
+    source: item.source || null,
+    privacy: item.privacy || null,
+    updated_at: item.updated_at || null
+  }]);
+  const edgeMetadata = [];
+  for (const item of index.items) {
+    for (const relationship of item.relationships || []) {
+      if (!recordIds.has(relationship.target_id)) continue;
+      const key = `${item.id}\0${relationship.target_id}\0${relationship.type}`;
+      edgeMetadata.push([key, {
+        label: relationship.label || relationship.type,
+        confidence: relationship.confidence ?? null,
+        privacy: relationship.privacy || null,
+        shared_concepts: Array.isArray(relationship.metadata?.shared_concepts)
+          ? relationship.metadata.shared_concepts
+          : [],
+        source_path: relationship.source_path || null
+      }]);
+    }
+  }
+
   const labels = sections.map((s) => [s.id, s.title]);
+  const metadata = { nodes: nodeMetadata, edges: edgeMetadata };
   console.log(
     `  ↳ docs-map graph for ${tenantId}: ${graph.nodes.length} nodes, ` +
     `${graph.edges.length} edges, ${graph.communities.length} communities`
   );
-  return { graph, labels };
+  return { graph, labels, metadata };
 }
 
 const NAV_POSITIONS = new Set(['left', 'right', 'top', 'bottom', 'hybrid']);

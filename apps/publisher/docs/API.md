@@ -132,10 +132,12 @@ updateMetaTags({
 Search runs on the **real, vendored `@fortemi/core` static-index engine**
 (`src/vendor/fortemi-aiwg-index.js`). At build time, `scripts/build-tenants.js`
 emits a deterministic **chunked** index per tenant under `dist/<tenant>/search-index/`
-(`manifest.json` + `part-NNNN.json`, the `aiwg.fortemi.index.*.v1` contract). At
-runtime the adapter loads that index through an index controller +
-fetch chunk-loader: parts are fetched lazily and cached (**precache**), results
-are ranked with snippets, and pages are returned by offset for **infinite scroll**.
+(`manifest.json` + `part-NNNN.json`, the `aiwg.fortemi.index.*.v1` contract)
+plus compact `metadata.json` (`pagenary.fortemi.metadata.v1`) for page-addressable
+Fortemi metadata without duplicating full document text. At runtime the adapter
+loads that index through an index controller + fetch chunk-loader: parts are
+fetched lazily and cached (**precache**), results are ranked with snippets, and
+pages are returned by offset for **infinite scroll**.
 If the static index is missing or invalid, the adapter falls back to an
 in-browser index built from section modules — same ranking engine, same result
 shape. See `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
@@ -198,6 +200,21 @@ Project the corpus into a Fortemi community graph (relationships/facets) — the
 const graph = buildCommunityGraph(MANIFEST);
 ```
 
+**`resolveSectionMetadata(manifest, sectionId): Promise<object|null>`**
+
+Resolve compact Fortemi metadata for one page. The static artifact is preferred;
+the browser fallback derives the same shape from the in-browser Fortemi index.
+
+```javascript
+const metadata = await resolveSectionMetadata(MANIFEST, 'developers');
+// metadata.source, facets, concepts, relationships, provenance, privacy
+```
+
+**`resolveSectionMetadataMap(manifest): Promise<Map<string, object>>`**
+
+Resolve all compact Fortemi metadata keyed by section id for page tools, graph
+node details, or tenant-specific integrations.
+
 **`findPreferredIndex(entries: Section[], currentId: string): number`**
 
 Find index of current section in filtered results.
@@ -214,7 +231,8 @@ Pure, DOM-free, `Date.now()`-free helpers shared by the build-time generator and
 the runtime fallback: `buildFortemiIndexExport(entries, { repo })` (records sorted
 by id, deduped, content-hashed `generated_at` + `source.build_hash`),
 `chunkFortemiIndex(index, { partSize })`, `sectionToFortemiRecord`, `stripHtml`,
-`recordToSectionId`, `stableHash`.
+`recordToSectionId`, `fortemiRecordToPageMetadata`,
+`buildFortemiMetadataExport`, `stableHash`.
 
 ---
 

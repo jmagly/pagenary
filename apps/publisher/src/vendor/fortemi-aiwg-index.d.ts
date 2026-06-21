@@ -11,6 +11,10 @@ interface AiwgFortemiRelationship {
     type: string;
     target_id: string;
     source_path?: string;
+    label?: string;
+    confidence?: number;
+    privacy?: AiwgPrivacyClassification;
+    metadata?: Record<string, unknown>;
 }
 interface AiwgFortemiProvenance {
     field: string;
@@ -18,6 +22,36 @@ interface AiwgFortemiProvenance {
     path: string;
     confidence: AiwgProvenanceConfidence;
     privacy: AiwgPrivacyClassification;
+}
+type AiwgFortemiSkosRelationType = 'broader' | 'narrower' | 'related' | string;
+interface AiwgFortemiSkosConcept {
+    id: string;
+    prefLabel: string;
+    definition?: string;
+    scheme?: string;
+    notation?: string;
+    uri?: string;
+    altLabels?: string[];
+    metadata?: Record<string, unknown>;
+}
+interface AiwgFortemiSkosRelation {
+    type: AiwgFortemiSkosRelationType;
+    source_id: string;
+    target_id: string;
+    source_path?: string;
+    metadata?: Record<string, unknown>;
+}
+interface AiwgFortemiProvenanceEvent {
+    id?: string;
+    activity: string;
+    agent?: string;
+    started_at?: string;
+    ended_at?: string;
+    source?: string;
+    path?: string;
+    confidence?: AiwgProvenanceConfidence;
+    privacy?: AiwgPrivacyClassification;
+    attributes?: Record<string, unknown>;
 }
 interface AiwgFortemiRecord {
     schema_version: 'aiwg.fortemi.index.record.v1';
@@ -31,6 +65,12 @@ interface AiwgFortemiRecord {
     concepts: string[];
     relationships: AiwgFortemiRelationship[];
     provenance: AiwgFortemiProvenance[];
+    /** Optional rich SKOS metadata for static consumers that need labels/definitions without opening a shard. */
+    skos_concepts?: AiwgFortemiSkosConcept[];
+    /** Optional SKOS relationship edges among concepts referenced by this record. */
+    skos_relations?: AiwgFortemiSkosRelation[];
+    /** Optional W3C PROV-style activity chain for this record. */
+    provenance_events?: AiwgFortemiProvenanceEvent[];
     privacy: {
         classification: AiwgPrivacyClassification;
         pii: boolean;
@@ -246,4 +286,4 @@ declare function aiwgFortemiIndexToCommunityGraph(index: AiwgFortemiIndexExport,
     }[];
 };
 
-export { AIWG_SCAN_REQUIRED_FIELDS, type AiwgChunkedIndexBuildOptions, type AiwgChunkedIndexBuildResult, type AiwgChunkedIndexDetailLoader, type AiwgChunkedIndexLoadOptions, type AiwgChunkedIndexLoader, type AiwgChunkedIndexProgress, type AiwgChunkedIndexProgressPhase, type AiwgChunkedIndexQueryOptions, type AiwgChunkedIndexQueryResult, type AiwgChunkedIndexValidationResult, type AiwgDetailIdEncoding, type AiwgFortemiChunkDetailRef, type AiwgFortemiChunkManifest, type AiwgFortemiChunkPart, type AiwgFortemiChunkPartRef, type AiwgFortemiIndexExport, type AiwgFortemiProjectedRecord, type AiwgFortemiProvenance, type AiwgFortemiRecord, type AiwgFortemiRecordSource, type AiwgFortemiRecordType, type AiwgFortemiRelationship, type AiwgIndexController, type AiwgIndexControllerListener, type AiwgIndexControllerSnapshot, type AiwgIndexGraphOptions, type AiwgIndexQueryMatch, type AiwgIndexQueryOptions, type AiwgIndexQueryRankedItem, type AiwgIndexQueryResult, type AiwgIndexQueryWeights, type AiwgIndexValidationResult, type AiwgPrivacyClassification, type AiwgProvenanceConfidence, type AiwgReviewAction, type AiwgReviewDecision, type AiwgReviewDecisionExport, type AiwgReviewInput, aiwgDetailHrefForId, aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, buildAiwgChunkedIndex, createAiwgFetchChunkLoader, createAiwgFetchDetailLoader, createAiwgIndexController, createAiwgReviewDecisionExport, encodeAiwgDetailId, getAiwgFortemiFacets, queryAiwgFortemiIndex, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport };
+export { AIWG_SCAN_REQUIRED_FIELDS, type AiwgChunkedIndexBuildOptions, type AiwgChunkedIndexBuildResult, type AiwgChunkedIndexDetailLoader, type AiwgChunkedIndexLoadOptions, type AiwgChunkedIndexLoader, type AiwgChunkedIndexProgress, type AiwgChunkedIndexProgressPhase, type AiwgChunkedIndexQueryOptions, type AiwgChunkedIndexQueryResult, type AiwgChunkedIndexValidationResult, type AiwgDetailIdEncoding, type AiwgFortemiChunkDetailRef, type AiwgFortemiChunkManifest, type AiwgFortemiChunkPart, type AiwgFortemiChunkPartRef, type AiwgFortemiIndexExport, type AiwgFortemiProjectedRecord, type AiwgFortemiProvenance, type AiwgFortemiProvenanceEvent, type AiwgFortemiRecord, type AiwgFortemiRecordSource, type AiwgFortemiRecordType, type AiwgFortemiRelationship, type AiwgFortemiSkosConcept, type AiwgFortemiSkosRelation, type AiwgFortemiSkosRelationType, type AiwgIndexController, type AiwgIndexControllerListener, type AiwgIndexControllerSnapshot, type AiwgIndexGraphOptions, type AiwgIndexQueryMatch, type AiwgIndexQueryOptions, type AiwgIndexQueryRankedItem, type AiwgIndexQueryResult, type AiwgIndexQueryWeights, type AiwgIndexValidationResult, type AiwgPrivacyClassification, type AiwgProvenanceConfidence, type AiwgReviewAction, type AiwgReviewDecision, type AiwgReviewDecisionExport, type AiwgReviewInput, aiwgDetailHrefForId, aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, buildAiwgChunkedIndex, createAiwgFetchChunkLoader, createAiwgFetchDetailLoader, createAiwgIndexController, createAiwgReviewDecisionExport, encodeAiwgDetailId, getAiwgFortemiFacets, queryAiwgFortemiIndex, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport };

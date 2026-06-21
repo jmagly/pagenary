@@ -177,20 +177,24 @@ readers can see how the docs relate. It appears in the nav and at `#docs-map`.
 |----------|------|---------|-------------|
 | `docsMap.enabled` | boolean | `false` | Add the Docs Map page + nav entry |
 | `docsMap.title` | string | `"Docs Map"` | Nav/heading label |
+| `docsMap.renderer` | `"svg"` or `"cytoscape"` | `"svg"` | Graph renderer. `svg` is the current renderer and fallback; `cytoscape` reserves the opt-in richer JS renderer path. |
 
 ```json
-{ "docsMap": { "enabled": true } }
+{ "docsMap": { "enabled": true, "renderer": "svg" } }
 ```
 
-The graph is computed **at build time** from your actual page content. Each
-page's body is run through a concept-extraction procedure (the same Fortemi
-model that powers search): pages cluster into communities by nav group, and
-pages that share salient concepts are linked with `related` edges. The richer
-and more cross-referenced your docs, the denser the graph. The build embeds the
-result as `docs-map-data.js` and the page renders it client-side (no server, no
-React). Tenants with too little content fall back to a lightweight
-manifest-derived graph, and small or empty corpora render a friendly
-placeholder. When disabled, nothing is emitted.
+The graph is computed **at build time** from your actual page content using the
+vendored Fortemi graph adapter. Each page's body is run through the Fortemi
+concept procedure: pages cluster into communities by nav group, and pages that
+share salient concepts are linked with weighted `related` edges. The build
+embeds the Fortemi graph plus compact node/relationship metadata as
+`docs-map-data.js`; the SVG renderer uses that metadata for subtle hover titles,
+edge weight, confidence, shared-concept details, zoom/pan controls, neighbor
+highlighting, and pinned node popups. The default renderer is the framework-free
+SVG view; optional renderers must fall back to SVG if they cannot initialize.
+Tenants with too little content fall back to a lightweight manifest-derived
+graph, and small or empty corpora render a friendly placeholder. When disabled,
+nothing is emitted.
 
 > See `examples/docs-map-corpus/` (the **docs-map** recipe) for a fully
 > cross-linked sample corpus — 14 interconnected pages that produce a graph of

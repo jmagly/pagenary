@@ -20,6 +20,7 @@ import path from 'path';
 import { pathToFileURL } from 'node:url';
 import {
   buildFortemiIndexExport,
+  buildFortemiMetadataExport,
   chunkFortemiIndex,
   stripHtml,
   DEFAULT_PART_SIZE
@@ -66,7 +67,10 @@ async function extractSectionText(section, distDir) {
 }
 
 /**
- * Generate and write the chunked Fortemi index for one tenant bundle.
+ * Generate and write the chunked Fortemi index for one tenant bundle. The
+ * static search artifact is also the page-metadata source, so it opts into
+ * content concepts and concept-derived relationships for richer graph/metadata
+ * UX while preserving the lower-level corpus builder's bare default.
  * @param {string} distDir - Tenant output directory (contains manifest.js, sections/)
  * @param {Array} processedManifest - The nested manifest array written to manifest.js
  * @param {object} [options]
@@ -88,8 +92,13 @@ export async function generateSearchIndex(distDir, processedManifest, options = 
     entries.push({ section, text });
   }
 
-  const { index, buildHash } = buildFortemiIndexExport(entries, { repo: tenantId });
+  const { index, buildHash } = buildFortemiIndexExport(entries, {
+    repo: tenantId,
+    extractConcepts: true,
+    relateByConcept: true
+  });
   const { manifest, parts } = chunkFortemiIndex(index, { partSize });
+  const metadata = buildFortemiMetadataExport(index);
 
   // Build-time validation gate (#25): assert the emitted artifact against the
   // vendored @fortemi/core contract so an invalid index fails the build clearly,
@@ -112,6 +121,11 @@ export async function generateSearchIndex(distDir, processedManifest, options = 
   await fsp.writeFile(
     path.join(outDir, 'manifest.json'),
     `${JSON.stringify(manifest, null, 2)}\n`,
+    'utf8'
+  );
+  await fsp.writeFile(
+    path.join(outDir, 'metadata.json'),
+    `${JSON.stringify(metadata, null, 2)}\n`,
     'utf8'
   );
   await Promise.all(parts.map((part, i) =>

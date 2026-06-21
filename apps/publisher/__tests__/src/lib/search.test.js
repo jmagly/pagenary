@@ -8,6 +8,9 @@ import {
   filterSections,
   parseSearchTerms,
   findPreferredIndex,
+  resetSearchState,
+  resolveSectionMetadata,
+  resolveSectionMetadataMap,
   queryAiwgFortemiIndex
 } from '../../../src/lib/search.js';
 
@@ -24,6 +27,10 @@ const TEST_MANIFEST = [
 ];
 
 describe('lib/search.js', () => {
+  afterEach(() => {
+    resetSearchState();
+  });
+
   describe('queryAiwgFortemiIndex', () => {
     const fortemiIndex = {
       schema_version: 'aiwg.fortemi.index.export.v1',
@@ -139,6 +146,25 @@ describe('lib/search.js', () => {
 
     test('handles string with multiple special chars', () => {
       expect(escapeRegExp('.*+?^${}()|[]\\')).toBe('\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\');
+    });
+  });
+
+  describe('resolveSectionMetadata', () => {
+    test('resolves compact Fortemi metadata by section id without record text', async () => {
+      const metadata = await resolveSectionMetadata(TEST_MANIFEST, 'developers');
+      expect(metadata.section_id).toBe('developers');
+      expect(metadata.record_id).toBe('docs:page:developers');
+      expect(metadata.title).toBe('Developers');
+      expect(metadata.facets.section).toEqual(['developers']);
+      expect(metadata.source.locator).toBe('#/developers');
+      expect(metadata.provenance[0].confidence).toBe('source');
+      expect(metadata.text).toBeUndefined();
+    });
+
+    test('resolves all metadata as a section-id map', async () => {
+      const map = await resolveSectionMetadataMap(TEST_MANIFEST);
+      expect(map.has('welcome-overview')).toBe(true);
+      expect(map.get('security').privacy.classification).toBe('public');
     });
   });
 
