@@ -44,6 +44,12 @@
           "file": "THEMING-RECIPES.md"
         },
         {
+          "id": "theme-token-audit",
+          "title": "Theme Token Audit",
+          "summary": "Sources of truth, exceptions, and checks for theme token alignment.",
+          "file": "THEME-TOKEN-AUDIT.md"
+        },
+        {
           "id": "extending",
           "title": "Extending",
           "summary": "Add section templates, content types, and build behaviors.",

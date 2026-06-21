@@ -678,6 +678,16 @@ describe('build-tenants.js', () => {
       };
     }
 
+    test('source stylesheet defines channel tokens used by themed surfaces', async () => {
+      const css = await fsp.readFile(path.join(PUBLISHER_ROOT, 'src', 'styles.css'), 'utf8');
+      expect(css).toMatch(/--surface-rgb:\s*255,\s*255,\s*255;/);
+      expect(css).toMatch(/--ink-rgb:\s*11,\s*11,\s*11;/);
+      expect(css).toMatch(/\.export-options-modal\s*{[\s\S]*background:\s*var\(--surface\);/);
+      expect(css).toMatch(/\.export-loading-modal\s*{[\s\S]*background:\s*var\(--surface\);/);
+      expect(css).not.toMatch(/\.export-options-modal\s*{[\s\S]*background:\s*white;/);
+      expect(css).not.toMatch(/\.export-loading-modal\s*{[\s\S]*border:\s*2px solid #000;/);
+    });
+
     test('enabled: emits per-theme stylesheets + injects control', async () => {
       const { index, has } = await buildWithConfig({
         title: 'TP',
@@ -700,8 +710,28 @@ describe('build-tenants.js', () => {
       const dark = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-dark.css'), 'utf8');
       expect(dark).toMatch(/color-scheme: dark;/);
       expect(dark).toMatch(/--surface: #0a0a0e;/);
+      expect(dark).toMatch(/--surface-rgb: 10, 10, 14;/);
+      expect(dark).toMatch(/--ink-rgb: 224, 224, 224;/);
       // The build-time dark override replaced the hardcoded light code background.
       expect(dark).not.toMatch(/rgba\(0, 0, 0, 0\.04\)/);
+    });
+
+    test('emitted theme variants keep overlay and modal surfaces on tokens', async () => {
+      await buildWithConfig({
+        title: 'TP',
+        themePicker: { enabled: true, themes: ['light', 'dark'] }
+      });
+      const light = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-light.css'), 'utf8');
+      const dark = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-dark.css'), 'utf8');
+
+      for (const css of [light, dark]) {
+        expect(css).toMatch(/--ink-rgb:\s*\d+,\s*\d+,\s*\d+;/);
+        expect(css).toMatch(/\.export-options-overlay\s*{[\s\S]*background:\s*rgba\(var\(--surface-rgb\), 0\.86\);/);
+        expect(css).toMatch(/\.export-options-modal\s*{[\s\S]*background:\s*var\(--surface\);/);
+        expect(css).toMatch(/\.export-loading-modal\s*{[\s\S]*background:\s*var\(--surface\);/);
+        expect(css).not.toMatch(/\.export-options-modal\s*{[\s\S]*background:\s*white;/);
+        expect(css).not.toMatch(/\.export-loading-modal\s*{[\s\S]*border:\s*2px solid #000;/);
+      }
     });
 
     test('disabled/absent: no picker output, no extra markup', async () => {

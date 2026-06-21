@@ -1015,6 +1015,10 @@ async function applyDefaultPageTitle(distDir, config) {
 }
 
 function hexToRgb(hex) {
+  const short = /^#?([a-f\d])([a-f\d])([a-f\d])$/i.exec(hex);
+  if (short) {
+    return short.slice(1).map((value) => parseInt(value + value, 16)).join(', ');
+  }
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return null;
   return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
@@ -1145,6 +1149,11 @@ function renderThemedCss(css, theme, isDarkMode) {
   if (theme.surface) {
     const rgb = hexToRgb(theme.surface);
     if (rgb) css = css.replace(/(--surface-rgb:\s*)([^;]+);/, `$1${rgb};`);
+  }
+
+  if (theme.ink) {
+    const rgb = hexToRgb(theme.ink);
+    if (rgb) css = css.replace(/(--ink-rgb:\s*)([^;]+);/, `$1${rgb};`);
   }
 
   if (isDarkMode) {

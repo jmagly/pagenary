@@ -165,6 +165,55 @@
           "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
           "description": "CSS accent color (hex format)"
         },
+        "surfaceColor": {
+          "type": "string",
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "Page surface color (hex format)"
+        },
+        "inkColor": {
+          "type": "string",
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "Primary text color (hex format)"
+        },
+        "mutedColor": {
+          "type": "string",
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "Muted text color (hex format)"
+        },
+        "gridLineColor": {
+          "type": "string",
+          "description": "CSS color for borders and dividers"
+        },
+        "theme": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": ["light", "dark", "matrix"]
+            },
+            {
+              "$ref": "#/definitions/themeConfig"
+            }
+          ],
+          "description": "Theme preset or custom theme object"
+        },
+        "themePicker": {
+          "$ref": "#/definitions/themePickerConfig",
+          "description": "Optional runtime theme picker"
+        },
+        "fontBody": {
+          "type": "string",
+          "description": "CSS font stack for prose"
+        },
+        "fontMono": {
+          "type": "string",
+          "description": "CSS font stack for code and monospace UI"
+        },
+        "navPosition": {
+          "type": "string",
+          "enum": ["left", "right", "top", "bottom", "hybrid"],
+          "default": "left",
+          "description": "Navigation placement"
+        },
         "welcome": {
           "$ref": "#/definitions/welcomeConfig",
           "description": "Welcome section customization"
@@ -174,6 +223,83 @@
           "description": "Optional documentation relationship map"
         }
       }
+    },
+    "themeConfig": {
+      "type": "object",
+      "description": "Custom theme tokens. Unknown keys are allowed so advanced build-time overrides can remain forward-compatible.",
+      "properties": {
+        "colorScheme": {
+          "type": "string",
+          "enum": ["light", "dark"],
+          "description": "Browser color-scheme hint"
+        },
+        "surface": {
+          "type": "string",
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "Page surface color"
+        },
+        "ink": {
+          "type": "string",
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "Primary text color"
+        },
+        "muted": {
+          "type": "string",
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "Muted text color"
+        },
+        "accent": {
+          "type": "string",
+          "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
+          "description": "Accent color"
+        },
+        "gridLine": {
+          "type": "string",
+          "description": "CSS color for borders and dividers"
+        },
+        "highlightBg": {
+          "type": "string",
+          "description": "Search highlight background"
+        },
+        "highlightBorder": {
+          "type": "string",
+          "description": "Search highlight border"
+        },
+        "fontBody": {
+          "type": "string",
+          "description": "CSS font stack for prose"
+        },
+        "fontMono": {
+          "type": "string",
+          "description": "CSS font stack for code and monospace UI"
+        }
+      },
+      "additionalProperties": true
+    },
+    "themePickerConfig": {
+      "type": "object",
+      "description": "Runtime theme picker configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Add the picker control"
+        },
+        "themes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["light", "dark", "matrix", "custom"]
+          },
+          "default": ["light", "dark", "matrix"],
+          "description": "Selectable theme stylesheets to emit"
+        },
+        "default": {
+          "type": "string",
+          "description": "Initial theme name"
+        }
+      },
+      "additionalProperties": false
     },
     "docsMapConfig": {
       "type": "object",

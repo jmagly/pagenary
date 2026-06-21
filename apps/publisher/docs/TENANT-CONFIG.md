@@ -114,8 +114,8 @@ my-tenant/
 | `mutedColor` | hex string | "#5a5a5a" | Secondary / muted text |
 | `gridLineColor` | CSS color | rgba(0,0,0,0.08) | Borders and dividers |
 
-Color values must be 6-digit hex codes (e.g., `#6366F1`); `gridLineColor` may be
-any CSS color (rgba is common).
+Color values may be 3- or 6-digit hex codes (for example `#6366F1` or `#111`);
+`gridLineColor` may be any CSS color (`rgba(...)` is common).
 
 A custom `theme` **object** merges over the `light` base and accepts the keys
 above plus `colorScheme` (`light` \| `dark`) and dark-mode surface keys
@@ -166,6 +166,9 @@ The build emits one full stylesheet per selectable theme (`theme-<name>.css`)
 and swaps the active `<link>` at runtime, so switching is instant and
 pixel-correct (including code blocks and tables). When disabled, no control,
 script behavior, or extra stylesheets are emitted.
+
+For the current token contract and intentional non-token exceptions, see
+[Theme Token Audit](THEME-TOKEN-AUDIT.md).
 
 #### Docs map (relationship view)
 
