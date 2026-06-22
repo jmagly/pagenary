@@ -2,8 +2,9 @@
 /**
  * Browser smoke test (#32) — verifies the things the jest/node suite can't:
  * real-browser base-URL resolution under a subpath mount, asset loading, nav +
- * section render, the runtime <title> brand (guards #29), and Fortemi command-
- * palette search. Captures a screenshot for visual review.
+ * section render, the runtime <title> brand (guards #29), Fortemi command-
+ * palette search, and Docs Map controls when enabled. Captures a screenshot for
+ * visual review.
  *
  * Playwright is intentionally NOT a package dependency — kept fully out of the
  * tree so the core install stays lean (leaner than optionalDependencies, which
@@ -163,12 +164,58 @@ async function main() {
       () => document.querySelectorAll('#commandList li').length
     );
     check('command palette returns search results', resultCount > 0, `${resultCount} result(s)`);
+    await page.keyboard.press('Escape');
 
-    // 7) Screenshot for visual review.
+    // 7) Docs Map interaction smoke (#39) when the tenant enables it.
+    await page.goto(`${BASE}#docs-map`, { waitUntil: 'networkidle' });
+    const docsMapEnabled = await page.waitForSelector('#docsMapRoot .docs-map-svg', { timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (docsMapEnabled) {
+      const graphStats = await page.evaluate(() => ({
+        nodes: document.querySelectorAll('#docsMapRoot .docs-map-node').length,
+        controls: document.querySelectorAll('#docsMapRoot .docs-map-control').length,
+        popupHidden: document.querySelector('#docsMapRoot .docs-map-popup')?.hidden ?? true
+      }));
+      check('docs map renders SVG graph', graphStats.nodes > 1, `${graphStats.nodes} node(s)`);
+      check('docs map renders controls', graphStats.controls >= 7, `${graphStats.controls} control(s)`);
+      check('docs map popup starts hidden', graphStats.popupHidden);
+
+      const initialTransform = await page.evaluate(
+        () => document.querySelector('#docsMapRoot .docs-map-viewport')?.getAttribute('transform')
+      );
+      await page.getByRole('button', { name: 'Zoom in' }).click();
+      const zoomTransform = await page.evaluate(
+        () => document.querySelector('#docsMapRoot .docs-map-viewport')?.getAttribute('transform')
+      );
+      check('docs map zoom control changes view', zoomTransform !== initialTransform, zoomTransform || '');
+
+      await page.fill('#docsMapRoot .docs-map-search input', 'welcome');
+      await page.waitForFunction(
+        () => !document.querySelector('#docsMapRoot .docs-map-popup')?.hidden,
+        { timeout: 4000 }
+      ).catch(() => {});
+      const focused = await page.evaluate(() => ({
+        activeNodes: document.querySelectorAll('#docsMapRoot .docs-map-node.is-active').length,
+        popupHidden: document.querySelector('#docsMapRoot .docs-map-popup')?.hidden ?? true,
+        title: document.querySelector('#docsMapRoot .docs-map-popup h2')?.textContent || ''
+      }));
+      check('docs map search focuses a node', focused.activeNodes === 1, `${focused.activeNodes} active node(s)`);
+      check('docs map search opens detail popup', !focused.popupHidden, focused.title);
+
+      await page.click('#docsMapRoot .docs-map-popup-open');
+      await page.waitForFunction(() => location.hash !== '#docs-map', { timeout: 4000 }).catch(() => {});
+      const hashAfterOpen = await page.evaluate(() => location.hash);
+      check('docs map popup open navigates to page', hashAfterOpen !== '#docs-map', hashAfterOpen);
+    } else {
+      check('docs map not enabled for smoke tenant', true, TENANT);
+    }
+
+    // 8) Screenshot for visual review.
     await page.screenshot({ path: SHOT, fullPage: false });
     check('screenshot captured', fs.existsSync(SHOT), path.relative(PKG_DIR, SHOT));
 
-    // 8) No unexpected console errors.
+    // 9) No unexpected console errors.
     check('no console errors (favicon ignored)', consoleErrors.length === 0, consoleErrors.join(' | '));
   } finally {
     if (browser) await browser.close().catch(() => {});

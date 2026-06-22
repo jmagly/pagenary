@@ -153,6 +153,29 @@ a:focus {
   pointer-events: auto;
 }
 
+.docs-map-search {
+  grid-column: 1 / -1;
+}
+
+.docs-map-search input {
+  width: 100%;
+  min-height: 1.95rem;
+  border: 1px solid var(--grid-line);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  opacity: 0.94;
+}
+
+.docs-map-search input:focus-visible {
+  border-color: var(--muted);
+  outline: none;
+  opacity: 1;
+}
+
 .docs-map-control {
   min-width: 2rem;
   height: 1.85rem;
@@ -215,6 +238,11 @@ a:focus {
   stroke: var(--surface);
   stroke-width: 3px;
   pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.docs-map-label.is-decluttered {
+  opacity: 0;
 }
 
 .docs-map-community {

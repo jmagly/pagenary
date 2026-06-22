@@ -6,6 +6,13 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs Map renderer controls and smoke coverage.** The SVG-backed optional
+  renderer path now has search/focus, zoom/fit, drag-pan, neighbor highlighting,
+  and node detail popup coverage in the browser smoke script while preserving the
+  no-React static-site runtime.
+
 ## [2026.6.13] - 2026-06-21
 
 ### Changed

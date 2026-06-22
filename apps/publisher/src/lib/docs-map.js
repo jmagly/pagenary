@@ -120,6 +120,11 @@ function closestSvgClass(target, className) {
   return null;
 }
 
+function findNodeElement(viewport, nodeId) {
+  return Array.from(viewport.querySelectorAll('.docs-map-node'))
+    .find((node) => node.dataset.nodeId === nodeId) || null;
+}
+
 function createGraphButton(label, title, onClick) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -129,6 +134,22 @@ function createGraphButton(label, title, onClick) {
   button.setAttribute('aria-label', title);
   button.addEventListener('click', onClick);
   return button;
+}
+
+function createGraphSearch(onSearch) {
+  const label = document.createElement('label');
+  label.className = 'docs-map-search';
+  const text = document.createElement('span');
+  text.className = 'sr-only';
+  text.textContent = 'Focus page in docs map';
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.placeholder = 'Focus page';
+  input.autocomplete = 'off';
+  input.setAttribute('aria-label', 'Focus page in docs map');
+  input.addEventListener('input', () => onSearch(input.value));
+  label.append(text, input);
+  return label;
 }
 
 function createGraphPopup(onNavigate) {
@@ -226,6 +247,14 @@ export function renderDocsMap(container, graph, opts = {}) {
   const pan = { x: 0, y: 0 };
   let dragging = false;
   let dragStart = null;
+  const win = svg.ownerDocument.defaultView;
+  const stopDrag = (e) => {
+    dragging = false;
+    dragStart = null;
+    if (e && typeof svg.hasPointerCapture === 'function' && svg.hasPointerCapture(e.pointerId)) {
+      svg.releasePointerCapture(e.pointerId);
+    }
+  };
 
   const controls = document.createElement('div');
   controls.className = 'docs-map-controls';
@@ -242,6 +271,11 @@ export function renderDocsMap(container, graph, opts = {}) {
 
   const updateTransform = () => {
     viewport.setAttribute('transform', `translate(${pan.x} ${pan.y}) scale(${zoom})`);
+    viewport.querySelectorAll('.docs-map-label').forEach((label) => {
+      const node = label.closest('.docs-map-node');
+      const active = node && (node.classList.contains('is-active') || node.classList.contains('is-neighbor'));
+      label.classList.toggle('is-decluttered', !active && zoom < 1.18);
+    });
   };
   const setZoom = (next) => {
     zoom = Math.max(0.55, Math.min(2.8, next));
@@ -258,15 +292,40 @@ export function renderDocsMap(container, graph, opts = {}) {
     pan.y += dy;
     updateTransform();
   };
+  const focusNode = (nodeId) => {
+    const pos = positions.get(nodeId);
+    if (!pos) return false;
+    zoom = Math.max(1.25, zoom);
+    pan.x = (WIDTH / 2) - (pos.x * zoom);
+    pan.y = (HEIGHT / 2) - (pos.y * zoom);
+    updateTransform();
+    return true;
+  };
 
   controls.append(
+    createGraphSearch((query) => {
+      const needle = String(query || '').trim().toLowerCase();
+      if (!needle) return;
+      const match = nodes.find((node) => {
+        const sectionId = sectionIdFromNode(node.id);
+        const title = labelFor(node.id);
+        return sectionId.toLowerCase().includes(needle) || String(title || '').toLowerCase().includes(needle);
+      });
+      if (!match) return;
+      focusNode(match.id);
+      const el = findNodeElement(viewport, match.id);
+      if (el) {
+        el.dispatchEvent(new Event('docs-map-focus-node'));
+        el.focus();
+      }
+    }),
     createGraphButton('+ Zoom', 'Zoom in', () => setZoom(zoom * 1.2)),
     createGraphButton('- Zoom', 'Zoom out', () => setZoom(zoom / 1.2)),
     createGraphButton('←', 'Pan left', () => panBy(48, 0)),
     createGraphButton('↑', 'Pan up', () => panBy(0, 48)),
     createGraphButton('↓', 'Pan down', () => panBy(0, -48)),
     createGraphButton('→', 'Pan right', () => panBy(-48, 0)),
-    createGraphButton('Reset', 'Reset view', resetView)
+    createGraphButton('Fit', 'Fit graph', resetView)
   );
 
   const popup = createGraphPopup(onNavigate);
@@ -279,7 +338,9 @@ export function renderDocsMap(container, graph, opts = {}) {
     if (closestSvgClass(e.target, 'docs-map-node')) return;
     dragging = true;
     dragStart = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
-    svg.setPointerCapture(e.pointerId);
+    if (typeof svg.setPointerCapture === 'function') svg.setPointerCapture(e.pointerId);
+    win?.addEventListener('pointerup', stopDrag, { once: true });
+    win?.addEventListener('pointercancel', stopDrag, { once: true });
   });
   svg.addEventListener('pointermove', (e) => {
     if (!dragging || !dragStart) return;
@@ -287,15 +348,8 @@ export function renderDocsMap(container, graph, opts = {}) {
     pan.y = dragStart.panY + (e.clientY - dragStart.y);
     updateTransform();
   });
-  svg.addEventListener('pointerup', (e) => {
-    dragging = false;
-    dragStart = null;
-    if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
-  });
-  svg.addEventListener('pointercancel', () => {
-    dragging = false;
-    dragStart = null;
-  });
+  svg.addEventListener('pointerup', stopDrag);
+  svg.addEventListener('pointercancel', stopDrag);
 
   // Edges (under nodes). Sparse corpora may have none — that's fine.
   for (const edge of (graph.edges || [])) {
@@ -398,11 +452,13 @@ export function renderDocsMap(container, graph, opts = {}) {
         candidate.classList.toggle('is-active', connected);
         candidate.classList.toggle('is-dimmed', !connected);
       });
+      updateTransform();
     };
     const clearHighlight = () => {
       viewport.querySelectorAll('.is-active, .is-neighbor, .is-dimmed').forEach((candidate) => {
         candidate.classList.remove('is-active', 'is-neighbor', 'is-dimmed');
       });
+      updateTransform();
     };
 
     g.addEventListener('mouseenter', () => {
@@ -415,14 +471,20 @@ export function renderDocsMap(container, graph, opts = {}) {
     });
     g.addEventListener('click', (e) => {
       e.preventDefault();
+      focusNode(node.id);
       highlight();
       popup.renderDetails(detail, true);
     });
     g.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
+        focusNode(node.id);
         popup.renderDetails(detail, true);
       }
+    });
+    g.addEventListener('docs-map-focus-node', () => {
+      highlight();
+      popup.renderDetails(detail, true);
     });
     viewport.appendChild(g);
   }
@@ -459,15 +521,8 @@ function normalizeRenderer(value) {
 
 function renderDocsMapWithRenderer(root, graph, opts = {}) {
   const renderer = normalizeRenderer(opts.renderer);
-  if (renderer !== 'svg') {
-    // Optional renderers are installed behind this adapter. Until a renderer is
-    // implemented, the stable SVG renderer remains the safe fallback.
-    root.dataset.docsMapRenderer = renderer;
-    root.dataset.docsMapFallback = 'svg';
-  } else {
-    root.dataset.docsMapRenderer = 'svg';
-    delete root.dataset.docsMapFallback;
-  }
+  root.dataset.docsMapRenderer = renderer;
+  delete root.dataset.docsMapFallback;
   renderDocsMap(root, graph, opts);
 }
 
