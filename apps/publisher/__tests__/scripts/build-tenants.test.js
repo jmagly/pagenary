@@ -14,6 +14,7 @@ import fsp from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLISHER_ROOT = path.resolve(__dirname, '../..');
@@ -106,6 +107,65 @@ async function cleanup(dir) {
   if (fs.existsSync(dir)) {
     await fsp.rm(dir, { recursive: true, force: true });
   }
+}
+
+function extractShellAsset(html, attr, prefix) {
+  const re = new RegExp(`${attr}="\\.\\/(${prefix}\\.[^"]+)"`);
+  const match = html.match(re);
+  return match ? match[1] : null;
+}
+
+async function readRuntimeManifest(distDir) {
+  const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
+  const appFile = extractShellAsset(index, 'src', 'app');
+  const app = await fsp.readFile(path.join(distDir, appFile || 'app.js'), 'utf8');
+  const manifestMatch = app.match(/from"\.\/(manifest\.[a-f0-9]+\.js)"/) ||
+    app.match(/from ['"]\.\/(manifest\.[a-f0-9]+\.js)['"]/);
+  const manifestFile = manifestMatch ? manifestMatch[1] : 'manifest.js';
+  return {
+    index,
+    appFile,
+    manifestFile,
+    manifestJs: await fsp.readFile(path.join(distDir, manifestFile), 'utf8')
+  };
+}
+
+function extractManifestArray(manifestJs) {
+  const match = manifestJs.match(/export const MANIFEST\s*=\s*(\[[\s\S]*?\n\]);/);
+  if (!match) return [];
+  return JSON.parse(match[1]);
+}
+
+function flattenModules(entries, out = new Map()) {
+  for (const entry of entries || []) {
+    if (entry?.id && entry.module) out.set(entry.id, entry.module);
+    flattenModules(entry?.subsections || entry?.sections, out);
+  }
+  return out;
+}
+
+function hashedRuntimeFiles(distDir) {
+  const files = [];
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(abs);
+      else if (entry.isFile()) {
+        const rel = path.relative(distDir, abs).split(path.sep).join('/');
+        if (/[a-f0-9]{12}\.[a-z0-9]+$/i.test(rel)) files.push(rel);
+      }
+    }
+  }
+  walk(distDir);
+  return files.sort();
+}
+
+async function expectFilenameHashMatches(distDir, relPath) {
+  const match = path.basename(relPath).match(/\.([a-f0-9]{12})\.[^.]+$/);
+  expect(match).not.toBeNull();
+  const data = await fsp.readFile(path.join(distDir, relPath));
+  const actual = createHash('sha256').update(data).digest('hex').slice(0, 12);
+  expect(actual).toBe(match[1]);
 }
 
 describe('build-tenants.js', () => {
@@ -283,20 +343,110 @@ describe('build-tenants.js', () => {
       expect(result.code).toBe(0);
 
       const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
-      const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
-      const manifestJs = await fsp.readFile(path.join(distDir, 'manifest.js'), 'utf8');
+      const { index, appFile, manifestFile, manifestJs } = await readRuntimeManifest(distDir);
+      const cssFile = extractShellAsset(index, 'href', 'styles');
 
       // Shell assets are base-relative (resolve against the runtime <base href>),
       // which works for both domain-root (base "/") and subpath (base "/<tenant>/").
-      expect(index).toContain('href="./styles.css"');
-      expect(index).toContain('src="./app.js"');
+      expect(cssFile).toMatch(/^styles\.[a-f0-9]{12}\.css$/);
+      expect(appFile).toMatch(/^app\.[a-f0-9]{12}\.js$/);
+      expect(manifestFile).toMatch(/^manifest\.[a-f0-9]{12}\.js$/);
       // The base-resolution bootstrap is wired with this tenant id.
       expect(index).toContain("document.write('<base");
       expect(index).toContain(`var t = "${TEST_TENANT_ID}"`);
       // Module paths are relative so dynamic import() resolves against app.js's
       // (base-resolved) URL.
-      expect(manifestJs).toContain('"module": "./sections/blog--post.js"');
+      expect(manifestJs).toMatch(/"module": "\.\/sections\/blog--post\.[a-f0-9]{12}\.js"/);
       expect(manifestJs).not.toContain('"module": "/sections/');
+    });
+
+    test('contentHash is the default cache strategy and stable mode is an explicit opt-out', async () => {
+      const manifest = {
+        sections: [
+          { id: 'home', title: 'Home', file: 'home.md' }
+        ]
+      };
+      const content = { 'home.md': '# Home\n\nDefault cache strategy.' };
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
+      let result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+      let distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      let runtime = await readRuntimeManifest(distDir);
+      const cssFile = extractShellAsset(runtime.index, 'href', 'styles');
+      const modules = flattenModules(extractManifestArray(runtime.manifestJs));
+      expect(runtime.index).toMatch(/src="\.\/app\.[a-f0-9]{12}\.js"/);
+      expect(runtime.index).toMatch(/href="\.\/styles\.[a-f0-9]{12}\.css"/);
+      expect(runtime.manifestJs).toMatch(/"\.\/sections\/home\.[a-f0-9]{12}\.js"/);
+      await expectFilenameHashMatches(distDir, runtime.appFile);
+      await expectFilenameHashMatches(distDir, runtime.manifestFile);
+      await expectFilenameHashMatches(distDir, cssFile);
+      await expectFilenameHashMatches(distDir, modules.get('home').replace(/^\.\//, ''));
+
+      await cleanup(testTenantDir);
+      await cleanup(distDir);
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, { cacheStrategy: 'stable' }, manifest, content);
+      result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+      distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      runtime = await readRuntimeManifest(distDir);
+      expect(runtime.index).toContain('src="./app.js"');
+      expect(runtime.index).toContain('href="./styles.css"');
+      expect(runtime.manifestJs).toContain('"module": "./sections/home.js"');
+    });
+
+    test('content-hashed filenames are deterministic across unchanged rebuilds', async () => {
+      const manifest = {
+        sections: [
+          { id: 'one', title: 'One', file: 'one.md' },
+          { id: 'two', title: 'Two', file: 'two.md' }
+        ]
+      };
+      const content = {
+        'one.md': '# One\n\nSame content.',
+        'two.md': '# Two\n\nSame content.'
+      };
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
+
+      let result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const first = hashedRuntimeFiles(distDir);
+
+      result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+      const second = hashedRuntimeFiles(distDir);
+      expect(second).toEqual(first);
+    });
+
+    test('changing one section changes only that section module hash', async () => {
+      const manifest = {
+        sections: [
+          { id: 'one', title: 'One', file: 'one.md' },
+          { id: 'two', title: 'Two', file: 'two.md' }
+        ]
+      };
+      const content = {
+        'one.md': '# One\n\nFirst content.',
+        'two.md': '# Two\n\nSecond content.'
+      };
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
+
+      let result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const before = flattenModules(extractManifestArray((await readRuntimeManifest(distDir)).manifestJs));
+
+      await fsp.writeFile(path.join(testTenantDir, 'content', 'one.md'), '# One\n\nFirst content changed.');
+      result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+      const after = flattenModules(extractManifestArray((await readRuntimeManifest(distDir)).manifestJs));
+
+      expect(after.get('one')).toMatch(/^\.\/sections\/one\.[a-f0-9]{12}\.js$/);
+      expect(after.get('two')).toMatch(/^\.\/sections\/two\.[a-f0-9]{12}\.js$/);
+      expect(after.get('one')).not.toBe(before.get('one'));
+      expect(after.get('two')).toBe(before.get('two'));
     });
 
     test('sets the shell <title> from the default page metadata title (#28)', async () => {
@@ -791,7 +941,7 @@ describe('build-tenants.js', () => {
       expect(has('sections/docs-map.js')).toBe(true);
       expect(has('lib/docs-map.js')).toBe(true); // copied from src/lib by the base build
       expect(manifest).toMatch(/"id":\s*"docs-map"/);
-      expect(manifest).toMatch(/"module":\s*"\.\/sections\/docs-map\.js"/);
+      expect(manifest).toMatch(/"module":\s*"\.\/sections\/docs-map\.[a-f0-9]{12}\.js"/);
     });
 
     test('custom title is used for the MANIFEST entry', async () => {
@@ -868,7 +1018,7 @@ describe('build-tenants.js', () => {
       }));
 
       const sect = await fsp.readFile(path.join(dist, 'sections', 'docs-map.js'), 'utf8');
-      expect(sect).toMatch(/docs-map-data\.js/);
+      expect(sect).toMatch(/docs-map-data\.[a-f0-9]{12}\.js/);
       expect(sect).toMatch(/DOCS_MAP_DATA\.DOCS_MAP_METADATA/);
       expect(sect).toMatch(/loadDocsMap/);
     });

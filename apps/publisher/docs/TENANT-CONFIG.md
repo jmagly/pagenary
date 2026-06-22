@@ -170,6 +170,27 @@ script behavior, or extra stylesheets are emitted.
 For the current token contract and intentional non-token exceptions, see
 [Theme Token Audit](THEME-TOKEN-AUDIT.md).
 
+#### Runtime cache strategy
+
+Pagenary emits content-addressed runtime URLs by default. Mutable browser-loaded
+artifacts such as `app.js`, `styles.css`, `manifest.js`, section modules, docs
+map data, theme stylesheets, search-index parts, and copied tenant assets also
+get deterministic hashed copies. The shell and generated manifests reference the
+hashed URLs so CDNs can cache unchanged files aggressively without serving stale
+virtual pages after a deploy.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `cacheStrategy` | `"contentHash"` or `"stable"` | `"contentHash"` | Runtime filename strategy. Use `stable` only for legacy hosting/tooling that requires unversioned filenames. |
+
+```json
+{ "cacheStrategy": "contentHash" }
+```
+
+The build keeps stable compatibility files on disk, but the generated shell uses
+the content-hashed URLs. See [Deployment](DEPLOYMENT.md#cache-strategy) for the
+matching CDN headers.
+
 #### Docs map (relationship view)
 
 Opt-in `docsMap` adds a standalone **Docs Map** page — a framework-free SVG view

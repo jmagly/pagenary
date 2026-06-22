@@ -8,6 +8,11 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ### Changed
 
+- **Content-addressed runtime URLs are now the default.** Tenant builds emit
+  deterministic hashed copies for browser-loaded runtime assets and rendered
+  section modules, rewrite the shell/manifests to those URLs, and keep stable
+  compatibility files on disk. Use `cacheStrategy: "stable"` only for legacy
+  hosts that require unversioned filenames.
 - **Docs Map renderer controls and smoke coverage.** The SVG-backed optional
   renderer path now has search/focus, zoom/fit, drag-pan, neighbor highlighting,
   and node detail popup coverage in the browser smoke script while preserving the

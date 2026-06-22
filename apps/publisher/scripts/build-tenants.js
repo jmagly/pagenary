@@ -747,6 +747,22 @@ function escapeAttribute(value) {
     .replace(/>/g, '&gt;');
 }
 
+function contentHash(content) {
+  return createHash('sha256').update(content).digest('hex').slice(0, 12);
+}
+
+function hashedFilename(relPath, content) {
+  const ext = path.extname(relPath);
+  const base = relPath.slice(0, -ext.length);
+  return `${base}.${contentHash(content)}${ext}`;
+}
+
+function normalizeCacheStrategy(value) {
+  const strategy = String(value || 'contentHash').trim().toLowerCase();
+  if (['stable', 'legacy', 'none'].includes(strategy)) return 'stable';
+  return 'contentHash';
+}
+
 async function runBuild(buildOutput) {
   return new Promise((resolve, reject) => {
     // Resolve build.js and run it from the package dir so it reads the package's
@@ -1426,7 +1442,7 @@ async function buildDocsMapGraph(distDir, tenantId) {
   for (const item of index.items) {
     for (const relationship of item.relationships || []) {
       if (!recordIds.has(relationship.target_id)) continue;
-      const key = `${item.id}\0${relationship.target_id}\0${relationship.type}`;
+      const key = `${item.id}\\0${relationship.target_id}\\0${relationship.type}`;
       edgeMetadata.push([key, {
         label: relationship.label || relationship.type,
         confidence: relationship.confidence ?? null,
@@ -1692,13 +1708,13 @@ function parseInlineMarkdown(input, linkContext = null) {
   const protectedSpans = [];
   output = output.replace(/<a [^>]*>[\s\S]*?<\/a>|<img [^>]*>/g, (m) => {
     protectedSpans.push(m);
-    return ` ${protectedSpans.length - 1} `;
+    return `__PAGENARY_INLINE_${protectedSpans.length - 1}__`;
   });
   output = output.replace(
     /(^|[\s(])(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g,
     (_, pre, url) => `${pre}<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer">${url}</a>`
   );
-  output = output.replace(/ (\d+) /g, (_, i) => protectedSpans[Number(i)]);
+  output = output.replace(/__PAGENARY_INLINE_(\d+)__/g, (_, i) => protectedSpans[Number(i)]);
   // Bold: **text**
   output = output.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   // Italic: *text* (single asterisks, after bold replacement)
@@ -3507,6 +3523,308 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
   return { success: true };
 }
 
+async function readTextIfExists(filePath) {
+  if (!(await pathExists(filePath))) return null;
+  return fsp.readFile(filePath, 'utf8');
+}
+
+async function renameTextFileWithHash(distDir, relPath) {
+  const abs = path.join(distDir, relPath);
+  const content = await readTextIfExists(abs);
+  if (content == null) return null;
+  const nextRel = hashedFilename(relPath, content);
+  if (nextRel === relPath) return relPath;
+  await fsp.mkdir(path.dirname(path.join(distDir, nextRel)), { recursive: true });
+  await fsp.writeFile(path.join(distDir, nextRel), content, 'utf8');
+  return nextRel;
+}
+
+async function renameBinaryFileWithHash(distDir, relPath) {
+  const abs = path.join(distDir, relPath);
+  if (!(await pathExists(abs))) return null;
+  const data = await fsp.readFile(abs);
+  const nextRel = hashedFilename(relPath, data);
+  if (nextRel === relPath) return relPath;
+  await fsp.mkdir(path.dirname(path.join(distDir, nextRel)), { recursive: true });
+  await fsp.writeFile(path.join(distDir, nextRel), data);
+  return nextRel;
+}
+
+function replaceAllLiteral(input, from, to) {
+  return String(input).split(from).join(to);
+}
+
+async function rewriteFileLiterals(filePath, replacements) {
+  if (!(await pathExists(filePath))) return false;
+  let text = await fsp.readFile(filePath, 'utf8');
+  const before = text;
+  for (const [from, to] of replacements) {
+    text = replaceAllLiteral(text, from, to);
+  }
+  if (text === before) return false;
+  await fsp.writeFile(filePath, text, 'utf8');
+  return true;
+}
+
+function rewriteManifestModules(entries, sectionMap) {
+  for (const entry of entries || []) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.module) {
+      const normalized = String(entry.module).replace(/^\.\//, '');
+      if (sectionMap.has(normalized)) entry.module = `./${sectionMap.get(normalized)}`;
+    }
+    rewriteManifestModules(entry.subsections || entry.sections, sectionMap);
+  }
+}
+
+async function hashSectionModules(distDir) {
+  const sectionsDir = path.join(distDir, 'sections');
+  const map = new Map();
+  if (!(await pathExists(sectionsDir))) return map;
+  const entries = await fsp.readdir(sectionsDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
+    const rel = `sections/${entry.name}`;
+    const nextRel = await renameTextFileWithHash(distDir, rel);
+    if (nextRel && nextRel !== rel) map.set(rel, nextRel);
+  }
+  return map;
+}
+
+async function hashSearchIndex(distDir) {
+  const searchDir = path.join(distDir, 'search-index');
+  const map = new Map();
+  if (!(await pathExists(searchDir))) return map;
+
+  const manifestPath = path.join(searchDir, 'manifest.json');
+  let manifest = null;
+  if (await pathExists(manifestPath)) {
+    try {
+      manifest = JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
+    } catch {
+      manifest = null;
+    }
+  }
+
+  if (manifest && Array.isArray(manifest.parts)) {
+    for (const part of manifest.parts) {
+      if (!part?.href) continue;
+      const rel = `search-index/${part.href}`;
+      const nextRel = await renameTextFileWithHash(distDir, rel);
+      if (!nextRel) continue;
+      const nextHref = path.basename(nextRel);
+      if (nextRel !== rel) {
+        map.set(rel, nextRel);
+        part.href = nextHref;
+      }
+    }
+    await fsp.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  }
+
+  // Keep manifest.json and metadata.json stable as lightweight URL manifests:
+  // the runtime discovers them by name and they should use short revalidation.
+  return map;
+}
+
+async function hashRuntimeModules(distDir) {
+  const map = new Map();
+  for (const rel of ['lib', 'src', 'vendor']) {
+    const dir = path.join(distDir, rel);
+    if (!(await pathExists(dir))) continue;
+    async function walk(current) {
+      const entries = await fsp.readdir(current, { withFileTypes: true });
+      for (const entry of entries) {
+        const abs = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          await walk(abs);
+        } else if (entry.isFile() && entry.name.endsWith('.js')) {
+          const fileRel = path.relative(distDir, abs).split(path.sep).join('/');
+          const nextRel = await renameTextFileWithHash(distDir, fileRel);
+          if (nextRel && nextRel !== fileRel) map.set(fileRel, nextRel);
+        }
+      }
+    }
+    await walk(dir);
+  }
+  const rootEntries = await fsp.readdir(distDir, { withFileTypes: true });
+  for (const entry of rootEntries) {
+    if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
+    if (entry.name === 'app.js' || entry.name === 'manifest.js') continue;
+    const nextRel = await renameTextFileWithHash(distDir, entry.name);
+    if (nextRel && nextRel !== entry.name) map.set(entry.name, nextRel);
+  }
+  return map;
+}
+
+async function hashTopLevelAssets(distDir) {
+  const map = new Map();
+  const topLevel = [
+    'styles.css',
+    'theme-light.css',
+    'theme-dark.css',
+    'theme-matrix.css',
+    'theme-custom.css',
+    'docs-map-data.js'
+  ];
+  for (const rel of topLevel) {
+    const nextRel = await renameTextFileWithHash(distDir, rel);
+    if (nextRel && nextRel !== rel) map.set(rel, nextRel);
+  }
+
+  const assetsDir = path.join(distDir, 'assets');
+  if (await pathExists(assetsDir)) {
+    async function walk(dir) {
+      const entries = await fsp.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const abs = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(abs);
+        } else if (entry.isFile()) {
+          const rel = path.relative(distDir, abs).split(path.sep).join('/');
+          const nextRel = await renameBinaryFileWithHash(distDir, rel);
+          if (nextRel && nextRel !== rel) map.set(rel, nextRel);
+        }
+      }
+    }
+    await walk(assetsDir);
+  }
+  return map;
+}
+
+function buildLiteralReplacements(map) {
+  const replacements = [];
+  for (const [from, to] of map.entries()) {
+    replacements.push([from, to]);
+    replacements.push([`./${from}`, `./${to}`]);
+    replacements.push([`../${from}`, `../${to}`]);
+    if (path.posix.dirname(from) === path.posix.dirname(to)) {
+      replacements.push([`./${path.posix.basename(from)}`, `./${path.posix.basename(to)}`]);
+      replacements.push([`../${path.posix.basename(from)}`, `../${path.posix.basename(to)}`]);
+    }
+  }
+  return replacements;
+}
+
+async function rewriteAllTextArtifacts(distDir, map) {
+  const replacements = buildLiteralReplacements(map);
+  if (!replacements.length) return;
+  const shouldRewrite = (rel) => {
+    if (rel.startsWith('search-index/')) return false;
+    if (rel.startsWith('pages/')) return false;
+    if (rel.startsWith('sections/') && !rel.includes('docs-map')) return false;
+    if (rel.endsWith('.d.ts')) return false;
+    return /\.(html|js|json|xml|txt|css)$/.test(rel);
+  };
+  async function walk(dir) {
+    const entries = await fsp.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(abs);
+      } else if (entry.isFile()) {
+        const rel = path.relative(distDir, abs).split(path.sep).join('/');
+        if (!shouldRewrite(rel)) continue;
+        await rewriteFileLiterals(abs, replacements);
+      }
+    }
+  }
+  await walk(distDir);
+}
+
+async function rewriteStaticPageStyles(distDir, styleRel) {
+  if (!styleRel) return;
+  const pagesDir = path.join(distDir, 'pages');
+  if (!(await pathExists(pagesDir))) return;
+  const entries = await fsp.readdir(pagesDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.html')) continue;
+    await rewriteFileLiterals(path.join(pagesDir, entry.name), new Map([
+      ['../styles.css', `../${styleRel}`]
+    ]));
+  }
+}
+
+async function refreshHashedCopies(distDir, map) {
+  const nextMap = new Map();
+  const oldToNew = new Map();
+  for (const [from, oldTo] of map.entries()) {
+    const source = path.join(distDir, from);
+    if (!(await pathExists(source))) {
+      nextMap.set(from, oldTo);
+      continue;
+    }
+    const data = await fsp.readFile(source);
+    const nextTo = hashedFilename(from, data);
+    await fsp.mkdir(path.dirname(path.join(distDir, nextTo)), { recursive: true });
+    await fsp.writeFile(path.join(distDir, nextTo), data);
+    nextMap.set(from, nextTo);
+    if (nextTo !== oldTo) {
+      oldToNew.set(oldTo, nextTo);
+      await fsp.rm(path.join(distDir, oldTo), { force: true });
+    }
+  }
+  return { map: nextMap, oldToNew };
+}
+
+async function rewriteManifestForHashedSections(distDir, sectionMap) {
+  if (!sectionMap.size) return;
+  const manifestPath = path.join(distDir, 'manifest.js');
+  const source = await readTextIfExists(manifestPath);
+  if (!source) return;
+  const match = source.match(/export const MANIFEST\s*=\s*(\[[\s\S]*?\n\]);/);
+  if (!match) return;
+  let entries;
+  try {
+    entries = JSON.parse(match[1]);
+  } catch {
+    return;
+  }
+  rewriteManifestModules(entries, sectionMap);
+  const nextManifest = JSON.stringify(entries, null, 2);
+  await fsp.writeFile(manifestPath, source.replace(match[1], nextManifest), 'utf8');
+}
+
+async function finalizeContentAddressedBundle(distDir, tenantId, config = {}) {
+  if (normalizeCacheStrategy(config.cacheStrategy) === 'stable') {
+    console.log(`  ↳ stable runtime filenames retained for ${tenantId}`);
+    return;
+  }
+
+  const sectionMap = await hashSectionModules(distDir);
+  await rewriteManifestForHashedSections(distDir, sectionMap);
+
+  const runtimeMap = await hashRuntimeModules(distDir);
+  const assetMap = await hashTopLevelAssets(distDir);
+  const searchMap = await hashSearchIndex(distDir);
+  const firstMap = new Map([...sectionMap, ...runtimeMap, ...assetMap, ...searchMap]);
+  await rewriteAllTextArtifacts(distDir, firstMap);
+  let stabilized = await refreshHashedCopies(distDir, firstMap);
+  for (let i = 0; i < 3 && stabilized.oldToNew.size > 0; i += 1) {
+    await rewriteAllTextArtifacts(distDir, new Map([...stabilized.map, ...stabilized.oldToNew]));
+    stabilized = await refreshHashedCopies(distDir, stabilized.map);
+  }
+
+  const contentMap = stabilized.map;
+
+  const manifestHashed = await renameTextFileWithHash(distDir, 'manifest.js');
+  const appPath = path.join(distDir, 'app.js');
+  if (manifestHashed && manifestHashed !== 'manifest.js' && await pathExists(appPath)) {
+    await rewriteFileLiterals(appPath, new Map([['./manifest.js', `./${manifestHashed}`]]));
+  }
+
+  const appHashed = await renameTextFileWithHash(distDir, 'app.js');
+  const finalMap = new Map(contentMap);
+  if (manifestHashed && manifestHashed !== 'manifest.js') finalMap.set('manifest.js', manifestHashed);
+  if (appHashed && appHashed !== 'app.js') finalMap.set('app.js', appHashed);
+
+  const indexPath = path.join(distDir, 'index.html');
+  const indexReplacements = buildLiteralReplacements(finalMap);
+  await rewriteFileLiterals(indexPath, indexReplacements);
+  await rewriteStaticPageStyles(distDir, finalMap.get('styles.css'));
+
+  console.log(`  ↳ content-addressed runtime URLs for ${tenantId} (${finalMap.size} artifact(s))`);
+}
+
 /**
  * Print change summary for diff-only mode
  */
@@ -3713,6 +4031,8 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
       await generateCollections(distDir, config, collectionRoot.basePath);
     }
   }
+
+  await finalizeContentAddressedBundle(distDir, tenantId, config);
 
   // Copy to final target if different from dist
   if (targetDir !== distDir) {

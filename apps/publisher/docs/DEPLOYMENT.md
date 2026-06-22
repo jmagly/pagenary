@@ -247,28 +247,28 @@ tenant-b.example.com {
 
 ## Cache Strategy
 
-Pagenary emits **stable filenames** (`styles.css`, `sections/<id>.js`,
-`assets/*`) — they are *not* content-addressed. The shell `index.html` is only
-the entry point; the visible pages are loaded later from JavaScript section
-modules such as `sections/overview.js`. If a CDN keeps one of those stable URLs
-fresh for a long time, readers can get a fresh shell that still imports an old
-virtual page module.
+Pagenary emits content-addressed runtime URLs by default. The shell `index.html`
+is only the entry point; the visible pages are loaded later from JavaScript
+section modules such as `sections/overview.<hash>.js`. When a page, stylesheet,
+docs-map artifact, search-index part, or copied tenant asset changes, its hashed
+URL changes too. Unchanged files keep the same URL and remain cache-efficient.
 
-Do **not** serve stable Pagenary JS/CSS/assets as long-lived `immutable` files.
-Pick one of these deployment profiles:
+The build keeps stable compatibility files such as `app.js`, `manifest.js`, and
+`sections/<id>.js` on disk, but generated runtime references use the hashed
+files. Keep the HTML entrypoint fresh so clients discover new hashed URLs.
 
-### Profile A: no CDN purge, short revalidation
+### Default profile: content-addressed runtime URLs
 
-This is the safest CDN-neutral default. It works with Cloudflare, Fastly,
+This is the recommended CDN-neutral profile. It works with Cloudflare, Fastly,
 CloudFront, nginx caches, and most static hosts that honor HTTP caching headers.
 
 | Asset | Recommended policy |
 |-------|-------------|
 | `index.html` | `Cache-Control: no-cache, must-revalidate` |
-| `app.js`, `manifest.js`, `styles.css`, `sections/*.js`, `docs-map-data.js` | `Cache-Control: public, max-age=300, must-revalidate` |
-| `search-index/*.json` | `Cache-Control: public, max-age=300, must-revalidate` |
+| content-hashed JS/CSS/assets/search parts | `Cache-Control: public, max-age=31536000, immutable` |
+| stable compatibility files (`app.js`, `manifest.js`, `sections/<id>.js`) | `Cache-Control: public, max-age=300, must-revalidate` or bypass if no direct clients use them |
+| lightweight discovery manifests (`search-index/manifest.json`, `search-index/metadata.json`) | `Cache-Control: public, max-age=300, must-revalidate` |
 | `pages/*.html`, `sitemap.xml`, `robots.txt`, `llms.txt`, collection feeds | `Cache-Control: public, max-age=300, must-revalidate` |
-| tenant `assets/*` | `Cache-Control: public, max-age=300, must-revalidate` unless you version asset URLs yourself |
 
 Add `ETag` headers when your server supports them. ETags make revalidation cheap:
 after `max-age` expires, the CDN can ask the origin whether a file changed and
@@ -276,33 +276,31 @@ receive `304 Not Modified` instead of downloading the full file again. ETags do
 not force a CDN to check origin while the object is still fresh, so they must be
 paired with `no-cache` or a short `max-age`.
 
-Avoid `stale-while-revalidate` for Pagenary's stable JS/CSS/page assets unless
-you are comfortable serving old virtual pages while the CDN refreshes in the
-background.
+Avoid `stale-while-revalidate` for `index.html`, stable compatibility files, and
+lightweight URL manifests unless you are comfortable serving an old URL map while
+the CDN refreshes in the background.
 
-### Profile B: purge on deploy
+### Legacy profile: stable filenames
 
-If you need longer edge TTLs without changing filenames, purge the CDN cache
+Set `cacheStrategy: "stable"` only when legacy hosting or tooling requires
+unversioned runtime filenames. In stable mode, do **not** serve Pagenary
+JS/CSS/assets as long-lived `immutable` files:
+
+| Asset | Recommended policy |
+|-------|-------------|
+| `index.html` | `Cache-Control: no-cache, must-revalidate` |
+| `app.js`, `manifest.js`, `styles.css`, `sections/*.js`, `docs-map-data.js`, `assets/*` | `Cache-Control: public, max-age=300, must-revalidate` |
+| `search-index/*.json` | `Cache-Control: public, max-age=300, must-revalidate` |
+
+### Purge on deploy
+
+If you need long edge TTLs with stable runtime filenames, purge the CDN cache
 after each successful deploy. This keeps runtime URLs stable but requires
 provider-specific credentials and operational wiring.
 
 For docs.pagenary.com, `.gitea/workflows/docsite-deploy.yml` can purge
 Cloudflare when `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_API_TOKEN` are configured.
 Other CDNs have equivalent invalidation APIs.
-
-### Profile C: content-addressed URLs
-
-The high-performance no-purge model is content-addressed filenames, for example
-`sections/overview.a1b2c3d4.js` and `styles.98f6e2.css`. With that output shape,
-changed content gets a new URL and unchanged content can use:
-
-```http
-Cache-Control: public, max-age=31536000, immutable
-```
-
-Keep `index.html` and any small URL-manifest files on `no-cache` or a short TTL
-so clients discover the new hashed URLs. Pagenary does not currently emit
-content-addressed runtime filenames by default.
 
 ## Monitoring
 
