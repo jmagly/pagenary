@@ -10,3 +10,6 @@ coverage/
 nexus-marketing/
 roko-docs/
 .playwright-mcp/
+
+# stray docs-map export (throwaway artifact)
+docsmap-graph.png
