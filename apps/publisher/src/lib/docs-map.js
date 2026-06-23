@@ -14,6 +14,9 @@ import { MANIFEST } from '../manifest.js';
 const SVGNS = 'http://www.w3.org/2000/svg';
 const WIDTH = 1000;
 const HEIGHT = 700;
+const SIMULATION_TICKS = 220;
+const NODE_MIN_RADIUS = 7;
+const NODE_MAX_RADIUS = 18;
 
 function sectionIdFromNode(nodeId) {
   return String(nodeId).replace(/^docs:page:/, '');
@@ -29,15 +32,16 @@ function buildLabelMap(manifest) {
 }
 
 /**
- * Compute {x,y} positions: communities arranged on a ring, each community's
- * member nodes clustered around its anchor. Edges (when present) connect node
- * positions. Returns { positions: Map<nodeId,{x,y}>, communityAnchors }.
+ * Compute settled {x,y} positions. We seed from the community ring so groups
+ * remain legible, then run a deterministic force pass before emitting SVG.
  */
-function layout(graph) {
+export function layout(graph) {
   const positions = new Map();
   const communities = graph.communities && graph.communities.length
     ? graph.communities
     : [{ id: 'all', nodes: graph.nodes.map((n) => n.id) }];
+  const degrees = buildDegreeMap(graph.edges);
+  const radii = new Map();
 
   const cx = WIDTH / 2;
   const cy = HEIGHT / 2;
@@ -55,12 +59,14 @@ function layout(graph) {
     const members = community.nodes || [];
     members.forEach((nodeId, mi) => {
       if (members.length === 1) {
-        positions.set(nodeId, { x: a.x, y: a.y, community: ci });
+        positions.set(nodeId, { x: a.x, y: a.y, vx: 0, vy: 0, community: ci });
       } else {
         const ang = (2 * Math.PI * mi) / members.length;
         positions.set(nodeId, {
           x: a.x + clusterR * Math.cos(ang),
           y: a.y + clusterR * Math.sin(ang),
+          vx: 0,
+          vy: 0,
           community: ci
         });
       }
@@ -69,18 +75,151 @@ function layout(graph) {
 
   // Any node not placed by a community → drop near center.
   graph.nodes.forEach((n, i) => {
+    radii.set(n.id, nodeRadius(n, degrees));
     if (!positions.has(n.id)) {
-      positions.set(n.id, { x: cx + (i % 5) * 12 - 24, y: cy, community: -1 });
+      positions.set(n.id, {
+        x: cx + (i % 5) * 12 - 24,
+        y: cy + seededOffset(n.id, 17) * 24,
+        vx: 0,
+        vy: 0,
+        community: -1
+      });
     }
   });
 
-  return { positions, anchors, communityCount: communities.length };
+  const simulationNodes = graph.nodes
+    .map((node) => {
+      const pos = positions.get(node.id);
+      if (!pos) return null;
+      return { id: node.id, ...pos, radius: radii.get(node.id) || NODE_MIN_RADIUS };
+    })
+    .filter(Boolean);
+  const byId = new Map(simulationNodes.map((node) => [node.id, node]));
+  const links = (graph.edges || [])
+    .map((edge) => {
+      const [s, t] = edgeEnds(edge);
+      const source = byId.get(s);
+      const target = byId.get(t);
+      return source && target ? { source, target, weight: edgeWeight(edge) } : null;
+    })
+    .filter(Boolean);
+
+  for (let tick = 0; tick < SIMULATION_TICKS; tick += 1) {
+    const alpha = Math.pow(1 - (tick / SIMULATION_TICKS), 1.45);
+
+    for (const link of links) {
+      const seed = `${link.source.id}:${link.target.id}`;
+      const dx = link.target.x - link.source.x || seededOffset(seed, 3) * 0.01;
+      const dy = link.target.y - link.source.y || seededOffset(seed, 5) * 0.01;
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const desired = Math.max(70, 132 - Math.min(5, link.weight) * 6);
+      const pull = ((distance - desired) / distance) * 0.018 * alpha;
+      const fx = dx * pull;
+      const fy = dy * pull;
+      link.source.vx += fx;
+      link.source.vy += fy;
+      link.target.vx -= fx;
+      link.target.vy -= fy;
+    }
+
+    for (let i = 0; i < simulationNodes.length; i += 1) {
+      const a = simulationNodes[i];
+      for (let j = i + 1; j < simulationNodes.length; j += 1) {
+        const b = simulationNodes[j];
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let distance = Math.hypot(dx, dy);
+        if (distance < 0.001) {
+          const seed = `${a.id}:${b.id}`;
+          dx = seededOffset(seed, 7) || 0.01;
+          dy = seededOffset(seed, 11) || 0.01;
+          distance = Math.hypot(dx, dy);
+        }
+
+        const clearance = a.radius + b.radius + 5;
+        const repel = (7000 * alpha) / Math.max(144, distance * distance);
+        const rx = (dx / distance) * repel;
+        const ry = (dy / distance) * repel;
+        a.vx -= rx;
+        a.vy -= ry;
+        b.vx += rx;
+        b.vy += ry;
+
+        if (distance < clearance) {
+          const push = ((clearance - distance) / distance) * 0.22 * alpha;
+          const px = dx * push;
+          const py = dy * push;
+          a.vx -= px;
+          a.vy -= py;
+          b.vx += px;
+          b.vy += py;
+        }
+      }
+    }
+
+    for (const node of simulationNodes) {
+      const anchor = anchors[node.community];
+      const targetX = anchor ? anchor.x : cx;
+      const targetY = anchor ? anchor.y : cy;
+      node.vx += (targetX - node.x) * 0.0025 * alpha;
+      node.vy += (targetY - node.y) * 0.0025 * alpha;
+      node.vx += (cx - node.x) * 0.0008 * alpha;
+      node.vy += (cy - node.y) * 0.0008 * alpha;
+      node.vx *= 0.82;
+      node.vy *= 0.82;
+      node.x = Math.max(node.radius + 8, Math.min(WIDTH - node.radius - 8, node.x + node.vx));
+      node.y = Math.max(node.radius + 8, Math.min(HEIGHT - node.radius - 8, node.y + node.vy));
+    }
+  }
+
+  for (const node of simulationNodes) {
+    positions.set(node.id, {
+      x: Number(node.x.toFixed(2)),
+      y: Number(node.y.toFixed(2)),
+      community: node.community
+    });
+    radii.set(node.id, Number(node.radius.toFixed(2)));
+  }
+
+  return { positions, radii, anchors, communityCount: communities.length };
 }
 
-function edgeEnds(edge) {
+export function edgeEnds(edge) {
   const s = edge.source ?? edge.from ?? (Array.isArray(edge) ? edge[0] : null);
   const t = edge.target ?? edge.to ?? (Array.isArray(edge) ? edge[1] : null);
   return [s, t];
+}
+
+function edgeWeight(edge) {
+  const numeric = Number(edge?.weight);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
+}
+
+function buildDegreeMap(edges) {
+  const degrees = new Map();
+  for (const edge of edges || []) {
+    const [s, t] = edgeEnds(edge);
+    if (!s || !t) continue;
+    const weight = edgeWeight(edge);
+    degrees.set(s, (degrees.get(s) || 0) + weight);
+    degrees.set(t, (degrees.get(t) || 0) + weight);
+  }
+  return degrees;
+}
+
+function nodeRadius(node, degrees) {
+  const degree = degrees.get(node.id) || 0;
+  return Math.max(NODE_MIN_RADIUS, Math.min(NODE_MAX_RADIUS, NODE_MIN_RADIUS + Math.sqrt(degree) * 2.3));
+}
+
+function seededOffset(value, salt = 0) {
+  let hash = 2166136261 ^ salt;
+  const text = String(value || '');
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ((hash >>> 0) / 4294967295) - 0.5;
 }
 
 function normalizeMap(value) {
@@ -231,7 +370,7 @@ export function renderDocsMap(container, graph, opts = {}) {
   const onNavigate = opts.onNavigate || (() => {});
   const nodeMetadata = normalizeMap(opts.metadata?.nodes);
   const edgeMetadata = normalizeMap(opts.metadata?.edges);
-  const { positions, anchors, communityCount } = layout(graph);
+  const { positions, radii, anchors, communityCount } = layout(graph);
   const hue = (ci) => (ci < 0 ? 0 : Math.round((360 * ci) / Math.max(1, communityCount)));
   const adjacency = new Map();
   for (const edge of (graph.edges || [])) {
@@ -247,7 +386,6 @@ export function renderDocsMap(container, graph, opts = {}) {
   const pan = { x: 0, y: 0 };
   let dragging = false;
   let dragStart = null;
-  const win = svg.ownerDocument.defaultView;
   const stopDrag = (e) => {
     dragging = false;
     dragStart = null;
@@ -264,6 +402,7 @@ export function renderDocsMap(container, graph, opts = {}) {
   svg.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', `Relationship map of ${nodes.length} documentation pages`);
+  const win = svg.ownerDocument.defaultView;
 
   const viewport = document.createElementNS(SVGNS, 'g');
   viewport.setAttribute('class', 'docs-map-viewport');
@@ -428,7 +567,7 @@ export function renderDocsMap(container, graph, opts = {}) {
     const circle = document.createElementNS(SVGNS, 'circle');
     circle.setAttribute('cx', pos.x);
     circle.setAttribute('cy', pos.y);
-    circle.setAttribute('r', 8);
+    circle.setAttribute('r', String(radii.get(node.id) || NODE_MIN_RADIUS));
     circle.setAttribute('fill', `hsl(${hue(pos.community)} 60% 55%)`);
     g.appendChild(circle);
 
