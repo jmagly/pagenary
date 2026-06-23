@@ -1,0 +1,5 @@
+{
+  "type": "repository.failed",
+  "reason": "provider rejected webhook setup",
+  "effectiveAt": "2026-06-22T00:10:00.000Z"
+}

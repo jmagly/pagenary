@@ -38,6 +38,11 @@
           "default": true,
           "description": "Whether this tenant should be built"
         },
+        "accountId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$",
+          "description": "Managed-hosting account/group id used for plan site-limit enforcement."
+        },
         "source": {
           "$ref": "#/definitions/sourcePath",
           "description": "Where to read tenant content from"
@@ -52,6 +57,66 @@
             "type": "string"
           },
           "description": "Domain names for routing (used by Caddyfile generator)"
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["free", "pro", "team"],
+          "default": "free",
+          "description": "Managed-hosting plan gate. Used by scripts/managed-hosting.js."
+        },
+        "subdomain": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$",
+          "description": "Managed-hosting subdomain label for <subdomain>.pagenary.app. Defaults to tenant id."
+        },
+        "siteCount": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Number of hosted sites consumed by this tenant/account for plan gating."
+        },
+        "privateRepo": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the connected source repo is private. Requires Pro or Team in managed hosting."
+        },
+        "repoCredentialRef": {
+          "type": "string",
+          "description": "Reference name for the private control-plane deploy key or OAuth credential."
+        },
+        "webhookSecretRef": {
+          "type": "string",
+          "description": "Reference name for the private control-plane webhook secret."
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["free", "manual-pending", "active", "past-due", "canceled"],
+          "default": "manual-pending",
+          "description": "Concierge billing state mirrored from Stripe or manual onboarding."
+        },
+        "verifiedDomains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Custom domains verified by the private hosting control plane."
+        },
+        "suspendedDomains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Custom domains disabled by downgrade/cancel events and retained for recovery."
+        },
+        "whiteLabel": {
+          "type": "boolean",
+          "default": false,
+          "description": "White-label entitlement request. Requires Team in managed hosting."
+        },
+        "sso": {
+          "type": "boolean",
+          "default": false,
+          "description": "SSO entitlement request. Requires Team in managed hosting."
         },
         "config": {
           "$ref": "#/definitions/tenantConfig",

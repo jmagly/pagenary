@@ -37,6 +37,11 @@ const COMMANDS = {
     script: 'serve.js',
     baseArgs: [],
     summary: 'Serve the built output over HTTP.'
+  },
+  'managed-hosting': {
+    script: 'managed-hosting.js',
+    baseArgs: [],
+    summary: 'Validate concierge hosting plans, routing, and onboarding records.'
   }
 };
 
@@ -67,6 +72,7 @@ function printHelp() {
     '  pagenary build:tenants pagenary   # build one tenant',
     '  pagenary tenants:list',
     '  pagenary serve',
+    '  pagenary managed-hosting plans',
     '',
     'Any extra options are passed through to the underlying script, e.g.',
     '  pagenary build:tenants --incremental',

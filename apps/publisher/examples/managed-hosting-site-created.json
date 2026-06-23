@@ -1,0 +1,17 @@
+{
+  "type": "site.created",
+  "effectiveAt": "2026-06-22T00:00:00.000Z",
+  "tenant": {
+    "tenantId": "acme-api",
+    "accountId": "acme",
+    "plan": "pro",
+    "paymentStatus": "active",
+    "subdomain": "acme-api",
+    "source": {
+      "type": "git",
+      "url": "ssh://git@git.example.com/acme/api-docs.git",
+      "ref": "main"
+    },
+    "webhookSecretRef": "secret:WEBHOOK_SECRET/acme-api"
+  }
+}

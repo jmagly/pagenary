@@ -24,6 +24,30 @@ Located at `apps/publisher/tenants.json`, this file registers all tenants:
 | `enabled` | No | Whether to build this tenant (default `true`) |
 | `strictLinks` | No | Broken-link gate (default `true`). When `true`, **broken internal links fail the build** — the tenant is reported `Failed` and the process exits non-zero, so CI can gate on it. Set `false` to log broken links as warnings and continue. |
 
+### Managed Hosting Fields
+
+These fields are optional for ordinary static publishing. They define the public
+contract used by `pagenary managed-hosting` and the concierge managed-hosting
+flow.
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `plan` | No | Hosting plan gate: `free`, `pro`, or `team` (default `free`) |
+| `accountId` | No | Hosting account/group id used to enforce plan site limits across tenants |
+| `subdomain` | No | Public `name.pagenary.app` label; defaults to the tenant id |
+| `siteCount` | No | Number of hosted sites consumed by the account for plan limits |
+| `privateRepo` | No | Whether the connected source repo is private; requires Pro or Team |
+| `repoCredentialRef` | No | Name/reference for the private control-plane deploy key or OAuth credential |
+| `webhookSecretRef` | No | Name/reference for the private control-plane webhook secret |
+| `paymentStatus` | No | Concierge billing state: `free`, `manual-pending`, `active`, `past-due`, or `canceled` |
+| `verifiedDomains` | No | Custom domains that the private control plane has verified for DNS/TLS readiness |
+| `suspendedDomains` | No | Paid custom domains disabled by a downgrade/cancel event and retained for recovery |
+| `whiteLabel` | No | White-label entitlement request; requires Team |
+| `sso` | No | SSO entitlement request; requires Team |
+
+See [Managed Hosting MVP](MANAGED-HOSTING.md) for plan entitlements, Stripe
+Payment Link onboarding, and generated Caddy routing.
+
 ### Source Types
 
 **Local Path:**

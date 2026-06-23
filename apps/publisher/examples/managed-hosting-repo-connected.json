@@ -1,0 +1,12 @@
+{
+  "type": "repository.connected",
+  "privateRepo": true,
+  "credentialRef": "secret:CUSTOMER_DEPLOY_KEY/acme",
+  "source": {
+    "type": "git",
+    "url": "ssh://git@git.example.com/acme/docs.git",
+    "ref": "main",
+    "path": "docs"
+  },
+  "effectiveAt": "2026-06-22T00:00:00.000Z"
+}

@@ -1,0 +1,8 @@
+{
+  "type": "publish.succeeded",
+  "runId": "run-2026-06-22-acme",
+  "commit": "abc123",
+  "ref": "main",
+  "logUrl": "https://git.example.com/acme/docs/actions/runs/123",
+  "occurredAt": "2026-06-22T00:00:00.000Z"
+}

@@ -47,8 +47,10 @@ npx pagenary build:tenants my-docs   # build your tenant (see Tenant Registry be
 npx pagenary serve                   # preview on http://localhost:5173
 ```
 
-Commands: `build`, `build:tenants [id]`, `tenants:list`, `serve` (run
-`npx pagenary --help`). The package also ships a compiled reference site under `site/` — the Pagenary docs, built by Pagenary itself.
+Commands: `build`, `build:tenants [id]`, `tenants:list`,
+`managed-hosting`, `serve` (run `npx pagenary --help`). The package also
+ships a compiled reference site under `site/` — the Pagenary docs, built by
+Pagenary itself.
 
 **Building from source** (contributors / modifying Pagenary):
 
@@ -265,6 +267,7 @@ npx pagenary build                    # build the default bundle to dist/
 npx pagenary build:tenants            # build all enabled tenants
 npx pagenary build:tenants my-tenant  # build a specific tenant
 npx pagenary tenants:list             # list configured tenants
+npx pagenary managed-hosting plans    # inspect public hosting entitlements
 npx pagenary serve                    # serve dist/ on localhost:5173
 ```
 
@@ -352,6 +355,36 @@ Use a non-privileged port: `DOCS_TOOLKIT_PORT=5173 npm run caddy:up`
 
 ---
 
+## Managed Hosting MVP
+
+Pagenary can be operated as a concierge managed-hosting service before the
+self-serve control panel exists. The public package includes the static
+publisher, plan/entitlement contract, routing generator, and build-worker
+examples; Stripe secrets, OAuth apps, customer records, and the control panel
+belong in the private hosting/control-plane repository.
+
+```bash
+npm run managed-hosting -- plans
+npm run managed-hosting -- onboarding-intake examples/managed-hosting.tenants.json examples/managed-hosting-onboarding-pro.json
+npm run managed-hosting -- account-usage examples/managed-hosting.tenants.json
+npm run managed-hosting -- dashboard-state examples/managed-hosting.tenants.json --account-id acme
+npm run managed-hosting -- validate examples/managed-hosting.tenants.json
+npm run managed-hosting -- caddy examples/managed-hosting.tenants.json
+npm run managed-hosting -- billing-action examples/managed-hosting.tenants.json acme
+npm run managed-hosting -- site-event examples/managed-hosting.tenants.json examples/managed-hosting-site-created.json
+npm run managed-hosting -- domain-event examples/managed-hosting.tenants.json acme examples/managed-hosting-domain-verified.json
+npm run managed-hosting -- repo-event examples/managed-hosting.tenants.json acme examples/managed-hosting-repo-connected.json
+npm run managed-hosting -- rollback-plan examples/managed-hosting.tenants.json acme
+npm run managed-hosting -- deploy-manifest examples/managed-hosting.tenants.json acme
+npm run managed-hosting -- artifact-index examples/managed-hosting.tenants.json acme
+```
+
+See [Managed Hosting MVP](docs/MANAGED-HOSTING.md) for the concierge flow,
+plan gates, Caddy routing, worker example, post-sync support packet, worker
+status events, and private control-panel boundary.
+
+---
+
 ## Repository Layout
 
 ```
@@ -384,6 +417,7 @@ The full documentation site is published at **[docs.pagenary.com](https://docs.p
 - [Getting Started](docs/GETTING-STARTED.md) — **start here**: zero to a published site with the npm package
 - [Quick Start Guide](docs/QUICKSTART.md) — step-by-step tenant creation
 - [Publish with GitHub/Gitea Actions](docs/PUBLISHING.md) — make any docs repo Pagenary-ready: copy-paste CI workflows + auto-discovery
+- [Managed Hosting MVP](docs/MANAGED-HOSTING.md) — concierge hosting, plan gates, Caddy routing, and worker examples
 - [Tenant Configuration](docs/TENANT-CONFIG.md) — all config options (branding, theme, SEO)
 - [Theming Recipes](docs/THEMING-RECIPES.md) — copy-paste recipes for colors, fonts, and nav positions, with screenshots
 - [Architecture](docs/ARCHITECTURE.md) — system design

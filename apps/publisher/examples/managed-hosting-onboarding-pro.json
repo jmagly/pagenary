@@ -1,0 +1,16 @@
+{
+  "tenantId": "beta",
+  "accountId": "beta",
+  "plan": "pro",
+  "subdomain": "beta",
+  "siteCount": 1,
+  "paymentStatus": "manual-pending",
+  "privateRepo": true,
+  "domains": ["docs.beta.example.com"],
+  "source": {
+    "type": "git",
+    "url": "ssh://git@git.example.com/beta/docs.git",
+    "ref": "main",
+    "path": "docs"
+  }
+}

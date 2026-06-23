@@ -41,6 +41,7 @@
     "build:diff": "node scripts/build-tenants.js --diff-only",
     "tenants:list": "node scripts/build-tenants.js --list",
     "tenants:diff": "node scripts/build-tenants.js --diff-only",
+    "managed-hosting": "node scripts/managed-hosting.js",
     "serve": "node scripts/serve.js",
     "serve:dev": "NODE_ENV=development node scripts/serve.js --dev",
     "start": "npm run build && npm run serve",
