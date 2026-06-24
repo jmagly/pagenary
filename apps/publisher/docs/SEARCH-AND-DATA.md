@@ -19,9 +19,9 @@ The browser side is three composable packages:
 
 | Package | What it does | Dig in |
 |---------|--------------|--------|
-| **`@fortemi/core`** | Browser-only data layer: PGlite (PostgreSQL compiled to WASM), a single-writer worker, MCP tools, a job queue, and **hybrid lexical + semantic search**. | [packages/core](https://docs.fortemi.com/react/#/packages-core) |
-| **`@fortemi/graph`** | Framework-agnostic community-graph tooling: layout, filtering, neighborhood expansion, and snapshot serialization. | [packages/graph](https://docs.fortemi.com/react/#/packages-graph) |
-| **`@fortemi/react`** | React 19 hooks and `FortemiProvider` (30 hooks) over `@fortemi/core`. | [packages/react](https://docs.fortemi.com/react/#/packages-react) |
+| **`@fortemi/core`** | Browser-only data layer: PGlite (PostgreSQL compiled to WASM), a single-writer worker, MCP tools, a job queue, and **hybrid lexical + semantic search**. | [packages/core](https://docs.fortemi.com/react/#packages/core) |
+| **`@fortemi/graph`** | Framework-agnostic community-graph tooling: layout, filtering, neighborhood expansion, and snapshot serialization. | [packages/graph](https://docs.fortemi.com/react/#packages/graph) |
+| **`@fortemi/react`** | React 19 hooks and `FortemiProvider` (31 hooks) over `@fortemi/core`. | [packages/react](https://docs.fortemi.com/react/#packages/react) |
 
 Pagenary vendors **`@fortemi/core`** directly (see [Architecture](#architecture)
 and `ADR-015`). The same engine that runs in a full Fortémi app runs your docs
@@ -32,7 +32,7 @@ search — there is no second-rate static-site search path.
 **Hybrid search, not keyword matching.** The command palette (`⌘K` / `Ctrl+K`)
 runs ranked full-text search over titles, summaries, and rendered content, with
 snippets and infinite scroll. It's the same hybrid lexical + semantic engine
-Fortémi ships — see the [hybrid search guide](https://docs.fortemi.com/react/#/guides-search).
+Fortémi ships — see the [hybrid search guide](https://docs.fortemi.com/react/#search).
 
 **A knowledge graph from your content.** The opt-in **Docs Map** projects your
 corpus into a Fortémi community graph — pages become nodes, shared concepts
@@ -54,10 +54,10 @@ The capability you see in Pagenary is the floor, not the ceiling. Because
 Pagenary builds on the standard Fortémi packages, the same data is portable to a
 far richer interactive experience:
 
-- **Drop into React.** `@fortemi/react`'s `FortemiProvider` + 30 hooks give you
+- **Drop into React.** `@fortemi/react`'s `FortemiProvider` + 31 hooks give you
   notes, hybrid search, tags, collections, and SKOS concepts as first-class React
-  state. → [Getting Started](https://docs.fortemi.com/react/#/getting-started) ·
-  [Integration guide](https://docs.fortemi.com/react/#/guides-integration)
+  state. → [Getting Started](https://docs.fortemi.com/react/#getting-started) ·
+  [Integration guide](https://docs.fortemi.com/react/#integration)
 - **W3C SKOS tagging.** Organize content with a real concept scheme, not flat
   tags.
 - **Bring your own graph.** `@fortemi/graph` exposes layout, filtering, and
@@ -67,7 +67,7 @@ far richer interactive experience:
   in the browser, graduate to a server without reformatting your data.
 
 For the full surface — hooks, providers, and core APIs — see the Fortémi
-[API Reference](https://docs.fortemi.com/react/#/api-reference).
+[API Reference](https://docs.fortemi.com/react/#api-reference).
 
 ## Where it lives in Pagenary
 
