@@ -1465,6 +1465,7 @@ async function buildDocsMapGraph(distDir, tenantId) {
 }
 
 const NAV_POSITIONS = new Set(['left', 'right', 'top', 'bottom', 'hybrid']);
+const NAV_ALIGNMENTS = new Set(['top', 'spread', 'bottom', 'left', 'right']);
 
 /**
  * Apply nav position configuration.
@@ -1506,6 +1507,42 @@ async function applyNavPosition(distDir, config, tenantId) {
 
   await fsp.writeFile(indexPath, html, 'utf8');
   console.log(`  ↳ applied ${pos}-position nav for ${tenantId}`);
+}
+
+/**
+ * Apply nav alignment configuration.
+ *
+ * Supports navAlign: "top" (default) | "spread" | "bottom" | "left" | "right".
+ * Like navPosition, the rules live in the source stylesheet scoped to
+ * `body[data-nav-align="…"]`; this only sets that attribute. "top" is the
+ * default (the base `.nav` rule packs the list at the top) and needs no
+ * attribute. Vertical options (spread/bottom) tune how the list fills the
+ * sidebar column; horizontal options (left/right) set the item text edge.
+ */
+async function applyNavAlignment(distDir, config, tenantId) {
+  const align = typeof config.navAlign === 'string'
+    ? config.navAlign.toLowerCase()
+    : 'top';
+
+  if (align === 'top') return; // default layout, nothing to do
+
+  if (!NAV_ALIGNMENTS.has(align)) {
+    console.warn(`  ↳ ${tenantId}: unknown navAlign "${config.navAlign}" ` +
+      `(expected top|spread|bottom|left|right) — leaving default`);
+    return;
+  }
+
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+
+  let html = await fsp.readFile(indexPath, 'utf8');
+
+  if (!/<body[^>]*data-nav-align=/.test(html)) {
+    html = html.replace(/<body(?=[\s>])/, `<body data-nav-align="${align}"`);
+  }
+
+  await fsp.writeFile(indexPath, html, 'utf8');
+  console.log(`  ↳ applied ${align}-aligned nav for ${tenantId}`);
 }
 
 /**
@@ -4005,6 +4042,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyThemePicker(distDir, config, tenantId);
     await applyThemeColors(distDir, config, tenantId);
     await applyNavPosition(distDir, config, tenantId);
+    await applyNavAlignment(distDir, config, tenantId);
     await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }

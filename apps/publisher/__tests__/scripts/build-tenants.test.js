@@ -747,6 +747,67 @@ describe('build-tenants.js', () => {
     });
   });
 
+  describe('nav alignment', () => {
+    const ALIGN_MANIFEST = {
+      default: 'home',
+      sections: [
+        { id: 'home', title: 'Home', file: 'home.md' },
+        { id: 'reference', title: 'Reference', file: 'reference.md' }
+      ]
+    };
+    const ALIGN_CONTENT = {
+      'home.md': '# Home\n\nHome page.',
+      'reference.md': '# Reference\n\nReference page.'
+    };
+
+    let alignTenantDir;
+    let alignTenantId;
+    let alignCounter = 0;
+
+    async function buildWithNavAlign(navAlign) {
+      alignTenantId = '__test-align-' + Date.now() + '-' + (alignCounter++);
+      const config = navAlign === undefined ? { title: 'Align Test' } : { title: 'Align Test', navAlign };
+      alignTenantDir = await createTestTenant(alignTenantId, config, ALIGN_MANIFEST, ALIGN_CONTENT);
+      const result = await runBuildTenantsWithRegistry([{ id: alignTenantId }]);
+      const indexPath = path.join(PUBLISHER_ROOT, 'dist', alignTenantId, 'index.html');
+      const html = await fsp.readFile(indexPath, 'utf8');
+      return { result, html };
+    }
+
+    afterEach(async () => {
+      if (alignTenantDir) await cleanup(alignTenantDir);
+      if (alignTenantId) await cleanup(path.join(PUBLISHER_ROOT, 'dist', alignTenantId));
+      alignTenantDir = undefined;
+      alignTenantId = undefined;
+    });
+
+    test.each(['spread', 'bottom', 'left', 'right'])(
+      'tags <body> with data-nav-align="%s"',
+      async (align) => {
+        const { result, html } = await buildWithNavAlign(align);
+        expect(result.code).toBe(0);
+        expect(html).toMatch(new RegExp(`<body[^>]*data-nav-align="${align}"`));
+      }
+    );
+
+    test('top (default) adds no data-nav-align attribute', async () => {
+      const { html } = await buildWithNavAlign('top');
+      expect(html).not.toMatch(/data-nav-align=/);
+    });
+
+    test('omitted navAlign adds no data-nav-align attribute', async () => {
+      const { html } = await buildWithNavAlign(undefined);
+      expect(html).not.toMatch(/data-nav-align=/);
+    });
+
+    test('unknown navAlign warns and leaves the default', async () => {
+      const { result, html } = await buildWithNavAlign('diagonal');
+      expect(result.code).toBe(0);
+      expect(result.stdout + result.stderr).toMatch(/unknown navAlign/i);
+      expect(html).not.toMatch(/data-nav-align=/);
+    });
+  });
+
   describe('GFM autolinks', () => {
     const AL_ID = '__test-autolink-' + Date.now();
     let alDir;

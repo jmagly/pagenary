@@ -434,6 +434,10 @@ a:focus {
 .nav {
   display: grid;
   gap: 0.15rem;
+  /* Pack the list at the top by default; the sidebar grid stretches .nav to
+     full height, so without this the auto rows distribute across the column
+     (the awkward "spread out" look). Override per tenant via `navAlign`. */
+  align-content: start;
 }
 
 .nav-title {
@@ -2535,6 +2539,43 @@ body[data-nav-position="bottom"] .nav {
 body[data-nav-position="top"] .nav-group,
 body[data-nav-position="bottom"] .nav-group {
   min-width: max-content;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Nav Alignment
+   Activated by a [data-nav-align] attribute on <body>, injected
+   at build time from a tenant's `navAlign` config:
+   "top" (default) | "spread" | "bottom" | "left" | "right".
+   "top" is the default (see base `.nav { align-content: start }`)
+   and needs no attribute. Vertical options (spread/bottom) tune how
+   the list fills the sidebar column; horizontal options (left/right)
+   set the item text edge. Scoped to the vertical (left/right) sidebar
+   grid; horizontal nav bars (data-nav-position top/bottom) are
+   unaffected.
+   ───────────────────────────────────────────────────────── */
+
+/* Spread: distribute groups across the full column (legacy look). */
+body[data-nav-align="spread"] .nav {
+  align-content: stretch;
+}
+
+/* Bottom: pack the list against the bottom of the sidebar. */
+body[data-nav-align="bottom"] .nav {
+  align-content: end;
+}
+
+/* Left: explicit leading-edge text (matches the default). */
+body[data-nav-align="left"] .nav {
+  text-align: left;
+}
+
+/* Right: trailing-edge text for the whole list. */
+body[data-nav-align="right"] .nav {
+  text-align: right;
+}
+
+body[data-nav-align="right"] .nav-parent-with-content .nav-summary {
+  justify-content: flex-end;
 }
 
 /* Hybrid: a horizontal primary strip (built from the tenant's

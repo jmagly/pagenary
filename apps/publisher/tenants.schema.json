@@ -279,6 +279,12 @@
           "default": "left",
           "description": "Navigation placement"
         },
+        "navAlign": {
+          "type": "string",
+          "enum": ["top", "spread", "bottom", "left", "right"],
+          "default": "top",
+          "description": "Sidebar list alignment. Vertical: top (default), spread (distribute across the column), bottom. Horizontal: left (default edge), right."
+        },
         "cacheStrategy": {
           "type": "string",
           "enum": ["contentHash", "stable"],

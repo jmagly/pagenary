@@ -158,6 +158,7 @@ above plus `colorScheme` (`light` \| `dark`) and dark-mode surface keys
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `navPosition` | string | `left` | Navigation placement: `left` \| `right` \| `top` \| `bottom` \| `hybrid` |
+| `navAlign` | string | `top` | Sidebar list alignment. Vertical: `top` (default), `spread` (distribute across the column), `bottom`. Horizontal: `left` (default edge), `right`. |
 
 `top` and `bottom` render navigation as a horizontal bar; `hybrid` adds a
 horizontal primary strip (built from your top-level sections) above the left
