@@ -273,7 +273,7 @@ and content set from the same toolkit:
 
 - [docs.pagenary.com](https://docs.pagenary.com) — this site (Pagenary's own docs)
 - [docs.aiwg.io](https://docs.aiwg.io) — AI Writing Guide
-- [docs.fortemi.io](https://docs.fortemi.io) — Fortemi
+- [docs.fortemi.com](https://docs.fortemi.com) — Fortémi
 - [docs.roko.network](https://docs.roko.network) — Roko Network
 
 Running a Pagenary site you'd like listed here? Open a PR adding it.

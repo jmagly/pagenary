@@ -32,6 +32,12 @@
           "file": "DEVELOPER-GUIDE.md"
         },
         {
+          "id": "search-and-data",
+          "title": "Search & Data",
+          "summary": "Ranked hybrid search, a knowledge graph, and faceted metadata — powered by Fortémi.",
+          "file": "SEARCH-AND-DATA.md"
+        },
+        {
           "id": "tenant-config",
           "title": "Tenant Configuration",
           "summary": "Every config.json option: branding, theming, SEO, and export.",

@@ -223,6 +223,12 @@ The chunked index is emitted at build time (see "Search Index Generation"); the
 runtime engine and the build-time corpus builder (`lib/fortemi-corpus.js`) share
 the `@fortemi/core` `aiwg.fortemi.index.*.v1` contract.
 
+> `@fortemi/core` is the browser-only half of [Fortémi](https://docs.fortemi.com)
+> (the self-hosted Rust + PostgreSQL server shares the same JSON contracts). The
+> graph and React layers — `@fortemi/graph` and `@fortemi/react` — are documented
+> at [docs.fortemi.com/react](https://docs.fortemi.com/react/). See
+> [Search & Data](#search-and-data) for what this enables and how far it scales.
+
 ### Mermaid Integration (mermaid-init.js)
 
 Lazy-loaded diagram rendering:

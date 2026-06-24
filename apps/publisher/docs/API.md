@@ -145,6 +145,12 @@ shape. See `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
 Build-time and fallback share the deterministic corpus builder in
 `lib/fortemi-corpus.js`.
 
+> **Dig deeper.** For the capability overview see [Search & Data](#search-and-data).
+> The engine is `@fortemi/core` — full hooks, graph tooling, and APIs are
+> documented at [docs.fortemi.com/react](https://docs.fortemi.com/react/)
+> ([`@fortemi/core`](https://docs.fortemi.com/react/#/packages-core) ·
+> [hybrid search](https://docs.fortemi.com/react/#/guides-search)).
+
 #### Functions
 
 **`escapeRegExp(value: string): string`**

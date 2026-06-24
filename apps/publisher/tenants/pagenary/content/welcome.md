@@ -15,6 +15,7 @@ the repository, served as a static single-page app.
 ## Start here
 
 - **[Quickstart](quickstart.md)** — install, build your first site, and serve it locally.
+- **[Search & Data](search-and-data.md)** — ranked hybrid search, a knowledge graph, and faceted metadata, powered by [Fortémi](https://docs.fortemi.com).
 - **[Architecture](architecture.md)** — the static SPA pattern, build pipeline, and content model.
 - **[Tenant Configuration](tenant-config.md)** — every `config.json` option for branding, theming, SEO, and export.
 
