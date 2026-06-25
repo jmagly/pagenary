@@ -64,3 +64,65 @@ export function initPageEffects(root) {
     } catch { /* isolate a broken effect; never break section rendering */ }
   }
 }
+
+// ── Built-in effects (#53) ────────────────────────────────────────────────
+
+/**
+ * Reveal-on-scroll: add `.is-revealed` to `[data-reveal]` elements as they
+ * enter the viewport. Under reduced-motion or without IntersectionObserver,
+ * everything is revealed immediately (no motion). The base hidden state lives in
+ * CSS scoped under `html.has-js` + a no-preference media query, so JS-off pages
+ * are never hidden.
+ */
+function revealOnScroll(root, ctx) {
+  const targets = root.querySelectorAll('[data-reveal]');
+  if (!targets.length) return;
+  if (ctx.reducedMotion || typeof IntersectionObserver !== 'function') {
+    targets.forEach((el) => el.classList.add('is-revealed'));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-revealed');
+        io.unobserve(entry.target);
+      }
+    }
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  targets.forEach((el) => io.observe(el));
+  return () => io.disconnect();
+}
+
+/**
+ * Reading-progress bar (opt-in via `body[data-reading-progress]`). Tracks the
+ * scroll container; presentational only (`aria-hidden`).
+ */
+function readingProgress() {
+  if (!document.body.hasAttribute('data-reading-progress')) return;
+  const scroller = document.querySelector('.canvas')
+    || document.scrollingElement || document.documentElement;
+  let bar = document.querySelector('.reading-progress');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'reading-progress';
+    bar.setAttribute('aria-hidden', 'true');
+    bar.innerHTML = '<span class="reading-progress-fill"></span>';
+    document.body.appendChild(bar);
+  }
+  const fill = bar.querySelector('.reading-progress-fill');
+  const update = () => {
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    const pct = max > 0 ? Math.min(100, Math.max(0, (scroller.scrollTop / max) * 100)) : 0;
+    fill.style.width = `${pct}%`;
+  };
+  update();
+  scroller.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update, { passive: true });
+  return () => {
+    scroller.removeEventListener('scroll', update);
+    window.removeEventListener('resize', update);
+  };
+}
+
+registerEffect(revealOnScroll);
+registerEffect(readingProgress);

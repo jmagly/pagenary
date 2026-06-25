@@ -2680,6 +2680,42 @@ body[data-layout="blog"] .canvas {
 .post-hero img { width: 100%; height: auto; display: block; aspect-ratio: 2 / 1; object-fit: cover; }
 body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
 
+/* ─────────────────────────────────────────────────────────
+   Page effects (#51) — opt-in, accessible.
+   Reveal-on-scroll base state is hidden ONLY when JS is present
+   (html.has-js) AND motion is allowed; so JS-off and reduced-
+   motion readers always see the content immediately. The JS
+   (src/lib/page-effects.js) adds .is-revealed as elements enter view.
+   ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  html.has-js [data-reveal] {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 600ms ease, transform 600ms ease;
+    will-change: opacity, transform;
+  }
+  html.has-js [data-reveal].is-revealed {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Reading-progress indicator (opt-in via body[data-reading-progress]). */
+.reading-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  z-index: 50;
+  pointer-events: none;
+  background: transparent;
+}
+.reading-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+}
+
 /* Hybrid: a horizontal primary strip (built from the tenant's
    top-level sections) under the header, plus the full left rail.
    The build injects <nav class="nav-strip"> after </header>, so the

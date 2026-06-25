@@ -57,7 +57,7 @@ function renderCard(entry) {
     : '';
 
   return (
-    `<article class="blog-card">` +
+    `<article class="blog-card" data-reveal="up">` +
       hero +
       `<div class="blog-card-body">` +
         (meta ? `<p class="blog-card-meta">${meta}</p>` : '') +
