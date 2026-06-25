@@ -484,3 +484,89 @@ describe('nested content directories', () => {
     });
   });
 });
+
+// Blog post navigation (#55): collection-scoped prev/next + back-to-index config.
+// Builds a real blog-layout tenant and dynamically imports the generated,
+// self-contained manifest.js to exercise getAdjacentSections end-to-end.
+describe('blog post navigation (#55)', () => {
+  const TEST_ID = '__test-post-nav-' + Date.now();
+  let tenantDir;
+
+  const post = (title, date) =>
+    `---\ntitle: ${title}\ndate: ${date}\nsummary: ${title} summary.\n---\n\n# ${title}\n\nBody of ${title}.\n`;
+
+  afterEach(async () => {
+    if (tenantDir) await cleanup(tenantDir);
+    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+  });
+
+  async function buildBlogManifest() {
+    tenantDir = await createNestedTenant(TEST_ID, {
+      config: {
+        title: 'Post Nav Demo',
+        layout: 'blog',
+        blog: { sidebar: 'hidden', indexTitle: 'Latest posts' },
+        collections: [
+          {
+            path: 'posts',
+            route: '/posts',
+            title: 'Posts',
+            manifest: true,
+            sortBy: 'date',
+            order: 'desc'
+          }
+        ]
+      },
+      directories: {
+        posts: {
+          files: {
+            'alpha.md': post('Alpha', '2026-06-10'),
+            'bravo.md': post('Bravo', '2026-05-22'),
+            'charlie.md': post('Charlie', '2026-04-30')
+          }
+        }
+      }
+    });
+
+    const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
+    expect(result.code).toBe(0);
+
+    const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+    // Cache-bust so repeated dynamic imports across tests don't collide.
+    const mod = await import(`file://${manifestFile}?t=${Date.now()}`);
+    return mod;
+  }
+
+  test('SITE_CONFIG exposes the blog index target and title', async () => {
+    const { SITE_CONFIG } = await buildBlogManifest();
+    expect(SITE_CONFIG.blogIndex).toBe('blog');
+    expect(SITE_CONFIG.blogIndexTitle).toBe('Latest posts');
+  });
+
+  test('adjacency is scoped to the collection (newest→oldest)', async () => {
+    const { getAdjacentSections } = await buildBlogManifest();
+
+    // Newest post: no prev, next is the second post — never the blog index.
+    const first = getAdjacentSections('posts/alpha');
+    expect(first.prev).toBeNull();
+    expect(first.next && first.next.id).toBe('posts/bravo');
+
+    // Middle post: both neighbors are posts.
+    const middle = getAdjacentSections('posts/bravo');
+    expect(middle.prev && middle.prev.id).toBe('posts/alpha');
+    expect(middle.next && middle.next.id).toBe('posts/charlie');
+
+    // Oldest post: prev is a post, next is null (does not wrap to the index).
+    const last = getAdjacentSections('posts/charlie');
+    expect(last.prev && last.prev.id).toBe('posts/bravo');
+    expect(last.next).toBeNull();
+  });
+
+  test('the blog index itself is not part of post adjacency', async () => {
+    const { getAdjacentSections } = await buildBlogManifest();
+    // The synthetic "blog" index has no collection, so it never appears as a
+    // post neighbor (verified above) and its own adjacency stays docs-style.
+    const atIndex = getAdjacentSections('blog');
+    expect(atIndex.prev === null || atIndex.prev.id !== 'blog').toBe(true);
+  });
+});

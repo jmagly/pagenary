@@ -2380,6 +2380,52 @@ pre:has(code.language-mermaid)::after {
   flex: 1;
 }
 
+/* Blog post navigation (#55): a persistent three-up control — prev post,
+   back-to-index, next post — always visible (a post with the sidebar hidden
+   has no other way to move between posts). The prev/next items reuse the docs
+   bottom-nav styling above; only the index affordance and layout differ. */
+.bottom-nav--posts {
+  align-items: stretch;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+}
+
+.bottom-nav--posts .bottom-nav-next {
+  margin-left: 0;
+}
+
+.bottom-nav-index {
+  align-self: center;
+  order: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  border: 1px solid var(--grid-line);
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.bottom-nav-index:hover,
+.bottom-nav-index:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: rgba(var(--ink-rgb), 0.03);
+  text-decoration: none;
+}
+
+/* On narrow screens stack the index affordance below the prev/next pair so the
+   two post links keep a comfortable target size. */
+@media (max-width: 560px) {
+  .bottom-nav--posts .bottom-nav-index {
+    order: 1;
+    flex-basis: 100%;
+    text-align: center;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────
    Syntax Highlighting (Light theme)
    ───────────────────────────────────────────────────────── */

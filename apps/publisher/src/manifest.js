@@ -234,6 +234,19 @@ const FLAT_NAV = buildFlatNav();
 export function getAdjacentSections(currentId) {
   const index = FLAT_NAV.findIndex((s) => s.id === currentId);
   if (index === -1) return { prev: null, next: null };
+  const current = FLAT_NAV[index];
+  // Collection-scoped adjacency (#55): a post navigates only among posts of the
+  // same collection, so prev/next never jump out to the blog index or a sibling
+  // group. Docs entries carry no `collection`, so they keep spanning the full
+  // flat nav — docs prev/next behavior is unchanged.
+  if (current && current.collection) {
+    const peers = FLAT_NAV.filter((s) => s.collection === current.collection);
+    const i = peers.findIndex((s) => s.id === currentId);
+    return {
+      prev: i > 0 ? peers[i - 1] : null,
+      next: i >= 0 && i < peers.length - 1 ? peers[i + 1] : null
+    };
+  }
   return {
     prev: index > 0 ? FLAT_NAV[index - 1] : null,
     next: index < FLAT_NAV.length - 1 ? FLAT_NAV[index + 1] : null

@@ -687,19 +687,130 @@ function formatEntryDate(value) {
 }
 
 /**
- * Render bottom page navigation (prev/next links)
- * Visibility controlled by SITE_CONFIG.bottomNav: 'always' | 'mobile' | 'never'
- * Per-section override via SITE_CONFIG.bottomNavSections array
+ * Build a prev/next nav item (chevron + titled link). Shared by the docs
+ * bottom-nav and the blog post-nav so both render adjacent links identically.
+ * @param {{id:string,title:string}} target
+ * @param {'prev'|'next'} dir
+ */
+function buildNavItem(target, dir) {
+  const wrapper = document.createElement('div');
+  wrapper.className = `bottom-nav-item bottom-nav-${dir}`;
+  const chevron = `<span class="bottom-nav-chevron">${dir === 'prev' ? '\u2039' : '\u203a'}</span>`;
+  const link = document.createElement('a');
+  link.href = `#${target.id}`;
+  link.className = 'bottom-nav-link';
+  const label = dir === 'prev' ? 'Previous' : 'Next';
+  link.title = `${label}: ${target.title}`;
+  link.setAttribute('aria-label', `${label}: ${target.title}`);
+  link.textContent = target.title;
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate(target.id);
+  });
+  if (dir === 'prev') {
+    wrapper.innerHTML = chevron;
+    wrapper.appendChild(link);
+  } else {
+    wrapper.appendChild(link);
+    wrapper.insertAdjacentHTML('beforeend', chevron);
+  }
+  return wrapper;
+}
+
+function navSpacer() {
+  const spacer = document.createElement('div');
+  spacer.className = 'bottom-nav-spacer';
+  return spacer;
+}
+
+/**
+ * Resolve post-navigation affordances (#55) from SITE_CONFIG.postNav.
+ * `postNav: false` disables it; an object toggles {prev,next,index,label}.
+ * Defaults to all affordances on.
+ * @returns {{prev:boolean,next:boolean,index:boolean,label:?string}|null}
+ */
+function resolvePostNav() {
+  const pn = SITE_CONFIG.postNav;
+  if (pn === false) return null;
+  const cfg = (pn && typeof pn === 'object') ? pn : {};
+  return {
+    prev: cfg.prev !== false,
+    next: cfg.next !== false,
+    index: cfg.index !== false,
+    label: typeof cfg.label === 'string' ? cfg.label : null
+  };
+}
+
+/**
+ * Render blog post navigation (#55): a persistent, accessible control with
+ * prev/next post (collection-scoped, with titles) and a back-to-index link.
+ * Visible regardless of the docs `bottomNav` mobile/never setting \u2014 a blog post
+ * with the sidebar hidden has no other way to move between posts.
+ */
+function renderPostNav(currentId) {
+  const cfg = resolvePostNav();
+  if (!cfg) return;
+
+  const { prev, next } = getAdjacentSections(currentId);
+  const indexId = SITE_CONFIG.blogIndex
+    || (typeof DEFAULT_SECTION === 'string' ? DEFAULT_SECTION : null);
+  const showIndex = cfg.index && indexId && indexId !== currentId;
+  const showPrev = cfg.prev && Boolean(prev);
+  const showNext = cfg.next && Boolean(next);
+  if (!showPrev && !showNext && !showIndex) return;
+
+  const nav = document.createElement('nav');
+  nav.className = 'bottom-nav bottom-nav--posts';
+  nav.setAttribute('aria-label', 'Post navigation');
+
+  nav.appendChild(showPrev ? buildNavItem(prev, 'prev') : navSpacer());
+
+  if (showIndex) {
+    const label = cfg.label
+      || (SITE_CONFIG.blogIndexTitle ? `All ${SITE_CONFIG.blogIndexTitle}` : 'Back to index');
+    const indexLink = document.createElement('a');
+    indexLink.href = `#${indexId}`;
+    indexLink.className = 'bottom-nav-index';
+    indexLink.textContent = label;
+    indexLink.setAttribute('aria-label', label);
+    indexLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigate(indexId);
+    });
+    nav.appendChild(indexLink);
+  } else {
+    nav.appendChild(navSpacer());
+  }
+
+  nav.appendChild(showNext ? buildNavItem(next, 'next') : navSpacer());
+
+  const section = app.querySelector('section') || app;
+  section.appendChild(nav);
+}
+
+/**
+ * Render bottom page navigation (prev/next links).
+ * - Blog posts (entries with a `collection`) get a persistent, post-aware
+ *   control via renderPostNav (#55): prev/next post + back-to-index.
+ * - Docs pages keep the original behavior: visibility controlled by
+ *   SITE_CONFIG.bottomNav ('always' | 'mobile' | 'never'), with a per-section
+ *   override via SITE_CONFIG.bottomNavSections.
  */
 function renderBottomNav(currentId) {
   // Remove existing bottom nav if present
   const existing = app.querySelector('.bottom-nav');
   if (existing) existing.remove();
 
-  // Check if bottom nav is disabled globally
+  // Blog posts: post-aware navigation, independent of the docs bottomNav mode.
+  const entry = typeof findSection === 'function' ? findSection(currentId) : null;
+  if (entry && entry.collection) {
+    renderPostNav(currentId);
+    return;
+  }
+
+  // Docs: original prev/next-section behavior.
   if (SITE_CONFIG.bottomNav === 'never') return;
 
-  // Check for per-section override
   const sectionOverrides = SITE_CONFIG.bottomNavSections || [];
   const isSectionEnabled = sectionOverrides.some(prefix => currentId.startsWith(prefix));
   const isMobileOnly = SITE_CONFIG.bottomNav === 'mobile' && !isSectionEnabled;
@@ -713,43 +824,9 @@ function renderBottomNav(currentId) {
     nav.classList.add('mobile-only');
   }
 
-  if (prev) {
-    const prevWrapper = document.createElement('div');
-    prevWrapper.className = 'bottom-nav-item bottom-nav-prev';
-    prevWrapper.innerHTML = `<span class="bottom-nav-chevron">\u2039</span>`;
-    const prevLink = document.createElement('a');
-    prevLink.href = `#${prev.id}`;
-    prevLink.className = 'bottom-nav-link';
-    prevLink.title = `Previous: ${prev.title}`;
-    prevLink.textContent = prev.title;
-    prevLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigate(prev.id);
-    });
-    prevWrapper.appendChild(prevLink);
-    nav.appendChild(prevWrapper);
-  } else {
-    // Empty spacer for alignment
-    const spacer = document.createElement('div');
-    spacer.className = 'bottom-nav-spacer';
-    nav.appendChild(spacer);
-  }
-
+  nav.appendChild(prev ? buildNavItem(prev, 'prev') : navSpacer());
   if (next) {
-    const nextWrapper = document.createElement('div');
-    nextWrapper.className = 'bottom-nav-item bottom-nav-next';
-    const nextLink = document.createElement('a');
-    nextLink.href = `#${next.id}`;
-    nextLink.className = 'bottom-nav-link';
-    nextLink.title = `Next: ${next.title}`;
-    nextLink.textContent = next.title;
-    nextLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigate(next.id);
-    });
-    nextWrapper.appendChild(nextLink);
-    nextWrapper.innerHTML += `<span class="bottom-nav-chevron">\u203a</span>`;
-    nav.appendChild(nextWrapper);
+    nav.appendChild(buildNavItem(next, 'next'));
   }
 
   // Append to the section content

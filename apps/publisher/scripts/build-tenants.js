@@ -3253,6 +3253,8 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
 
   // Load root _manifest.json for site configuration
   const rootManifest = await loadDirectoryManifest(contentRoot.basePath);
+  const layout = typeof config.layout === 'string' ? config.layout.toLowerCase() : 'docs';
+  const blogCfg = (config.blog && typeof config.blog === 'object') ? config.blog : {};
   const siteConfig = {
     bottomNav: rootManifest?.bottomNav || 'mobile',
     bottomNavSections: rootManifest?.bottomNavSections || [],
@@ -3260,7 +3262,16 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     // siteUrl falls back to `domain` (#15); ogImage drives social cards (#16).
     siteTitle: config.title || '',
     siteUrl: resolveBaseUrl(config),
-    ogImage: resolveOgImage(config, resolveBaseUrl(config))
+    ogImage: resolveOgImage(config, resolveBaseUrl(config)),
+    // Post navigation (#55). `postNav` is opt-out: false disables it, or an
+    // object toggles individual affordances {prev,next,index,label}. Defaults
+    // to all-on for collection posts. `blogIndex` names the synthetic index
+    // section (always "blog" when layout:"blog"; wireBlogIndex creates it), and
+    // `blogIndexTitle` labels the back-to-index affordance.
+    postNav: config.postNav,
+    ...(layout === 'blog'
+      ? { blogIndex: 'blog', blogIndexTitle: blogCfg.indexTitle || blogCfg.title || '' }
+      : {})
   };
 
   // Build export branding configuration
@@ -3472,6 +3483,19 @@ const FLAT_NAV = buildFlatNav();
 export function getAdjacentSections(currentId) {
   const index = FLAT_NAV.findIndex((s) => s.id === currentId);
   if (index === -1) return { prev: null, next: null };
+  const current = FLAT_NAV[index];
+  // Collection-scoped adjacency (#55): a post navigates only among posts of the
+  // same collection, so prev/next never jump out to the blog index or a sibling
+  // group. Docs entries carry no \`collection\`, so they keep spanning the full
+  // flat nav — docs prev/next behavior is unchanged.
+  if (current && current.collection) {
+    const peers = FLAT_NAV.filter((s) => s.collection === current.collection);
+    const i = peers.findIndex((s) => s.id === currentId);
+    return {
+      prev: i > 0 ? peers[i - 1] : null,
+      next: i >= 0 && i < peers.length - 1 ? peers[i + 1] : null
+    };
+  }
   return {
     prev: index > 0 ? FLAT_NAV[index - 1] : null,
     next: index < FLAT_NAV.length - 1 ? FLAT_NAV[index + 1] : null
