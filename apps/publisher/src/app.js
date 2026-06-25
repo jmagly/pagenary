@@ -1464,3 +1464,14 @@ if (mobileMenuToggle && sidebar) {
     }
   });
 }
+
+// The brand/site title is the home link — clicking it routes to the default
+// section (the blog index, or the docs home). `navigate` handles the already-home
+// case, so it works from anywhere.
+const brandHome = document.getElementById('brandHome');
+if (brandHome) {
+  brandHome.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate(DEFAULT_SECTION);
+  });
+}
