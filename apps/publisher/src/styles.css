@@ -2682,12 +2682,33 @@ body[data-layout="blog"] .canvas {
   margin-top: clamp(1.5rem, 4vw, 2.5rem);
 }
 .blog-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--grid-line);
   border-radius: 14px;
   overflow: hidden;
   background: rgba(var(--surface-rgb), 0.6);
+  /* The whole card is one click target (the title link is stretched over it
+     below), so it reads and behaves as a clickable tile — a pointer cursor, not
+     a text caret. */
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.blog-card:hover,
+.blog-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 6px 20px rgba(var(--ink-rgb), 0.10);
+  transform: translateY(-2px);
+}
+/* Stretched link: the title's anchor covers the entire card, so a click
+   anywhere navigates to the post and no card text shows a text I-beam. The
+   title stays the single, labelled link for assistive tech. */
+.blog-card-title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
 }
 .blog-card-hero { display: block; aspect-ratio: 2 / 1; overflow: hidden; }
 .blog-card-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
