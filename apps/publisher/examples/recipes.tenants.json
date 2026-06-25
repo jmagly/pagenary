@@ -120,6 +120,68 @@
     {
       "id": "page-effects",
       "source": { "type": "local", "path": "./examples/page-effects" }
+    },
+    {
+      "$comment": "Blog theme gallery — every variant reuses examples/blog-demo's posts and differs only by its inline theme config (the same content-base pattern the docs recipes use). Same blog layout, many looks.",
+      "id": "blog-dark",
+      "source": { "type": "local", "path": "./examples/blog-demo" },
+      "config": {
+        "title": "Umbra — a dark blog",
+        "brandMark": "Umbra",
+        "brandSub": "Journal",
+        "theme": "dark",
+        "accentColor": "#a78bfa"
+      }
+    },
+    {
+      "id": "blog-editorial",
+      "source": { "type": "local", "path": "./examples/blog-demo" },
+      "config": {
+        "title": "The Quill — an editorial blog",
+        "brandMark": "The Quill",
+        "brandSub": "Review",
+        "accentColor": "#9a3412",
+        "surfaceColor": "#fbf7f0",
+        "inkColor": "#2b2118",
+        "mutedColor": "#7c6f5f",
+        "gridLineColor": "rgba(43, 33, 24, 0.12)",
+        "fontBody": "Georgia, 'Iowan Old Style', 'Times New Roman', serif"
+      }
+    },
+    {
+      "id": "blog-rail",
+      "source": { "type": "local", "path": "./examples/blog-demo" },
+      "config": {
+        "title": "Dispatch — a blog with a posts rail",
+        "brandMark": "Dispatch",
+        "brandSub": "Notes",
+        "accentColor": "#2563eb",
+        "blog": { "sidebar": "rail", "indexTitle": "Latest posts" }
+      }
+    },
+    {
+      "id": "blog-vivid",
+      "source": { "type": "local", "path": "./examples/blog-demo" },
+      "config": {
+        "title": "Prism — a vivid blog",
+        "brandMark": "Prism",
+        "brandSub": "Blog",
+        "accentColor": "#db2777",
+        "surfaceColor": "#fff7fb",
+        "inkColor": "#3b0a2a",
+        "mutedColor": "#9d4e7c",
+        "gridLineColor": "rgba(219, 39, 119, 0.16)"
+      }
+    },
+    {
+      "id": "blog-matrix",
+      "source": { "type": "local", "path": "./examples/blog-demo" },
+      "config": {
+        "title": "Terminal — a matrix blog",
+        "brandMark": "Terminal",
+        "brandSub": "Log",
+        "theme": "matrix"
+      }
     }
   ]
 }

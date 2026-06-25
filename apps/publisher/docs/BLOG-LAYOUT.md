@@ -6,8 +6,10 @@ becomes a **blog**: a chronological index of post cards plus reading-first post
 pages with hero images, bylines, and tags. It reuses the same Markdown and the
 existing collections engine — only the *shape* changes.
 
-> Phase 1 ships the layout itself with no required JavaScript motion. A later
-> phase adds opt-in, accessibility-gated transitions ("living scroll").
+> The layout itself needs no JavaScript — it is complete as static markup. It
+> pairs with **post navigation** (prev/next + back-to-index) and the opt-in,
+> accessibility-gated [page effects](#page-effects) (reveal-on-scroll, rich
+> heroes); all of it degrades cleanly with JS off or reduced motion.
 
 ## Quick start
 
@@ -77,7 +79,7 @@ existing collections engine — only the *shape* changes.
 | `author` | Byline (`By …`). |
 | `summary` / `description` | Index card excerpt and the page summary line. |
 | `tags` | Tag chips on the card and the page. |
-| `hero` / `image` | Banner image on the card and atop the post. |
+| `hero` / `image` | Banner image on the card and atop the post. A string is a simple image; an *object* is a rich [page-effects](#page-effects) hero. |
 
 ## How it renders
 
@@ -86,17 +88,51 @@ existing collections engine — only the *shape* changes.
   time, tags, and excerpt, and links to the post.
 - **Post page** — the hero banner renders above the title, the byline
   (`date · By author · N min read`) below it, and tag chips after the summary.
-  The reading column keeps a comfortable measure.
+  A persistent [post navigation](#post-navigation) control closes the page. The
+  reading column keeps a comfortable measure.
+
+## Post navigation
+
+Every post ends with a persistent, accessible control — **previous post · back
+to index · next post** — so readers can move through the blog even with the
+sidebar hidden. Prev/next are scoped to the collection (newest→oldest, with
+titles) and never jump out to the index or another group.
+
+It is a real `<nav aria-label="Post navigation">` of `<a>` links, visible on all
+screen sizes (unlike the docs prev/next, which is mobile-only). Trim or disable
+the affordances with `postNav` in config:
+
+```json
+{ "postNav": { "prev": true, "next": true, "index": true, "label": "All posts" } }
+```
+
+Set `"postNav": false` to remove it entirely. See
+[Tenant Configuration](#tenant-config) for the full reference.
+
+## Theming a blog
+
+A blog themes exactly like the docs layout — the same `theme` presets
+(`dark`, `matrix`), `accentColor` / `surfaceColor` / `inkColor`, and fonts all
+apply. `blog.sidebar: "rail"` swaps the single centered column for a posts rail
+on the trailing edge. The [Theming Recipes gallery](#theming-recipes) ships
+ready-made blog looks — dark, editorial (serif), posts-rail, vivid, and matrix —
+each one this same demo with a different `config`.
+
+Posts can also carry a [page-effects](#page-effects) `hero` block in frontmatter
+for a full-bleed, overlaid banner, and use `data-reveal` for reveal-on-scroll —
+both opt-in, accessible, and reduced-motion safe.
 
 ## Accessibility
 
 The blog layout is built on semantic landmarks and real `<a>`/`<article>`/`<time>`
 elements, preserves focus and reading order, and keeps the skip link working.
-Phase 1 adds no motion, so nothing is hidden waiting on JavaScript — the page is
-complete and readable as static markup. The forthcoming transitions layer is
-opt-in and gated on `prefers-reduced-motion`.
+The layout itself adds no motion, so nothing is hidden waiting on JavaScript —
+the page is complete and readable as static markup (and is captured in the
+prerendered SEO snapshots). Any page effects layered on top are opt-in and gated
+on `prefers-reduced-motion`.
 
 ## See also
 
+- [Page Effects](#page-effects) — heroes, reveal-on-scroll, parallax, and more.
 - [Tenant Configuration](#tenant-config) — every `config.json` option.
-- [Theming Recipes](#theming-recipes) — colors, fonts, and layout recipes.
+- [Theming Recipes](#theming-recipes) — colors, fonts, layout, and blog themes.

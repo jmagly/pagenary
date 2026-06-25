@@ -35,12 +35,21 @@ thing — not just a screenshot:
 | Nav: hybrid | [docs.pagenary.com/nav-hybrid/](https://docs.pagenary.com/nav-hybrid/) |
 | Theme picker (runtime) | [docs.pagenary.com/theme-picker/](https://docs.pagenary.com/theme-picker/) |
 | Docs map (relationship view) | [docs.pagenary.com/docs-map/#docs-map](https://docs.pagenary.com/docs-map/#docs-map) |
+| Page effects | [docs.pagenary.com/page-effects/](https://docs.pagenary.com/page-effects/) |
 | Interocitor showcase | [docs.pagenary.com/interocitor/](https://docs.pagenary.com/interocitor/) |
+| Blog (default) | [docs.pagenary.com/blog-demo/](https://docs.pagenary.com/blog-demo/) |
+| Blog: dark | [docs.pagenary.com/blog-dark/](https://docs.pagenary.com/blog-dark/) |
+| Blog: editorial | [docs.pagenary.com/blog-editorial/](https://docs.pagenary.com/blog-editorial/) |
+| Blog: posts rail | [docs.pagenary.com/blog-rail/](https://docs.pagenary.com/blog-rail/) |
+| Blog: vivid | [docs.pagenary.com/blog-vivid/](https://docs.pagenary.com/blog-vivid/) |
+| Blog: matrix | [docs.pagenary.com/blog-matrix/](https://docs.pagenary.com/blog-matrix/) |
 
 > **Where recipes get their content.** The color/style/nav recipes share one
 > small docs set in [`../examples/content-base/`](../examples/content-base/) and
 > override only their branding/theme/layout via the registry's inline `config`.
-> The [interocitor showcase](#fully-bespoke-showcase-interocitor) goes beyond
+> The [blog themes](#blog-themes) do the same with one set of posts from
+> [`../examples/blog-demo/`](../examples/blog-demo/). The
+> [interocitor showcase](#fully-bespoke-showcase-interocitor) goes beyond
 > config — its own content, overlay stylesheet, and overrides under
 > [`../examples/interocitor/`](../examples/interocitor/).
 
@@ -291,6 +300,74 @@ The example lives at [`../examples/page-effects/`](../examples/page-effects/) �
 build the gallery (`npm run build:examples`) and open `dist/page-effects/`. See
 the [Page Effects](#page-effects) guide for every primitive, authoring path, and
 the full config reference.
+
+---
+
+## Blog themes
+
+The [blog layout](#blog-layout) (`layout: "blog"`) themes exactly like the docs
+layout — same `theme` presets, `accentColor`/`surfaceColor`/`inkColor`, and
+fonts. The recipes below are **one set of posts, many looks**: each reuses
+[`../examples/blog-demo/`](../examples/blog-demo/) and overrides only its inline
+`config`. They all keep the post navigation (prev/next + back-to-index) and work
+with the [page effects](#page-effects).
+
+### Dark (`blog-dark`)
+
+A dark blog via the `dark` preset with a violet accent:
+
+```json
+{ "brandMark": "Umbra", "theme": "dark", "accentColor": "#a78bfa" }
+```
+
+### Editorial (`blog-editorial`)
+
+A warm, serif reading experience — `surfaceColor`/`inkColor` plus a serif
+`fontBody`:
+
+```json
+{
+  "brandMark": "The Quill",
+  "accentColor": "#9a3412",
+  "surfaceColor": "#fbf7f0",
+  "inkColor": "#2b2118",
+  "fontBody": "Georgia, 'Iowan Old Style', 'Times New Roman', serif"
+}
+```
+
+### Posts rail (`blog-rail`)
+
+`blog.sidebar: "rail"` keeps a navigation rail on the trailing edge instead of
+the single centered column — handy when readers want to jump between posts:
+
+```json
+{ "brandMark": "Dispatch", "accentColor": "#2563eb", "blog": { "sidebar": "rail" } }
+```
+
+### Vivid (`blog-vivid`)
+
+A bright, high-accent palette:
+
+```json
+{
+  "brandMark": "Prism",
+  "accentColor": "#db2777",
+  "surfaceColor": "#fff7fb",
+  "inkColor": "#3b0a2a"
+}
+```
+
+### Matrix (`blog-matrix`)
+
+The `matrix` preset, for a terminal-green blog:
+
+```json
+{ "brandMark": "Terminal", "theme": "matrix" }
+```
+
+> Want a richer post page? Add a [page-effects](#page-effects) `hero` block to a
+> post's frontmatter for a full-bleed, overlaid banner — it composes with the
+> blog layout and the post navigation.
 
 ---
 
