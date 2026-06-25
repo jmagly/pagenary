@@ -112,6 +112,10 @@
     {
       "id": "interocitor",
       "source": { "type": "local", "path": "./examples/interocitor" }
+    },
+    {
+      "id": "blog-demo",
+      "source": { "type": "local", "path": "./examples/blog-demo" }
     }
   ]
 }

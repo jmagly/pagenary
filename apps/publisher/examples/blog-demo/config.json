@@ -1,0 +1,27 @@
+{
+  "title": "Fieldnotes — the Pagenary blog demo",
+  "brandMark": "Fieldnotes",
+  "brandSub": "Blog",
+  "tagline": "A blog-layout demo built with Pagenary.",
+  "description": "Demonstrates the Pagenary blog layout: a chronological index, post pages with hero images, bylines, and tags — driven by the collections engine.",
+  "accentColor": "#0ea5e9",
+  "layout": "blog",
+  "blog": {
+    "sidebar": "hidden",
+    "indexTitle": "Latest posts"
+  },
+  "collections": [
+    {
+      "path": "posts",
+      "route": "/posts",
+      "title": "Posts",
+      "manifest": true,
+      "feed": true,
+      "sortBy": "date",
+      "order": "desc",
+      "showDate": true,
+      "showSummary": true,
+      "showReadingTime": true
+    }
+  ]
+}

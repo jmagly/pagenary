@@ -2578,6 +2578,101 @@ body[data-nav-align="right"] .nav-parent-with-content .nav-summary {
   justify-content: flex-end;
 }
 
+/* ─────────────────────────────────────────────────────────
+   Blog Layout (layout: "blog")
+   Activated by body[data-layout="blog"] (+ data-blog-sidebar),
+   injected at build time. Reshapes the docs grid into a reading-
+   first blog: a chronological index of post cards, and post pages
+   with hero, byline, and tags. No motion here — that is Phase 2.
+   ───────────────────────────────────────────────────────── */
+
+/* Sidebar hidden → single centered reading column. */
+body[data-layout="blog"][data-blog-sidebar="hidden"] .layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+body[data-layout="blog"][data-blog-sidebar="hidden"] .sidebar {
+  display: none;
+}
+
+/* Sidebar rail → content + a narrow posts/tags rail on the trailing edge. */
+body[data-layout="blog"][data-blog-sidebar="rail"] .layout {
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, 17rem);
+}
+body[data-layout="blog"][data-blog-sidebar="rail"] .sidebar {
+  order: 2;
+  border-right: none;
+  border-left: 1px solid var(--grid-line);
+}
+
+/* Reading-first canvas: centered with a comfortable max width. */
+body[data-layout="blog"] .canvas {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 72rem;
+}
+
+/* Index — chronological card grid. */
+.blog-index-head h1 { margin-bottom: 0.25rem; }
+.blog-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: clamp(1.25rem, 3vw, 2rem);
+  margin-top: clamp(1.5rem, 4vw, 2.5rem);
+}
+.blog-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--grid-line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(var(--surface-rgb), 0.6);
+}
+.blog-card-hero { display: block; aspect-ratio: 2 / 1; overflow: hidden; }
+.blog-card-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.blog-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: clamp(1rem, 2.5vw, 1.4rem);
+}
+.blog-card-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+.blog-card-dot { color: var(--muted); opacity: 0.6; }
+.blog-card-title { font-size: 1.2rem; line-height: 1.3; margin: 0; }
+.blog-card-title a { color: inherit; text-decoration: none; }
+.blog-card-title a:hover { text-decoration: underline; }
+.blog-card-summary { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.55; }
+.blog-card-tags,
+.post-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+.blog-card-tags li,
+.post-tags li {
+  font-size: 0.72rem;
+  color: var(--muted);
+  border: 1px solid var(--grid-line);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+}
+.blog-empty { color: var(--muted); margin-top: 2rem; }
+
+/* Post page hero + tags. */
+.post-hero { margin: 0 0 clamp(1.25rem, 3vw, 2rem); border-radius: 14px; overflow: hidden; }
+.post-hero img { width: 100%; height: auto; display: block; aspect-ratio: 2 / 1; object-fit: cover; }
+body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
+
 /* Hybrid: a horizontal primary strip (built from the tenant's
    top-level sections) under the header, plus the full left rail.
    The build injects <nav class="nav-strip"> after </header>, so the

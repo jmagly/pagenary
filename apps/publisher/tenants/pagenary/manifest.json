@@ -38,6 +38,12 @@
           "file": "SEARCH-AND-DATA.md"
         },
         {
+          "id": "blog-layout",
+          "title": "Blog Layout",
+          "summary": "Turn a tenant into a blog: chronological index, hero posts, bylines, and tags.",
+          "file": "BLOG-LAYOUT.md"
+        },
+        {
           "id": "tenant-config",
           "title": "Tenant Configuration",
           "summary": "Every config.json option: branding, theming, SEO, and export.",

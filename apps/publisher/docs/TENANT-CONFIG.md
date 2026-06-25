@@ -159,6 +159,10 @@ above plus `colorScheme` (`light` \| `dark`) and dark-mode surface keys
 |----------|------|---------|-------------|
 | `navPosition` | string | `left` | Navigation placement: `left` \| `right` \| `top` \| `bottom` \| `hybrid` |
 | `navAlign` | string | `top` | Sidebar list alignment. Vertical: `top` (default), `spread` (distribute across the column), `bottom`. Horizontal: `left` (default edge), `right`. |
+| `layout` | string | `docs` | Layout family: `docs` (sidebar shell) or `blog` (chronological index + hero post pages). See [Blog Layout](#blog-layout). |
+| `blog.sidebar` | string | `hidden` | Blog only: `hidden` (single reading column) or `rail` (content + posts/tags rail). |
+| `blog.indexTitle` | string | collection title | Blog only: heading above the post index. |
+| `collections` | array | — | Folders the build scans as dated post collections (emits `index.json` + `feed.xml`). See [Blog Layout](#blog-layout). |
 
 `top` and `bottom` render navigation as a horizontal bar; `hybrid` adds a
 horizontal primary strip (built from your top-level sections) above the left

@@ -419,9 +419,25 @@ function renderEntryMetadata(entry) {
   const heading = content.querySelector('h1');
   if (!heading) return;
 
+  // Hero banner for collection posts (blog layout). Presence-guarded, so docs
+  // pages — which never carry `hero` — are unaffected.
+  if (entry.hero) {
+    const fig = document.createElement('figure');
+    fig.className = 'post-hero';
+    const img = document.createElement('img');
+    img.src = entry.hero;
+    img.alt = '';
+    img.loading = 'eager';
+    fig.appendChild(img);
+    heading.before(fig);
+  }
+
   const fragments = [];
   if (entry.showDate && entry.date) {
     fragments.push(formatEntryDate(entry.date));
+  }
+  if (entry.author) {
+    fragments.push(`By ${entry.author}`);
   }
   if (entry.showReadingTime && entry.reading_time) {
     fragments.push(`${entry.reading_time} min read`);
@@ -442,6 +458,18 @@ function renderEntryMetadata(entry) {
     summary.textContent = entry.summary;
     insertAfter.after(summary);
     insertAfter = summary;
+  }
+
+  if (Array.isArray(entry.tags) && entry.tags.length) {
+    const tags = document.createElement('ul');
+    tags.className = 'post-tags';
+    for (const tag of entry.tags) {
+      const li = document.createElement('li');
+      li.textContent = tag;
+      tags.appendChild(li);
+    }
+    insertAfter.after(tags);
+    insertAfter = tags;
   }
 
   renderFortemiMetadataTools(entry, insertAfter);

@@ -285,6 +285,46 @@
           "default": "top",
           "description": "Sidebar list alignment. Vertical: top (default), spread (distribute across the column), bottom. Horizontal: left (default edge), right."
         },
+        "layout": {
+          "type": "string",
+          "enum": ["docs", "blog"],
+          "default": "docs",
+          "description": "Layout family: docs (sidebar shell) or blog (chronological index + hero post pages)."
+        },
+        "blog": {
+          "type": "object",
+          "description": "Blog layout options (used when layout is \"blog\").",
+          "properties": {
+            "sidebar": {
+              "type": "string",
+              "enum": ["hidden", "rail"],
+              "default": "hidden",
+              "description": "hidden (single reading column) or rail (content + a posts/tags rail)."
+            },
+            "indexTitle": { "type": "string", "description": "Heading shown above the post index." },
+            "collection": { "type": "string", "description": "path of the collection the index renders, when several are declared (default: first)." }
+          }
+        },
+        "collections": {
+          "type": "array",
+          "description": "Folders scanned as dated post collections; each emits index.json (+ optional RSS feed.xml).",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string", "description": "Folder (relative to the content root) to scan for posts." },
+              "route": { "type": "string", "description": "Output route under dist (default: /<path>)." },
+              "title": { "type": "string" },
+              "manifest": { "type": "boolean", "default": true, "description": "Emit index.json." },
+              "feed": { "type": "boolean", "default": false, "description": "Emit RSS feed.xml." },
+              "sortBy": { "type": "string", "default": "date" },
+              "order": { "type": "string", "enum": ["asc", "desc"], "default": "desc" },
+              "showDate": { "type": "boolean", "default": false },
+              "showSummary": { "type": "boolean", "default": false },
+              "showReadingTime": { "type": "boolean", "default": true }
+            }
+          }
+        },
         "cacheStrategy": {
           "type": "string",
           "enum": ["contentHash", "stable"],

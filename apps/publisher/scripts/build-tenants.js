@@ -1466,6 +1466,7 @@ async function buildDocsMapGraph(distDir, tenantId) {
 
 const NAV_POSITIONS = new Set(['left', 'right', 'top', 'bottom', 'hybrid']);
 const NAV_ALIGNMENTS = new Set(['top', 'spread', 'bottom', 'left', 'right']);
+const LAYOUTS = new Set(['docs', 'blog']);
 
 /**
  * Apply nav position configuration.
@@ -1543,6 +1544,97 @@ async function applyNavAlignment(distDir, config, tenantId) {
 
   await fsp.writeFile(indexPath, html, 'utf8');
   console.log(`  ↳ applied ${align}-aligned nav for ${tenantId}`);
+}
+
+/**
+ * Apply the blog layout family.
+ *
+ * Mirrors applyNavPosition: sets `body[data-layout="blog"]` (plus
+ * `data-blog-sidebar="hidden|rail"`) so the scoped CSS in styles.css activates,
+ * then wires a synthetic blog-index section that renders a collection's posts
+ * from its already-emitted `index.json`. "docs" is the default and needs no
+ * attribute. No motion/animation is added here — that is Phase 2 (transitions).
+ */
+async function applyBlogLayout(distDir, config, tenantId) {
+  const layout = typeof config.layout === 'string' ? config.layout.toLowerCase() : 'docs';
+
+  if (layout === 'docs') return; // default layout, nothing to do
+
+  if (!LAYOUTS.has(layout)) {
+    console.warn(`  ↳ ${tenantId}: unknown layout "${config.layout}" ` +
+      `(expected docs|blog) — leaving default`);
+    return;
+  }
+
+  const blog = (config.blog && typeof config.blog === 'object') ? config.blog : {};
+  const sidebar = blog.sidebar === 'rail' ? 'rail' : 'hidden';
+
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+
+  let html = await fsp.readFile(indexPath, 'utf8');
+  if (!/<body[^>]*data-layout=/.test(html)) {
+    html = html.replace(/<body(?=[\s>])/,
+      `<body data-layout="${layout}" data-blog-sidebar="${sidebar}"`);
+    await fsp.writeFile(indexPath, html, 'utf8');
+  }
+
+  // Wire the blog index from the chosen collection (named via blog.collection,
+  // else the first declared collection). Its index.json is emitted later by
+  // generateCollections; the section module fetches it at runtime.
+  const collections = Array.isArray(config.collections) ? config.collections : [];
+  const chosen = collections.find(c => blog.collection && c.path === blog.collection)
+    || collections[0];
+  if (chosen) {
+    const outDir = String(chosen.route || chosen.path || '').replace(/^\/+|\/+$/g, '');
+    const title = typeof blog.indexTitle === 'string' ? blog.indexTitle
+      : (chosen.title || 'Blog');
+    await wireBlogIndexSection(distDir, tenantId, outDir, title);
+  }
+
+  console.log(`  ↳ applied blog layout (${sidebar} sidebar) for ${tenantId}`);
+}
+
+/**
+ * Write the synthetic blog-index section module and register it in manifest.js.
+ * Mirrors applyDocsMap's injection (append + idempotent).
+ */
+async function wireBlogIndexSection(distDir, tenantId, outDir, title) {
+  const manifestPath = path.join(distDir, 'manifest.js');
+  if (!(await pathExists(manifestPath))) return;
+
+  const sectionsDir = path.join(distDir, 'sections');
+  await fsp.mkdir(sectionsDir, { recursive: true });
+
+  await fsp.writeFile(
+    path.join(sectionsDir, 'blog.js'),
+    "import { loadBlogIndex } from '../lib/blog-index.js';\n" +
+    `export const load = () => loadBlogIndex(${JSON.stringify({ collection: outDir, title })});\n`,
+    'utf8'
+  );
+
+  const entry = [
+    '  {',
+    '    "id": "blog",',
+    `    "title": ${JSON.stringify(title)},`,
+    '    "summary": "Latest posts.",',
+    '    "module": "./sections/blog.js"',
+    '  }'
+  ].join('\n');
+
+  let js = await fsp.readFile(manifestPath, 'utf8');
+  if (/"id":\s*"blog"/.test(js)) return; // idempotent
+  if (/export const MANIFEST = \[\s*\];/.test(js)) {
+    js = js.replace(/export const MANIFEST = \[\s*\];/, `export const MANIFEST = [\n${entry}\n];`);
+  } else {
+    const updated = js.replace(/(export const MANIFEST = \[[\s\S]*?)\n\];/, `$1,\n${entry}\n];`);
+    if (updated === js) return; // couldn't locate the array — leave manifest untouched
+    js = updated;
+  }
+  // The blog index is the natural landing page for a blog.
+  js = js.replace(/export const DEFAULT_SECTION = [^;]*;/, 'export const DEFAULT_SECTION = "blog";');
+  await fsp.writeFile(manifestPath, js, 'utf8');
+  console.log(`  ↳ wired blog index for ${tenantId} (collection: ${outDir})`);
 }
 
 /**
@@ -2104,6 +2196,9 @@ async function readMarkdownMetadata(sourcePath) {
     title: data.title || firstHeadingFromMarkdown(body) || null,
     summary: data.summary || data.description || '',
     date: data.date || null,
+    author: data.author || null,
+    hero: data.hero || data.image || null,
+    tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [data.tags] : []),
     reading_time: estimateReadingTime(body)
   };
 }
@@ -2466,6 +2561,9 @@ function decorateCollectionEntry(entry, metadata, collection) {
   entry.showReadingTime = collection.showReadingTime !== false;
   if (metadata.date) entry.date = metadata.date;
   if (metadata.reading_time) entry.reading_time = metadata.reading_time;
+  if (metadata.author) entry.author = metadata.author;
+  if (metadata.hero) entry.hero = metadata.hero;
+  if (Array.isArray(metadata.tags) && metadata.tags.length) entry.tags = metadata.tags;
   return entry;
 }
 
@@ -4043,6 +4141,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyThemeColors(distDir, config, tenantId);
     await applyNavPosition(distDir, config, tenantId);
     await applyNavAlignment(distDir, config, tenantId);
+    await applyBlogLayout(distDir, config, tenantId);
     await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }

@@ -1,0 +1,1 @@
+../../../docs/BLOG-LAYOUT.md

@@ -808,6 +808,108 @@ describe('build-tenants.js', () => {
     });
   });
 
+  describe('blog layout', () => {
+    let blogTenantDir;
+    let blogTenantId;
+    let blogCounter = 0;
+
+    // Build a nested blog tenant directly (posts/ at the tenant root, no
+    // content/ wrapper) so findContentRoot picks "nested" mode and the
+    // collections engine + blog index wiring run.
+    async function buildBlog(configOverrides = {}) {
+      blogTenantId = '__test-blog-' + Date.now() + '-' + (blogCounter++);
+      blogTenantDir = path.join(PUBLISHER_ROOT, 'tenants', blogTenantId);
+      await fsp.mkdir(path.join(blogTenantDir, 'posts'), { recursive: true });
+
+      const config = {
+        title: 'Blog Test',
+        layout: 'blog',
+        collections: [{
+          path: 'posts', route: '/posts', title: 'Posts',
+          manifest: true, feed: true, sortBy: 'date', order: 'desc',
+          showDate: true, showSummary: true, showReadingTime: true
+        }],
+        ...configOverrides
+      };
+      await fsp.writeFile(path.join(blogTenantDir, 'config.json'), JSON.stringify(config, null, 2));
+      await fsp.writeFile(
+        path.join(blogTenantDir, 'posts', 'hello-world.md'),
+        '---\n' +
+        'title: Hello World\n' +
+        'date: 2026-06-10\n' +
+        'author: Test Author\n' +
+        'tags: [alpha, beta]\n' +
+        'hero: assets/hero.svg\n' +
+        'summary: A first post.\n' +
+        '---\n\n# Hello World\n\nBody text here.\n'
+      );
+
+      const result = await runBuildTenantsWithRegistry([{ id: blogTenantId }]);
+      const distDir = path.join(PUBLISHER_ROOT, 'dist', blogTenantId);
+      const html = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
+      const manifest = await fsp.readFile(path.join(distDir, 'manifest.js'), 'utf8');
+      let index = null;
+      const indexPath = path.join(distDir, 'posts', 'index.json');
+      if (fs.existsSync(indexPath)) index = JSON.parse(await fsp.readFile(indexPath, 'utf8'));
+      return { result, html, manifest, index };
+    }
+
+    afterEach(async () => {
+      if (blogTenantDir) await cleanup(blogTenantDir);
+      if (blogTenantId) await cleanup(path.join(PUBLISHER_ROOT, 'dist', blogTenantId));
+      blogTenantDir = undefined;
+      blogTenantId = undefined;
+    });
+
+    test('tags <body> with data-layout="blog" and default hidden sidebar', async () => {
+      const { result, html } = await buildBlog();
+      expect(result.code).toBe(0);
+      expect(html).toMatch(/<body[^>]*data-layout="blog"/);
+      expect(html).toMatch(/<body[^>]*data-blog-sidebar="hidden"/);
+    });
+
+    test('honors blog.sidebar="rail"', async () => {
+      const { html } = await buildBlog({ blog: { sidebar: 'rail' } });
+      expect(html).toMatch(/data-blog-sidebar="rail"/);
+    });
+
+    test('wires the blog index section and makes it the default', async () => {
+      const { manifest } = await buildBlog();
+      expect(manifest).toMatch(/"id":\s*"blog"/);
+      expect(manifest).toMatch(/DEFAULT_SECTION\s*=\s*"blog"/);
+    });
+
+    test('carries hero/tags/author onto the post manifest entry', async () => {
+      const { manifest } = await buildBlog();
+      expect(manifest).toMatch(/"hero"/);
+      expect(manifest).toMatch(/"author":\s*"Test Author"/);
+      expect(manifest).toMatch(/"alpha"/);
+    });
+
+    test('emits the collection index.json with post metadata', async () => {
+      const { index } = await buildBlog();
+      expect(index).toBeTruthy();
+      const posts = index.posts || index.entries || index;
+      expect(Array.isArray(posts)).toBe(true);
+      expect(posts.length).toBe(1);
+      expect(posts[0].id).toBe('posts/hello-world');
+      expect(posts[0].author).toBe('Test Author');
+      expect(posts[0].tags).toEqual(['alpha', 'beta']);
+    });
+
+    test('default layout (docs) adds no data-layout attribute', async () => {
+      const { html } = await buildBlog({ layout: 'docs' });
+      expect(html).not.toMatch(/data-layout=/);
+    });
+
+    test('unknown layout warns and leaves the default', async () => {
+      const { result, html } = await buildBlog({ layout: 'magazine' });
+      expect(result.code).toBe(0);
+      expect(result.stdout + result.stderr).toMatch(/unknown layout/i);
+      expect(html).not.toMatch(/data-layout=/);
+    });
+  });
+
   describe('GFM autolinks', () => {
     const AL_ID = '__test-autolink-' + Date.now();
     let alDir;
