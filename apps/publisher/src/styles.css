@@ -808,6 +808,11 @@ mark.hl {
   background: rgba(var(--surface-rgb), 0.65);
   backdrop-filter: blur(8px);
   padding: 1.5rem;
+  /* Modal stacking level: sit above all page chrome and any page-effects hero
+     (which is a stacking context via `isolation: isolate`), below the export
+     overlays (9998/9999). Without this, a positioned hero paints over the
+     palette's backdrop. */
+  z-index: 9990;
 }
 
 .cmd[hidden] {
