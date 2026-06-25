@@ -444,12 +444,19 @@ function renderEntryMetadata(entry) {
   }
 
   let insertAfter = heading;
+  let metaEl = null;
   if (fragments.length > 0) {
     const meta = document.createElement('p');
     meta.className = 'doc-meta';
-    meta.textContent = fragments.join(' · ');
+    // Keep the byline text in its own span so an inline control (the Fortémi
+    // info-icon) can sit right after it.
+    const text = document.createElement('span');
+    text.className = 'doc-meta-text';
+    text.textContent = fragments.join(' · ');
+    meta.appendChild(text);
     heading.after(meta);
     insertAfter = meta;
+    metaEl = meta;
   }
 
   if (entry.showSummary && entry.summary) {
@@ -472,7 +479,7 @@ function renderEntryMetadata(entry) {
     insertAfter = tags;
   }
 
-  renderFortemiMetadataTools(entry, insertAfter);
+  renderFortemiMetadataTools(entry, insertAfter, metaEl);
 }
 
 function hasFortemiMetadata(metadata) {
@@ -613,7 +620,7 @@ function renderFortemiPanel(panel, metadata) {
   });
 }
 
-async function renderFortemiMetadataTools(entry, insertAfter) {
+async function renderFortemiMetadataTools(entry, insertAfter, inlineHost = null) {
   const sectionId = entry.id;
   const docContent = insertAfter.closest('.doc-content') || insertAfter.parentElement;
   let metadata = null;
@@ -648,8 +655,16 @@ async function renderFortemiMetadataTools(entry, insertAfter) {
     button.setAttribute('aria-expanded', String(next));
   });
 
-  tools.appendChild(button);
-  docContent.append(tools, panel);
+  // Inline on the byline (right after "… min read") when a host is given;
+  // otherwise fall back to the standalone tools block. Same button + panel.
+  if (inlineHost) {
+    button.classList.add('doc-fortemi-button-inline');
+    inlineHost.appendChild(button);
+    docContent.appendChild(panel);
+  } else {
+    tools.appendChild(button);
+    docContent.append(tools, panel);
+  }
 }
 
 function formatEntryDate(value) {

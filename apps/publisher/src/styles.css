@@ -1008,6 +1008,13 @@ mark.hl {
   text-transform: uppercase;
 }
 
+/* The Fortémi info-icon sitting inline on the byline, right after the text. */
+.doc-content .doc-meta .doc-fortemi-button-inline {
+  vertical-align: middle;
+  margin-inline-start: 0.2rem;
+  text-transform: none;
+}
+
 .doc-content .doc-summary {
   color: var(--muted);
   font-size: 1.05rem;
