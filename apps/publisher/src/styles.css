@@ -936,7 +936,11 @@ mark.hl {
 }
 
 .canvas {
-  padding: clamp(2rem, 5vw, 5.5rem) clamp(1.5rem, 7vw, 7rem);
+  /* Shell padding exposed as vars so full-bleed hero/banner primitives (#54)
+     can break out by the exact same amount and stay in sync. */
+  --pe-bleed-x: clamp(1.5rem, 7vw, 7rem);
+  --pe-bleed-y: clamp(2rem, 5vw, 5.5rem);
+  padding: var(--pe-bleed-y) var(--pe-bleed-x);
   display: grid;
   /* Keep rows AND items at their natural (content) height. Without these, a
      fixed-height grid stretches its single child to the container, so the
@@ -2760,6 +2764,250 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   height: 100%;
   width: 0;
   background: var(--accent);
+}
+
+/* ─────────────────────────────────────────────────────────
+   Hero & banner primitives (#54) — opt-in, layout-agnostic,
+   theme-token aware, accessible. Activated by .pe-* classes
+   and data-* hooks; usable by hand (fenced ```html, .js
+   modules, .public/+overrides) or emitted from a declarative
+   frontmatter `hero` / `banner` block. Parallax/sticky are
+   progressive (src/lib/page-effects.js) and reduced-motion
+   gated — with JS off or reduced motion the hero is a static,
+   fully-readable banner.
+   ───────────────────────────────────────────────────────── */
+.pe-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: var(--pe-hero-height, clamp(20rem, 46vh, 34rem));
+  padding: clamp(2rem, 6vw, 5rem) clamp(1.5rem, 5vw, 4rem);
+  border-radius: 14px;
+  overflow: hidden;
+  isolation: isolate; /* keep the bg/scrim z-order local to the hero */
+  background: rgba(var(--ink-rgb), 0.04);
+  color: var(--ink);
+}
+
+/* Full-bleed: break out of the canvas padding to span the content area
+   edge-to-edge (never under the sidebar), and square the corners. Reuses the
+   canvas bleed vars, so it tracks the shell padding exactly and never forces a
+   horizontal scrollbar. */
+.pe-hero--full-bleed,
+.pe-banner--full-bleed {
+  margin-inline: calc(var(--pe-bleed-x, 0px) * -1);
+  border-radius: 0;
+}
+/* When the hero leads the page, pull it flush to the top of the canvas. A
+   sticky hero is excluded: it needs its natural top so it can flow into place
+   and then pin at the content-box top, rather than being glued there. */
+.canvas > .pe-hero--full-bleed:first-child:not(.pe-hero--sticky) {
+  margin-top: calc(var(--pe-bleed-y, 0px) * -1);
+}
+
+/* Background layer — image (via --pe-hero-image) or a <video>. Sits behind the
+   scrim and content; slightly oversized so a parallax translate never reveals
+   an edge. */
+.pe-hero-bg {
+  position: absolute;
+  inset: -14% 0;
+  z-index: -2;
+  background-image: var(--pe-hero-image, none);
+  background-size: cover;
+  background-position: center;
+  will-change: transform;
+}
+.pe-hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Scrim for legibility over media — bottom-weighted, tuned to the ink token so
+   it reads in light and dark themes. Overlay text switches to the surface color
+   for contrast against the inked scrim. */
+.pe-hero--overlay .pe-hero-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    to top,
+    rgba(var(--ink-rgb), 0.72),
+    rgba(var(--ink-rgb), 0.4) 45%,
+    rgba(var(--ink-rgb), 0.14)
+  );
+}
+.pe-hero--overlay {
+  color: var(--surface);
+}
+
+.pe-hero-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.6rem, 1.5vw, 1rem);
+  max-width: 42rem;
+  width: 100%;
+}
+.pe-hero-content[data-pe-align="center"] {
+  align-items: center;
+  text-align: center;
+  margin-inline: auto;
+}
+.pe-hero-content[data-pe-align="end"] {
+  align-items: flex-end;
+  text-align: right;
+  margin-left: auto;
+}
+
+.pe-hero-eyebrow {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.pe-hero-title {
+  margin: 0;
+  font-size: clamp(1.9rem, 4vw + 1rem, 3.4rem);
+  line-height: 1.08;
+}
+.pe-hero-subtitle {
+  margin: 0;
+  font-size: clamp(1rem, 1vw + 0.9rem, 1.3rem);
+  line-height: 1.5;
+  opacity: 0.92;
+}
+.pe-hero-actions,
+.pe-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.pe-hero-content[data-pe-align="center"] .pe-hero-actions { justify-content: center; }
+.pe-hero-content[data-pe-align="end"] .pe-hero-actions { justify-content: flex-end; }
+
+/* CTA button primitive — shared by hero + banner. */
+.pe-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1.25rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.pe-cta:hover,
+.pe-cta:focus-visible {
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.pe-cta--primary {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+}
+.pe-cta--primary:hover,
+.pe-cta--primary:focus-visible {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.pe-cta--ghost {
+  color: inherit;
+  border-color: currentColor;
+  background: transparent;
+}
+.pe-cta--ghost:hover,
+.pe-cta--ghost:focus-visible {
+  background: rgba(var(--surface-rgb), 0.14);
+}
+.pe-cta--plain {
+  color: inherit;
+  background: transparent;
+  padding-inline: 0.25rem;
+}
+.pe-cta--plain:hover,
+.pe-cta--plain:focus-visible {
+  text-decoration: underline;
+}
+
+/* Sticky hero — pins to the top of the scroll container. Pure CSS (no motion),
+   so it is not gated by reduced-motion. JS adds .is-stuck for optional styling
+   of the pinned state. */
+.pe-hero--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.pe-hero--sticky.is-stuck {
+  box-shadow: 0 6px 24px rgba(var(--ink-rgb), 0.18);
+}
+
+/* Parallax — page-effects.js translates .pe-hero-bg on scroll. Under
+   reduced-motion the layer is forced static. */
+@media (prefers-reduced-motion: reduce) {
+  .pe-hero-bg {
+    transform: none !important;
+  }
+}
+
+/* CTA band / banner primitive. */
+.pe-banner {
+  margin-block: clamp(2rem, 5vw, 3.5rem);
+  padding: clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 5vw, 4rem);
+  border-radius: 14px;
+  background: rgba(var(--ink-rgb), 0.05);
+  border: 1px solid var(--grid-line);
+}
+.pe-banner--full-bleed {
+  border-left: 0;
+  border-right: 0;
+}
+.pe-banner-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(1rem, 3vw, 2rem);
+  max-width: 72rem;
+  margin-inline: auto;
+}
+.pe-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.pe-banner-title {
+  margin: 0;
+  font-size: clamp(1.2rem, 1.5vw + 0.9rem, 1.7rem);
+  line-height: 1.2;
+}
+.pe-banner-sub {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Let a hand-authored full-bleed hero/banner inside a fenced ```html block
+   (wrapped in .html-block, which otherwise scrolls overflow) actually bleed. */
+.html-block:has(.pe-hero--full-bleed),
+.html-block:has(.pe-banner--full-bleed) {
+  overflow: visible;
+}
+
+@media (max-width: 560px) {
+  .pe-banner-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
 }
 
 /* Hybrid: a horizontal primary strip (built from the tenant's

@@ -124,5 +124,87 @@ function readingProgress() {
   };
 }
 
+/** The scroll container the SPA scrolls within (the canvas), with fallbacks. */
+function scrollContainer() {
+  return document.querySelector('.canvas')
+    || document.scrollingElement || document.documentElement;
+}
+
+/**
+ * Hero parallax (#54): translate `.pe-hero-bg` inside `[data-pe-parallax]` as
+ * the scroll container moves, for a subtle depth effect. Gated on reduced-motion
+ * and rAF; the translate is clamped to the layer's over-scan so an edge is never
+ * revealed. With motion disabled (or the layer absent) the background is static.
+ */
+function heroParallax(root, ctx) {
+  if (ctx.reducedMotion || typeof requestAnimationFrame !== 'function') return;
+  const heroes = root.querySelectorAll('[data-pe-parallax]');
+  if (!heroes.length) return;
+  const scroller = scrollContainer();
+  const layers = [];
+  heroes.forEach((hero) => {
+    const bg = hero.querySelector('.pe-hero-bg');
+    if (bg) layers.push({ hero, bg });
+  });
+  if (!layers.length) return;
+
+  const SPEED = 0.16; // fraction of the hero's scroll offset
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    const sTop = scroller.scrollTop || 0;
+    for (const { hero, bg } of layers) {
+      const offset = hero.offsetTop - sTop; // hero position within the scroller
+      const max = hero.clientHeight * 0.12;  // stay within the -14% over-scan
+      const shift = Math.max(-max, Math.min(max, -offset * SPEED));
+      bg.style.transform = `translate3d(0, ${shift.toFixed(1)}px, 0)`;
+    }
+  };
+  const onScroll = () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(update); }
+  };
+  update();
+  scroller.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  return () => {
+    scroller.removeEventListener('scroll', onScroll);
+    window.removeEventListener('resize', onScroll);
+  };
+}
+
+/**
+ * Sticky hero (#54): toggle `.is-stuck` on `.pe-hero--sticky` when it pins to
+ * the top of the scroll container, so authors can restyle the pinned state. The
+ * sticking itself is pure CSS (`position: sticky`); this only adds a class, so
+ * it is motion-free and runs regardless of reduced-motion.
+ */
+function heroSticky(root) {
+  const heroes = root.querySelectorAll('.pe-hero--sticky');
+  if (!heroes.length || typeof requestAnimationFrame !== 'function') return;
+  const scroller = scrollContainer();
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    // A sticky hero pins at the scroller's content-box top (its `top: 0` inset is
+    // relative to the padding box), so account for the container's top padding.
+    // Computed fresh each tick — capturing it once can read a pre-layout value.
+    const cs = typeof getComputedStyle === 'function' ? getComputedStyle(scroller) : null;
+    const padTop = cs ? (parseFloat(cs.paddingTop) || 0) : 0;
+    const top = (scroller.getBoundingClientRect ? scroller.getBoundingClientRect().top : 0) + padTop;
+    heroes.forEach((hero) => {
+      const stuck = hero.getBoundingClientRect().top <= top + 1;
+      hero.classList.toggle('is-stuck', stuck);
+    });
+  };
+  const onScroll = () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(update); }
+  };
+  update();
+  scroller.addEventListener('scroll', onScroll, { passive: true });
+  return () => scroller.removeEventListener('scroll', onScroll);
+}
+
 registerEffect(revealOnScroll);
 registerEffect(readingProgress);
+registerEffect(heroParallax);
+registerEffect(heroSticky);

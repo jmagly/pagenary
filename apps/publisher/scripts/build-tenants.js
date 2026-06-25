@@ -2176,9 +2176,116 @@ async function ensureHtmlModule(sourcePath, targetPath) {
  * @param {string} targetPath - Absolute path to output JS module
  * @param {object} [linkContext] - Optional context for link transformation
  */
+// ── Declarative hero / banner primitives (#54) ──────────────────────────────
+// A frontmatter `hero` / `banner` object emits rich-hero markup using the
+// `.pe-*` CSS primitives (src/styles.css) and JS effects (src/lib/page-effects.js),
+// so non-HTML authors get a full-bleed, overlaid, optionally parallax/sticky
+// hero without writing markup. The hero is emitted as a SIBLING of the markdown
+// `<section>` (a direct `.canvas` child) so full-bleed can break out of the
+// reading column; the banner/CTA band is emitted after it. `hero` as a *string*
+// keeps its existing meaning (a simple post image, rendered at runtime); only
+// the object form triggers this emitter. Asset paths (e.g. `assets/x.svg`) are
+// content-addressed downstream by the literal-rewrite pass.
+
+/** Conservative sanitizer for a path used inside CSS `url(...)`. */
+function cssUrlPath(value) {
+  return String(value == null ? '' : value).replace(/[)"'(;{}\\\n\r]/g, '').trim();
+}
+
+function renderCtaList(cta, wrapperClass) {
+  if (!Array.isArray(cta)) return '';
+  const buttons = cta
+    .filter((c) => c && (c.label || c.text) && c.href)
+    .map((c) => {
+      const variant = c.style === 'ghost' ? 'pe-cta--ghost'
+        : c.style === 'plain' ? 'pe-cta--plain'
+          : 'pe-cta--primary';
+      return `<a class="pe-cta ${variant}" href="${escapeAttribute(c.href)}">` +
+        `${escapeHtml(c.label || c.text)}</a>`;
+    });
+  return buttons.length ? `<div class="${wrapperClass}">${buttons.join('')}</div>` : '';
+}
+
+/**
+ * Render a rich hero from a declarative frontmatter `hero` object.
+ * @param {object} hero
+ * @returns {string} HTML (empty string when `hero` is not an object)
+ */
+function renderHeroMarkup(hero) {
+  if (!hero || typeof hero !== 'object' || Array.isArray(hero)) return '';
+
+  const hasImage = typeof hero.image === 'string' && hero.image.trim();
+  const hasVideo = typeof hero.video === 'string' && hero.video.trim();
+  const hasMedia = Boolean(hasImage || hasVideo);
+  const overlay = hero.overlay !== undefined ? Boolean(hero.overlay) : hasMedia;
+  const align = ['start', 'center', 'end'].includes(hero.align) ? hero.align : 'center';
+
+  const classes = ['pe-hero'];
+  if (hero.fullBleed) classes.push('pe-hero--full-bleed');
+  if (overlay) classes.push('pe-hero--overlay');
+  if (hero.sticky) classes.push('pe-hero--sticky');
+
+  const styleParts = [];
+  if (hasImage) styleParts.push(`--pe-hero-image:url(${cssUrlPath(hero.image)})`);
+  if (typeof hero.height === 'string' && hero.height.trim()) {
+    styleParts.push(`--pe-hero-height:${cssUrlPath(hero.height)}`);
+  }
+  const styleAttr = styleParts.length ? ` style="${escapeAttribute(styleParts.join(';'))}"` : '';
+  const parallaxAttr = hero.parallax ? ' data-pe-parallax' : '';
+
+  let bg = '';
+  if (hasVideo) {
+    const poster = typeof hero.poster === 'string' ? ` poster="${escapeAttribute(hero.poster)}"` : '';
+    bg = `<div class="pe-hero-bg" aria-hidden="true">` +
+      `<video class="pe-hero-video" autoplay muted loop playsinline${poster}>` +
+      `<source src="${escapeAttribute(hero.video)}" /></video></div>`;
+  } else if (hasImage) {
+    bg = `<div class="pe-hero-bg" aria-hidden="true"></div>`;
+  }
+  const scrim = overlay ? `<div class="pe-hero-scrim" aria-hidden="true"></div>` : '';
+
+  const parts = [];
+  if (hero.eyebrow) parts.push(`<p class="pe-hero-eyebrow">${escapeHtml(hero.eyebrow)}</p>`);
+  if (hero.title) parts.push(`<h1 class="pe-hero-title">${escapeHtml(hero.title)}</h1>`);
+  if (hero.subtitle) parts.push(`<p class="pe-hero-subtitle">${escapeHtml(hero.subtitle)}</p>`);
+  const actions = renderCtaList(hero.cta, 'pe-hero-actions');
+  if (actions) parts.push(actions);
+  if (!parts.length && !bg) return ''; // nothing meaningful to render
+
+  const content = `<div class="pe-hero-content" data-pe-align="${align}">${parts.join('')}</div>`;
+  return `<section class="${classes.join(' ')}"${styleAttr}${parallaxAttr}>${bg}${scrim}${content}</section>`;
+}
+
+/**
+ * Render a CTA band / banner from a declarative frontmatter `banner` object.
+ * @param {object} banner
+ * @returns {string} HTML (empty string when `banner` is not an object)
+ */
+function renderBannerMarkup(banner) {
+  if (!banner || typeof banner !== 'object' || Array.isArray(banner)) return '';
+  const classes = ['pe-banner'];
+  if (banner.fullBleed) classes.push('pe-banner--full-bleed');
+
+  const text = [];
+  if (banner.title) text.push(`<p class="pe-banner-title">${escapeHtml(banner.title)}</p>`);
+  const sub = banner.subtitle || banner.text;
+  if (sub) text.push(`<p class="pe-banner-sub">${escapeHtml(sub)}</p>`);
+  const textBlock = text.length ? `<div class="pe-banner-text">${text.join('')}</div>` : '';
+  const actions = renderCtaList(banner.cta, 'pe-banner-actions');
+  if (!textBlock && !actions) return '';
+
+  return `<aside class="${classes.join(' ')}"><div class="pe-banner-inner">${textBlock}${actions}</div></aside>`;
+}
+
 async function ensureMarkdownModule(sourcePath, targetPath, linkContext = null) {
   const raw = await fsp.readFile(sourcePath, 'utf8');
-  const html = markdownToHtml(raw, linkContext);
+  const { data } = parseFrontmatter(raw);
+  const section = markdownToHtml(raw, linkContext);
+  // Declarative hero (object form) is a sibling of the reading column so it can
+  // full-bleed; a string `hero` stays the runtime post-image and is ignored here.
+  const heroHtml = (data && typeof data.hero === 'object') ? renderHeroMarkup(data.hero) : '';
+  const bannerHtml = (data && typeof data.banner === 'object') ? renderBannerMarkup(data.banner) : '';
+  const html = `${heroHtml}${section}${bannerHtml}`;
   const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
@@ -2197,7 +2304,11 @@ async function readMarkdownMetadata(sourcePath) {
     summary: data.summary || data.description || '',
     date: data.date || null,
     author: data.author || null,
-    hero: data.hero || data.image || null,
+    // Only a *string* hero is the runtime post-image / card thumb. An object
+    // `hero` is a declarative rich hero (#54) emitted into the page at build
+    // time, so it must not leak here as entry.hero (which expects a URL string).
+    hero: typeof data.hero === 'string' ? data.hero
+      : (typeof data.image === 'string' ? data.image : null),
     tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [data.tags] : []),
     reading_time: estimateReadingTime(body)
   };
@@ -4592,4 +4703,4 @@ if (__isMainModule) {
   });
 }
 
-export { markdownToHtml };
+export { markdownToHtml, renderHeroMarkup, renderBannerMarkup };
