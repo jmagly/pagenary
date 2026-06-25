@@ -68,6 +68,7 @@ existing collections engine — only the *shape* changes.
 | `blog.sidebar` | `hidden` | `hidden` (single centered column) or `rail` (content + a posts/tags rail). |
 | `blog.indexTitle` | the collection title | Heading shown above the post list. |
 | `blog.collection` | first collection | `path` of the collection the index renders, when several are declared. |
+| `blog.livingScroll` | `false` | Reveal post content as it scrolls into view, plus a reading-progress bar. See [Living scroll](#living-scroll). |
 | `collections[]` | — | The collections the build scans. See [Tenant Configuration](#tenant-config). |
 
 ### Post frontmatter
@@ -108,6 +109,23 @@ the affordances with `postNav` in config:
 
 Set `"postNav": false` to remove it entirely. See
 [Tenant Configuration](#tenant-config) for the full reference.
+
+## Living scroll
+
+Set `blog.livingScroll: true` and a post *reads* as you scroll: each content
+block reveals as it enters the viewport, and a slim reading-progress bar tracks
+how far you have read.
+
+```json
+{ "blog": { "sidebar": "hidden", "livingScroll": true } }
+```
+
+It is built on the [page-effects](#page-effects) runtime, so it inherits the same
+guarantees: the hidden base state is scoped under `html.has-js` and
+`prefers-reduced-motion: no-preference`, so a no-JavaScript or reduced-motion
+reader sees the **full article immediately** — nothing is gated on motion. Blocks
+already on screen reveal at once as a gentle entrance; the rest arrive on scroll.
+Only post content is affected; the index and its cards keep their own reveal.
 
 ## Theming a blog
 

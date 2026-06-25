@@ -204,7 +204,42 @@ function heroSticky(root) {
   return () => scroller.removeEventListener('scroll', onScroll);
 }
 
+/**
+ * Living scroll (#blog): on a blog with `data-blog-living-scroll` set, reveal a
+ * post's content blocks as they enter the viewport — "content arriving as you
+ * read". The hidden base state is CSS, scoped under the body flag + `html.has-js`
+ * + no-preference, so JS-off and reduced-motion readers see the full article
+ * immediately. Blocks already in view on load reveal at once (a gentle entrance);
+ * the rest arrive on scroll. Scoped to `.doc.markdown` so the index/cards (which
+ * carry their own reveal) and non-post pages are untouched.
+ */
+function blogLivingScroll(root, ctx) {
+  if (!document.body.hasAttribute('data-blog-living-scroll')) return;
+  const content = root.querySelector('.doc.markdown .doc-content');
+  if (!content) return;
+  const blocks = Array.from(content.children);
+  if (!blocks.length) return;
+  if (ctx.reducedMotion || typeof IntersectionObserver !== 'function') {
+    blocks.forEach((el) => el.classList.add('is-living-revealed'));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-living-revealed');
+        io.unobserve(entry.target);
+      }
+    }
+    // A negative bottom rootMargin is omitted on purpose: it would leave the
+    // final block stranded in the excluded band at max scroll. Revealing on
+    // entry (threshold 0) guarantees every block — including the last — reveals.
+  }, { threshold: 0, rootMargin: '0px' });
+  blocks.forEach((el) => io.observe(el));
+  return () => io.disconnect();
+}
+
 registerEffect(revealOnScroll);
 registerEffect(readingProgress);
 registerEffect(heroParallax);
 registerEffect(heroSticky);
+registerEffect(blogLivingScroll);

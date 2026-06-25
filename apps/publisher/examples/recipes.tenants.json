@@ -156,7 +156,7 @@
         "brandMark": "Dispatch",
         "brandSub": "Notes",
         "accentColor": "#2563eb",
-        "blog": { "sidebar": "rail", "indexTitle": "Latest posts" }
+        "blog": { "sidebar": "rail", "indexTitle": "Latest posts", "livingScroll": true }
       }
     },
     {

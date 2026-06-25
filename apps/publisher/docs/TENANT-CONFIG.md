@@ -162,6 +162,7 @@ above plus `colorScheme` (`light` \| `dark`) and dark-mode surface keys
 | `layout` | string | `docs` | Layout family: `docs` (sidebar shell) or `blog` (chronological index + hero post pages). See [Blog Layout](#blog-layout). |
 | `blog.sidebar` | string | `hidden` | Blog only: `hidden` (single reading column) or `rail` (content + posts/tags rail). |
 | `blog.indexTitle` | string | collection title | Blog only: heading above the post index. |
+| `blog.livingScroll` | bool | `false` | Blog only: reveal post content on scroll + a reading-progress bar (opt-in, reduced-motion + JS-off safe). See [Blog Layout](#blog-layout). |
 | `collections` | array | — | Folders the build scans as dated post collections (emits `index.json` + `feed.xml`). See [Blog Layout](#blog-layout). |
 
 `top` and `bottom` render navigation as a horizontal bar; `hybrid` adds a

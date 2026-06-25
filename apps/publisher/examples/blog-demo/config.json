@@ -8,7 +8,8 @@
   "layout": "blog",
   "blog": {
     "sidebar": "hidden",
-    "indexTitle": "Latest posts"
+    "indexTitle": "Latest posts",
+    "livingScroll": true
   },
   "collections": [
     {

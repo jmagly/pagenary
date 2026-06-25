@@ -309,8 +309,9 @@ The [blog layout](#blog-layout) (`layout: "blog"`) themes exactly like the docs
 layout — same `theme` presets, `accentColor`/`surfaceColor`/`inkColor`, and
 fonts. The recipes below are **one set of posts, many looks**: each reuses
 [`../examples/blog-demo/`](../examples/blog-demo/) and overrides only its inline
-`config`. They all keep the post navigation (prev/next + back-to-index) and work
-with the [page effects](#page-effects).
+`config`. They all keep the post navigation (prev/next + back-to-index) and have
+[living scroll](#living-scroll) on — content reveals as you read, with a
+reading-progress bar — so scroll through a post to see it.
 
 ### Dark (`blog-dark`)
 

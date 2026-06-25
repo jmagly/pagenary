@@ -1568,6 +1568,11 @@ async function applyBlogLayout(distDir, config, tenantId) {
 
   const blog = (config.blog && typeof config.blog === 'object') ? config.blog : {};
   const sidebar = blog.sidebar === 'rail' ? 'rail' : 'hidden';
+  // Living scroll (opt-in): post content reveals as it enters view + a reading
+  // progress bar. Both are accessibility-gated and JS-off safe (page-effects.js);
+  // the build only sets the body hooks.
+  const livingScroll = blog.livingScroll === true;
+  const livingAttrs = livingScroll ? ' data-blog-living-scroll data-reading-progress' : '';
 
   const indexPath = path.join(distDir, 'index.html');
   if (!(await pathExists(indexPath))) return;
@@ -1575,7 +1580,7 @@ async function applyBlogLayout(distDir, config, tenantId) {
   let html = await fsp.readFile(indexPath, 'utf8');
   if (!/<body[^>]*data-layout=/.test(html)) {
     html = html.replace(/<body(?=[\s>])/,
-      `<body data-layout="${layout}" data-blog-sidebar="${sidebar}"`);
+      `<body data-layout="${layout}" data-blog-sidebar="${sidebar}"${livingAttrs}`);
     await fsp.writeFile(indexPath, html, 'utf8');
   }
 
@@ -1592,7 +1597,7 @@ async function applyBlogLayout(distDir, config, tenantId) {
     await wireBlogIndexSection(distDir, tenantId, outDir, title);
   }
 
-  console.log(`  ↳ applied blog layout (${sidebar} sidebar) for ${tenantId}`);
+  console.log(`  ↳ applied blog layout (${sidebar} sidebar${livingScroll ? ', living scroll' : ''}) for ${tenantId}`);
 }
 
 /**
