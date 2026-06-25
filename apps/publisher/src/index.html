@@ -18,6 +18,9 @@
         var base = t && p.indexOf("/" + t + "/") === 0 ? "/" + t + "/" : "/";
         document.write('<base href="' + base + '">');
       })();
+      // Progressive-enhancement gate: effect CSS that hides content pending JS
+      // is scoped under html.has-js, so a JS-off page shows everything.
+      document.documentElement.classList.add('has-js');
     </script>
     <link rel="icon" type="image/png" href="./favicon.png" />
     <link rel="stylesheet" href="./styles.css" />

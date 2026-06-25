@@ -5,6 +5,7 @@ import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from
 import { composeExportDocument, collectExportableSections } from './lib/export.js';
 import { renderMermaidBlocks } from './mermaid-init.js';
 import { highlightCodeBlocks } from './syntax-highlight.js';
+import { initPageEffects } from './lib/page-effects.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -398,6 +399,10 @@ async function loadSection(entry) {
   if (typeof payload.afterRender === 'function') {
     payload.afterRender(app);
   }
+
+  // Attach opt-in page effects (reveal-on-scroll, hero parallax/sticky, …) to
+  // the freshly-rendered section; tears down the previous render's effects.
+  initPageEffects(app);
   updateMetaTags({
     title: entry.title,
     description: entry.summary,
