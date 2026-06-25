@@ -116,6 +116,10 @@
     {
       "id": "blog-demo",
       "source": { "type": "local", "path": "./examples/blog-demo" }
+    },
+    {
+      "id": "page-effects",
+      "source": { "type": "local", "path": "./examples/page-effects" }
     }
   ]
 }

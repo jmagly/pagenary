@@ -1,0 +1,17 @@
+{
+  "default": "index",
+  "sections": [
+    {
+      "id": "index",
+      "title": "Showcase",
+      "summary": "A full-bleed parallax hero, reveal-on-scroll, and a CTA band — all from frontmatter.",
+      "file": "index.md"
+    },
+    {
+      "id": "parallax-and-sticky",
+      "title": "Parallax & Sticky",
+      "summary": "A sticky hero from frontmatter, plus hand-authored hero and CTA band via fenced HTML.",
+      "file": "parallax-and-sticky.md"
+    }
+  ]
+}

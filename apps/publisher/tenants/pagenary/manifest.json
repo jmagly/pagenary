@@ -44,6 +44,12 @@
           "file": "BLOG-LAYOUT.md"
         },
         {
+          "id": "page-effects",
+          "title": "Page Effects",
+          "summary": "Rich heroes, reveal-on-scroll, parallax, sticky, and CTA bands — opt-in and accessible.",
+          "file": "PAGE-EFFECTS.md"
+        },
+        {
           "id": "tenant-config",
           "title": "Tenant Configuration",
           "summary": "Every config.json option: branding, theming, SEO, and export.",

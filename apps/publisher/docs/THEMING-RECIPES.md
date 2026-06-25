@@ -266,6 +266,34 @@ overlay stylesheet in
 
 ---
 
+## Page effects (`page-effects`)
+
+A landing-page recipe: a **full-bleed parallax hero** with overlay text and CTAs,
+**reveal-on-scroll** cards, a **sticky** hero, and a **CTA band** — all opt-in,
+theme-token aware, and accessible (static and fully readable with JS off or under
+reduced motion). The hero and band are declared in Markdown frontmatter; nothing
+in `src/` changes.
+
+```markdown
+---
+hero:
+  title: Heroes that earn the scroll
+  image: assets/images/hero.svg
+  fullBleed: true
+  overlay: true
+  parallax: true
+  cta:
+    - { label: "Get started", href: "#start", style: primary }
+---
+```
+
+The example lives at [`../examples/page-effects/`](../examples/page-effects/) —
+build the gallery (`npm run build:examples`) and open `dist/page-effects/`. See
+the [Page Effects](#page-effects) guide for every primitive, authoring path, and
+the full config reference.
+
+---
+
 ## In the wild
 
 Real documentation sites built with Pagenary — each a different brand, theme,

@@ -1,0 +1,11 @@
+{
+  "title": "Page Effects — Pagenary showcase",
+  "brandMark": "Page Effects",
+  "brandSub": "Showcase",
+  "tagline": "Rich heroes, reveal-on-scroll, parallax, sticky, and CTA bands.",
+  "description": "A live demo of Pagenary's page-effects primitives: full-bleed heroes with overlay text and CTAs, reveal-on-scroll, parallax and sticky backgrounds, and CTA bands — all opt-in, theme-token aware, and accessible.",
+  "accentColor": "#e11d48",
+  "surfaceColor": "#ffffff",
+  "inkColor": "#0b1220",
+  "bottomNav": "always"
+}

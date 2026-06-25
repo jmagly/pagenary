@@ -487,13 +487,64 @@ Configure bottom navigation bar behavior in root `_manifest.json` or `manifest.j
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `bottomNav` | string | `"mobile"` | When to show bottom nav: `"mobile"`, `"always"`, or `"never"` |
+| `bottomNav` | string | `"mobile"` | When to show **docs** bottom nav: `"mobile"`, `"always"`, or `"never"` |
 | `bottomNavSections` | string[] | `[]` | Section IDs to include (empty array = all sections) |
+| `postNav` | object \| bool | all on | **Blog** post navigation affordances. `false` disables it; an object toggles `{ prev, next, index, label }`. Posts always get a persistent prev/next + back-to-index control regardless of `bottomNav`. |
 
 **Behavior:**
 - `"mobile"` - Show only on small screens (default)
 - `"always"` - Show on all screen sizes
 - `"never"` - Hide bottom navigation completely
+
+Blog posts use a separate, always-visible **post navigation** (collection-scoped
+prev/next plus a back-to-index link) so a post with the sidebar hidden can still
+move between posts. Disable or trim it with `postNav`:
+
+```json
+{ "postNav": { "prev": true, "next": true, "index": true, "label": "All posts" } }
+```
+
+## Page Effects (hero & banner)
+
+Pages can carry a rich **hero** and a **CTA banner** declared in Markdown
+frontmatter — full-bleed, overlaid, optionally parallax/sticky, with CTA
+buttons. These are opt-in, theme-token aware, and accessible. See the
+[Page Effects](#page-effects) guide for the full reference; the short version:
+
+```markdown
+---
+title: My landing page
+hero:
+  title: Heroes that earn the scroll
+  image: assets/images/hero.svg
+  fullBleed: true
+  overlay: true
+  parallax: true
+  cta:
+    - { label: "Get started", href: "#start", style: primary }
+banner:
+  title: Ready to ship?
+  fullBleed: true
+  cta:
+    - { label: "Get started", href: "#start", style: primary }
+---
+```
+
+| Field | Applies to | Meaning |
+|-------|-----------|---------|
+| `hero.eyebrow` / `hero.title` / `hero.subtitle` | hero | Overlay text (all optional). |
+| `hero.image` / `hero.video` / `hero.poster` | hero | Background media (`video` wins over `image`). |
+| `hero.fullBleed` / `banner.fullBleed` | both | Span the content area edge-to-edge. |
+| `hero.overlay` | hero | Scrim for legible text (defaults on with media). |
+| `hero.parallax` | hero | Drift the background on scroll (reduced-motion safe). |
+| `hero.sticky` | hero | Pin the hero to the top of the reading area. |
+| `hero.align` | hero | `start` \| `center` \| `end`. |
+| `hero.height` | hero | Override the hero min-height. |
+| `banner.title` / `banner.text` | banner | Band heading and supporting line. |
+| `hero.cta[]` / `banner.cta[]` | both | `{ label, href, style }` — `style` is `primary` \| `ghost` \| `plain`. |
+
+A **string** `hero` (e.g. `hero: assets/x.svg`) is the simple blog post image,
+not a rich hero — use the object form above for page effects.
 
 **Examples:**
 
