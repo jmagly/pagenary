@@ -396,6 +396,26 @@ describe('build-tenants.js', () => {
       expect(runtime.manifestJs).toContain('"module": "./sections/home.js"');
     });
 
+    test('explicit basePath decouples public mount from tenant id (#61)', async () => {
+      const manifest = {
+        sections: [
+          { id: 'home', title: 'Home', file: 'home.md' }
+        ]
+      };
+      const content = { 'home.md': '# Home\n\nMounted away from tenant id.' };
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID, basePath: 'react' }]);
+      expect(result.code).toBe(0);
+
+      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
+      expect(index).toContain(`var t = "${TEST_TENANT_ID}"`);
+      expect(index).toContain('var configuredBase = "/react/"');
+      expect(index).toContain('var explicitBase = configuredBase && configuredBase.charAt(0) === "/" ? configuredBase : ""');
+      expect(index).toContain('var base = explicitBase || (t && p.indexOf("/" + t + "/") === 0 ? "/" + t + "/" : "/")');
+    });
+
     test('content-hashed filenames are deterministic across unchanged rebuilds', async () => {
       const manifest = {
         sections: [

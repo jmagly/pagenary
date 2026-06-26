@@ -245,6 +245,22 @@ tenant-b.example.com {
 }
 ```
 
+If a tenant is mounted at a subpath that does not match its tenant id, configure
+`basePath` so the generated `<base href>` points at the public mount:
+
+```json
+{
+  "tenants": [
+    {
+      "id": "fortemi-react-docs",
+      "basePath": "/react/",
+      "source": { "type": "local", "path": "./tenants/fortemi-react-docs" },
+      "target": { "type": "local", "path": "./dist/fortemi-react-docs" }
+    }
+  ]
+}
+```
+
 ## Cache Strategy
 
 Pagenary emits content-addressed runtime URLs by default. The shell `index.html`

@@ -99,6 +99,8 @@ describe('fortemi-corpus', () => {
       const { index } = buildFortemiIndexExport(entries());
       for (const item of index.items) {
         expect(SECTIONS.map((s) => s.id)).toContain(recordToSectionId(item));
+        expect(item.source.locator).toBe(`#${recordToSectionId(item)}`);
+        expect(item.source.locator).not.toContain('#/');
       }
     });
 

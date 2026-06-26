@@ -47,7 +47,7 @@ describe('lib/search.js', () => {
           source: {
             path: 'sections/welcome-overview.js',
             repo_relative_path: 'sections/welcome-overview.js',
-            locator: '#/welcome-overview'
+            locator: '#welcome-overview'
           },
           title: 'Welcome',
           text: 'Landing hub for introducing each tenant experience.',
@@ -66,7 +66,7 @@ describe('lib/search.js', () => {
           source: {
             path: 'sections/developers.js',
             repo_relative_path: 'sections/developers.js',
-            locator: '#/developers'
+            locator: '#developers'
           },
           title: 'Developers',
           text: 'SDKs, APIs, and engineering workflows for teams shipping integrations.',
@@ -156,7 +156,7 @@ describe('lib/search.js', () => {
       expect(metadata.record_id).toBe('docs:page:developers');
       expect(metadata.title).toBe('Developers');
       expect(metadata.facets.section).toEqual(['developers']);
-      expect(metadata.source.locator).toBe('#/developers');
+      expect(metadata.source.locator).toBe('#developers');
       expect(metadata.provenance[0].confidence).toBe('source');
       expect(metadata.text).toBeUndefined();
     });

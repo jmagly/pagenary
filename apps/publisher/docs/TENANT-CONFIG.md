@@ -221,6 +221,24 @@ The build keeps stable compatibility files on disk, but the generated shell uses
 the content-hashed URLs. See [Deployment](DEPLOYMENT.md#cache-strategy) for the
 matching CDN headers.
 
+#### Deploy mount path
+
+By default Pagenary supports domain-root deploys (`/`) and tenant-id subpath
+deploys (`/<tenant-id>/`). Set `basePath` when the public mount path differs
+from the tenant id, for example when tenant `fortemi-react-docs` is served from
+`/react/`.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `basePath` | string | auto | Optional mount path used for the generated `<base href>`. Values normalize to leading and trailing slashes, so `"react"` becomes `"/react/"`. |
+
+```json
+{ "basePath": "/react/" }
+```
+
+Registry-level `basePath` overrides a value from the tenant source
+`config.json`, which lets one source bundle be published at different mounts.
+
 #### Docs map (relationship view)
 
 Opt-in `docsMap` adds a standalone **Docs Map** page — a framework-free SVG view

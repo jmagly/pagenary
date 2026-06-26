@@ -58,6 +58,11 @@
           },
           "description": "Domain names for routing (used by Caddyfile generator)"
         },
+        "basePath": {
+          "type": "string",
+          "pattern": "^/?[^\\s?#]*$",
+          "description": "Optional deploy mount path for the generated <base href>, such as /react/. Use when the public subpath differs from the tenant id."
+        },
         "plan": {
           "type": "string",
           "enum": ["free", "pro", "team"],
@@ -330,6 +335,11 @@
           "enum": ["contentHash", "stable"],
           "default": "contentHash",
           "description": "Runtime filename strategy. contentHash is the default for CDN-safe immutable assets; stable keeps legacy filenames."
+        },
+        "basePath": {
+          "type": "string",
+          "pattern": "^/?[^\\s?#]*$",
+          "description": "Optional deploy mount path for the generated <base href>, such as /react/. Registry-level basePath overrides this value."
         },
         "welcome": {
           "$ref": "#/definitions/welcomeConfig",

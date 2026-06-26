@@ -80,6 +80,7 @@ ${chapter.html}
       .brand-sub { font-weight: 400; opacity: 0.85; }
       .tagline { color: #666; font-size: 0.95rem; margin: 0.5rem 0 0 0; font-style: italic; }
       .meta { color: #666; font-size: 0.9rem; margin: 0.5rem 0 0 0; }
+      .front-matter { margin-bottom: 2.5rem; }
       .toc { border: 1px solid rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 2.5rem; background: rgba(0,0,0,0.02); }
       .toc h2 { margin-top: 0; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem; }
       .toc ul { margin: 0; padding-left: 1.2rem; }
@@ -131,23 +132,27 @@ ${chapter.html}
       @media print {
         @page { size: A4; margin: 1in; }
         body { box-shadow: none; }
-        header, .toc { break-after: avoid; }
+        .front-matter { break-after: page; page-break-after: always; }
+        .toc { break-inside: avoid; page-break-inside: avoid; }
+        h2 { break-after: avoid; page-break-after: avoid; }
         .export-logo { max-height: 36px; }
       }
     </style>
   </head>
   <body>
-    <header class="${headerClass}">
-      <div class="export-brand">
-        ${logoHtml}
-        <h1>${brandName}</h1>
+    <div class="front-matter">
+      <header class="${headerClass}">
+        <div class="export-brand">
+          ${logoHtml}
+          <h1>${brandName}</h1>
+        </div>
+        ${taglineHtml}
+        ${dateHtml}
+      </header>
+      <div class="toc">
+        <h2>Table of Contents</h2>
+        <ul>${toc || '<li>No sections</li>'}</ul>
       </div>
-      ${taglineHtml}
-      ${dateHtml}
-    </header>
-    <div class="toc">
-      <h2>Table of Contents</h2>
-      <ul>${toc || '<li>No sections</li>'}</ul>
     </div>
 ${body || '<p>No sections available.</p>'}
     <script type="module">

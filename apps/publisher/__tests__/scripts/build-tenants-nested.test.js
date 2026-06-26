@@ -570,3 +570,60 @@ describe('blog post navigation (#55)', () => {
     expect(atIndex.prev === null || atIndex.prev.id !== 'blog').toBe(true);
   });
 });
+
+// Configurable export (publisher opt-out / scope subset). EXPORT_CONFIG drives
+// whether the SPA shows the export button and which scopes it offers.
+describe('export configuration', () => {
+  const TEST_ID = '__test-export-cfg-' + Date.now();
+  let tenantDir;
+
+  afterEach(async () => {
+    if (tenantDir) await cleanup(tenantDir);
+    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+  });
+
+  // Read EXPORT_CONFIG from the generated manifest as text. (Dynamic import is
+  // avoided here: jest's ESM loader caches by path and ignores the cache-busting
+  // query, so successive builds in this block would return the first module.)
+  async function buildWithExport(exportCfg) {
+    tenantDir = await createNestedTenant(TEST_ID, {
+      config: exportCfg === undefined ? {} : { export: exportCfg },
+      directories: { docs: { files: { 'index.md': '# Docs\n\nBody.' } } }
+    });
+    const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
+    expect(result.code).toBe(0);
+    const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID);
+    const files = (await fsp.readdir(distDir)).filter((f) => /^manifest.*\.js$/.test(f));
+    let text = '';
+    for (const f of files) {
+      const t = await fsp.readFile(path.join(distDir, f), 'utf8');
+      if (t.includes('EXPORT_CONFIG')) { text = t; break; }
+    }
+    const m = text.match(/EXPORT_CONFIG\s*=\s*(\{[\s\S]*\})\s*;?\s*$/);
+    if (!m) throw new Error('EXPORT_CONFIG not found in generated manifest');
+    return JSON.parse(m[1]);
+  }
+
+  test('defaults to enabled with both scopes', async () => {
+    const cfg = await buildWithExport(undefined);
+    expect(cfg.enabled).toBe(true);
+    expect(cfg.scopes).toEqual(['page', 'site']);
+  });
+
+  test('export.enabled:false disables export', async () => {
+    const cfg = await buildWithExport({ enabled: false });
+    expect(cfg.enabled).toBe(false);
+  });
+
+  test('a scope subset is honored (and filtered to known scopes)', async () => {
+    const cfg = await buildWithExport({ scopes: ['page', 'bogus'] });
+    expect(cfg.scopes).toEqual(['page']);
+    expect(cfg.enabled).toBe(true);
+  });
+
+  test('an empty scope list disables export', async () => {
+    const cfg = await buildWithExport({ scopes: [] });
+    expect(cfg.enabled).toBe(false);
+    expect(cfg.scopes).toEqual([]);
+  });
+});

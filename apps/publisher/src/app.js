@@ -1139,26 +1139,41 @@ function reflectCommandSelection() {
   });
 }
 
-// Export handler
+// Export handler. Publishers can disable export entirely (EXPORT_CONFIG.enabled
+// === false) — then the button is removed and nothing is wired.
+const EXPORT_ENABLED = !EXPORT_CONFIG || EXPORT_CONFIG.enabled !== false;
+const EXPORT_SCOPES = (EXPORT_CONFIG && Array.isArray(EXPORT_CONFIG.scopes) && EXPORT_CONFIG.scopes.length)
+  ? EXPORT_CONFIG.scopes
+  : ['page', 'site'];
 if (exportBtn) {
-  exportBtn.addEventListener('click', showExportOptions);
+  if (EXPORT_ENABLED) {
+    exportBtn.addEventListener('click', showExportOptions);
+  } else {
+    exportBtn.remove();
+  }
 }
+
+const EXPORT_SCOPE_LABELS = {
+  page: { title: 'Current Page', desc: 'Export only this section' },
+  site: { title: 'Entire Site', desc: 'Export all documentation' }
+};
 
 function showExportOptions() {
   const overlay = document.createElement('div');
   overlay.className = 'export-options-overlay';
+  const buttons = EXPORT_SCOPES.map((scope) => {
+    const label = EXPORT_SCOPE_LABELS[scope];
+    if (!label) return '';
+    return `<button type="button" class="export-option-btn" data-scope="${scope}">
+          <span class="export-option-title">${label.title}</span>
+          <span class="export-option-desc">${label.desc}</span>
+        </button>`;
+  }).join('');
   overlay.innerHTML = `
     <div class="export-options-modal">
       <div class="export-options-header">EXPORT OPTIONS</div>
       <div class="export-options-buttons">
-        <button type="button" class="export-option-btn" data-scope="page">
-          <span class="export-option-title">Current Page</span>
-          <span class="export-option-desc">Export only this section</span>
-        </button>
-        <button type="button" class="export-option-btn" data-scope="site">
-          <span class="export-option-title">Entire Site</span>
-          <span class="export-option-desc">Export all documentation</span>
-        </button>
+        ${buttons}
       </div>
       <button type="button" class="export-cancel-btn">Cancel</button>
     </div>
@@ -1185,21 +1200,61 @@ function showExportOptions() {
   });
 }
 
+/**
+ * Render the compiled export document into an off-screen iframe and open the
+ * browser's print / Save-as-PDF dialog from it, then discard the iframe. No
+ * pop-up window is ever shown — the iframe is purely a processing surface — and
+ * nothing is left open after the dialog closes.
+ * @param {string} html - Complete export HTML document
+ */
+function printExportDocument(html) {
+  document.getElementById('exportPrintFrame')?.remove();
+  const frame = document.createElement('iframe');
+  frame.id = 'exportPrintFrame';
+  frame.setAttribute('aria-hidden', 'true');
+  frame.setAttribute('tabindex', '-1');
+  // Off-screen, zero-footprint: never visible, never part of the layout.
+  frame.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:0;visibility:hidden;';
+  document.body.appendChild(frame);
+
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    setTimeout(() => frame.remove(), 500);
+  };
+
+  const doc = frame.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const triggerPrint = () => {
+    const win = frame.contentWindow;
+    try {
+      win.addEventListener('afterprint', cleanup, { once: true });
+      win.focus();
+      win.print();
+      // Safety net: some browsers never fire afterprint (or the user dismisses
+      // without it) — reclaim the frame regardless.
+      setTimeout(cleanup, 60000);
+    } catch (err) {
+      console.error('Export print failed', err);
+      frame.remove();
+    }
+  };
+
+  // Print once the document (and its images/fonts) has settled.
+  if (frame.contentWindow.document.readyState === 'complete') {
+    setTimeout(triggerPrint, 60);
+  } else {
+    frame.addEventListener('load', () => setTimeout(triggerPrint, 60), { once: true });
+  }
+}
+
 async function handleExport(scope = 'site') {
   if (!exportBtn) return;
   const originalMarkup = exportBtn.innerHTML;
-
-  // Test for popup blocking first
-  const testWindow = window.open('', '_blank', 'width=1,height=1,left=0,top=0');
-  if (!testWindow || testWindow.closed || typeof testWindow.closed === 'undefined') {
-    if (confirm('Pop-ups are blocked. Please allow pop-ups for this site to export the document.\n\nWould you like to try again after enabling pop-ups?')) {
-      return; // User will try again after enabling popups
-    } else {
-      return; // User declined, cannot proceed
-    }
-  } else {
-    testWindow.close(); // Close test window
-  }
 
   exportBtn.disabled = true;
 
@@ -1287,21 +1342,12 @@ async function handleExport(scope = 'site') {
 
     const htmlDoc = composeExportDocument(bundle, EXPORT_CONFIG);
 
-    statusText.textContent = 'Opening document viewer...';
+    statusText.textContent = 'Opening print dialog...';
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Open window only after content is ready
-    const printWindow = window.open('', '_blank', 'width=900,height=860,scrollbars=yes,resizable=yes');
-    if (!printWindow) {
-      alert('Please allow pop-ups to export the document.');
-      loadingOverlay.remove();
-      return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(htmlDoc);
-    printWindow.document.close();
-    printWindow.focus();
+    // Render + print from an off-screen iframe — no pop-up window is shown and
+    // nothing is left open afterward (see printExportDocument).
+    printExportDocument(htmlDoc);
 
     // Fade out loading overlay
     loadingOverlay.classList.remove('active');

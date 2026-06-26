@@ -45,6 +45,17 @@ describe('lib/export.js', () => {
       expect(result).toContain('<li>3. Third Section</li>');
     });
 
+    test('keeps export front matter and table of contents print boundaries explicit', () => {
+      const result = composeExportDocument([
+        { section: { title: 'First Section' }, html: '<p>Content 1</p>' }
+      ]);
+
+      expect(result).toContain('<div class="front-matter">');
+      expect(result).toContain('.front-matter { break-after: page; page-break-after: always; }');
+      expect(result).toContain('.toc { break-inside: avoid; page-break-inside: avoid; }');
+      expect(result.indexOf('<div class="front-matter">')).toBeLessThan(result.indexOf('<section>'));
+    });
+
     test('generates section content with numbering', () => {
       const chapters = [
         { section: { title: 'Welcome', summary: 'Overview' }, html: '<p>Hello world</p>' },

@@ -6,16 +6,16 @@
     <title>Docs Toolkit</title>
     <meta name="description" content="Reusable documentation toolkit for multi-tenant services." />
     <script>
-      // Resolve all asset/module URLs against the tenant root in both deploy
-      // modes: domain-per-tenant at root (production, with SPA fallback) and a
-      // subpath mount such as /<tenant>/ (the dev preview server). The tenant id
-      // is injected at build time. On a domain root the path never starts with
-      // "/<tenant>/", so the base falls back to "/". For the un-replaced default
-      // build the placeholder starts with "_", which also yields "/".
+      // Resolve all asset/module URLs against the configured tenant mount. The
+      // optional base path is injected at build time for subpath deploys whose
+      // mount does not match the tenant id. Existing tenant-id mounts still work
+      // through the fallback below, and domain-root deploys fall back to "/".
       (function () {
         var t = "__PAGENARY_TENANT__";
+        var configuredBase = "__PAGENARY_BASE_PATH__";
         var p = location.pathname;
-        var base = t && p.indexOf("/" + t + "/") === 0 ? "/" + t + "/" : "/";
+        var explicitBase = configuredBase && configuredBase.charAt(0) === "/" ? configuredBase : "";
+        var base = explicitBase || (t && p.indexOf("/" + t + "/") === 0 ? "/" + t + "/" : "/");
         document.write('<base href="' + base + '">');
       })();
       // Progressive-enhancement gate: effect CSS that hides content pending JS

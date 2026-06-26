@@ -67,7 +67,7 @@ async function collectEntries(collection, contentBasePath, baseUrl) {
     const staticPath = `/pages/${encodePathForFilename(sectionId)}.html`;
     const routePath = collection.route
       ? `${collection.route.replace(/\/+$/, '')}/${slug}`
-      : `/#/${sectionId}`;
+      : `/#${sectionId}`;
 
     entries.push({
       id: sectionId,

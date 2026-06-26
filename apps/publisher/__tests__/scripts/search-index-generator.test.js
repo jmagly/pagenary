@@ -81,6 +81,8 @@ describe('search-index-generator', () => {
     // the jest vm-modules sandbox cannot dynamically import temp ESM files.)
     const developers = items.find((item) => item.id === 'docs:page:developers');
     expect(developers.text).toContain('APIs');
+    expect(developers.source.locator).toBe('#developers');
+    expect(developers.source.locator).not.toContain('#/');
 
     // Broken module degrades to title/summary, never crashes the build.
     const broken = items.find((item) => item.id === 'docs:page:broken');

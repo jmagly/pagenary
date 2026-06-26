@@ -31,7 +31,7 @@ npx pagenary serve                           # serve on http://localhost:5173
 
 ## What It Is
 
-The publisher takes a catalog of shared section templates plus per-tenant content and configuration and produces a self-contained documentation bundle for each tenant. Each bundle is a static single-page app — hash-based routing (`#/page-id`), no server-side rendering, no runtime dependencies — that you build once and host anywhere that serves files. A per-tenant `<base>` resolves asset and module URLs to the tenant root, so the same bundle serves correctly at a domain root *or* under a subpath mount. Tenants share the template catalog but keep isolated content, branding, navigation, and domains — each with ranked client-side search and SEO-ready output — so one repository can publish a dozen distinct sites.
+The publisher takes a catalog of shared section templates plus per-tenant content and configuration and produces a self-contained documentation bundle for each tenant. Each bundle is a static single-page app — hash-based routing (`#page-id`), no server-side rendering, no runtime dependencies — that you build once and host anywhere that serves files. A per-tenant `<base>` resolves asset and module URLs to the tenant root, so the same bundle serves correctly at a domain root *or* under a subpath mount. Tenants share the template catalog but keep isolated content, branding, navigation, and domains — each with ranked client-side search and SEO-ready output — so one repository can publish a dozen distinct sites.
 
 ---
 

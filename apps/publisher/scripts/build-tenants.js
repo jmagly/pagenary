@@ -706,6 +706,7 @@ function normalizeTenant(tenant, defaults) {
     source,
     target,
     domains: tenant.domains || [],
+    basePath: tenant.basePath,
     config: tenant.config || {},
     strictLinks: tenant.strictLinks,
     followLinks: tenant.followLinks || false
@@ -914,7 +915,16 @@ async function buildExportConfig(config, sourceDir) {
     logo = `./assets/${exportSettings.logoPath}`;
   }
 
+  // Which export scopes the publisher allows. Default: both. An empty list or
+  // `enabled: false` turns export off entirely (the button is hidden).
+  const allowedScopes = ['page', 'site'];
+  const scopes = Array.isArray(exportSettings.scopes)
+    ? exportSettings.scopes.filter((s) => allowedScopes.includes(s))
+    : allowedScopes;
+
   return {
+    enabled: exportSettings.enabled !== false && scopes.length > 0,
+    scopes,
     title: config.title || 'Documentation',
     brandMark: config.brandMark || 'Docs',
     brandSub: config.brandSub || '',
@@ -978,20 +988,41 @@ async function applyBranding(distDir, config, tenantId) {
 }
 
 /**
- * Replace the shell's `__PAGENARY_TENANT__` base-resolution placeholder with the
- * real tenant id. Runs for every tenant so the runtime `<base href>` bootstrap
- * can resolve asset/module URLs against the tenant root under subpath mounts
- * (e.g. /tenant/) while domain-root deploys fall back to "/".
+ * Normalize an optional deploy mount path to an absolute directory path usable
+ * as a runtime `<base href>`.
+ * @param {string|undefined|null} value - Configured base path
+ * @returns {string} Normalized path, or an empty string when unset
+ */
+function normalizeBasePath(value) {
+  if (value == null || value === '') return '';
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith('//')) {
+    throw new Error('basePath must be an absolute path like "/docs/", not a full URL');
+  }
+  const cleaned = raw.replace(/\\/g, '/').replace(/\/+/g, '/');
+  const withLeading = cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+  return withLeading.endsWith('/') ? withLeading : `${withLeading}/`;
+}
+
+/**
+ * Replace the shell's base-resolution placeholders. Runs for every tenant so
+ * the runtime `<base href>` bootstrap can resolve asset/module URLs against an
+ * explicit mount path, the legacy tenant-id subpath, or the domain root.
  * @param {string} distDir - Tenant output directory
  * @param {string} tenantId - Tenant identifier
+ * @param {string} [basePath=''] - Optional normalized mount path
  */
-async function injectTenantBase(distDir, tenantId) {
+async function injectTenantBase(distDir, tenantId, basePath = '') {
   const indexPath = path.join(distDir, 'index.html');
   if (!(await pathExists(indexPath))) return;
   const html = await fsp.readFile(indexPath, 'utf8');
-  if (!html.includes('__PAGENARY_TENANT__')) return;
-  await fsp.writeFile(indexPath, html.split('__PAGENARY_TENANT__').join(tenantId), 'utf8');
-  console.log(`  ↳ wired tenant base for ${tenantId}`);
+  if (!html.includes('__PAGENARY_TENANT__') && !html.includes('__PAGENARY_BASE_PATH__')) return;
+  const out = html
+    .split('__PAGENARY_TENANT__').join(tenantId)
+    .split('__PAGENARY_BASE_PATH__').join(basePath);
+  await fsp.writeFile(indexPath, out, 'utf8');
+  console.log(`  ↳ wired tenant base for ${tenantId}${basePath ? ` (${basePath})` : ''}`);
 }
 
 /**
@@ -4196,6 +4227,15 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
       console.warn(`  ↳ ${tenantId}: unable to parse config.json (${err.message})`);
     }
   }
+  if (tenant.basePath !== undefined) {
+    config.basePath = tenant.basePath;
+  }
+  try {
+    config.basePath = normalizeBasePath(config.basePath);
+  } catch (err) {
+    console.error(`  ↳ ${tenantId}: ${err.message}`);
+    return { success: false, changes };
+  }
 
   // Build to a temporary location in dist/ first, then copy to target
   const buildOutput = path.join('dist', tenantId);
@@ -4286,10 +4326,10 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyWelcome(distDir, config, tenantId);
   }
 
-  // Inject the tenant id into the shell's base-resolution bootstrap for EVERY
-  // tenant (regardless of branding config) so subpath mounts resolve assets
-  // against the tenant root. Domain-root deploys fall back to "/".
-  await injectTenantBase(distDir, tenantId);
+  // Inject base-resolution placeholders for EVERY tenant (regardless of
+  // branding config) so subpath mounts resolve assets against the configured
+  // base path, the tenant-id fallback, or the domain root.
+  await injectTenantBase(distDir, tenantId, config.basePath);
 
   // Set the shell <title> from the default page's metadata title (SEO, #28),
   // falling back to the generic brand only when no default title exists.

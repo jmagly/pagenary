@@ -79,6 +79,14 @@ describe('generateCollections (#18)', () => {
     expect(newer.reading_time).toBeGreaterThanOrEqual(1);
   });
 
+  test('default collection paths use router-resolvable hash routes', async () => {
+    const cfg = { ...config, collections: [{ path: 'blog', title: 'Blog', manifest: true }] };
+    await generateCollections(dist, cfg, content);
+    const manifest = JSON.parse(await fsp.readFile(path.join(dist, 'blog', 'index.json'), 'utf8'));
+    expect(manifest.posts[0].path).toBe('/#blog/newer');
+    expect(manifest.posts[0].path).not.toContain('/#/');
+  });
+
   test('emits a valid RSS feed.xml with items', async () => {
     await generateCollections(dist, config, content);
     const xml = await fsp.readFile(path.join(dist, 'blog', 'feed.xml'), 'utf8');

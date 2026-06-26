@@ -16,7 +16,7 @@ Navigate to a section by ID.
 
 ```javascript
 navigate('guides/getting-started');
-// Updates hash to #/guides/getting-started and renders section
+// Updates hash to #guides/getting-started and renders section
 ```
 
 **`handleRoute(): Promise<void>`**
@@ -253,7 +253,7 @@ URL hash parsing and resolution.
 Extract section ID from URL hash.
 
 ```javascript
-resolveTarget('#/guides/setup'); // 'guides/setup'
+resolveTarget('#guides/setup'); // 'guides/setup'
 resolveTarget('#'); // '' (empty)
 ```
 

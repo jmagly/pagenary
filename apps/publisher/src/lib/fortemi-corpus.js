@@ -351,7 +351,7 @@ export function sectionToFortemiRecord(section, text, updatedAt) {
     source: {
       path: sourcePath,
       repo_relative_path: sourcePath,
-      locator: `#/${section.id}`
+      locator: `#${section.id}`
     },
     title: section.title || section.id,
     text: body,

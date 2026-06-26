@@ -5,7 +5,7 @@ A minimalist multi-tenant documentation platform built around static assets and 
 ## Design Principles
 
 - **Zero Runtime Dependencies** - Vanilla HTML, CSS, and ES modules keep the footprint tiny
-- **Static-First** - Hash-based routing (`#/page-id`) works on any static host
+- **Static-First** - Hash-based routing (`#page-id`) works on any static host
 - **Multi-Tenant Isolation** - Each tenant gets isolated content, branding, and configuration
 - **Progressive Enhancement** - Core content works without JavaScript; features enhance with it
 
@@ -191,7 +191,7 @@ Runtime: Hash Change → Router → Manifest Lookup → Module Import → Render
 Hash-based navigation with history support:
 
 ```javascript
-// URL: https://docs.example.com/#/guides/setup
+// URL: https://docs.example.com/#guides/setup
 // Resolves to section ID: "guides/setup"
 
 window.addEventListener('hashchange', handleRoute);
