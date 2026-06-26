@@ -18,6 +18,8 @@ Two layers ship together:
 
 > Live demo: build the example gallery with `npm run build:examples` and open
 > `dist/page-effects/`. Its two pages exercise every primitive below.
+> The example gallery also includes an R&D-only spike page for future candidate
+> effects; those `pe-spike-*` classes are prototypes, not supported primitives.
 
 ## The primitives
 
@@ -180,3 +182,5 @@ above for a rich hero.
 - [Blog Layout](#blog-layout) — the reading-first layout these heroes pair with.
 - [Tenant Configuration](#tenant-config) — every `config.json` option.
 - [Theming Recipes](#theming-recipes) — colors, fonts, and layout recipes.
+- [Page Effects R&D Spike](PAGE-EFFECTS-SPIKE.md) — candidate evaluation and
+  recommended follow-up order.
