@@ -60,7 +60,8 @@
     "caddy:restart": "docker compose restart caddy",
     "caddy:logs": "docker compose logs -f caddy",
     "caddy:reload": "docker compose exec caddy caddy reload --config /srv/app/Caddyfile",
-    "test:browser": "node scripts/smoke-browser.mjs"
+    "test:browser": "node scripts/smoke-browser.mjs",
+    "test:accessibility:browser": "node scripts/smoke-accessibility.mjs"
   },
   "engines": {
     "node": ">=16"

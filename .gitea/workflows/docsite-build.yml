@@ -63,6 +63,20 @@ jobs:
           # Serve the gallery's screenshots at /images/ for the live docs page.
           cp -rL docs/images dist/pagenary/images
 
+      - name: Install Playwright for browser accessibility smoke
+        run: |
+          set -euo pipefail
+          PW_DIR=/tmp/pagenary-playwright
+          mkdir -p "${PW_DIR}"
+          npm install --prefix "${PW_DIR}" --no-save --package-lock=false playwright@1.55.1
+          node "${PW_DIR}/node_modules/playwright/cli.js" install --with-deps chromium
+
+      - name: Browser accessibility smoke
+        working-directory: apps/publisher
+        env:
+          PLAYWRIGHT_MODULE: /tmp/pagenary-playwright/node_modules/playwright/index.mjs
+        run: SMOKE_REQUIRE=1 npm run test:accessibility:browser
+
       - name: Verify build output
         run: |
           set -euo pipefail

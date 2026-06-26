@@ -273,13 +273,28 @@ content-linter self-test lives in `scripts/check-accessibility-linter.js`; the
 report artifact self-test lives in `scripts/check-accessibility-report.js`. All
 three run through `npm run check`.
 
+Browser accessibility smoke coverage lives in
+`scripts/smoke-accessibility.mjs` and runs with:
+
+```bash
+npm run test:accessibility:browser
+SMOKE_REQUIRE=1 npm run test:accessibility:browser
+```
+
+The command dynamically uses Playwright when it is installed. CI installs a
+pinned Playwright package for this smoke and runs it as a required docsite build
+step. The scan covers the Pagenary docs tenant, the docs-map route, the blog
+demo, and the page-effects demo. Failures include route, selector/context, rule,
+and remediation text.
+
 Priority 2:
 
 - Strict accessibility mode: implemented via `accessibility.strict: true`, which
   turns high-confidence authored-content findings into build failures.
 - Add dashboard/report UX for hosted sites.
-- Add reduced-motion and keyboard regression tests for page effects, docs map,
-  command palette, search, post navigation, and export controls.
+- Browser accessibility smoke tests: implemented for generated docs, docs map,
+  blog post navigation, export controls, command palette, and page-effects
+  reduced-motion behavior.
 - Add authoring docs for alt text, headings, links, tables, embeds, media, and
   custom HTML.
 
