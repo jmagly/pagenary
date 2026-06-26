@@ -78,4 +78,46 @@ assert.equal(isStrictAccessibilityEnabled({ accessibility: { strict: false } }),
 const failingSummary = summarizeAccessibilityFindings(failing);
 assert.equal(failingSummary.error >= 5, true);
 
+const mediaPassing = findingsFor(`# Media page
+
+\`\`\`media
+type: video
+src: assets/demo.mp4
+title: Product demo
+captions: assets/demo.vtt
+transcript: transcripts/demo.md
+description: The demo describes all important visual steps.
+\`\`\`
+
+\`\`\`media
+type: narration
+src: audio/page.mp3
+title: Listen to this page
+transcript: page.md
+\`\`\`
+`);
+
+assert.equal(mediaPassing.length, 0);
+
+const mediaFailing = findingsFor(`# Broken media page
+
+\`\`\`media
+type: video
+src: assets/demo.mp4
+autoplay: true
+\`\`\`
+
+\`\`\`media
+type: audio
+src: audio/page.mp3
+title: Audio without transcript
+\`\`\`
+`);
+
+assert.equal(mediaFailing.some((finding) => finding.rule === 'media-title' && finding.severity === 'error'), true);
+assert.equal(mediaFailing.some((finding) => finding.rule === 'media-autoplay' && finding.severity === 'error'), true);
+assert.equal(mediaFailing.some((finding) => finding.rule === 'media-captions' && finding.severity === 'warning'), true);
+assert.equal(mediaFailing.some((finding) => finding.rule === 'media-transcript' && finding.severity === 'warning'), true);
+assert.equal(mediaFailing.some((finding) => finding.rule === 'media-audio-description-review' && finding.severity === 'manual-review'), true);
+
 console.log('Accessibility content linter checks passed.');

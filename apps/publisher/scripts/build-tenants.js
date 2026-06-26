@@ -2388,7 +2388,7 @@ function renderMediaBlock(raw, config = {}) {
     return mediaFallback('Media rendering is disabled for this tenant or document.');
   }
   const type = String(def.type || def.kind || '').toLowerCase();
-  if (type === 'audio' || type === 'podcast') return renderNativeMedia(def, 'audio');
+  if (type === 'audio' || type === 'podcast' || type === 'narration') return renderNativeMedia(def, 'audio');
   if (type === 'video') return renderNativeMedia(def, 'video');
   if (type === 'embed' || type === 'youtube' || type === 'vimeo' || type === 'peertube') {
     return renderHostedMedia({ ...def, provider: def.provider || type }, config);

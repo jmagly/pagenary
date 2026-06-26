@@ -267,6 +267,19 @@ and provider allowlists. Site owners still need to review caption accuracy,
 transcript completeness, audio-description needs, and the accessibility behavior
 of third-party providers.
 
+The authored-content linter reports media metadata issues during builds:
+
+- Missing media `title` or `label` is an error because generated players need an
+  accessible name.
+- `autoplay: true` is an error for content media.
+- Missing audio transcripts and video captions are warnings.
+- Video and hosted embeds emit a manual-review finding unless the author
+  provides `description` or `audioDescription` metadata.
+
+Generated narration should use `type: narration`, which reuses the same labelled
+audio player, transcript metadata, no-autoplay default, and report findings as
+ordinary audio media.
+
 ## Remediation Backlog
 
 Priority 1:

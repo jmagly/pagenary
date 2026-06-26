@@ -28,6 +28,7 @@ function stripInlineMarkdown(value) {
 
 function htmlBlocksAndMarkdown(body) {
   const htmlBlocks = [];
+  const mediaBlocks = [];
   const markdownParts = [];
   const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
   let inFence = false;
@@ -40,6 +41,8 @@ function htmlBlocksAndMarkdown(body) {
       if (inFence) {
         if (fenceLang === 'html') {
           htmlBlocks.push(fenceLines.join('\n'));
+        } else if (fenceLang === 'media') {
+          mediaBlocks.push({ text: fenceLines.join('\n'), line: markdownParts.length + 1 });
         }
         inFence = false;
         fenceLang = '';
@@ -60,12 +63,47 @@ function htmlBlocksAndMarkdown(body) {
 
   if (inFence && fenceLang === 'html') {
     htmlBlocks.push(fenceLines.join('\n'));
+  } else if (inFence && fenceLang === 'media') {
+    mediaBlocks.push({ text: fenceLines.join('\n'), line: markdownParts.length + 1 });
   }
 
   return {
     markdown: markdownParts.join('\n'),
-    html: htmlBlocks.join('\n')
+    html: htmlBlocks.join('\n'),
+    mediaBlocks
   };
+}
+
+function parseMediaBlock(raw) {
+  const data = {};
+  const text = String(raw || '').trim();
+  if (!text) return data;
+  if (text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return { _invalid: true };
+    }
+  }
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const idx = trimmed.indexOf(':');
+    if (idx === -1) continue;
+    const key = trimmed.slice(0, idx).trim();
+    let value = trimmed.slice(idx + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (value === 'true') value = true;
+    else if (value === 'false') value = false;
+    data[key] = value;
+  }
+  return data;
 }
 
 function lineForOffset(text, offset) {
@@ -246,10 +284,92 @@ function lintRawHtml(html, context, findings, offsetLine = 0) {
   }
 }
 
+function lintMediaBlocks(mediaBlocks, context, findings) {
+  for (const block of mediaBlocks) {
+    const def = parseMediaBlock(block.text);
+    const line = block.line || null;
+    const type = String(def.type || def.kind || '').toLowerCase();
+    const isVideo = type === 'video' || type === 'embed' || type === 'youtube' || type === 'vimeo' || type === 'peertube';
+    const isAudio = type === 'audio' || type === 'podcast' || type === 'narration';
+    const isHosted = type === 'embed' || type === 'youtube' || type === 'vimeo' || type === 'peertube' || Boolean(def.provider);
+
+    if (def._invalid) {
+      addFinding(findings, context, {
+        rule: 'media-metadata',
+        severity: 'error',
+        line,
+        message: 'Media block metadata is invalid.',
+        remediation: 'Use key/value lines or valid JSON inside the media fence.'
+      });
+      continue;
+    }
+
+    if (!def.title && !def.label) {
+      addFinding(findings, context, {
+        rule: 'media-title',
+        severity: 'error',
+        line,
+        message: 'Media block is missing a title or label.',
+        remediation: 'Add a title that gives the generated player or embed an accessible name.'
+      });
+    }
+
+    if (def.autoplay === true || def.autoplay === 'true') {
+      addFinding(findings, context, {
+        rule: 'media-autoplay',
+        severity: 'error',
+        line,
+        message: 'Content media requests autoplay.',
+        remediation: 'Do not autoplay article or documentation media; let readers start playback.'
+      });
+    }
+
+    if ((isAudio || type === 'narration') && !def.transcript) {
+      addFinding(findings, context, {
+        rule: 'media-transcript',
+        severity: 'warning',
+        line,
+        message: 'Audio media does not declare a transcript.',
+        remediation: 'Add a transcript link or sidecar path.'
+      });
+    }
+
+    if (isVideo && !def.captions && !isHosted) {
+      addFinding(findings, context, {
+        rule: 'media-captions',
+        severity: 'warning',
+        line,
+        message: 'Video media does not declare captions.',
+        remediation: 'Add captions metadata when the video includes speech.'
+      });
+    }
+
+    if (isVideo && !def.audioDescription && !def.description) {
+      addFinding(findings, context, {
+        rule: 'media-audio-description-review',
+        severity: 'manual-review',
+        line,
+        message: 'Video or hosted media needs human review for audio-description needs.',
+        remediation: 'Confirm important visual information is spoken or provide audio description/written description.'
+      });
+    }
+
+    if (isHosted && !def.provider && !['youtube', 'vimeo', 'peertube'].includes(type)) {
+      addFinding(findings, context, {
+        rule: 'media-provider',
+        severity: 'error',
+        line,
+        message: 'Hosted media block is missing an explicit provider.',
+        remediation: 'Declare an allowlisted provider such as youtube, vimeo, or peertube.'
+      });
+    }
+  }
+}
+
 export function lintContentAccessibility(raw, context = {}) {
   const findings = [];
   const { body } = parseFrontmatter(raw);
-  const { markdown, html } = htmlBlocksAndMarkdown(body);
+  const { markdown, html, mediaBlocks } = htmlBlocksAndMarkdown(body);
 
   lintHeadings(markdown, context, findings);
   lintMarkdownImages(markdown, context, findings);
@@ -257,6 +377,7 @@ export function lintContentAccessibility(raw, context = {}) {
   lintMarkdownTables(markdown, context, findings);
   lintRawHtml(markdown, { ...context, htmlIds: new Map() }, findings);
   if (html) lintRawHtml(html, { ...context, htmlIds: new Map() }, findings);
+  lintMediaBlocks(mediaBlocks, context, findings);
 
   return findings;
 }

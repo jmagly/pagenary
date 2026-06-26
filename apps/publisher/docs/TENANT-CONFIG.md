@@ -58,6 +58,7 @@ title: Product walkthrough
 poster: assets/demo-poster.jpg
 captions: assets/demo.vtt
 transcript: transcripts/demo.md
+description: Spoken narration covers every important visual step.
 caption: Watch the product walkthrough.
 ```
 ````
@@ -88,6 +89,12 @@ lazy iframes only after activation.
 Tenant `media` config applies to every document. A document can override those
 settings with frontmatter `media` fields, for example `media: { load:
 "immediate" }` for a single trusted page.
+
+Use `description` or `audioDescription` metadata when important visual
+information is already described in the audio or nearby prose. Otherwise the
+accessibility report keeps a manual-review item for audio-description needs.
+Generated narration can use `type: narration` with the same `src`, `title`, and
+`transcript` fields as audio media.
 
 ### Managed Hosting Fields
 
