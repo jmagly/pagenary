@@ -30,6 +30,10 @@ Located at `apps/publisher/tenants.json`, this file registers all tenants:
 | `media.enabled` | No | Enable fenced `media` block rendering (default `true`). Set `false` to render non-breaking fallback notes. |
 | `media.providers` / `media.allowedProviders` | No | Allowed hosted embed providers. Defaults to `youtube`, `vimeo`, and `peertube`. |
 | `media.load` | No | Hosted embed loading mode: `click` by default, or `immediate` for tenants that intentionally load provider iframes right away. |
+| `narration.enabled` | No | Generate reviewable narration text artifacts and, when audio is attached, render a listen-to-this-page player. Default `false`. |
+| `narration.provider` | No | `preview` writes text/JSON review artifacts without external calls. `attached` renders configured audio. Hosted TTS providers are intentionally not invoked by this public builder. |
+| `narration.voice` / `narration.language` | No | Metadata included in narration artifact hashes so voice/language changes invalidate cached text/audio relationships. |
+| `narration.disclosure` | No | Human-readable disclosure shown near the narration control, for example `Machine-generated narration`. |
 
 Example strict accessibility config:
 
@@ -95,6 +99,54 @@ information is already described in the audio or nearby prose. Otherwise the
 accessibility report keeps a manual-review item for audio-description needs.
 Generated narration can use `type: narration` with the same `src`, `title`, and
 `transcript` fields as audio media.
+
+### Narration
+
+Narration is opt-in and disabled by default. Tenant config can enable preview
+artifacts for every Markdown page:
+
+```json
+{
+  "narration": {
+    "enabled": true,
+    "provider": "preview",
+    "voice": "review",
+    "language": "en-US",
+    "disclosure": "Narration preview"
+  }
+}
+```
+
+Authors can override per page with frontmatter. `false` disables narration for
+that document, `true` uses tenant defaults, and an object can attach audio:
+
+```yaml
+---
+title: Launch Notes
+narration:
+  src: audio/launch-notes.mp3
+  duration: 4:02
+  download: true
+  disclosure: Machine-generated narration
+---
+```
+
+The builder extracts deterministic readable text from Markdown, excluding
+frontmatter and ordinary code fences while preserving headings, prose, lists,
+tables, image alt text, and narration-relevant media metadata. It writes:
+
+- `narration/<route>.<hash>.txt` — exact text used for narration review.
+- `narration/<route>.<hash>.json` — route, provider, voice/language, source text
+  path, audio path, and invalidation metadata.
+
+The hash changes only when extracted text, provider, voice, or language changes.
+`provider: "preview"` never sends content to an external service. `provider:
+"attached"` renders the configured audio through the same accessible media
+player used for native audio, with no autoplay, a transcript/source-text link,
+optional duration, optional download link, and the configured disclosure.
+Unconfigured hosted providers produce a non-breaking note and preview artifact;
+hosted TTS credentials, rate limits, queueing, provider timeouts, and stale audio
+reuse belong in the private hosting/control-plane layer.
 
 ### Managed Hosting Fields
 

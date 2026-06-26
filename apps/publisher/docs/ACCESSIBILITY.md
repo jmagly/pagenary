@@ -276,9 +276,20 @@ The authored-content linter reports media metadata issues during builds:
 - Video and hosted embeds emit a manual-review finding unless the author
   provides `description` or `audioDescription` metadata.
 
-Generated narration should use `type: narration`, which reuses the same labelled
-audio player, transcript metadata, no-autoplay default, and report findings as
-ordinary audio media.
+Generated narration can be enabled through the `narration` tenant/frontmatter
+config. The public builder supports a `preview` mode that writes the exact
+normalized narration text and JSON metadata into the tenant output without
+calling hosted TTS providers. Attached narration audio renders through
+`type: narration`, which reuses the same labelled audio player, transcript/source
+text link, no-autoplay default, optional duration/download metadata, and report
+findings as ordinary audio media.
+
+Generated audio is an alternate representation of the page text. It must not
+replace the written document, and pages should disclose whether narration is
+machine-generated or human-recorded. Hosted TTS generation, credentials, rate
+limits, provider outages, generation timeouts, stale-audio reuse, and cost
+controls belong in the private hosting/control-plane layer and must be explicit
+before tenant content is sent to a provider.
 
 ## Remediation Backlog
 

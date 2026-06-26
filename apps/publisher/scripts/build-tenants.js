@@ -2313,11 +2313,18 @@ function mediaFallback(message, detail = '') {
 
 function renderMediaCaption(def) {
   const caption = def.caption || def.description || '';
+  const duration = def.duration
+    ? `<span class="media-duration">Duration: ${escapeHtml(def.duration)}</span>`
+    : '';
+  const download = def.download
+    ? `<a class="media-download" href="${escapeAttribute(def.download === true ? (def.src || def.url || '') : def.download)}" download>Download</a>`
+    : '';
   const transcript = def.transcript
     ? `<a class="media-transcript" href="${escapeAttribute(def.transcript)}">Transcript</a>`
     : '';
-  if (!caption && !transcript) return '';
-  return `<figcaption>${caption ? escapeHtml(caption) : ''}${caption && transcript ? ' ' : ''}${transcript}</figcaption>`;
+  const meta = [duration, download, transcript].filter(Boolean).join(' ');
+  if (!caption && !meta) return '';
+  return `<figcaption>${caption ? escapeHtml(caption) : ''}${caption && meta ? ' ' : ''}${meta}</figcaption>`;
 }
 
 function renderNativeMedia(def, kind) {
@@ -2397,6 +2404,140 @@ function renderMediaBlock(raw, config = {}) {
   return mediaFallback('Media type is unsupported.', type || 'missing type');
 }
 
+function stripNarrationCodeFences(body) {
+  const out = [];
+  const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
+  let inFence = false;
+  let fenceLang = '';
+  for (const line of lines) {
+    const fence = /^\s*```([A-Za-z0-9_-]*)/.exec(line);
+    if (fence) {
+      if (inFence) {
+        inFence = false;
+        fenceLang = '';
+      } else {
+        inFence = true;
+        fenceLang = (fence[1] || '').trim().toLowerCase();
+      }
+      continue;
+    }
+    if (inFence) {
+      if (fenceLang === 'media') out.push(line);
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+function extractNarrationTextFromMarkdown(raw) {
+  const { data, body } = parseFrontmatter(raw);
+  const title = data.title || firstHeadingFromMarkdown(body) || '';
+  let text = stripNarrationCodeFences(body);
+  text = text
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/^\|?[\s\-:|]+\|?$/gm, '')
+    .replace(/[|*_`~#<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const normalized = [title, text].filter(Boolean).join('. ').replace(/\s+/g, ' ').trim();
+  return normalized;
+}
+
+function normalizeNarrationConfig(base = {}, value = null) {
+  const next = { ...(base && typeof base === 'object' ? base : {}) };
+  if (value === true) next.enabled = true;
+  else if (value && typeof value === 'object' && !Array.isArray(value)) {
+    Object.assign(next, value);
+    if (value.enabled === undefined) next.enabled = true;
+  }
+  else if (value === false) next.enabled = false;
+  next.enabled = next.enabled === true || next.enabled === 'true';
+  next.provider = next.provider || (next.src || next.audio ? 'attached' : 'preview');
+  next.disclosure = next.disclosure || (next.provider === 'attached' ? 'Narration audio' : 'Narration preview');
+  return next;
+}
+
+function narrationHash(text, config) {
+  const payload = JSON.stringify({
+    text,
+    provider: config.provider,
+    voice: config.voice || null,
+    language: config.language || config.locale || null
+  });
+  return createHash('sha256').update(payload).digest('hex').slice(0, 12);
+}
+
+async function buildNarration(raw, context = {}) {
+  const { data } = parseFrontmatter(raw);
+  const config = normalizeNarrationConfig(context.narrationConfig || {}, data.narration);
+  if (!config.enabled) return { html: '', artifact: null };
+  const text = extractNarrationTextFromMarkdown(raw);
+  if (!text) {
+    return {
+      html: `<aside class="media-fallback narration-preview" role="note"><strong>${escapeHtml(config.disclosure)} unavailable.</strong> No narration text was extracted for this page.</aside>`,
+      artifact: {
+        route: context.route || 'section',
+        status: 'empty-text',
+        provider: config.provider,
+        text: ''
+      }
+    };
+  }
+  const route = context.route || 'section';
+  const safeRoute = encodePathForFilename(route);
+  const hash = narrationHash(text, config);
+  const relBase = `narration/${safeRoute}.${hash}`;
+  const distDir = context.distDir;
+  const title = data.title || firstHeadingFromMarkdown(parseFrontmatter(raw).body) || route;
+  const artifact = {
+    route,
+    hash,
+    provider: config.provider,
+    voice: config.voice || null,
+    language: config.language || config.locale || null,
+    text,
+    textPath: `${relBase}.txt`,
+    manifestPath: `${relBase}.json`,
+    audioPath: config.src || config.audio || null,
+    generated: config.generated === true || config.generated === 'true' || config.provider === 'preview',
+    disclosure: config.disclosure,
+    updatedWhen: 'narration text, provider, voice, or language hash changes'
+  };
+  if (config.provider !== 'preview' && config.provider !== 'attached' && !artifact.audioPath) {
+    artifact.status = 'provider-unavailable';
+  }
+  if (distDir) {
+    await fsp.mkdir(path.join(distDir, 'narration'), { recursive: true });
+    await fsp.writeFile(path.join(distDir, artifact.textPath), `${text}\n`, 'utf8');
+    await fsp.writeFile(path.join(distDir, artifact.manifestPath), `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
+  }
+  if (artifact.status === 'provider-unavailable') {
+    return { html: `<aside class="media-fallback narration-preview" role="note"><strong>${escapeHtml(config.disclosure)} unavailable.</strong> Narration provider "${escapeHtml(config.provider)}" is not configured for build-time generation.</aside>`, artifact };
+  }
+  if (!artifact.audioPath) {
+    return { html: `<aside class="media-fallback narration-preview" role="note"><strong>${escapeHtml(config.disclosure)}.</strong> Narration text preview generated for review. <a href="${escapeAttribute(artifact.textPath)}">Review narration text</a>.</aside>`, artifact };
+  }
+  const block = [
+    'type: narration',
+    `src: ${artifact.audioPath}`,
+    `title: ${config.title || `Listen to ${title}`}`,
+    `transcript: ${artifact.textPath}`,
+    `caption: ${config.disclosure}`,
+    ...(config.duration ? [`duration: ${config.duration}`] : []),
+    ...(config.download ? [`download: ${config.download === true ? artifact.audioPath : config.download}`] : [])
+  ].join('\n');
+  return { html: renderMediaBlock(block, context.mediaConfig || {}), artifact };
+}
+
 /**
  * Render a rich hero from a declarative frontmatter `hero` object.
  * @param {object} hero
@@ -2472,11 +2613,18 @@ async function ensureMarkdownModule(sourcePath, targetPath, linkContext = null) 
   const raw = await fsp.readFile(sourcePath, 'utf8');
   const { data } = parseFrontmatter(raw);
   const section = markdownToHtml(raw, linkContext);
+  const narration = await buildNarration(raw, {
+    ...(linkContext || {}),
+    route: linkContext?.route || path.basename(sourcePath, path.extname(sourcePath)),
+    distDir: linkContext?.distDir,
+    mediaConfig: linkContext?.mediaConfig || {},
+    narrationConfig: linkContext?.narrationConfig || {}
+  });
   // Declarative hero (object form) is a sibling of the reading column so it can
   // full-bleed; a string `hero` stays the runtime post-image and is ignored here.
   const heroHtml = (data && typeof data.hero === 'object') ? renderHeroMarkup(data.hero) : '';
   const bannerHtml = (data && typeof data.banner === 'object') ? renderBannerMarkup(data.banner) : '';
-  const html = `${heroHtml}${section}${bannerHtml}`;
+  const html = `${heroHtml}${narration.html}${section}${bannerHtml}`;
   const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
@@ -3453,7 +3601,10 @@ async function materializeScannedSections(sections, context) {
             sectionIndex: context.sectionIndex,
             linkWarnings: context.linkWarnings,
             strictLinks: context.strictLinks,
-            mediaConfig: context.mediaConfig
+            mediaConfig: context.mediaConfig,
+            narrationConfig: context.narrationConfig,
+            distDir: context.distDir,
+            route: id
           };
           await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         } else if (ext === '.html' || ext === '.htm') {
@@ -3659,6 +3810,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
 
   const context = {
     contentRoot: contentRoot.basePath,
+    distDir,
     sectionsDir,
     tenantId,
     keepFiles,
@@ -3670,6 +3822,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     linkWarnings,
     strictLinks,
     mediaConfig: config.media || {},
+    narrationConfig: config.narration || {},
     accessibility: createAccessibilityContext({
       tenantId,
       config,
@@ -3807,7 +3960,10 @@ async function materializeSectionModule(entry, context) {
         sectionIndex: context.sectionIndex,
         linkWarnings: context.linkWarnings,
         strictLinks: context.strictLinks,
-        mediaConfig: context.mediaConfig
+        mediaConfig: context.mediaConfig,
+        narrationConfig: context.narrationConfig,
+        distDir: context.distDir,
+        route: id
       } : null;
       await ensureMarkdownModule(sourcePath, targetPath, linkContext);
     } else if (ext === '.html' || ext === '.htm') {
@@ -4035,6 +4191,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
 
   const context = {
     contentDir,
+    distDir,
     sectionsDir,
     tenantId,
     keepFiles,
@@ -4045,6 +4202,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     linkWarnings,
     strictLinks,
     mediaConfig: config.media || {},
+    narrationConfig: config.narration || {},
     accessibility: createAccessibilityContext({
       tenantId,
       config,
@@ -4739,6 +4897,9 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
           linkWarnings,
           strictLinks: options.strictLinks !== false,
           mediaConfig: config.media || {},
+          narrationConfig: config.narration || {},
+          distDir,
+          route: sectionId,
           collections: Array.isArray(config.collections) ? config.collections : []
         };
         await ensureMarkdownModule(sourcePath, targetPath, linkContext);
@@ -5022,4 +5183,11 @@ if (__isMainModule) {
   });
 }
 
-export { markdownToHtml, renderHeroMarkup, renderBannerMarkup };
+export {
+  markdownToHtml,
+  renderHeroMarkup,
+  renderBannerMarkup,
+  extractNarrationTextFromMarkdown,
+  buildNarration,
+  ensureMarkdownModule
+};

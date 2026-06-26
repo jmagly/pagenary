@@ -134,6 +134,15 @@ Audio and video need an accessible alternative:
 For generated narration, keep the article text available. Narration should be an
 optional enhancement, not the only way to consume the content.
 
+When narration is enabled, review the generated `narration/*.txt` artifact before
+publishing audio. It is the exact normalized source text used for narration
+review/generation, excluding frontmatter and ordinary code blocks while keeping
+headings, prose, lists, tables, and meaningful image alt text. Disclose
+machine-generated audio, keep autoplay off, and make the source text/transcript
+relationship visible. The public builder does not call hosted TTS providers;
+private hosting workflows must handle provider consent, credentials, cost
+limits, timeouts, and stale-artifact reuse before sending content externally.
+
 ## Embeds And Third-Party Content
 
 Embeds are a shared responsibility. Pagenary can require labels and report that
