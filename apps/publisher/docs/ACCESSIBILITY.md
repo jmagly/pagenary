@@ -233,6 +233,9 @@ Priority 1:
 - Add a generated accessibility report artifact with severity grouping and
   split-responsibility categories.
 
+The first theme/focus regression gate lives in `scripts/check-accessibility.js`
+and runs through `npm run check`.
+
 Priority 2:
 
 - Add strict accessibility mode that turns high-confidence findings into build

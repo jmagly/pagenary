@@ -199,7 +199,8 @@ script behavior, or extra stylesheets are emitted.
 
 When choosing custom brand colors, keep text, focus rings, and status labels
 readable against the selected surfaces. See [Accessible Authoring](ACCESSIBLE-AUTHORING.md)
-for practical guidance.
+for practical guidance. `npm run check` includes a lightweight accessibility
+check that warns on risky tenant color combinations.
 
 For the current token contract and intentional non-token exceptions, see
 [Theme Token Audit](THEME-TOKEN-AUDIT.md).
