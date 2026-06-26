@@ -44,6 +44,12 @@
           "file": "BLOG-LAYOUT.md"
         },
         {
+          "id": "accessibility",
+          "title": "Accessibility Planning",
+          "summary": "WCAG target, responsibility model, checks, reports, and testing strategy.",
+          "file": "ACCESSIBILITY.md"
+        },
+        {
           "id": "page-effects",
           "title": "Page Effects",
           "summary": "Rich heroes, reveal-on-scroll, parallax, sticky, and CTA bands — opt-in and accessible.",
