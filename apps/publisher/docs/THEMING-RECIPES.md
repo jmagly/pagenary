@@ -17,7 +17,7 @@ npm run serve:dev           # then open http://localhost:5173/<recipe-id>/
 The screenshots below were captured from those builds. For the full list of
 config keys, see [`TENANT-CONFIG.md`](TENANT-CONFIG.md).
 
-### Live demos
+## Live demos
 
 Every recipe is deployed alongside this site, so you can click through the real
 thing — not just a screenshot:

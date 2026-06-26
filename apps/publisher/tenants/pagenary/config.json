@@ -3,6 +3,7 @@
   "brandMark": "Pagenary",
   "brandSub": "Docs",
   "domain": "docs.pagenary.com",
+  "language": "en-US",
   "tagline": "Where documentation takes shape.",
   "description": "Turn a git repo of Markdown into a fast, searchable, SEO-ready docs site you host yourself for next to nothing — with the features you'd expect from a paid docs platform. Pagenary's own developer docs, built and published with Pagenary.",
   "accentColor": "#111111",

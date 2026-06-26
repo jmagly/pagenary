@@ -225,21 +225,24 @@ Regression expectations:
 
 Priority 1:
 
-- Add a content accessibility linter for headings, images, links, tables,
-  iframe titles, duplicate IDs, and risky raw HTML.
+- Content accessibility linter: implemented for heading order, missing image
+  alt text, empty or ambiguous links, table headers, iframe titles, duplicate
+  IDs, language metadata, and risky raw HTML. Findings include file, route,
+  rule, severity, and remediation text.
 - Add a browser-based accessibility smoke test for the generated docs tenant and
   example tenants.
 - Add theme-token contrast validation for defaults and tenant overrides.
 - Add a generated accessibility report artifact with severity grouping and
   split-responsibility categories.
 
-The first theme/focus regression gate lives in `scripts/check-accessibility.js`
-and runs through `npm run check`.
+The theme/focus regression gate lives in `scripts/check-accessibility.js`; the
+content-linter self-test lives in `scripts/check-accessibility-linter.js`. Both
+run through `npm run check`.
 
 Priority 2:
 
-- Add strict accessibility mode that turns high-confidence findings into build
-  failures.
+- Strict accessibility mode: implemented via `accessibility.strict: true`, which
+  turns high-confidence authored-content findings into build failures.
 - Add dashboard/report UX for hosted sites.
 - Add reduced-motion and keyboard regression tests for page effects, docs map,
   command palette, search, post navigation, and export controls.

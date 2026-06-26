@@ -23,6 +23,19 @@ Located at `apps/publisher/tenants.json`, this file registers all tenants:
 | `domain` | No | Custom domain for Caddy routing |
 | `enabled` | No | Whether to build this tenant (default `true`) |
 | `strictLinks` | No | Broken-link gate (default `true`). When `true`, **broken internal links fail the build** — the tenant is reported `Failed` and the process exits non-zero, so CI can gate on it. Set `false` to log broken links as warnings and continue. |
+| `language` / `lang` / `locale` / `htmlLang` | No | Default language metadata for generated pages, such as `en` or `en-US`. Missing language metadata emits an accessibility warning. |
+| `accessibility.strict` | No | Content accessibility gate. Default `false` reports findings during builds without failing. When `true`, high-confidence authored-content errors fail the tenant build. |
+
+Example strict accessibility config:
+
+```json
+{
+  "language": "en-US",
+  "accessibility": {
+    "strict": true
+  }
+}
+```
 
 ### Managed Hosting Fields
 

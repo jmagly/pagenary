@@ -9,6 +9,12 @@ import os from 'os';
 import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
+import {
+  formatAccessibilityFinding,
+  isStrictAccessibilityEnabled,
+  lintContentAccessibility,
+  summarizeAccessibilityFindings
+} from './lib/accessibility-linter.js';
 import { generateSearchIndex } from './lib/search-index-generator.js';
 import { buildFortemiIndexExport, stripHtml } from '../src/lib/fortemi-corpus.js';
 import { aiwgFortemiIndexToCommunityGraph } from '../src/vendor/fortemi-aiwg-index.js';
@@ -39,6 +45,10 @@ const DEFAULT_GIT_DEPTH = 1;
 const DEFAULT_GIT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_GIT_RETRIES = 3;
 const DEFAULT_CACHE_DIR = path.join(root, '.cache', 'git');
+
+function normalizePathForModule(value) {
+  return String(value || '').split(path.sep).join('/');
+}
 
 /**
  * Parse CLI arguments
@@ -3178,6 +3188,77 @@ function buildSectionIndex(sections, index = new Map()) {
   return index;
 }
 
+function createAccessibilityContext({ tenantId, config, sourceDir, contentRoot }) {
+  const findings = [];
+  const strict = isStrictAccessibilityEnabled(config);
+  const language = config.language || config.lang || config.locale || config.htmlLang || null;
+
+  if (!language) {
+    findings.push({
+      file: normalizePathForModule(path.relative(root, path.join(sourceDir, 'config.json'))),
+      route: 'site',
+      rule: 'language-metadata',
+      severity: 'warning',
+      message: 'Tenant configuration does not declare a default page language.',
+      remediation: 'Set config.language, config.lang, config.locale, or config.htmlLang to the site language.',
+      line: null,
+      responsibility: 'tenant-theme'
+    });
+  }
+
+  return { tenantId, sourceDir, contentRoot, findings, strict };
+}
+
+async function lintContentSourceForAccessibility(sourcePath, context, route) {
+  if (!context) return;
+  const ext = path.extname(sourcePath).toLowerCase();
+  if (!['.md', '.markdown', '.html', '.htm'].includes(ext)) return;
+
+  const raw = await fsp.readFile(sourcePath, 'utf8');
+  const rel = normalizePathForModule(path.relative(context.sourceDir, sourcePath));
+  if (ext === '.html' || ext === '.htm') {
+    context.findings.push(...lintContentAccessibility(`\`\`\`html\n${raw}\n\`\`\`\n`, {
+      file: rel,
+      route
+    }));
+    return;
+  }
+
+  context.findings.push(...lintContentAccessibility(raw, {
+    file: rel,
+    route
+  }));
+}
+
+function printAccessibilityFindings(findings, tenantId, strict) {
+  if (!findings.length) {
+    console.log(`  ↳ accessibility content check passed for ${tenantId}`);
+    return;
+  }
+
+  const summary = summarizeAccessibilityFindings(findings);
+  const mode = strict ? 'strict' : 'advisory';
+  console.warn(
+    `  ↳ accessibility content findings for ${tenantId} (${mode}): ` +
+    `${summary.error || 0} error(s), ${summary.warning || 0} warning(s)`
+  );
+  for (const finding of findings) {
+    console.warn(`    - ${formatAccessibilityFinding(finding)}`);
+  }
+}
+
+function accessibilityBuildResult(accessibilityContext, tenantId) {
+  if (!accessibilityContext) return { success: true };
+  const findings = accessibilityContext.findings || [];
+  printAccessibilityFindings(findings, tenantId, accessibilityContext.strict);
+  const errors = findings.filter((finding) => finding.severity === 'error');
+  if (accessibilityContext.strict && errors.length > 0) {
+    console.error(`  ↳ [ERROR] ${tenantId}: Build failed due to ${errors.length} accessibility error(s). Set accessibility.strict: false to warn instead.`);
+    return { success: false, accessibilityErrors: errors.length };
+  }
+  return { success: true, accessibilityFindings: findings.length };
+}
+
 /**
  * Process scanned sections into built modules
  * Materializes content files and builds manifest entries
@@ -3215,6 +3296,7 @@ async function materializeScannedSections(sections, context) {
 
       try {
         if (ext === '.md' || ext === '.markdown') {
+          await lintContentSourceForAccessibility(sourcePath, context.accessibility, id);
           // Create link context for this file
           const linkContext = {
             currentPath: file,
@@ -3225,6 +3307,7 @@ async function materializeScannedSections(sections, context) {
           };
           await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         } else if (ext === '.html' || ext === '.htm') {
+          await lintContentSourceForAccessibility(sourcePath, context.accessibility, id);
           await ensureHtmlModule(sourcePath, targetPath);
         } else if (ext === '.js' || ext === '.mjs') {
           await ensureJavascriptModule(sourcePath, targetPath);
@@ -3435,7 +3518,13 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     // Link transformation context (populated after scan)
     sectionIndex: null,
     linkWarnings,
-    strictLinks
+    strictLinks,
+    accessibility: createAccessibilityContext({
+      tenantId,
+      config,
+      sourceDir,
+      contentRoot: contentRoot.basePath
+    })
   };
 
   // Scan content directory tree
@@ -3482,6 +3571,11 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
       console.error(`  ↳ [ERROR] ${tenantId}: Build failed due to ${brokenLinks.length} broken link(s). Use strictLinks: false to warn instead.`);
       return { success: false, brokenLinks: brokenLinks.length };
     }
+  }
+
+  const accessibilityResult = accessibilityBuildResult(context.accessibility, tenantId);
+  if (accessibilityResult.success === false) {
+    return accessibilityResult;
   }
 
   // Determine default section
@@ -3554,6 +3648,7 @@ async function materializeSectionModule(entry, context) {
 
   try {
     if (ext === '.md' || ext === '.markdown') {
+      await lintContentSourceForAccessibility(sourcePath, context.accessibility, id);
       // Create link context for this file
       const linkContext = context.sectionIndex ? {
         currentPath: relPath,
@@ -3564,6 +3659,7 @@ async function materializeSectionModule(entry, context) {
       } : null;
       await ensureMarkdownModule(sourcePath, targetPath, linkContext);
     } else if (ext === '.html' || ext === '.htm') {
+      await lintContentSourceForAccessibility(sourcePath, context.accessibility, id);
       await ensureHtmlModule(sourcePath, targetPath);
     } else if (ext === '.js' || ext === '.mjs') {
       await ensureJavascriptModule(sourcePath, targetPath);
@@ -3795,7 +3891,13 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     // Link transformation context
     sectionIndex,
     linkWarnings,
-    strictLinks
+    strictLinks,
+    accessibility: createAccessibilityContext({
+      tenantId,
+      config,
+      sourceDir,
+      contentRoot: contentDir
+    })
   };
 
   const processedManifest = await processManifestEntries(entries, context);
@@ -3812,6 +3914,11 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
       console.error(`  ↳ [ERROR] ${tenantId}: Build failed due to ${brokenLinks.length} broken link(s). Use strictLinks: false to warn instead.`);
       return { success: false, brokenLinks: brokenLinks.length };
     }
+  }
+
+  const accessibilityResult = accessibilityBuildResult(context.accessibility, tenantId);
+  if (accessibilityResult.success === false) {
+    return accessibilityResult;
   }
 
   const defaultSection = manifestData.default || manifestData.defaultSection || context.leafOrder[0];
@@ -4423,6 +4530,12 @@ async function syncChangesToTarget(srcDir, targetDir, files) {
 async function processIncrementalManifest(sourceDir, distDir, tenantId, changedFiles, options = {}, config = {}) {
   const contentDir = path.join(sourceDir, DEFAULT_CONTENT_DIR);
   const sectionsDir = path.join(distDir, 'sections');
+  const accessibility = createAccessibilityContext({
+    tenantId,
+    config,
+    sourceDir,
+    contentRoot: contentDir
+  });
 
   // Ensure sections directory exists
   await fsp.mkdir(sectionsDir, { recursive: true });
@@ -4464,6 +4577,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
 
     try {
       if (ext === '.md' || ext === '.markdown') {
+        await lintContentSourceForAccessibility(sourcePath, accessibility, sectionId);
         // Create link context for this file
         const linkContext = {
           currentPath: relPath,
@@ -4476,6 +4590,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
         await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         console.log(`  ↳ updated: ${sectionId} (markdown)`);
       } else if (ext === '.html' || ext === '.htm') {
+        await lintContentSourceForAccessibility(sourcePath, accessibility, sectionId);
         await ensureHtmlModule(sourcePath, targetPath);
         console.log(`  ↳ updated: ${sectionId} (html)`);
       } else if (ext === '.js' || ext === '.mjs') {
@@ -4490,6 +4605,11 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
   // Print link warnings
   if (linkWarnings.length > 0) {
     printLinkWarnings(linkWarnings, tenantId, options.strictLinks !== false);
+  }
+
+  const accessibilityResult = accessibilityBuildResult(accessibility, tenantId);
+  if (accessibilityResult.success === false) {
+    throw new Error(`${tenantId}: incremental build failed due to accessibility errors`);
   }
 
   // Handle deleted content files

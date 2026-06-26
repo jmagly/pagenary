@@ -188,21 +188,25 @@ effects, or video backgrounds, make sure the content remains readable when
 ## Warnings, Strict Mode, And Manual Review
 
 Pagenary accessibility checks should be read as guidance, not a complete audit.
+Tenant builds now run an authored-content accessibility linter. By default it
+reports findings in advisory mode; set `accessibility.strict: true` in tenant
+config to fail builds on high-confidence errors.
 
 Advisory warnings are for issues that are likely problems but may need context:
 
-- Alt text is present but very short.
-- Link text is repeated.
-- A table is large or complex.
-- An embed has a title but still needs caption/transcript review.
+- Ambiguous link text such as `learn more`.
+- Duplicate raw HTML IDs.
+- Risky raw HTML patterns such as inline event handlers or positive `tabindex`.
+- Missing tenant language metadata.
 
 Strict-mode failures are for high-confidence issues:
 
 - Missing alt text on a meaningful image.
-- Empty links or buttons.
-- Broken heading structure in generated templates.
+- Empty links.
+- Broken heading order.
+- Data tables without headers.
 - Unlabelled iframes.
-- Generated controls without names, roles, or keyboard access.
+- Duplicate raw HTML IDs.
 
 Manual review is still required for:
 
