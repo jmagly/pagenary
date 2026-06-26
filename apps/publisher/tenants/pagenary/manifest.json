@@ -47,7 +47,15 @@
           "id": "page-effects",
           "title": "Page Effects",
           "summary": "Rich heroes, reveal-on-scroll, parallax, sticky, and CTA bands — opt-in and accessible.",
-          "file": "PAGE-EFFECTS.md"
+          "file": "PAGE-EFFECTS.md",
+          "sections": [
+            {
+              "id": "page-effects-spike",
+              "title": "Page Effects Spike",
+              "summary": "R&D findings and ranked follow-up order for candidate page effects.",
+              "file": "PAGE-EFFECTS-SPIKE.md"
+            }
+          ]
         },
         {
           "id": "tenant-config",
