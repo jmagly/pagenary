@@ -25,6 +25,8 @@ Located at `apps/publisher/tenants.json`, this file registers all tenants:
 | `strictLinks` | No | Broken-link gate (default `true`). When `true`, **broken internal links fail the build** — the tenant is reported `Failed` and the process exits non-zero, so CI can gate on it. Set `false` to log broken links as warnings and continue. |
 | `language` / `lang` / `locale` / `htmlLang` | No | Default language metadata for generated pages, such as `en` or `en-US`. Missing language metadata emits an accessibility warning. |
 | `accessibility.strict` | No | Content accessibility gate. Default `false` reports findings during builds without failing. When `true`, high-confidence authored-content errors fail the tenant build. |
+| `accessibility.report.enabled` | No | Emit `accessibility-report.json` and `accessibility-report.md` into the tenant output. Hosting dashboards can read the JSON artifact directly. |
+| `accessibility.report.manualReview` | No | Include manual-review checklist items in accessibility reports (default `true`). |
 
 Example strict accessibility config:
 
@@ -32,7 +34,10 @@ Example strict accessibility config:
 {
   "language": "en-US",
   "accessibility": {
-    "strict": true
+    "strict": true,
+    "report": {
+      "enabled": true
+    }
   }
 }
 ```

@@ -15,6 +15,7 @@ import {
   lintContentAccessibility,
   summarizeAccessibilityFindings
 } from './lib/accessibility-linter.js';
+import { writeAccessibilityReportArtifacts } from './lib/accessibility-report.js';
 import { generateSearchIndex } from './lib/search-index-generator.js';
 import { buildFortemiIndexExport, stripHtml } from '../src/lib/fortemi-corpus.js';
 import { aiwgFortemiIndexToCommunityGraph } from '../src/vendor/fortemi-aiwg-index.js';
@@ -3247,10 +3248,14 @@ function printAccessibilityFindings(findings, tenantId, strict) {
   }
 }
 
-function accessibilityBuildResult(accessibilityContext, tenantId) {
+async function accessibilityBuildResult(accessibilityContext, tenantId, distDir, config = {}) {
   if (!accessibilityContext) return { success: true };
   const findings = accessibilityContext.findings || [];
   printAccessibilityFindings(findings, tenantId, accessibilityContext.strict);
+  const report = await writeAccessibilityReportArtifacts({ distDir, tenantId, config, findings });
+  if (report) {
+    console.log(`  ↳ wrote accessibility report for ${tenantId} (${report.summary.error} error(s), ${report.summary.warning} warning(s), ${report.summary.manualReview} manual-review item(s))`);
+  }
   const errors = findings.filter((finding) => finding.severity === 'error');
   if (accessibilityContext.strict && errors.length > 0) {
     console.error(`  ↳ [ERROR] ${tenantId}: Build failed due to ${errors.length} accessibility error(s). Set accessibility.strict: false to warn instead.`);
@@ -3573,7 +3578,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     }
   }
 
-  const accessibilityResult = accessibilityBuildResult(context.accessibility, tenantId);
+  const accessibilityResult = await accessibilityBuildResult(context.accessibility, tenantId, distDir, config);
   if (accessibilityResult.success === false) {
     return accessibilityResult;
   }
@@ -3916,7 +3921,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     }
   }
 
-  const accessibilityResult = accessibilityBuildResult(context.accessibility, tenantId);
+  const accessibilityResult = await accessibilityBuildResult(context.accessibility, tenantId, distDir, config);
   if (accessibilityResult.success === false) {
     return accessibilityResult;
   }
@@ -4607,7 +4612,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
     printLinkWarnings(linkWarnings, tenantId, options.strictLinks !== false);
   }
 
-  const accessibilityResult = accessibilityBuildResult(accessibility, tenantId);
+  const accessibilityResult = await accessibilityBuildResult(accessibility, tenantId, distDir, config);
   if (accessibilityResult.success === false) {
     throw new Error(`${tenantId}: incremental build failed due to accessibility errors`);
   }

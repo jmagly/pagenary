@@ -192,6 +192,11 @@ Tenant builds now run an authored-content accessibility linter. By default it
 reports findings in advisory mode; set `accessibility.strict: true` in tenant
 config to fail builds on high-confidence errors.
 
+If `accessibility.report.enabled` is true, builds also write
+`accessibility-report.json` and `accessibility-report.md` into the generated
+tenant output. The JSON file is intended for CI and hosting dashboards; the
+Markdown file is intended for human review.
+
 Advisory warnings are for issues that are likely problems but may need context:
 
 - Ambiguous link text such as `learn more`.

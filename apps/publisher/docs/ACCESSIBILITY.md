@@ -221,6 +221,39 @@ Regression expectations:
 - Strict-mode build failures must include file/route, rule, severity, and
   remediation text.
 
+## Accessibility Reports
+
+Tenants can opt into generated report artifacts:
+
+```json
+{
+  "accessibility": {
+    "report": {
+      "enabled": true
+    }
+  }
+}
+```
+
+When enabled, tenant builds emit:
+
+- `accessibility-report.json` for dashboards, CI summaries, and hosting status.
+- `accessibility-report.md` for human review in build artifacts.
+
+The JSON report includes:
+
+- `status`: `passed`, `warning`, or `error`.
+- `summary.passed`, `summary.warning`, `summary.error`, and
+  `summary.manualReview`.
+- `byResponsibility`: grouped findings for `pagenary-generated`,
+  `tenant-theme`, `authored-content`, and `manual-review-required`.
+- `findings`: normalized route/file/rule/severity/remediation records.
+
+Manual-review items are included by default because automated checks cannot
+prove alt text quality, caption accuracy, third-party embed behavior, or custom
+HTML keyboard behavior. Set `accessibility.report.manualReview: false` only when
+a separate review workflow records that state.
+
 ## Remediation Backlog
 
 Priority 1:
@@ -232,12 +265,13 @@ Priority 1:
 - Add a browser-based accessibility smoke test for the generated docs tenant and
   example tenants.
 - Add theme-token contrast validation for defaults and tenant overrides.
-- Add a generated accessibility report artifact with severity grouping and
-  split-responsibility categories.
+- Generated accessibility report artifact: implemented as JSON and Markdown
+  output with severity and split-responsibility grouping.
 
 The theme/focus regression gate lives in `scripts/check-accessibility.js`; the
-content-linter self-test lives in `scripts/check-accessibility-linter.js`. Both
-run through `npm run check`.
+content-linter self-test lives in `scripts/check-accessibility-linter.js`; the
+report artifact self-test lives in `scripts/check-accessibility-report.js`. All
+three run through `npm run check`.
 
 Priority 2:
 

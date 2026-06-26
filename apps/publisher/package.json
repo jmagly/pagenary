@@ -48,7 +48,7 @@
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "sync:docs": "node scripts/generate-sections.js",
     "lint:content": "node scripts/lint-content.js",
-    "check:accessibility": "node scripts/check-accessibility.js && node scripts/check-accessibility-linter.js",
+    "check:accessibility": "node scripts/check-accessibility.js && node scripts/check-accessibility-linter.js && node scripts/check-accessibility-report.js",
     "check:seo": "node scripts/seo-smoke.js",
     "check": "npm run lint:content && npm run check:accessibility && npm run build && npm run check:seo",
     "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js",
