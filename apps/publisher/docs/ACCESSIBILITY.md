@@ -254,6 +254,19 @@ prove alt text quality, caption accuracy, third-party embed behavior, or custom
 HTML keyboard behavior. Set `accessibility.report.manualReview: false` only when
 a separate review workflow records that state.
 
+## Media Accessibility
+
+Fenced `media` blocks render native audio/video or allowlisted hosted embeds
+without requiring authors to hand-write iframe markup. Native audio/video uses
+browser controls, accessible labels, optional captions, and transcript links.
+Hosted embeds use click-to-load buttons by default, then swap into sandboxed,
+lazy iframes with titles after activation.
+
+Pagenary can verify that rendered players have labels, controls, iframe titles,
+and provider allowlists. Site owners still need to review caption accuracy,
+transcript completeness, audio-description needs, and the accessibility behavior
+of third-party providers.
+
 ## Remediation Backlog
 
 Priority 1:

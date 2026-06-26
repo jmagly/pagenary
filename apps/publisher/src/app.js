@@ -4,6 +4,7 @@ import { escapeRegExp, searchContentPage, flattenManifest, findPreferredIndex, r
 import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
 import { composeExportDocument, collectExportableSections } from './lib/export.js';
 import { renderMermaidBlocks } from './mermaid-init.js';
+import { initMediaEmbeds } from './media-init.js';
 import { highlightCodeBlocks } from './syntax-highlight.js';
 import { initPageEffects } from './lib/page-effects.js';
 
@@ -385,6 +386,9 @@ async function loadSection(entry) {
 
   // Render any mermaid diagrams in the content
   await renderMermaidBlocks(app);
+
+  // Wire click-to-load media embeds after the section is in the DOM.
+  initMediaEmbeds(app);
 
   // Apply syntax highlighting to code blocks
   await highlightCodeBlocks(app);

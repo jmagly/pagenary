@@ -27,6 +27,9 @@ Located at `apps/publisher/tenants.json`, this file registers all tenants:
 | `accessibility.strict` | No | Content accessibility gate. Default `false` reports findings during builds without failing. When `true`, high-confidence authored-content errors fail the tenant build. |
 | `accessibility.report.enabled` | No | Emit `accessibility-report.json` and `accessibility-report.md` into the tenant output. Hosting dashboards can read the JSON artifact directly. |
 | `accessibility.report.manualReview` | No | Include manual-review checklist items in accessibility reports (default `true`). |
+| `media.enabled` | No | Enable fenced `media` block rendering (default `true`). Set `false` to render non-breaking fallback notes. |
+| `media.providers` / `media.allowedProviders` | No | Allowed hosted embed providers. Defaults to `youtube`, `vimeo`, and `peertube`. |
+| `media.load` | No | Hosted embed loading mode: `click` by default, or `immediate` for tenants that intentionally load provider iframes right away. |
 
 Example strict accessibility config:
 
@@ -41,6 +44,50 @@ Example strict accessibility config:
   }
 }
 ```
+
+### Media Blocks
+
+Authors can render native audio/video and allowlisted hosted embeds with fenced
+`media` blocks:
+
+````markdown
+```media
+type: video
+src: assets/demo.mp4
+title: Product walkthrough
+poster: assets/demo-poster.jpg
+captions: assets/demo.vtt
+transcript: transcripts/demo.md
+caption: Watch the product walkthrough.
+```
+````
+
+````markdown
+```media
+type: audio
+src: audio/episode.mp3
+title: Episode audio
+transcript: transcripts/episode.md
+```
+````
+
+````markdown
+```media
+type: embed
+provider: youtube
+id: abc123
+title: Hosted walkthrough
+```
+````
+
+Native media renders semantic `<audio>` or `<video>` with controls, accessible
+labels, optional posters/captions/transcript links, and no autoplay. Hosted
+providers render as click-to-load buttons by default and swap to sandboxed,
+lazy iframes only after activation.
+
+Tenant `media` config applies to every document. A document can override those
+settings with frontmatter `media` fields, for example `media: { load:
+"immediate" }` for a single trusted page.
 
 ### Managed Hosting Fields
 

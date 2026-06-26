@@ -2203,6 +2203,72 @@ pre:has(code.language-mermaid)::after {
 }
 
 /* ─────────────────────────────────────────────────────────
+   Media Block Styles
+   Usage: ```media - renders audio, video, or click-to-load embeds
+   ───────────────────────────────────────────────────────── */
+
+.media-block {
+  margin: 1.5rem 0;
+}
+
+.media-block audio,
+.media-block video,
+.media-embed-frame iframe {
+  display: block;
+  width: 100%;
+}
+
+.media-block video,
+.media-embed-frame {
+  aspect-ratio: var(--media-aspect, 16 / 9);
+  background: color-mix(in srgb, var(--grid-line) 35%, transparent);
+}
+
+.media-embed-frame {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--grid-line);
+}
+
+.media-embed-frame iframe {
+  height: 100%;
+  border: 0;
+}
+
+.media-embed-load {
+  appearance: none;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+  padding: 0.75rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.media-embed-load:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.media-embed-privacy,
+.media-block figcaption {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.media-transcript {
+  font-weight: 600;
+}
+
+.media-fallback {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--grid-line);
+  background: color-mix(in srgb, var(--grid-line) 18%, transparent);
+}
+
+/* ─────────────────────────────────────────────────────────
    HTML Block Styles
    Usage: ```html - renders raw HTML
    ───────────────────────────────────────────────────────── */

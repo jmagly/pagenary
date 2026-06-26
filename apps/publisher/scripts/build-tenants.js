@@ -1924,6 +1924,7 @@ function markdownToHtml(markdown, linkContext = null) {
   // already uses into the page render path so every caller benefits.
   const parsed = parseFrontmatter(markdown);
   markdown = parsed.body;
+  const mediaConfig = mergeMediaConfig(linkContext?.mediaConfig || {}, parsed.data?.media || {});
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   const chunks = [];
   let inList = false;
@@ -2060,7 +2061,9 @@ function markdownToHtml(markdown, linkContext = null) {
         const escapedCode = escapeHtml(codeBlockContent.join('\n'));
 
         // Check for special block types
-        if (codeBlockLang.startsWith('box')) {
+        if (codeBlockLang.startsWith('media')) {
+          chunks.push(renderMediaBlock(codeBlockContent.join('\n'), mediaConfig));
+        } else if (codeBlockLang.startsWith('box')) {
           // Box/panel block: ```box or ```box:Title
           const titleMatch = codeBlockLang.match(/^box(?::(.+))?$/);
           const title = titleMatch && titleMatch[1] ? titleMatch[1].trim() : '';
@@ -2251,6 +2254,147 @@ function renderCtaList(cta, wrapperClass) {
         `${escapeHtml(c.label || c.text)}</a>`;
     });
   return buttons.length ? `<div class="${wrapperClass}">${buttons.join('')}</div>` : '';
+}
+
+function truthyMediaValue(value) {
+  return value === true || value === 'true' || value === '1' || value === 'yes';
+}
+
+function parseMediaBlock(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return null;
+  if (text.startsWith('{')) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { type: 'error', error: 'Invalid JSON media block.' };
+    }
+  }
+  const data = {};
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const idx = trimmed.indexOf(':');
+    if (idx === -1) continue;
+    const key = trimmed.slice(0, idx).trim();
+    let value = trimmed.slice(idx + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (value === 'true') value = true;
+    else if (value === 'false') value = false;
+    data[key] = value;
+  }
+  return data;
+}
+
+function mediaProviders(config = {}) {
+  const media = config && typeof config === 'object' ? config : {};
+  const configured = Array.isArray(media.providers)
+    ? media.providers
+    : Array.isArray(media.allowedProviders) ? media.allowedProviders : null;
+  return new Set((configured || ['youtube', 'vimeo', 'peertube']).map((p) => String(p).toLowerCase()));
+}
+
+function mergeMediaConfig(base = {}, override = {}) {
+  const next = { ...(base && typeof base === 'object' ? base : {}) };
+  if (override && typeof override === 'object' && !Array.isArray(override)) {
+    for (const [key, value] of Object.entries(override)) next[key] = value;
+  }
+  return next;
+}
+
+function mediaFallback(message, detail = '') {
+  return `<aside class="media-fallback" role="note"><strong>Media unavailable.</strong> ${escapeHtml(message)}${detail ? ` <span>${escapeHtml(detail)}</span>` : ''}</aside>`;
+}
+
+function renderMediaCaption(def) {
+  const caption = def.caption || def.description || '';
+  const transcript = def.transcript
+    ? `<a class="media-transcript" href="${escapeAttribute(def.transcript)}">Transcript</a>`
+    : '';
+  if (!caption && !transcript) return '';
+  return `<figcaption>${caption ? escapeHtml(caption) : ''}${caption && transcript ? ' ' : ''}${transcript}</figcaption>`;
+}
+
+function renderNativeMedia(def, kind) {
+  const src = def.src || def.url;
+  if (!src) return mediaFallback(`${kind} media is missing a src.`);
+  const title = def.title || def.label || `${kind === 'audio' ? 'Audio' : 'Video'} player`;
+  const preload = ['none', 'metadata', 'auto'].includes(def.preload) ? def.preload : 'metadata';
+  const poster = kind === 'video' && def.poster ? ` poster="${escapeAttribute(def.poster)}"` : '';
+  const tracks = [];
+  if (kind === 'video' && def.captions) {
+    tracks.push(`<track kind="captions" src="${escapeAttribute(def.captions)}" label="${escapeAttribute(def.captionsLabel || 'Captions')}"${def.captionsLang ? ` srclang="${escapeAttribute(def.captionsLang)}"` : ''}>`);
+  }
+  const media = kind === 'audio'
+    ? `<audio controls preload="${escapeAttribute(preload)}" aria-label="${escapeAttribute(title)}"><source src="${escapeAttribute(src)}">${escapeHtml(title)}</audio>`
+    : `<video controls preload="${escapeAttribute(preload)}"${poster} aria-label="${escapeAttribute(title)}"><source src="${escapeAttribute(src)}">${tracks.join('')}${escapeHtml(title)}</video>`;
+  return `<figure class="media-block media-block--${kind}">${media}${renderMediaCaption(def)}</figure>`;
+}
+
+function providerEmbed(def) {
+  const provider = String(def.provider || '').toLowerCase();
+  const id = def.id || '';
+  const url = def.url || '';
+  if (provider === 'youtube' && id) {
+    return {
+      provider,
+      src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}`,
+      href: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`
+    };
+  }
+  if (provider === 'vimeo' && id) {
+    return {
+      provider,
+      src: `https://player.vimeo.com/video/${encodeURIComponent(id)}`,
+      href: `https://vimeo.com/${encodeURIComponent(id)}`
+    };
+  }
+  if (provider === 'peertube' && url) {
+    return { provider, src: url, href: url };
+  }
+  return null;
+}
+
+function renderHostedMedia(def, config = {}) {
+  const provider = String(def.provider || '').toLowerCase();
+  const allowed = mediaProviders(config);
+  if (!provider || !allowed.has(provider)) {
+    return mediaFallback('Hosted media provider is not allowed.', provider || 'missing provider');
+  }
+  const embed = providerEmbed(def);
+  if (!embed) return mediaFallback('Hosted media block is missing provider-specific embed data.', provider);
+  const title = def.title || def.label || `${provider} media`;
+  const aspect = def.aspectRatio || def.aspect || '16 / 9';
+  const sandbox = def.sandbox || 'allow-scripts allow-same-origin allow-presentation';
+  const referrer = def.referrerPolicy || 'strict-origin-when-cross-origin';
+  const immediate = config.load === 'immediate' || def.load === 'immediate';
+  const iframe = `<iframe title="${escapeAttribute(title)}" src="${escapeAttribute(embed.src)}" loading="lazy" allowfullscreen sandbox="${escapeAttribute(sandbox)}" referrerpolicy="${escapeAttribute(referrer)}"></iframe>`;
+  const body = immediate
+    ? iframe
+    : `<button type="button" class="media-embed-load" data-media-src="${escapeAttribute(embed.src)}" data-media-title="${escapeAttribute(title)}" data-media-sandbox="${escapeAttribute(sandbox)}" data-media-referrer="${escapeAttribute(referrer)}">Load ${escapeHtml(title)}</button><p class="media-embed-privacy">This ${escapeHtml(provider)} embed loads only after activation.</p>`;
+  return `<figure class="media-block media-block--embed" style="--media-aspect:${escapeAttribute(aspect)}"><div class="media-embed-frame">${body}</div>${renderMediaCaption({ ...def, transcript: def.transcript || embed.href })}</figure>`;
+}
+
+function renderMediaBlock(raw, config = {}) {
+  const def = parseMediaBlock(raw);
+  if (!def) return mediaFallback('Media block is empty.');
+  if (def.error) return mediaFallback(def.error);
+  if (config.enabled === false || config.enabled === 'false' || def.enabled === false) {
+    return mediaFallback('Media rendering is disabled for this tenant or document.');
+  }
+  const type = String(def.type || def.kind || '').toLowerCase();
+  if (type === 'audio' || type === 'podcast') return renderNativeMedia(def, 'audio');
+  if (type === 'video') return renderNativeMedia(def, 'video');
+  if (type === 'embed' || type === 'youtube' || type === 'vimeo' || type === 'peertube') {
+    return renderHostedMedia({ ...def, provider: def.provider || type }, config);
+  }
+  if (truthyMediaValue(def.embed)) return renderHostedMedia(def, config);
+  return mediaFallback('Media type is unsupported.', type || 'missing type');
 }
 
 /**
@@ -3308,7 +3452,8 @@ async function materializeScannedSections(sections, context) {
             contentRoot: context.contentRoot,
             sectionIndex: context.sectionIndex,
             linkWarnings: context.linkWarnings,
-            strictLinks: context.strictLinks
+            strictLinks: context.strictLinks,
+            mediaConfig: context.mediaConfig
           };
           await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         } else if (ext === '.html' || ext === '.htm') {
@@ -3524,6 +3669,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     sectionIndex: null,
     linkWarnings,
     strictLinks,
+    mediaConfig: config.media || {},
     accessibility: createAccessibilityContext({
       tenantId,
       config,
@@ -3660,7 +3806,8 @@ async function materializeSectionModule(entry, context) {
         contentRoot: context.contentDir,
         sectionIndex: context.sectionIndex,
         linkWarnings: context.linkWarnings,
-        strictLinks: context.strictLinks
+        strictLinks: context.strictLinks,
+        mediaConfig: context.mediaConfig
       } : null;
       await ensureMarkdownModule(sourcePath, targetPath, linkContext);
     } else if (ext === '.html' || ext === '.htm') {
@@ -3897,6 +4044,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     sectionIndex,
     linkWarnings,
     strictLinks,
+    mediaConfig: config.media || {},
     accessibility: createAccessibilityContext({
       tenantId,
       config,
@@ -4590,6 +4738,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
           sectionIndex,
           linkWarnings,
           strictLinks: options.strictLinks !== false,
+          mediaConfig: config.media || {},
           collections: Array.isArray(config.collections) ? config.collections : []
         };
         await ensureMarkdownModule(sourcePath, targetPath, linkContext);
