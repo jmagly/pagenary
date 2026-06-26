@@ -20,6 +20,7 @@ The dev command builds to `dist/` and serves the bundle with live reload. Open t
 - `src/sections/section-templates.js` – template catalogue for every page type
 - `src/manifest.js` – default navigation structure (overridden per tenant via `tenants/<id>/manifest.json`)
 - `scripts/` – small Node utilities for building, serving, syncing sections, linting content, and checking SEO metadata
+- `docs/ACCESSIBLE-AUTHORING.md` – author-facing guidance for alt text, headings, links, tables, diagrams, media, embeds, and custom HTML.
 
 ## Key Features
 

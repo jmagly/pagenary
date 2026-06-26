@@ -197,6 +197,10 @@ and swaps the active `<link>` at runtime, so switching is instant and
 pixel-correct (including code blocks and tables). When disabled, no control,
 script behavior, or extra stylesheets are emitted.
 
+When choosing custom brand colors, keep text, focus rings, and status labels
+readable against the selected surfaces. See [Accessible Authoring](ACCESSIBLE-AUTHORING.md)
+for practical guidance.
+
 For the current token contract and intentional non-token exceptions, see
 [Theme Token Audit](THEME-TOKEN-AUDIT.md).
 

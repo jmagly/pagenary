@@ -250,6 +250,8 @@ Priority 3:
 - Add accessibility metadata to generated reports and exports.
 - Add optional manual-review checklist export for site owners.
 
+Author-facing guidance now lives in [Accessible Authoring](ACCESSIBLE-AUTHORING.md).
+
 ## Follow-Up Issue Split
 
 Use these issue-ready slices:
@@ -284,3 +286,6 @@ Recommended public language:
 
 Avoid stronger blanket claims unless the site owner has completed a full
 content audit.
+
+See [Accessible Authoring](ACCESSIBLE-AUTHORING.md) for practical author-facing
+guidance.

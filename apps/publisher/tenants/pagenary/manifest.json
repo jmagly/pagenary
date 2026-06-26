@@ -47,7 +47,15 @@
           "id": "accessibility",
           "title": "Accessibility Planning",
           "summary": "WCAG target, responsibility model, checks, reports, and testing strategy.",
-          "file": "ACCESSIBILITY.md"
+          "file": "ACCESSIBILITY.md",
+          "sections": [
+            {
+              "id": "accessible-authoring",
+              "title": "Accessible Authoring",
+              "summary": "Practical guidance for alt text, headings, links, tables, media, embeds, and custom HTML.",
+              "file": "ACCESSIBLE-AUTHORING.md"
+            }
+          ]
         },
         {
           "id": "page-effects",
