@@ -116,6 +116,9 @@ Motion and interaction:
 - Content is never hidden solely until JavaScript runs.
 - Page effects, progress indicators, and sticky/parallax behavior degrade to
   static readable content.
+- Reading-progress bars are presentational (`aria-hidden`) and can be enabled
+  through tenant `reader.progress` or page frontmatter `progress`; checklist
+  completion metadata stays separate from reader scroll position.
 - Pointer-only effects are non-essential and do not block keyboard users.
 
 Metadata and exports:

@@ -127,6 +127,12 @@ reader sees the **full article immediately** — nothing is gated on motion. Blo
 already on screen reveal at once as a gentle entrance; the rest arrive on scroll.
 Only post content is affected; the index and its cards keep their own reveal.
 
+Reading length uses the shared weighted metadata model: cards prefer
+`reading_label`, while `reading_length` keeps word/code/table/image/checklist
+counts for dashboards or future table-of-contents states. For a progress bar
+without reveal animation, use tenant `reader.progress.enabled` or document
+frontmatter `progress.enabled`.
+
 ## Theming a blog
 
 A blog themes exactly like the docs layout — the same `theme` presets

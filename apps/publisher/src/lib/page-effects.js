@@ -95,10 +95,11 @@ function revealOnScroll(root, ctx) {
 
 /**
  * Reading-progress bar (opt-in via `body[data-reading-progress]`). Tracks the
- * scroll container; presentational only (`aria-hidden`).
+ * scroll container; presentational only (`aria-hidden`). The hook may be added
+ * by route metadata after startup, so the primitive stays mounted but hidden
+ * until enabled.
  */
 function readingProgress() {
-  if (!document.body.hasAttribute('data-reading-progress')) return;
   const scroller = document.querySelector('.canvas')
     || document.scrollingElement || document.documentElement;
   let bar = document.querySelector('.reading-progress');
@@ -111,14 +112,25 @@ function readingProgress() {
   }
   const fill = bar.querySelector('.reading-progress-fill');
   const update = () => {
+    const enabled = document.body.hasAttribute('data-reading-progress');
+    bar.hidden = !enabled;
+    if (!enabled) {
+      fill.style.width = '0';
+      return;
+    }
     const max = scroller.scrollHeight - scroller.clientHeight;
     const pct = max > 0 ? Math.min(100, Math.max(0, (scroller.scrollTop / max) * 100)) : 0;
     fill.style.width = `${pct}%`;
   };
+  const observer = typeof MutationObserver === 'function'
+    ? new MutationObserver(update)
+    : null;
+  if (observer) observer.observe(document.body, { attributes: true, attributeFilter: ['data-reading-progress'] });
   update();
   scroller.addEventListener('scroll', update, { passive: true });
   window.addEventListener('resize', update, { passive: true });
   return () => {
+    if (observer) observer.disconnect();
     scroller.removeEventListener('scroll', update);
     window.removeEventListener('resize', update);
   };

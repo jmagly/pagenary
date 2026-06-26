@@ -40,11 +40,11 @@ function routeHref(entry) {
 function renderCard(entry) {
   const href = routeHref(entry);
   const date = formatDate(entry.date);
-  const readUnit = entry.reading_time === 1 ? 'min read' : 'min read';
+  const readingLabel = entry.reading_label || (entry.reading_time ? `${entry.reading_time} min read` : '');
   const meta = [
     date ? `<time datetime="${esc(entry.date)}">${esc(date)}</time>` : '',
     entry.author ? `<span class="blog-card-author">${esc(entry.author)}</span>` : '',
-    entry.reading_time ? `<span class="blog-card-readtime">${esc(entry.reading_time)} ${readUnit}</span>` : ''
+    readingLabel ? `<span class="blog-card-readtime">${esc(readingLabel)}</span>` : ''
   ].filter(Boolean).join('<span class="blog-card-dot" aria-hidden="true">·</span>');
 
   const tags = Array.isArray(entry.tags) && entry.tags.length

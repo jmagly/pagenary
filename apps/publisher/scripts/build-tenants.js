@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 import os from 'os';
 import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
-import { parseFrontmatter } from './lib/frontmatter.js';
+import { estimateReadingLength, parseFrontmatter } from './lib/frontmatter.js';
 import {
   formatAccessibilityFinding,
   isStrictAccessibilityEnabled,
@@ -1642,6 +1642,34 @@ async function applyBlogLayout(distDir, config, tenantId) {
   console.log(`  ↳ applied blog layout (${sidebar} sidebar${livingScroll ? ', living scroll' : ''}) for ${tenantId}`);
 }
 
+function progressConfigEnabled(value) {
+  if (value === true) return true;
+  if (value && typeof value === 'object') {
+    return value.enabled === true || value.bar === true || value.mode === 'bar' || value.mode === 'label';
+  }
+  return false;
+}
+
+async function applyReadingProgressConfig(distDir, config, tenantId) {
+  const reader = (config.reader && typeof config.reader === 'object') ? config.reader : {};
+  const progress = config.readingProgress ?? reader.progress ?? reader.readingProgress;
+  if (!progressConfigEnabled(progress)) return;
+
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+
+  let html = await fsp.readFile(indexPath, 'utf8');
+  const attrs = ['data-reading-progress'];
+  if (progress && typeof progress === 'object' && progress.mode) {
+    attrs.push(`data-reading-progress-mode="${escapeAttribute(progress.mode)}"`);
+  }
+  if (!/<body[^>]*data-reading-progress(?:[\s=>])/.test(html)) {
+    html = html.replace(/<body(?=[\s>])/, `<body ${attrs.join(' ')}`);
+    await fsp.writeFile(indexPath, html, 'utf8');
+  }
+  console.log(`  ↳ enabled reading progress for ${tenantId}`);
+}
+
 /**
  * Write the synthetic blog-index section module and register it in manifest.js.
  * Mirrors applyDocsMap's injection (append + idempotent).
@@ -2638,6 +2666,8 @@ async function ensureJavascriptModule(sourcePath, targetPath) {
 async function readMarkdownMetadata(sourcePath) {
   const raw = await fsp.readFile(sourcePath, 'utf8');
   const { data, body } = parseFrontmatter(raw);
+  const readingLength = estimateReadingLength(body, data.readingLength || data.reading || {});
+  const progressConfig = data.progress || data.readingProgress || null;
   return {
     title: data.title || firstHeadingFromMarkdown(body) || null,
     summary: data.summary || data.description || '',
@@ -2649,18 +2679,18 @@ async function readMarkdownMetadata(sourcePath) {
     hero: typeof data.hero === 'string' ? data.hero
       : (typeof data.image === 'string' ? data.image : null),
     tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [data.tags] : []),
-    reading_time: estimateReadingTime(body)
+    reading_time: readingLength.minutes,
+    reading_label: readingLength.label,
+    reading_length: readingLength,
+    word_count: readingLength.words,
+    checklist_progress: readingLength.checklist,
+    progress: progressConfig
   };
 }
 
 function firstHeadingFromMarkdown(body) {
   const match = body.match(/^#\s+(.+)$/m);
   return match ? match[1].trim() : null;
-}
-
-function estimateReadingTime(body) {
-  const words = String(body || '').trim().split(/\s+/).filter(Boolean);
-  return Math.max(1, Math.ceil(words.length / 200));
 }
 
 async function readContentMetadata(sourcePath) {
@@ -3011,6 +3041,11 @@ function decorateCollectionEntry(entry, metadata, collection) {
   entry.showReadingTime = collection.showReadingTime !== false;
   if (metadata.date) entry.date = metadata.date;
   if (metadata.reading_time) entry.reading_time = metadata.reading_time;
+  if (metadata.reading_label) entry.reading_label = metadata.reading_label;
+  if (metadata.reading_length) entry.reading_length = metadata.reading_length;
+  if (metadata.word_count) entry.word_count = metadata.word_count;
+  if (metadata.checklist_progress) entry.checklist_progress = metadata.checklist_progress;
+  if (metadata.progress !== undefined && metadata.progress !== null) entry.progress = metadata.progress;
   if (metadata.author) entry.author = metadata.author;
   if (metadata.hero) entry.hero = metadata.hero;
   if (Array.isArray(metadata.tags) && metadata.tags.length) entry.tags = metadata.tags;
@@ -3705,7 +3740,7 @@ function applyManifestHierarchy(scannedSections, rootManifest) {
       title: mEntry.title || scanned?.title || mEntry.id,
       summary: mEntry.summary || scanned?.summary || ''
     };
-    for (const key of ['collection', 'showDate', 'showSummary', 'showReadingTime', 'date', 'reading_time']) {
+    for (const key of ['collection', 'showDate', 'showSummary', 'showReadingTime', 'date', 'reading_time', 'reading_label', 'reading_length', 'word_count', 'checklist_progress', 'progress']) {
       if (scanned?.[key] !== undefined) node[key] = scanned[key];
     }
 
@@ -4740,6 +4775,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyNavPosition(distDir, config, tenantId);
     await applyNavAlignment(distDir, config, tenantId);
     await applyBlogLayout(distDir, config, tenantId);
+    await applyReadingProgressConfig(distDir, config, tenantId);
     await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }

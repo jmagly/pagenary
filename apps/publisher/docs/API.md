@@ -572,6 +572,20 @@ interface CollectionEntry {
   hero: string | null;
   tags: string[];
   reading_time: number;
+  reading_label: string;
+  reading_length: {
+    minutes: number;
+    seconds: number;
+    words: number;
+    proseWords: number;
+    tableWords: number;
+    tableRows: number;
+    codeBlocks: number;
+    codeLines: number;
+    imageCount: number;
+  };
+  checklist_progress: { completed: number; total: number; percent: number } | null;
+  progress: boolean | { enabled?: boolean; mode?: string } | null;
   canonical: string;
   path: string;
 }

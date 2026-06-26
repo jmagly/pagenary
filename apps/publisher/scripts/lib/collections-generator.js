@@ -19,7 +19,7 @@
 import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 import { resolveBaseUrl, encodePathForFilename } from './seo-generator.js';
-import { parseFrontmatter, estimateReadingTime, firstHeading } from './frontmatter.js';
+import { parseFrontmatter, estimateReadingLength, firstHeading } from './frontmatter.js';
 
 const POST_EXTENSIONS = new Set(['.md', '.markdown']);
 
@@ -61,6 +61,7 @@ async function collectEntries(collection, contentBasePath, baseUrl) {
     const slug = f.name.slice(0, -ext.length);
     const raw = await fsp.readFile(path.join(srcDir, f.name), 'utf8');
     const { data, body } = parseFrontmatter(raw);
+    const readingLength = estimateReadingLength(body, data.readingLength || data.reading || {});
 
     // Section id mirrors the build's nested-id scheme: <collection.path>/<slug>
     const sectionId = `${collection.path.replace(/^\/+|\/+$/g, '')}/${slug}`;
@@ -78,7 +79,12 @@ async function collectEntries(collection, contentBasePath, baseUrl) {
       author: data.author || null,
       hero: data.hero || data.image || null,
       tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [data.tags] : []),
-      reading_time: estimateReadingTime(body),
+      reading_time: readingLength.minutes,
+      reading_label: readingLength.label,
+      reading_length: readingLength,
+      word_count: readingLength.words,
+      checklist_progress: readingLength.checklist,
+      progress: data.progress || data.readingProgress || null,
       canonical: baseUrl ? `${baseUrl}${staticPath}` : staticPath,
       path: routePath
     });

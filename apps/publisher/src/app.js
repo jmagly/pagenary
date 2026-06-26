@@ -18,6 +18,8 @@ const commandInput = document.getElementById('commandInput');
 const commandList = document.getElementById('commandList');
 const mobileMenuToggle = document.getElementById('mobileMenuToggle');
 const sidebar = document.querySelector('.sidebar');
+const tenantReadingProgressDefault = document.body.hasAttribute('data-reading-progress');
+const tenantReadingProgressMode = document.body.dataset.readingProgressMode || 'bar';
 
 const COMMAND_QUERY_KEY = 'docs-toolkit-command-query';
 
@@ -423,6 +425,7 @@ async function loadSection(entry) {
 }
 
 function renderEntryMetadata(entry) {
+  syncReadingProgressHooks(entry);
   if (!entry) return;
   const content = app.querySelector('.doc-content') || app.querySelector('article, section') || app;
   const heading = content.querySelector('h1');
@@ -449,7 +452,7 @@ function renderEntryMetadata(entry) {
     fragments.push(`By ${entry.author}`);
   }
   if (entry.showReadingTime && entry.reading_time) {
-    fragments.push(`${entry.reading_time} min read`);
+    fragments.push(entry.reading_label || `${entry.reading_time} min read`);
   }
 
   let insertAfter = heading;
@@ -489,6 +492,30 @@ function renderEntryMetadata(entry) {
   }
 
   renderFortemiMetadataTools(entry, insertAfter, metaEl);
+}
+
+function progressEnabled(entry) {
+  if (tenantReadingProgressDefault) return true;
+  const progress = entry?.progress;
+  if (entry?.reading_progress === true || entry?.readingProgress === true) return true;
+  if (progress === true) return true;
+  if (progress && typeof progress === 'object') {
+    if (progress.enabled === true || progress.bar === true || progress.mode === 'bar') return true;
+  }
+  return false;
+}
+
+function syncReadingProgressHooks(entry) {
+  const enabled = progressEnabled(entry);
+  document.body.toggleAttribute('data-reading-progress', enabled);
+  if (enabled) {
+    const mode = entry?.progress && typeof entry.progress === 'object'
+      ? (entry.progress.mode || (entry.progress.label ? 'label' : 'bar'))
+      : tenantReadingProgressMode;
+    document.body.dataset.readingProgressMode = mode;
+  } else {
+    delete document.body.dataset.readingProgressMode;
+  }
 }
 
 function hasFortemiMetadata(metadata) {

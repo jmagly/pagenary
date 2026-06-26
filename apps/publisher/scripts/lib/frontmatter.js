@@ -192,14 +192,124 @@ function coerceScalar(value) {
   return value;
 }
 
+function countWords(value) {
+  return String(value || '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .split(/[^A-Za-z0-9'-]+/)
+    .filter(Boolean).length;
+}
+
+function readingLabel(minutes, seconds) {
+  if (seconds > 0 && seconds < 60) return '<1 min read';
+  return `${minutes} min read`;
+}
+
 /**
- * Estimate reading time in minutes from body text (~200 words/min, min 1).
+ * Estimate realistic reading length from Markdown body content.
+ *
+ * The model excludes frontmatter and ordinary Markdown syntax, weights code and
+ * tables more conservatively than prose, and records checklist completion as
+ * author/publisher metadata rather than reader scroll progress.
+ *
  * @param {string} body
+ * @param {object} [options]
+ * @returns {object}
+ */
+export function estimateReadingLength(body, options = {}) {
+  const text = String(body || '').replace(/\r\n/g, '\n');
+  const proseWpm = Number(options.proseWpm) > 0 ? Number(options.proseWpm) : 225;
+  const codeLineSeconds = Number(options.codeLineSeconds) > 0 ? Number(options.codeLineSeconds) : 8;
+  const imageSeconds = Number(options.imageSeconds) > 0 ? Number(options.imageSeconds) : 12;
+  const tableRowSeconds = Number(options.tableRowSeconds) > 0 ? Number(options.tableRowSeconds) : 3;
+
+  let prose = text;
+  let codeBlocks = 0;
+  let codeLines = 0;
+  prose = prose.replace(/```[\w-]*\n([\s\S]*?)```/g, (_match, code) => {
+    codeBlocks += 1;
+    codeLines += String(code || '').split('\n').filter((line) => line.trim()).length;
+    return ' ';
+  });
+
+  let imageCount = 0;
+  prose = prose.replace(/!\[([^\]]*)\]\([^)]+\)/g, (_match, alt) => {
+    imageCount += 1;
+    return ` ${alt || ''} `;
+  });
+
+  prose = prose.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+  let tableRows = 0;
+  const tableText = [];
+  prose = prose.replace(/^\s*\|(.+)\|\s*$/gm, (line) => {
+    if (/^\s*\|?[\s\-:|]+\|?\s*$/.test(line)) return ' ';
+    tableRows += 1;
+    tableText.push(line.replace(/\|/g, ' '));
+    return ' ';
+  });
+
+  let checklistTotal = 0;
+  let checklistCompleted = 0;
+  prose = prose.replace(/^\s*[-*+]\s+\[([ xX])\]\s+/gm, (_match, state) => {
+    checklistTotal += 1;
+    if (state.toLowerCase() === 'x') checklistCompleted += 1;
+    return ' ';
+  });
+
+  prose = prose
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/[*_`~#<>]/g, ' ');
+
+  const proseWords = countWords(prose);
+  const tableWords = countWords(tableText.join(' '));
+  const words = proseWords + tableWords;
+  const seconds = Math.round(
+    (proseWords / proseWpm) * 60 +
+    (tableWords / Math.max(150, proseWpm - 60)) * 60 +
+    tableRows * tableRowSeconds +
+    codeLines * codeLineSeconds +
+    imageCount * imageSeconds
+  );
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  const checklistProgress = checklistTotal > 0
+    ? { completed: checklistCompleted, total: checklistTotal, percent: Math.round((checklistCompleted / checklistTotal) * 100) }
+    : null;
+
+  return {
+    minutes,
+    label: readingLabel(minutes, seconds),
+    seconds,
+    words,
+    proseWords,
+    tableWords,
+    tableRows,
+    codeBlocks,
+    codeLines,
+    imageCount,
+    checklist: checklistProgress,
+    model: {
+      proseWpm,
+      codeLineSeconds,
+      imageSeconds,
+      tableRowSeconds
+    }
+  };
+}
+
+/**
+ * Backward-compatible reading time in minutes.
+ * @param {string} body
+ * @param {object} [options]
  * @returns {number}
  */
-export function estimateReadingTime(body) {
-  const words = String(body || '').trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
+export function estimateReadingTime(body, options = {}) {
+  return estimateReadingLength(body, options).minutes;
 }
 
 /**

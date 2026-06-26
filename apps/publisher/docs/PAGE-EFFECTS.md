@@ -34,9 +34,11 @@ viewport, and appears instantly under reduced-motion or with JS off.
 
 ### Reading-progress bar
 
-Set `data-reading-progress` on `<body>` (via an `overrides/` index.html or a
-`.js` content module) to add a thin top progress bar tracking the reading
-column. It is presentational (`aria-hidden`) and updates passively on scroll.
+Set `reader.progress.enabled: true` in tenant config, or frontmatter
+`progress.enabled: true` on a single Markdown document, to add a thin top
+progress bar tracking the reading column. The lower-level `data-reading-progress`
+body hook still works for custom modules and overrides. The bar is
+presentational (`aria-hidden`) and updates passively on scroll.
 
 ### Rich hero
 

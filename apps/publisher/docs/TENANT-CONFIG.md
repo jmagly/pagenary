@@ -287,12 +287,54 @@ above plus `colorScheme` (`light` \| `dark`) and dark-mode surface keys
 | `blog.sidebar` | string | `hidden` | Blog only: `hidden` (single reading column) or `rail` (content + posts/tags rail). |
 | `blog.indexTitle` | string | collection title | Blog only: heading above the post index. |
 | `blog.livingScroll` | bool | `false` | Blog only: reveal post content on scroll + a reading-progress bar (opt-in, reduced-motion + JS-off safe). See [Blog Layout](#blog-layout). |
+| `reader.progress` / `readingProgress` | bool/object | `false` | Enable the presentational reading-progress bar for the tenant without hand-editing `<body>`. Frontmatter `progress: { enabled: true }` can opt in one document. |
 | `collections` | array | — | Folders the build scans as dated post collections (emits `index.json` + `feed.xml`). See [Blog Layout](#blog-layout). |
 
 `top` and `bottom` render navigation as a horizontal bar; `hybrid` adds a
 horizontal primary strip (built from your top-level sections) above the left
 rail. See the [Theming Recipes gallery](THEMING-RECIPES.md) for screenshots of
 each.
+
+#### Reading length and progress
+
+Pagenary emits `reading_time` for backward compatibility and a richer
+`reading_length` object for generated manifests and collection indexes. The
+model counts rendered prose, headings, lists, table text, image alt text, code
+blocks, and Markdown checklist state while excluding frontmatter and ordinary
+Markdown syntax. Code lines, table rows, and images add conservative time
+adjustments so technical documents do not look artificially short.
+
+Reader-facing surfaces should prefer `reading_label` (`<1 min read`, `3 min
+read`) over raw minute math. Blog cards and post metadata use this label when it
+is available. `checklist_progress` is author/publisher metadata and is kept
+separate from reader scroll progress.
+
+Enable the progress bar for the whole tenant:
+
+```json
+{
+  "reader": {
+    "progress": {
+      "enabled": true,
+      "mode": "bar"
+    }
+  }
+}
+```
+
+Enable it on a single Markdown document:
+
+```yaml
+---
+title: Long Guide
+progress:
+  enabled: true
+---
+```
+
+The progress bar remains presentational (`aria-hidden`) and passive on scroll.
+For future table-of-contents or active-section variants, use the metadata-only
+fields first rather than announcing percent changes to screen readers.
 
 #### Theme picker (runtime)
 
@@ -501,9 +543,11 @@ Post body…
 The build writes to `dist/<route>/`:
 
 - **`index.json`** — `{ title, route, count, generated, posts: [...] }`, where each
-  post is `{ slug, title, date, summary, hero, tags, reading_time, canonical, path }`,
+  post is `{ slug, title, date, summary, hero, tags, reading_time, reading_label,
+  reading_length, word_count, checklist_progress, progress, canonical, path }`,
   sorted per `sortBy`/`order`. `canonical` is the absolute static-page URL (uses
-  the same base URL as [SEO](#seo-seo)); `reading_time` is estimated from the body.
+  the same base URL as [SEO](#seo-seo)); `reading_time` is the rounded minute
+  value and `reading_length` contains the deterministic weighted model details.
 - **`feed.xml`** *(when `feed: true`)* — RSS 2.0 of the same set.
 
 > A collection's posts are still rendered as normal pages (each `.md` becomes a
