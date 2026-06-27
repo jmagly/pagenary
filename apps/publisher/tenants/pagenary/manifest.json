@@ -88,6 +88,25 @@
       ]
     },
     {
+      "id": "showcase",
+      "title": "Showcase",
+      "summary": "Live demos: docs, marketing, interactive, and scrollytelling from one build.",
+      "sections": [
+        {
+          "id": "showcase-gallery",
+          "title": "One System, Many Styles",
+          "summary": "Heroes, reveal-on-scroll, accordions, and scroll-snap — live, in the docbase.",
+          "file": "SHOWCASE.md"
+        },
+        {
+          "id": "showcase-story",
+          "title": "Storytelling",
+          "summary": "A scrollytelling layout: a sticky stage that advances as you read.",
+          "file": "SHOWCASE-STORY.md"
+        }
+      ]
+    },
+    {
       "id": "reference",
       "title": "Reference",
       "summary": "Architecture, APIs, deployment, and SEO reference material.",
