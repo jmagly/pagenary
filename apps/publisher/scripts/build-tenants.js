@@ -1700,6 +1700,34 @@ async function applyLivingScrollConfig(distDir, config, tenantId) {
 }
 
 /**
+ * On-this-page TOC + scroll-spy (#73). Opt-in via a top-level `pageToc`:
+ *   pageToc: true                              → rail placement, default min
+ *   pageToc: { placement: "rail"|"top"|"off", minHeadings: N }
+ * Sets the body hooks the pageToc page-effect reads; the effect generates the nav
+ * client-side from the page's headings.
+ */
+async function applyPageTocConfig(distDir, config, tenantId) {
+  const toc = config.pageToc;
+  if (toc !== true && (!toc || typeof toc !== 'object')) return;
+  const placementRaw = toc && typeof toc === 'object' ? toc.placement : undefined;
+  if (placementRaw === 'off' || (toc && typeof toc === 'object' && toc.enabled === false)) return;
+  const placement = placementRaw === 'top' ? 'top' : 'rail';
+  const min = toc && typeof toc === 'object' && Number.isInteger(toc.minHeadings) && toc.minHeadings > 0
+    ? toc.minHeadings : null;
+
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+
+  let html = await fsp.readFile(indexPath, 'utf8');
+  if (/<body[^>]*data-page-toc(?:[\s=>])/.test(html)) return;
+  const attrs = [`data-page-toc="${placement}"`];
+  if (min) attrs.push(`data-page-toc-min="${min}"`);
+  html = html.replace(/<body(?=[\s>])/, `<body ${attrs.join(' ')}`);
+  await fsp.writeFile(indexPath, html, 'utf8');
+  console.log(`  ↳ enabled on-this-page TOC (${placement}) for ${tenantId}`);
+}
+
+/**
  * Write the synthetic blog-index section module and register it in manifest.js.
  * Mirrors applyDocsMap's injection (append + idempotent).
  */
@@ -4806,6 +4834,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyBlogLayout(distDir, config, tenantId);
     await applyReadingProgressConfig(distDir, config, tenantId);
     await applyLivingScrollConfig(distDir, config, tenantId);
+    await applyPageTocConfig(distDir, config, tenantId);
     await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }

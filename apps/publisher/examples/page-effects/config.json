@@ -8,5 +8,6 @@
   "surfaceColor": "#ffffff",
   "inkColor": "#0b1220",
   "bottomNav": "always",
-  "livingScroll": true
+  "livingScroll": true,
+  "pageToc": { "placement": "rail" }
 }

@@ -382,9 +382,120 @@ function figureZoom(root) {
   return () => undo.forEach((fn) => fn());
 }
 
+/**
+ * On-this-page TOC + scroll-spy (#73): when the tenant opts in via `pageToc`
+ * (build sets `data-page-toc="rail"|"top"` on the body), auto-generate an
+ * "On this page" nav from the page's `h2`/`h3` headings and highlight the active
+ * one as the reader scrolls. Headings get slugged ids; links scroll the heading
+ * into the `.canvas` scroller and move focus to it (no hash change, so the SPA
+ * router is untouched). Skipped on short pages (`data-page-toc-min`, default 3).
+ * The TOC is a JS enhancement — with JS off the article content is complete and
+ * unchanged; only the convenience nav is absent.
+ */
+function tocSlug(text, used) {
+  let base = String(text || '').toLowerCase().trim()
+    .replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'section';
+  let id = base;
+  let n = 2;
+  while (used.has(id)) id = `${base}-${n++}`;
+  used.add(id);
+  return id;
+}
+
+function pageToc(root, ctx) {
+  const placement = document.body.dataset.pageToc;
+  if (placement !== 'rail' && placement !== 'top') return;
+  const content = root.querySelector('.doc.markdown .doc-content');
+  if (!content) return;
+  // Article headings only — exclude the async Fortemi metadata panel's headings.
+  const headings = Array.from(content.querySelectorAll('h2, h3'))
+    .filter((h) => !h.closest('.doc-fortemi-panel'));
+  const minRaw = parseInt(document.body.dataset.pageTocMin, 10);
+  const min = Number.isFinite(minRaw) && minRaw > 0 ? minRaw : 3;
+  if (headings.length < min) return;
+
+  const used = new Set();
+  content.querySelectorAll('[id]').forEach((el) => used.add(el.id));
+
+  const nav = document.createElement('nav');
+  nav.className = `page-toc page-toc--${placement}`;
+  nav.setAttribute('aria-label', 'On this page');
+  const title = document.createElement('p');
+  title.className = 'page-toc__title';
+  title.textContent = 'On this page';
+  const list = document.createElement('ol');
+  const links = [];
+  const linkFor = new Map();
+  headings.forEach((h) => {
+    if (!h.id) h.id = tocSlug(h.textContent, used);
+    const li = document.createElement('li');
+    li.className = h.tagName === 'H3' ? 'page-toc__item page-toc__item--sub' : 'page-toc__item';
+    const a = document.createElement('a');
+    a.href = `#${h.id}`;
+    a.textContent = h.textContent || '';
+    const onClick = (e) => {
+      e.preventDefault();
+      const scroller = scrollContainer();
+      // Position relative to the scroller via rects — offsetTop is unreliable
+      // because headings inside positioned containers have varied offsetParents.
+      const top = scroller.scrollTop + (h.getBoundingClientRect().top - scroller.getBoundingClientRect().top) - 12;
+      scroller.scrollTo({ top: Math.max(0, top), behavior: ctx.reducedMotion ? 'auto' : 'smooth' });
+      h.setAttribute('tabindex', '-1');
+      h.focus({ preventScroll: true });
+    };
+    a.addEventListener('click', onClick);
+    li.appendChild(a);
+    list.appendChild(li);
+    links.push({ a, onClick });
+    linkFor.set(h, a);
+  });
+  nav.append(title, list);
+  content.insertBefore(nav, content.firstChild);
+
+  let current = null;
+  const setActive = (h) => {
+    if (h === current) return;
+    current = h;
+    for (const { a } of links) a.removeAttribute('aria-current');
+    const a = linkFor.get(h);
+    if (a) a.setAttribute('aria-current', 'true');
+  };
+
+  // Scroll-spy by position against the `.canvas` scroller (deterministic, and
+  // consistent with the click-scroll math above — IntersectionObserver's viewport
+  // band is unreliable here because the page scrolls inside `.canvas`, not the
+  // document). The active heading is the last one whose top has crossed a line a
+  // quarter down the viewport.
+  const scroller = scrollContainer();
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    // The current heading is the last one whose top has scrolled within ~96px of
+    // the scroller's top edge. Use rects (not offsetTop) so headings inside
+    // positioned containers compare correctly.
+    const sTop = scroller.getBoundingClientRect().top;
+    let active = headings[0];
+    for (const h of headings) {
+      if (h.getBoundingClientRect().top - sTop <= 96) active = h; else break;
+    }
+    setActive(active);
+  };
+  const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
+  update();
+  scroller.addEventListener('scroll', onScroll, { passive: true });
+
+  return () => {
+    scroller.removeEventListener('scroll', onScroll);
+    links.forEach(({ a, onClick }) => a.removeEventListener('click', onClick));
+    nav.remove();
+  };
+}
+
 registerEffect(revealOnScroll);
 registerEffect(staggeredReveal);
 registerEffect(figureZoom);
+registerEffect(pageToc);
 registerEffect(readingProgress);
 registerEffect(parallax);
 registerEffect(heroSticky);
