@@ -492,10 +492,56 @@ function pageToc(root, ctx) {
   };
 }
 
+/**
+ * Scrollytelling (#78): a `.pe-scrolly` block pairs a sticky `.pe-scrolly__stage`
+ * with a column of `[data-pe-step]` content steps. As each step scrolls into the
+ * active zone, the stage's matching layer (`.pe-scrolly__stage [data-pe-step]`)
+ * becomes active (crossfade). Built from sticky layout + the same rect-based
+ * active-element detection as scroll-spy — no bespoke animation engine. JS-off:
+ * the steps are ordinary readable content and the stage shows its layers
+ * statically; the stage swap is a pure enhancement. The crossfade is gated under
+ * no-preference in CSS, so reduced-motion swaps instantly.
+ */
+function scrollytelling(root, ctx) {
+  const blocks = root.querySelectorAll('.pe-scrolly');
+  if (!blocks.length) return;
+  const scroller = scrollContainer();
+  const cleanups = [];
+  blocks.forEach((block) => {
+    const steps = Array.from(block.querySelectorAll('.pe-scrolly__steps [data-pe-step]'));
+    const layers = Array.from(block.querySelectorAll('.pe-scrolly__stage [data-pe-step]'));
+    if (!steps.length || !layers.length) return;
+    let current = null;
+    const activate = (val) => {
+      if (val === current) return;
+      current = val;
+      layers.forEach((l) => l.classList.toggle('is-active', l.dataset.peStep === val));
+    };
+    activate(steps[0].dataset.peStep);
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const sTop = scroller.getBoundingClientRect().top;
+      const line = scroller.clientHeight * 0.45; // a step is current once it passes mid-upper view
+      let active = steps[0];
+      for (const s of steps) {
+        if (s.getBoundingClientRect().top - sTop <= line) active = s; else break;
+      }
+      activate(active.dataset.peStep);
+    };
+    const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
+    update();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    cleanups.push(() => scroller.removeEventListener('scroll', onScroll));
+  });
+  return () => cleanups.forEach((fn) => fn());
+}
+
 registerEffect(revealOnScroll);
 registerEffect(staggeredReveal);
 registerEffect(figureZoom);
 registerEffect(pageToc);
+registerEffect(scrollytelling);
 registerEffect(readingProgress);
 registerEffect(parallax);
 registerEffect(heroSticky);

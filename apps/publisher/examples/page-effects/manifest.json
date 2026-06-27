@@ -24,6 +24,12 @@
       "title": "Scroll-snap",
       "summary": "CSS-only .pe-snap region — bounded, opt-in snap panels that never trap the keyboard.",
       "file": "scroll-snap.md"
+    },
+    {
+      "id": "scrollytelling",
+      "title": "Scrollytelling",
+      "summary": "A sticky stage that reacts as you read past each step — sticky layout + scroll position, no animation engine.",
+      "file": "scrollytelling.md"
     }
   ]
 }

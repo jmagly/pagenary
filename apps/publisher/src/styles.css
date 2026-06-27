@@ -3026,6 +3026,34 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   }
 }
 
+/* Scrollytelling (#78): a sticky stage beside a column of content steps. The
+   active step's stage layer crossfades in. JS-off shows the steps as content and
+   the stage layers statically (the swap is gated under html.has-js). */
+.pe-scrolly { display: grid; gap: 2rem; margin: 1.5rem 0; }
+@media (min-width: 60rem) {
+  .pe-scrolly { grid-template-columns: 1fr 1fr; align-items: start; }
+}
+.pe-scrolly__stage {
+  position: sticky; top: 2rem;
+  min-height: 60vh; display: grid;
+  border: 1px solid var(--grid-line); border-radius: 10px; overflow: hidden;
+  background: rgba(var(--surface-rgb), 0.5);
+}
+.pe-scrolly__stage > [data-pe-step] {
+  grid-area: 1 / 1;
+  display: grid; place-content: center;
+  padding: 2rem; text-align: center;
+}
+.pe-scrolly__steps > [data-pe-step] {
+  min-height: 80vh;
+  display: grid; align-content: center;
+}
+html.has-js .pe-scrolly__stage > [data-pe-step] { opacity: 0; }
+html.has-js .pe-scrolly__stage > [data-pe-step].is-active { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .pe-scrolly__stage > [data-pe-step] { transition: opacity 400ms ease; }
+}
+
 /* Reading-progress indicator (opt-in via body[data-reading-progress]). */
 .reading-progress {
   position: fixed;

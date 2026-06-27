@@ -186,6 +186,30 @@ the page scroll, and it uses `scroll-snap-type: y proximity` (not `mandatory`) s
 keyboard users are never trapped — panels stay individually reachable. Smooth
 glide to snap points is gated under `prefers-reduced-motion: no-preference`.
 
+### Scrollytelling
+
+A `.pe-scrolly` block pairs a sticky stage with a column of content steps; the
+stage updates as each step scrolls into view:
+
+```html
+<div class="pe-scrolly">
+  <div class="pe-scrolly__stage">
+    <div data-pe-step="one"><h2>One</h2></div>
+    <div data-pe-step="two"><h2>Two</h2></div>
+  </div>
+  <div class="pe-scrolly__steps">
+    <section data-pe-step="one"><p>…</p></section>
+    <section data-pe-step="two"><p>…</p></section>
+  </div>
+</div>
+```
+
+Each step and its stage layer share a `data-pe-step` value; the active step's
+layer crossfades in (gated under `prefers-reduced-motion: no-preference`). The
+active step is detected by the same rect-based scroll position as scroll-spy — no
+animation engine. **With JS off** the steps are plain readable content and the
+stage shows its layers statically, so the narrative is complete either way.
+
 ## Authoring paths
 
 You have four ways to add these, from least to most control:
