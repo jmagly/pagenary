@@ -332,8 +332,59 @@ function staggeredReveal(root, ctx) {
   return () => io.disconnect();
 }
 
+/**
+ * Figure zoom (#76): `[data-pe-zoom]` (usually a `<figure>`) lets a reader enlarge
+ * its image in a modal. The base figure is plain markup, so with JS off the image
+ * is fully visible at normal size — zoom is a pure enhancement. The effect wraps
+ * the image in a real `<button>` (keyboard-activatable) and opens a native
+ * `<dialog>` via `showModal()`, so the browser supplies the focus trap, Esc-to-
+ * close, and inert backdrop; native dialogs restore focus to the trigger on close.
+ * No autoplaying motion — the open is instant, nothing to gate on reduced-motion.
+ */
+function openZoom(img) {
+  const dialog = document.createElement('dialog');
+  dialog.className = 'pe-zoom-dialog';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'pe-zoom-close';
+  close.setAttribute('aria-label', 'Close');
+  close.textContent = '×';
+  const big = document.createElement('img');
+  big.src = img.currentSrc || img.src;
+  big.alt = img.alt || '';
+  dialog.append(close, big);
+  document.body.appendChild(dialog);
+  close.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); }); // backdrop
+  dialog.addEventListener('close', () => dialog.remove());
+  dialog.showModal();
+  close.focus();
+}
+
+function figureZoom(root) {
+  if (typeof HTMLDialogElement !== 'function') return; // no native dialog → leave the plain figure
+  const figs = root.querySelectorAll('[data-pe-zoom]');
+  if (!figs.length) return;
+  const undo = [];
+  figs.forEach((fig) => {
+    const img = fig.matches('img') ? fig : fig.querySelector('img');
+    if (!img || img.closest('.pe-zoom-trigger')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pe-zoom-trigger';
+    btn.setAttribute('aria-label', `Enlarge image${img.alt ? `: ${img.alt}` : ''}`);
+    img.replaceWith(btn);
+    btn.appendChild(img);
+    const onClick = () => openZoom(img);
+    btn.addEventListener('click', onClick);
+    undo.push(() => { btn.removeEventListener('click', onClick); btn.replaceWith(img); });
+  });
+  return () => undo.forEach((fn) => fn());
+}
+
 registerEffect(revealOnScroll);
 registerEffect(staggeredReveal);
+registerEffect(figureZoom);
 registerEffect(readingProgress);
 registerEffect(parallax);
 registerEffect(heroSticky);

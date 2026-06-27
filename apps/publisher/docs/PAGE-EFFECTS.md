@@ -151,6 +151,23 @@ so the drift stays gentle, and travel is bounded to a fraction of the element's
 height. Parallax is motion-only: under `prefers-reduced-motion` it's skipped
 entirely and the element sits in its normal position.
 
+### Figure zoom
+
+Mark a `<figure>` with `data-pe-zoom` and a reader can enlarge its image in a
+modal:
+
+```html
+<figure class="pe-figure" data-pe-zoom>
+  <img src="images/diagram.svg" alt="Architecture diagram" />
+  <figcaption>The publishing pipeline.</figcaption>
+</figure>
+```
+
+The figure renders the image normally, so **with JS off the image is fully
+visible** — zoom is an enhancement. With JS, the image becomes a `<button>` and
+opens a native `<dialog>` (`showModal()`), which gives the focus trap, `Esc`-to-
+close, inert backdrop, and focus-restore for free. No autoplaying motion.
+
 ## Authoring paths
 
 You have four ways to add these, from least to most control:

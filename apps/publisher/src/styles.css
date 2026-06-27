@@ -2929,6 +2929,32 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   color: var(--muted);
 }
 
+/* Figure zoom (#76): the figure shows its image normally (JS-off baseline). The
+   effect wraps the image in .pe-zoom-trigger and opens .pe-zoom-dialog (native
+   <dialog>) on activate. Theme-token styled; no motion. */
+.pe-figure { margin: 1.5rem 0; }
+.pe-figure img { display: block; max-width: 100%; height: auto; }
+.pe-zoom-trigger {
+  display: block; width: 100%; padding: 0; margin: 0;
+  border: 0; background: none; cursor: zoom-in;
+}
+.pe-zoom-trigger:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.pe-zoom-dialog {
+  max-width: 92vw; max-height: 92vh;
+  padding: 0; border: 0; border-radius: 10px;
+  background: rgb(var(--surface-rgb));
+  overflow: hidden;
+}
+.pe-zoom-dialog::backdrop { background: rgba(0, 0, 0, 0.72); }
+.pe-zoom-dialog img { display: block; max-width: 92vw; max-height: 86vh; width: auto; height: auto; }
+.pe-zoom-close {
+  position: absolute; top: 0.5rem; right: 0.5rem; z-index: 1;
+  width: 2.25rem; height: 2.25rem; border-radius: 50%;
+  border: 0; background: rgba(0, 0, 0, 0.55); color: #fff;
+  font-size: 1.4rem; line-height: 1; cursor: pointer;
+}
+.pe-zoom-close:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
 /* Reading-progress indicator (opt-in via body[data-reading-progress]). */
 .reading-progress {
   position: fixed;

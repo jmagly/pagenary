@@ -96,6 +96,19 @@ at once).
 </div>
 ```
 
+## Figure zoom
+
+The figure below shows its image normally; click it (or press Enter when focused)
+to enlarge it in a modal. With JavaScript off, the image is just visible at its
+normal size.
+
+```html
+<figure class="pe-figure" data-pe-zoom>
+  <img src="images/ridge.svg" alt="Layered ridge illustration" />
+  <figcaption>Click to enlarge — opens a native dialog with focus trap and Esc-to-close.</figcaption>
+</figure>
+```
+
 ## Authoring paths
 
 You have four ways to add a hero, from least to most control:
