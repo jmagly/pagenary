@@ -6,17 +6,65 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.14] - 2026-06-27
+
+### Added
+
+- **Blog layout family (`layout: "blog"`).** A second layout alongside docs: a
+  chronological index of post cards and reading-first post pages with hero,
+  byline, and tags, driven by the existing collections engine. `blog.sidebar`
+  chooses a single centered column (`hidden`) or a posts rail (`rail`).
+- **Blog post navigation.** Every post ends with a persistent, accessible
+  control — previous post · back to index · next post — scoped to the collection
+  and visible on all screen sizes. Configurable via `postNav`.
+- **Living scroll for blog posts (`blog.livingScroll`).** Post content reveals as
+  it enters the viewport, with a reading-progress bar. Opt-in, reduced-motion and
+  JS-off safe (the full article is in the prerendered snapshot).
+- **Page-effects toolkit.** A runtime lifecycle that attaches/​tears down effects
+  per render (gated on `prefers-reduced-motion` and `html.has-js`);
+  reveal-on-scroll and a reading-progress bar; and rich **hero / banner
+  primitives** — full-bleed, overlay scrim, parallax, sticky, and a CTA band —
+  authored by class/`data-*`, fenced HTML, or a declarative frontmatter
+  `hero` / `banner` block. New **Page Effects** guide and a `page-effects` recipe.
+- **Themed blog example gallery.** `blog-dark`, `blog-editorial`, `blog-rail`,
+  `blog-vivid`, and `blog-matrix` — one set of posts, many looks.
+- **Accessibility tooling.** Narration artifacts, report artifacts, a content
+  strict mode, a contrast/focus gate, browser smoke scans, and an authoring
+  guide + planning baseline.
+- **Media accessibility metadata** and **configurable media renderers**.
+- **Reading metadata model** — realistic reading-length estimation from content.
+- **Configurable export** (`export.enabled`, `export.scopes`) so publishers can
+  disable export or restrict it to single-page exports.
+- **Managed-hosting concierge tooling** (public) and a **`navAlign`** sidebar
+  list alignment option.
+
 ### Changed
 
+- **Export renders to the browser print / Save-as-PDF dialog** from an off-screen
+  frame — no pop-up window to allow or dismiss, and nothing left open afterward.
 - **Content-addressed runtime URLs are now the default.** Tenant builds emit
   deterministic hashed copies for browser-loaded runtime assets and rendered
   section modules, rewrite the shell/manifests to those URLs, and keep stable
   compatibility files on disk. Use `cacheStrategy: "stable"` only for legacy
   hosts that require unversioned filenames.
-- **Docs Map renderer controls and smoke coverage.** The SVG-backed optional
-  renderer path now has search/focus, zoom/fit, drag-pan, neighbor highlighting,
-  and node detail popup coverage in the browser smoke script while preserving the
-  no-React static-site runtime.
+- **Docs Map: force-directed layout + renderer controls and smoke coverage.** The
+  SVG-backed renderer gains search/focus, zoom/fit, drag-pan, neighbor
+  highlighting, and node-detail popups, covered by the browser smoke script while
+  preserving the no-React static-site runtime.
+- The sidebar list is **top-aligned by default**.
+
+### Fixed
+
+- **Export print table of contents no longer splits across pages** — the
+  front-matter (header + TOC) takes its own page and the TOC stays whole, while
+  long content sections break naturally.
+- The **site title in the header is a home link** (pointer cursor, routes to the
+  default section) instead of inert text.
+- **Blog index cards behave as clickable tiles** — the whole card is one link, no
+  text caret over the body.
+- The **Quick Find palette stays above** page-effects heroes.
+- Theme-token config alignment; docsite registration for Managed Hosting and the
+  page-effects spike page; Fortemi deep-link format/hook-count docs.
 
 ## [2026.6.13] - 2026-06-21
 

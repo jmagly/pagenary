@@ -178,7 +178,9 @@ Templates + per-tenant content/config
 - **Mermaid Diagrams** — native flowcharts, sequence diagrams, and more
 - **Syntax Highlighting** — Prism.js integration for code blocks
 - **Theming** — per-tenant colors, branding, and typography
-- **Document Export** — one-click PDF-ready HTML export with table of contents
+- **Blog Layout** — a reading-first `layout: "blog"` family: chronological post index, hero post pages, post navigation, optional living scroll, and themeable like the docs layout
+- **Page Effects** — opt-in, accessible hero/banner primitives (full-bleed, overlay, parallax, sticky, CTA band) plus reveal-on-scroll and a reading-progress bar, authored by class, fenced HTML, or a declarative frontmatter block
+- **Document Export** — compile the current page or whole site to the browser's print / Save-as-PDF dialog (no pop-up window); configurable per tenant
 - **Incremental Builds** — Git-aware builds for fast iteration
 
 ## Quick Start
