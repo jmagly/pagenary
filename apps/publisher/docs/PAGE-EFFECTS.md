@@ -102,6 +102,24 @@ A full-width call-to-action strip — a `.pe-banner` with a text block and actio
 `--ghost` (outline), and `--plain` (text) variants. It reads the accent / ink /
 surface tokens, so it matches any theme.
 
+### Disclosure (accordion)
+
+`.pe-accordion` is a production accordion built on native `<details>/<summary>`,
+so every panel opens, closes, and takes keyboard focus with **zero JavaScript**.
+The open/closed marker is a `+`/`−` glyph (not color alone), and the summary shows
+a visible focus ring.
+
+```html
+<div class="pe-accordion" data-pe-single>
+  <details open><summary>First</summary><p>…</p></details>
+  <details><summary>Second</summary><p>…</p></details>
+</div>
+```
+
+Add `data-pe-single` to make it single-open — opening one panel closes its
+siblings. That grouping is the only thing JavaScript adds; drop the attribute (or
+run with JS off) and every panel works independently. Theme-token styled.
+
 ## Authoring paths
 
 You have four ways to add these, from least to most control:

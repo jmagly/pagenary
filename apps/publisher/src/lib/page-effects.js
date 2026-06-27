@@ -253,8 +253,35 @@ function livingScroll(root, ctx) {
   return () => io.disconnect();
 }
 
+/**
+ * Accordion (#72): `.pe-accordion` styles native `<details>/<summary>`, so a
+ * disclosure works keyboard-operable with zero JS. Adding `data-pe-single` to the
+ * wrapper makes it single-open — opening one panel closes its siblings. That
+ * grouping is a pure enhancement; with JS off every panel still opens and closes
+ * independently (the content is never hidden behind the script). No motion, so
+ * nothing to gate on reduced-motion.
+ */
+function accordion(root) {
+  const groups = root.querySelectorAll('.pe-accordion[data-pe-single]');
+  if (!groups.length) return;
+  const bound = [];
+  groups.forEach((group) => {
+    const panels = Array.from(group.querySelectorAll(':scope > details'));
+    panels.forEach((panel) => {
+      const onToggle = () => {
+        if (!panel.open) return;
+        for (const other of panels) if (other !== panel) other.open = false;
+      };
+      panel.addEventListener('toggle', onToggle);
+      bound.push([panel, onToggle]);
+    });
+  });
+  return () => bound.forEach(([el, fn]) => el.removeEventListener('toggle', fn));
+}
+
 registerEffect(revealOnScroll);
 registerEffect(readingProgress);
 registerEffect(heroParallax);
 registerEffect(heroSticky);
 registerEffect(livingScroll);
+registerEffect(accordion);

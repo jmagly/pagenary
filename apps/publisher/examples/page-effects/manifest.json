@@ -14,9 +14,15 @@
       "file": "parallax-and-sticky.md"
     },
     {
+      "id": "disclosure",
+      "title": "Disclosure",
+      "summary": "Production accordion on native <details> — zero-JS, keyboard-operable, single-open optional.",
+      "file": "disclosure.md"
+    },
+    {
       "id": "effects-spike",
       "title": "Effect Spike",
-      "summary": "Throwaway prototypes for disclosure, scroll-snap panels, and figure zoom candidates.",
+      "summary": "Throwaway prototypes for scroll-snap panels and figure zoom candidates.",
       "file": "effects-spike.md"
     }
   ]
