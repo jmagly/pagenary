@@ -143,6 +143,36 @@ function scrollContainer() {
 }
 
 /**
+ * Smoothly scroll a container to a target offset. Native `scrollTo({behavior:
+ * 'smooth'})` is unreliable on the nested `.canvas` scroller (it's silently
+ * dropped in some engines), so animate `scrollTop` directly via rAF. Under
+ * reduced motion (or without rAF) it jumps instantly.
+ */
+function smoothScrollTo(scroller, target, instant) {
+  target = Math.max(0, target);
+  // Cancel any animation already in flight on this scroller, or stacked rAF loops
+  // fight each other and the longest-running target wins.
+  if (scroller._peScrollRaf) { cancelAnimationFrame(scroller._peScrollRaf); scroller._peScrollRaf = 0; }
+  if (instant || typeof requestAnimationFrame !== 'function') {
+    scroller.scrollTop = target;
+    return;
+  }
+  const start = scroller.scrollTop;
+  const dist = target - start;
+  if (Math.abs(dist) < 2) { scroller.scrollTop = target; return; }
+  const duration = Math.min(600, Math.max(220, Math.abs(dist) * 0.5));
+  const easeOutCubic = (p) => 1 - Math.pow(1 - p, 3);
+  let startTs = null;
+  const step = (ts) => {
+    if (startTs === null) startTs = ts;
+    const p = Math.min(1, (ts - startTs) / duration);
+    scroller.scrollTop = start + dist * easeOutCubic(p);
+    scroller._peScrollRaf = p < 1 ? requestAnimationFrame(step) : 0;
+  };
+  scroller._peScrollRaf = requestAnimationFrame(step);
+}
+
+/**
  * Hero parallax (#54): translate `.pe-hero-bg` inside `[data-pe-parallax]` as
  * the scroll container moves, for a subtle depth effect. Gated on reduced-motion
  * and rAF; the translate is clamped to the layer's over-scan so an edge is never
@@ -420,39 +450,67 @@ function pageToc(root, ctx) {
   const used = new Set();
   content.querySelectorAll('[id]').forEach((el) => used.add(el.id));
 
+  const scroller = scrollContainer();
+  const scrollToHeading = (h) => {
+    // Position relative to the scroller via rects — offsetTop is unreliable
+    // because headings inside positioned containers have varied offsetParents.
+    const top = scroller.scrollTop + (h.getBoundingClientRect().top - scroller.getBoundingClientRect().top) - 12;
+    smoothScrollTo(scroller, top, ctx.reducedMotion);
+    h.setAttribute('tabindex', '-1');
+    h.focus({ preventScroll: true });
+  };
+
+  // Structure: <nav><details><summary>On this page</summary><div>
+  //   <prev/next controls> <ol>links</ol></div></details></nav>
+  // The <details> is open on wide viewports (a persistent rail) and collapsed on
+  // narrow/portrait (an expandable menu), so it never crowds small screens.
   const nav = document.createElement('nav');
   nav.className = `page-toc page-toc--${placement}`;
   nav.setAttribute('aria-label', 'On this page');
-  const title = document.createElement('p');
-  title.className = 'page-toc__title';
-  title.textContent = 'On this page';
+  const disc = document.createElement('details');
+  disc.className = 'page-toc__disc';
+  const summary = document.createElement('summary');
+  summary.className = 'page-toc__title';
+  summary.textContent = 'On this page';
+  const tbody = document.createElement('div');
+  tbody.className = 'page-toc__body';
+
+  const controls = document.createElement('div');
+  controls.className = 'page-toc__controls';
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'page-toc__btn';
+  prevBtn.innerHTML = '<span aria-hidden="true">↑</span> Prev';
+  prevBtn.setAttribute('aria-label', 'Previous section');
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'page-toc__btn';
+  nextBtn.innerHTML = 'Next <span aria-hidden="true">↓</span>';
+  nextBtn.setAttribute('aria-label', 'Next section');
+  controls.append(prevBtn, nextBtn);
+
   const list = document.createElement('ol');
   const links = [];
   const linkFor = new Map();
-  headings.forEach((h) => {
+  const indexOf = new Map();
+  headings.forEach((h, i) => {
     if (!h.id) h.id = tocSlug(h.textContent, used);
+    indexOf.set(h, i);
     const li = document.createElement('li');
     li.className = h.tagName === 'H3' ? 'page-toc__item page-toc__item--sub' : 'page-toc__item';
     const a = document.createElement('a');
     a.href = `#${h.id}`;
     a.textContent = h.textContent || '';
-    const onClick = (e) => {
-      e.preventDefault();
-      const scroller = scrollContainer();
-      // Position relative to the scroller via rects — offsetTop is unreliable
-      // because headings inside positioned containers have varied offsetParents.
-      const top = scroller.scrollTop + (h.getBoundingClientRect().top - scroller.getBoundingClientRect().top) - 12;
-      scroller.scrollTo({ top: Math.max(0, top), behavior: ctx.reducedMotion ? 'auto' : 'smooth' });
-      h.setAttribute('tabindex', '-1');
-      h.focus({ preventScroll: true });
-    };
+    const onClick = (e) => { e.preventDefault(); e.stopPropagation(); scrollToHeading(h); };
     a.addEventListener('click', onClick);
     li.appendChild(a);
     list.appendChild(li);
     links.push({ a, onClick });
     linkFor.set(h, a);
   });
-  nav.append(title, list);
+  tbody.append(controls, list);
+  disc.append(summary, tbody);
+  nav.appendChild(disc);
   content.insertBefore(nav, content.firstChild);
 
   let current = null;
@@ -464,31 +522,53 @@ function pageToc(root, ctx) {
     if (a) a.setAttribute('aria-current', 'true');
   };
 
+  // Prev/next step one heading away from the current (scroll-spy) active one. The
+  // smooth-scroll animation is cancelled on each new call, so the active heading
+  // settles before the next button press — no index drift.
+  const onPrev = () => {
+    const idx = headings.indexOf(current);
+    if (idx > 0) scrollToHeading(headings[idx - 1]);
+  };
+  const onNext = () => {
+    const idx = headings.indexOf(current);
+    if (idx >= 0 && idx < headings.length - 1) scrollToHeading(headings[idx + 1]);
+  };
+  prevBtn.addEventListener('click', onPrev);
+  nextBtn.addEventListener('click', onNext);
+
   // Scroll-spy by position against the `.canvas` scroller (deterministic, and
   // consistent with the click-scroll math above — IntersectionObserver's viewport
   // band is unreliable here because the page scrolls inside `.canvas`, not the
-  // document). The active heading is the last one whose top has crossed a line a
-  // quarter down the viewport.
-  const scroller = scrollContainer();
+  // document). The current heading is the last one whose top has scrolled within
+  // ~96px of the scroller's top edge.
   let ticking = false;
   const update = () => {
     ticking = false;
-    // The current heading is the last one whose top has scrolled within ~96px of
-    // the scroller's top edge. Use rects (not offsetTop) so headings inside
-    // positioned containers compare correctly.
     const sTop = scroller.getBoundingClientRect().top;
     let active = headings[0];
     for (const h of headings) {
       if (h.getBoundingClientRect().top - sTop <= 96) active = h; else break;
     }
     setActive(active);
+    const idx = headings.indexOf(active);
+    prevBtn.disabled = idx <= 0;
+    nextBtn.disabled = idx >= headings.length - 1;
   };
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
   update();
   scroller.addEventListener('scroll', onScroll, { passive: true });
 
+  // Open as a persistent rail on wide; collapse to an expandable menu on narrow.
+  const mq = window.matchMedia('(min-width: 60rem)');
+  const syncOpen = () => { disc.open = mq.matches; };
+  syncOpen();
+  if (mq.addEventListener) mq.addEventListener('change', syncOpen);
+
   return () => {
     scroller.removeEventListener('scroll', onScroll);
+    if (mq.removeEventListener) mq.removeEventListener('change', syncOpen);
+    prevBtn.removeEventListener('click', onPrev);
+    nextBtn.removeEventListener('click', onNext);
     links.forEach(({ a, onClick }) => a.removeEventListener('click', onClick));
     nav.remove();
   };
