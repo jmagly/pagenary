@@ -1,1 +1,0 @@
-../../../docs/MANAGED-HOSTING.md

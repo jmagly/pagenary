@@ -1,1 +1,0 @@
-../../../docs/ACCESSIBILITY.md

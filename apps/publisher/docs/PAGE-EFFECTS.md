@@ -292,5 +292,3 @@ above for a rich hero.
 - [Blog Layout](#blog-layout) — the reading-first layout these heroes pair with.
 - [Tenant Configuration](#tenant-config) — every `config.json` option.
 - [Theming Recipes](#theming-recipes) — colors, fonts, and layout recipes.
-- [Page Effects R&D Spike](PAGE-EFFECTS-SPIKE.md) — candidate evaluation and
-  recommended follow-up order.

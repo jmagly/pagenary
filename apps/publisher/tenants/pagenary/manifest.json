@@ -10,13 +10,25 @@
     {
       "id": "getting-started",
       "title": "Getting Started",
-      "summary": "Build your first bundle and stand up a tenant.",
+      "summary": "From an empty folder to a published, searchable docs site.",
       "sections": [
+        {
+          "id": "overview",
+          "title": "Overview",
+          "summary": "From nothing to a published site using the npm package.",
+          "file": "GETTING-STARTED.md"
+        },
         {
           "id": "quickstart",
           "title": "Quickstart",
           "summary": "Install, build the default bundle, and serve it locally.",
           "file": "QUICKSTART.md"
+        },
+        {
+          "id": "publishing",
+          "title": "Publishing",
+          "summary": "Ship your docs live with a GitHub or Gitea Actions workflow.",
+          "file": "PUBLISHING.md"
         }
       ]
     },
@@ -32,49 +44,9 @@
           "file": "DEVELOPER-GUIDE.md"
         },
         {
-          "id": "search-and-data",
-          "title": "Search & Data",
-          "summary": "Ranked hybrid search, a knowledge graph, and faceted metadata — powered by Fortémi.",
-          "file": "SEARCH-AND-DATA.md"
-        },
-        {
-          "id": "blog-layout",
-          "title": "Blog Layout",
-          "summary": "Turn a tenant into a blog: chronological index, hero posts, bylines, and tags.",
-          "file": "BLOG-LAYOUT.md"
-        },
-        {
-          "id": "accessibility",
-          "title": "Accessibility Planning",
-          "summary": "WCAG target, responsibility model, checks, reports, and testing strategy.",
-          "file": "ACCESSIBILITY.md",
-          "sections": [
-            {
-              "id": "accessible-authoring",
-              "title": "Accessible Authoring",
-              "summary": "Practical guidance for alt text, headings, links, tables, media, embeds, and custom HTML.",
-              "file": "ACCESSIBLE-AUTHORING.md"
-            }
-          ]
-        },
-        {
-          "id": "page-effects",
-          "title": "Page Effects",
-          "summary": "Rich heroes, reveal-on-scroll, parallax, sticky, and CTA bands — opt-in and accessible.",
-          "file": "PAGE-EFFECTS.md",
-          "sections": [
-            {
-              "id": "page-effects-spike",
-              "title": "Page Effects Spike",
-              "summary": "R&D findings and ranked follow-up order for candidate page effects.",
-              "file": "PAGE-EFFECTS-SPIKE.md"
-            }
-          ]
-        },
-        {
           "id": "tenant-config",
           "title": "Tenant Configuration",
-          "summary": "Every config.json option: branding, theming, SEO, and export.",
+          "summary": "Every config.json option: branding, theming, SEO, nav, and export.",
           "file": "TENANT-CONFIG.md"
         },
         {
@@ -84,22 +56,34 @@
           "file": "THEMING-RECIPES.md"
         },
         {
-          "id": "theme-token-audit",
-          "title": "Theme Token Audit",
-          "summary": "Sources of truth, exceptions, and checks for theme token alignment.",
-          "file": "THEME-TOKEN-AUDIT.md"
+          "id": "blog-layout",
+          "title": "Blog Layout",
+          "summary": "Turn a tenant into a blog: chronological index, hero posts, bylines, and tags.",
+          "file": "BLOG-LAYOUT.md"
+        },
+        {
+          "id": "page-effects",
+          "title": "Page Effects",
+          "summary": "Rich heroes, reveal-on-scroll, parallax, sticky, and CTA bands — opt-in and accessible.",
+          "file": "PAGE-EFFECTS.md"
+        },
+        {
+          "id": "search-and-data",
+          "title": "Search & Data",
+          "summary": "Ranked hybrid search, a knowledge graph, and faceted metadata — powered by Fortémi.",
+          "file": "SEARCH-AND-DATA.md"
+        },
+        {
+          "id": "accessible-authoring",
+          "title": "Accessible Authoring",
+          "summary": "Practical guidance for alt text, headings, links, tables, media, embeds, and custom HTML.",
+          "file": "ACCESSIBLE-AUTHORING.md"
         },
         {
           "id": "extending",
           "title": "Extending",
           "summary": "Add section templates, content types, and build behaviors.",
           "file": "EXTENDING.md"
-        },
-        {
-          "id": "managed-hosting",
-          "title": "Managed Hosting",
-          "summary": "Concierge-first hosting MVP: plans, entitlements, billing, and Caddy routing.",
-          "file": "MANAGED-HOSTING.md"
         }
       ]
     },

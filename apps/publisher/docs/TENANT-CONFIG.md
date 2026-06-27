@@ -169,9 +169,6 @@ flow.
 | `whiteLabel` | No | White-label entitlement request; requires Team |
 | `sso` | No | SSO entitlement request; requires Team |
 
-See [Managed Hosting MVP](MANAGED-HOSTING.md) for plan entitlements, Stripe
-Payment Link onboarding, and generated Caddy routing.
-
 ### Source Types
 
 **Local Path:**
@@ -370,9 +367,6 @@ When choosing custom brand colors, keep text, focus rings, and status labels
 readable against the selected surfaces. See [Accessible Authoring](ACCESSIBLE-AUTHORING.md)
 for practical guidance. `npm run check` includes a lightweight accessibility
 check that warns on risky tenant color combinations.
-
-For the current token contract and intentional non-token exceptions, see
-[Theme Token Audit](THEME-TOKEN-AUDIT.md).
 
 #### Runtime cache strategy
 
