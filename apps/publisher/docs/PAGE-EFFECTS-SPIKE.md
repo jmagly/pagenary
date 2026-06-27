@@ -39,19 +39,21 @@ Every candidate was checked against these constraints:
 | Logo/marquee ticker | Defer | Often decorative and easy to overuse; acceptable only if pause/focus and reduced-motion rules are strict. |
 | Card hover lift / spotlight glow | Defer | Low content value and pointer-biased; can remain recipe-level CSS rather than a toolkit primitive. |
 
-## Throwaway Prototypes
+## Throwaway Prototypes — productized and retired
 
-The example page at `examples/page-effects/content/effects-spike.md` prototypes
-three candidates without adding production primitives:
+The spike used a throwaway example page (`pe-spike-*` classes) to judge three
+candidates before committing to a production contract. All three have since
+shipped as real primitives, and the throwaway page has been **retired**:
 
-- Native disclosure stack for accordion-style content.
-- CSS scroll-snap feature panels.
-- CSS-only figure zoom/lightbox pattern using `<details>`.
+- Native disclosure stack → **`.pe-accordion`** (#72).
+- CSS-only figure zoom/lightbox → **`.pe-figure` / `[data-pe-zoom]`** (#76).
+- CSS scroll-snap feature panels → **`.pe-snap`** (#77).
 
-These examples deliberately use `pe-spike-*` class names so they do not become a
-supported API. They use real HTML semantics, token-aware colors, and a
-`prefers-reduced-motion` block. With JavaScript disabled, all content remains in
-the document and the interactive controls still use browser-native behavior.
+Each production primitive keeps the prototype's properties — real HTML semantics,
+token-aware colors, `prefers-reduced-motion` handling, and full content with
+JavaScript disabled — under a supported `.pe-*` class instead of the throwaway
+`pe-spike-*` prefix. See `docs/PAGE-EFFECTS.md` for the reference and the
+`page-effects` example tenant for live recipes.
 
 ## Recommended Implementation Order
 

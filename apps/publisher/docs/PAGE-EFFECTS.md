@@ -168,6 +168,24 @@ visible** — zoom is an enhancement. With JS, the image becomes a `<button>` an
 opens a native `<dialog>` (`showModal()`), which gives the focus trap, `Esc`-to-
 close, inert backdrop, and focus-restore for free. No autoplaying motion.
 
+### Scroll-snap sections
+
+A `.pe-snap` region snaps its `.pe-snap__panel` children as you scroll it — a
+CSS-only primitive for landing/portfolio pages, with **no runtime**:
+
+```html
+<div class="pe-snap">
+  <section class="pe-snap__panel"><h2>One</h2><p>…</p></section>
+  <section class="pe-snap__panel"><h2>Two</h2><p>…</p></section>
+  <section class="pe-snap__panel"><h2>Three</h2><p>…</p></section>
+</div>
+```
+
+It's a **self-contained scroll region** (bounded height), so it never takes over
+the page scroll, and it uses `scroll-snap-type: y proximity` (not `mandatory`) so
+keyboard users are never trapped — panels stay individually reachable. Smooth
+glide to snap points is gated under `prefers-reduced-motion: no-preference`.
+
 ## Authoring paths
 
 You have four ways to add these, from least to most control:

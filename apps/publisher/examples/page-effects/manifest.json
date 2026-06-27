@@ -20,10 +20,10 @@
       "file": "disclosure.md"
     },
     {
-      "id": "effects-spike",
-      "title": "Effect Spike",
-      "summary": "Throwaway prototypes for scroll-snap panels and figure zoom candidates.",
-      "file": "effects-spike.md"
+      "id": "scroll-snap",
+      "title": "Scroll-snap",
+      "summary": "CSS-only .pe-snap region — bounded, opt-in snap panels that never trap the keyboard.",
+      "file": "scroll-snap.md"
     }
   ]
 }
