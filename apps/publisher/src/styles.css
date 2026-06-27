@@ -1370,6 +1370,9 @@ mark.hl {
     height: 100%;
     z-index: 30;
     overflow-y: auto;
+    /* Opaque as an overlay drawer: it sits over the content, so the translucent
+       base sidebar background would let text bleed through. */
+    background: var(--surface);
     transition: transform 0.3s ease;
     box-shadow: 2px 0 16px rgba(0, 0, 0, 0.1);
   }
@@ -3136,7 +3139,10 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   }
   .doc-content > .page-toc--rail {
     grid-column: 2;
-    grid-row: 1 / -1;
+    /* Span all content rows. `1 / -1` resolves against the (absent) explicit grid
+       and instead stretches row 1 to the rail's height — leaving a big gap under
+       the first heading. A large explicit end line spans every implicit row. */
+    grid-row: 1 / 9999;
     position: sticky;
     top: 1rem;
     align-self: start;
