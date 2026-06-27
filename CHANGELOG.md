@@ -6,6 +6,45 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.15] - 2026-06-27
+
+### Added
+
+- **Page-effects primitives.** Disclosure accordions (`.pe-accordion`, native
+  `<details>`, optional single-open), staggered reveal (`data-reveal-stagger`),
+  generalized parallax on any element (`data-pe-parallax`), accessible figure
+  zoom (`.pe-figure[data-pe-zoom]` → focus-trapped `<dialog>`), scroll-snap
+  sections (`.pe-snap`), and scrollytelling (`.pe-scrolly`, sticky stage + step
+  observers). Living scroll now applies to any layout, not just blog.
+- **On-this-page TOC.** Opt-in heading nav generated from each page's `h2`/`h3`
+  with scroll-spy, prev/next section controls, a landscape rail that uses the
+  gutter, and a portrait collapsible menu. Configurable via `pageToc`
+  (`rail`/`top`/`off`, `minHeadings`).
+- **Collapsible navigation.** The sidebar nav and the on-this-page TOC both
+  collapse. New `navCollapse` config selects the drawer behavior: `overlay`
+  (default — a mobile-style drawer over full-width content), `push`, or `instant`.
+- **Showcase.** A live, in-docbase demo section (one engine, many styles): a
+  landing gallery (hero, staggered reveal grid, accordion, scroll-snap), a
+  theming-palettes demo, a figure-zoom demo, and a scrollytelling story.
+
+### Changed
+
+- **Documentation restructured for publishing.** `apps/publisher/docs` is now the
+  user-facing docbase; planning, spikes, and in-dev specs moved to the `.aiwg`
+  SDLC workspace. Getting Started and Publishing are now published; Accessible
+  Authoring promoted; nav reorganized (Welcome · Getting Started · Guides ·
+  Showcase · Reference).
+
+### Fixed
+
+- TOC rail no longer overlaps content or stretches the first heading's row; the
+  Fortémi info icon stays clear of the rail; the overlay nav drawer is opaque.
+- Print/export TOC no longer splits across a page break; scrollytelling no longer
+  leaks raw HTML; the accordion open/close animates smoothly.
+- Reliable smooth scrolling for TOC navigation (rAF-based, replacing the
+  silently-dropped native smooth `scrollTo` on the nested scroller); prev/next
+  step deterministically via a navigation cursor.
+
 ## [2026.6.14] - 2026-06-27
 
 ### Added
