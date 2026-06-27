@@ -2859,18 +2859,21 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   }
 }
 
-/* Living scroll (blog): post content blocks reveal as they enter view. Hidden
-   base state is keyed on the body flag (present at first paint, so no flash) and
-   scoped under html.has-js + no-preference — JS-off and reduced-motion readers
-   get the full article immediately. The effect (blogLivingScroll) adds
-   .is-living-revealed. */
+/* Living scroll: content blocks reveal as they enter view. Layout-agnostic —
+   works on any markdown page (docs or blog) via the body flag; `data-blog-living-scroll`
+   is the back-compat alias. Hidden base state is keyed on the flag (present at
+   first paint, so no flash) and scoped under html.has-js + no-preference —
+   JS-off and reduced-motion readers get the full content immediately. The effect
+   (livingScroll) adds .is-living-revealed. */
 @media (prefers-reduced-motion: no-preference) {
+  html.has-js body[data-living-scroll] .doc.markdown .doc-content > *,
   html.has-js body[data-blog-living-scroll] .doc.markdown .doc-content > * {
     opacity: 0;
     transform: translateY(14px);
     transition: opacity 600ms ease, transform 600ms ease;
     will-change: opacity, transform;
   }
+  html.has-js body[data-living-scroll] .doc.markdown .doc-content > .is-living-revealed,
   html.has-js body[data-blog-living-scroll] .doc.markdown .doc-content > .is-living-revealed {
     opacity: 1;
     transform: none;

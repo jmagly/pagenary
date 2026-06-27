@@ -286,7 +286,8 @@ above plus `colorScheme` (`light` \| `dark`) and dark-mode surface keys
 | `layout` | string | `docs` | Layout family: `docs` (sidebar shell) or `blog` (chronological index + hero post pages). See [Blog Layout](#blog-layout). |
 | `blog.sidebar` | string | `hidden` | Blog only: `hidden` (single reading column) or `rail` (content + posts/tags rail). |
 | `blog.indexTitle` | string | collection title | Blog only: heading above the post index. |
-| `blog.livingScroll` | bool | `false` | Blog only: reveal post content on scroll + a reading-progress bar (opt-in, reduced-motion + JS-off safe). See [Blog Layout](#blog-layout). |
+| `livingScroll` | bool | `false` | **Any layout** (docs included): reveal page content on scroll + a reading-progress bar (opt-in, reduced-motion + JS-off safe). The layout-agnostic form of `blog.livingScroll`. |
+| `blog.livingScroll` | bool | `false` | Blog shortcut for the same living-scroll treatment on post pages. Equivalent to top-level `livingScroll` scoped to the blog layout. See [Blog Layout](#blog-layout). |
 | `reader.progress` / `readingProgress` | bool/object | `false` | Enable the presentational reading-progress bar for the tenant without hand-editing `<body>`. Frontmatter `progress: { enabled: true }` can opt in one document. |
 | `collections` | array | — | Folders the build scans as dated post collections (emits `index.json` + `feed.xml`). See [Blog Layout](#blog-layout). |
 

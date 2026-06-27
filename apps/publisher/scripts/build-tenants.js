@@ -1671,6 +1671,35 @@ async function applyReadingProgressConfig(distDir, config, tenantId) {
 }
 
 /**
+ * Living scroll on any layout (docs included). Blog tenants opt in via
+ * `blog.livingScroll` (handled in applyBlogLayout); this is the general path,
+ * driven by a top-level `livingScroll: true` (or `reader.livingScroll`). It sets
+ * the layout-agnostic body flag plus a reading-progress bar. The hidden base
+ * state, reduced-motion fallback, and JS-off completeness all live in
+ * page-effects.js + styles.css — the build only sets the hooks.
+ */
+async function applyLivingScrollConfig(distDir, config, tenantId) {
+  const reader = (config.reader && typeof config.reader === 'object') ? config.reader : {};
+  if (config.livingScroll !== true && reader.livingScroll !== true) return;
+
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+
+  let html = await fsp.readFile(indexPath, 'utf8');
+  // Idempotent, and don't fight applyBlogLayout if it already set the blog alias.
+  if (/<body[^>]*data-(?:blog-)?living-scroll(?:[\s=>])/.test(html)) return;
+  const attrs = ['data-living-scroll'];
+  // Living scroll pairs with a progress bar; only add it if not already set
+  // (applyReadingProgressConfig runs first and may have added it).
+  if (!/<body[^>]*data-reading-progress(?:[\s=>])/.test(html)) {
+    attrs.push('data-reading-progress');
+  }
+  html = html.replace(/<body(?=[\s>])/, `<body ${attrs.join(' ')}`);
+  await fsp.writeFile(indexPath, html, 'utf8');
+  console.log(`  ↳ enabled living scroll for ${tenantId}`);
+}
+
+/**
  * Write the synthetic blog-index section module and register it in manifest.js.
  * Mirrors applyDocsMap's injection (append + idempotent).
  */
@@ -4776,6 +4805,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyNavAlignment(distDir, config, tenantId);
     await applyBlogLayout(distDir, config, tenantId);
     await applyReadingProgressConfig(distDir, config, tenantId);
+    await applyLivingScrollConfig(distDir, config, tenantId);
     await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }

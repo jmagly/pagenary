@@ -627,3 +627,36 @@ describe('export configuration', () => {
     expect(cfg.scopes).toEqual([]);
   });
 });
+
+describe('living scroll (any layout)', () => {
+  const TEST_ID = '__test-living-scroll-' + Date.now();
+  let tenantDir;
+
+  afterEach(async () => {
+    if (tenantDir) await cleanup(tenantDir);
+    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+  });
+
+  async function buildDocsBody(config) {
+    tenantDir = await createNestedTenant(TEST_ID, {
+      config,
+      directories: { docs: { files: { 'index.md': '# Docs\n\nBody.' } } }
+    });
+    const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
+    expect(result.code).toBe(0);
+    const html = await fsp.readFile(
+      path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'index.html'), 'utf8');
+    return (html.match(/<body[^>]*>/) || [''])[0];
+  }
+
+  test('livingScroll:true sets the layout-agnostic flag on a docs tenant', async () => {
+    const body = await buildDocsBody({ livingScroll: true });
+    expect(body).toMatch(/data-living-scroll/);
+    expect(body).toMatch(/data-reading-progress/); // living scroll pairs with the bar
+  });
+
+  test('no living-scroll flag by default', async () => {
+    const body = await buildDocsBody({});
+    expect(body).not.toMatch(/data-living-scroll/);
+  });
+});

@@ -217,16 +217,19 @@ function heroSticky(root) {
 }
 
 /**
- * Living scroll (#blog): on a blog with `data-blog-living-scroll` set, reveal a
- * post's content blocks as they enter the viewport — "content arriving as you
- * read". The hidden base state is CSS, scoped under the body flag + `html.has-js`
- * + no-preference, so JS-off and reduced-motion readers see the full article
- * immediately. Blocks already in view on load reveal at once (a gentle entrance);
- * the rest arrive on scroll. Scoped to `.doc.markdown` so the index/cards (which
- * carry their own reveal) and non-post pages are untouched.
+ * Living scroll: with `data-living-scroll` set on the body, reveal a page's
+ * content blocks as they enter the viewport — "content arriving as you read".
+ * Layout-agnostic: works on any markdown page (docs or blog), not just posts.
+ * `data-blog-living-scroll` is accepted as a back-compat alias for the original
+ * blog-only flag. The hidden base state is CSS, scoped under the body flag +
+ * `html.has-js` + no-preference, so JS-off and reduced-motion readers see the
+ * full content immediately. Blocks already in view on load reveal at once (a
+ * gentle entrance); the rest arrive on scroll. Scoped to `.doc.markdown` so card
+ * indexes (which carry their own reveal) are untouched.
  */
-function blogLivingScroll(root, ctx) {
-  if (!document.body.hasAttribute('data-blog-living-scroll')) return;
+function livingScroll(root, ctx) {
+  if (!document.body.hasAttribute('data-living-scroll') &&
+      !document.body.hasAttribute('data-blog-living-scroll')) return;
   const content = root.querySelector('.doc.markdown .doc-content');
   if (!content) return;
   const blocks = Array.from(content.children);
@@ -254,4 +257,4 @@ registerEffect(revealOnScroll);
 registerEffect(readingProgress);
 registerEffect(heroParallax);
 registerEffect(heroSticky);
-registerEffect(blogLivingScroll);
+registerEffect(livingScroll);

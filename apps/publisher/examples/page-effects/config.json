@@ -7,5 +7,6 @@
   "accentColor": "#e11d48",
   "surfaceColor": "#ffffff",
   "inkColor": "#0b1220",
-  "bottomNav": "always"
+  "bottomNav": "always",
+  "livingScroll": true
 }
