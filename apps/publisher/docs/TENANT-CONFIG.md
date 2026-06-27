@@ -491,6 +491,41 @@ engines drop URL fragments, so hash canonicals would collapse every page onto th
 homepage. The `#hash` route is still used for the in-page "interactive version"
 link and the JS redirect.
 
+#### Export (`export`)
+
+The header's **Export** button compiles the current page or the whole site into a
+single document and opens the browser's **print / Save-as-PDF** dialog. Export
+renders in an off-screen frame and triggers the dialog directly — there is **no
+pop-up window** to allow or dismiss, and nothing is left open afterward.
+
+```json
+{
+  "export": {
+    "enabled": true,
+    "scopes": ["page", "site"],
+    "logo": "embed",
+    "showTagline": true,
+    "showDate": true
+  }
+}
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `true` | Master switch. `false` removes the Export button entirely. |
+| `scopes` | string[] | `["page", "site"]` | Which options appear: `page` (current section) and/or `site` (everything). An empty list also disables export. |
+| `logo` | string | `embed` | `embed` (inline the `.public/` logo), `reference` (link it by `logoPath`), or omit for a text-only header. |
+| `logoPath` | string | — | Path within `.public/` to the export header logo. |
+| `showTagline` | bool | `true` | Show the tenant `tagline` under the export header. |
+| `showDate` | bool | `true` | Show the generated-on date in the export header. |
+
+Disable export for a tenant, or restrict it to single-page exports:
+
+```json
+{ "export": { "enabled": false } }
+{ "export": { "scopes": ["page"] } }
+```
+
 ## Collections
 
 A **collection** marks a content folder (e.g. a blog) so the build emits a

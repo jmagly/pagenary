@@ -81,12 +81,14 @@ ${chapter.html}
       .tagline { color: #666; font-size: 0.95rem; margin: 0.5rem 0 0 0; font-style: italic; }
       .meta { color: #666; font-size: 0.9rem; margin: 0.5rem 0 0 0; }
       .front-matter { margin-bottom: 2.5rem; }
-      .toc { border: 1px solid rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 2.5rem; background: rgba(0,0,0,0.02); }
+      .toc { border: 1px solid rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 2.5rem; background: rgba(0,0,0,0.02); break-inside: avoid; page-break-inside: avoid; }
       .toc h2 { margin-top: 0; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem; }
       .toc ul { margin: 0; padding-left: 1.2rem; }
-      .toc li { margin: 0.4rem 0; }
-      section { page-break-inside: avoid; margin-bottom: 2.75rem; }
-      h2 { font-size: 1.4rem; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+      .toc li { margin: 0.4rem 0; break-inside: avoid; }
+      /* Long content sections must be allowed to break across pages; only keep
+         individual blocks (paragraphs, cards, tables) and headings intact. */
+      section { margin-bottom: 2.75rem; }
+      h2 { font-size: 1.4rem; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 0.5rem; margin-bottom: 1rem; break-after: avoid; page-break-after: avoid; }
       .section-summary { color: #5a5a5a; font-size: 0.95rem; margin-top: 0; }
       .section-body { border-left: 1px solid rgba(0,0,0,0.1); padding-left: 1.25rem; }
       .card, .card-grid, .card-grid > *, .section-body > * { break-inside: avoid; }
