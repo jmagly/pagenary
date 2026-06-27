@@ -277,6 +277,11 @@ function isGitAvailable() {
  * Execute a command with timeout and retry
  */
 async function execWithRetry(command, options = {}) {
+  const commandSegments = Array.isArray(command) ? command : [];
+  if (commandSegments.length === 0) {
+    throw new Error('execWithRetry expected an argument array');
+  }
+
   const {
     cwd = root,
     timeout = DEFAULT_GIT_TIMEOUT,
@@ -288,10 +293,13 @@ async function execWithRetry(command, options = {}) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await new Promise((resolve, reject) => {
-        const proc = spawn('sh', ['-c', command], {
+        const proc = spawn(commandSegments[0], commandSegments.slice(1), {
           cwd,
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: { ...env, GIT_TERMINAL_PROMPT: '0' },
+          env: {
+            ...env,
+            GIT_TERMINAL_PROMPT: '0'
+          },
           timeout
         });
 
@@ -305,7 +313,10 @@ async function execWithRetry(command, options = {}) {
           if (code === 0) {
             resolve({ stdout, stderr });
           } else {
-            reject(new Error(`Command failed (exit ${code}): ${stderr || stdout}`));
+            const prettyCommand = commandSegments
+              .map((segment) => maskAuthSegment(String(segment)))
+              .join(' ');
+            reject(new Error(`Command failed (exit ${code}): ${stderr || stdout} (command: ${prettyCommand})`));
           }
         });
 
@@ -332,6 +343,34 @@ async function execWithRetry(command, options = {}) {
     }
   }
   throw lastError;
+}
+
+function maskAuthSegment(value) {
+  return value.replace(/\/\/[^@]+@/, '//***@');
+}
+
+/**
+ * Build an authenticated git URL when GIT_CREDENTIALS is available.
+ */
+function withGitCredentials(rawUrl) {
+  const credentials = process.env.GIT_CREDENTIALS || '';
+  const [username, password] = credentials.split(':', 2);
+  if (!credentials || !username || password === undefined || !rawUrl) return rawUrl;
+
+  try {
+    const source = new URL(rawUrl);
+    if (!['https:', 'http:'].includes(source.protocol)) {
+      return rawUrl;
+    }
+
+    if (source.username) {
+      return rawUrl;
+    }
+
+    return `${source.protocol}//${encodeURIComponent(username)}:${encodeURIComponent(password)}@${source.host}${source.pathname}${source.search}${source.hash}`;
+  } catch {
+    return rawUrl;
+  }
 }
 
 /**
@@ -364,7 +403,10 @@ function isImmutableRef(ref) {
  */
 async function getHeadCommit(repoDir) {
   try {
-    const { stdout } = await execWithRetry(`git -C "${repoDir}" rev-parse HEAD`, { cwd: root, retries: 1 });
+    const { stdout } = await execWithRetry(['git', '-C', repoDir, 'rev-parse', 'HEAD'], {
+      cwd: root,
+      retries: 1
+    });
     return stdout.trim();
   } catch {
     return null;
@@ -385,7 +427,7 @@ async function getChangedFiles(repoDir, oldCommit, newCommit, subPath = '.') {
   try {
     // Use --name-status to get file status (A=added, M=modified, D=deleted)
     const { stdout } = await execWithRetry(
-      `git -C "${repoDir}" diff --name-status ${oldCommit} ${newCommit}`,
+      ['git', '-C', repoDir, 'diff', '--name-status', oldCommit, newCommit],
       { cwd: root, retries: 1 }
     );
 
@@ -461,6 +503,7 @@ async function cloneGitSource(source, cacheDir, options = {}) {
 
   // Sanitize URL for logging (hide credentials)
   const safeUrl = url.replace(/\/\/[^@]+@/, '//***@');
+  const authUrl = withGitCredentials(url);
 
   console.log(`  ↳ git source: ${safeUrl}`);
   console.log(`  ↳ ref: ${ref}, path: ${subPath || '(root)'}`);
@@ -494,8 +537,8 @@ async function cloneGitSource(source, cacheDir, options = {}) {
       console.log(`  ↳ current HEAD: ${oldCommit ? oldCommit.slice(0, 7) : 'unknown'}`);
 
       try {
-        await execWithRetry(`git -C "${cloneDir}" fetch origin ${ref} --depth ${effectiveDepth}`, { cwd: root });
-        await execWithRetry(`git -C "${cloneDir}" checkout FETCH_HEAD`, { cwd: root });
+        await execWithRetry(['git', '-C', cloneDir, 'fetch', 'origin', ref, '--depth', String(effectiveDepth)], { cwd: root });
+        await execWithRetry(['git', '-C', cloneDir, 'checkout', 'FETCH_HEAD'], { cwd: root });
         newCommit = await getHeadCommit(cloneDir);
         console.log(`  ↳ updated HEAD: ${newCommit ? newCommit.slice(0, 7) : 'unknown'}`);
       } catch (err) {
@@ -513,33 +556,33 @@ async function cloneGitSource(source, cacheDir, options = {}) {
     wasCloned = true;
 
     // Build clone command
-    let cloneCmd = `git clone --depth ${effectiveDepth}`;
+    const cloneArgs = ['git', 'clone', '--depth', String(effectiveDepth)];
 
     // Add branch/ref
     // For commits, we can't use --branch, need to fetch after
     if (!isImmutableRef(ref) || /^v?\d+\.\d+/.test(ref)) {
-      cloneCmd += ` --branch ${ref}`;
+      cloneArgs.push('--branch', ref);
     }
 
     // Sparse checkout preparation
     if (effectiveSparse) {
-      cloneCmd += ' --filter=blob:none --sparse';
+      cloneArgs.push('--filter=blob:none', '--sparse');
     }
 
-    cloneCmd += ` "${url}" "${cloneDir}"`;
+    cloneArgs.push(authUrl, cloneDir);
 
     try {
-      await execWithRetry(cloneCmd, { cwd: root });
+      await execWithRetry(cloneArgs, { cwd: root });
 
       // If ref is a commit SHA, checkout after clone
       if (/^[0-9a-f]{7,40}$/i.test(ref) && !/^v?\d+\.\d+/.test(ref)) {
-        await execWithRetry(`git -C "${cloneDir}" fetch --depth ${effectiveDepth} origin ${ref}`, { cwd: root });
-        await execWithRetry(`git -C "${cloneDir}" checkout ${ref}`, { cwd: root });
+        await execWithRetry(['git', '-C', cloneDir, 'fetch', '--depth', String(effectiveDepth), 'origin', ref], { cwd: root });
+        await execWithRetry(['git', '-C', cloneDir, 'checkout', ref], { cwd: root });
       }
 
       // Set up sparse checkout if needed
       if (effectiveSparse) {
-        await execWithRetry(`git -C "${cloneDir}" sparse-checkout set "${subPath}"`, { cwd: root });
+        await execWithRetry(['git', '-C', cloneDir, 'sparse-checkout', 'set', subPath], { cwd: root });
       }
 
       newCommit = await getHeadCommit(cloneDir);
@@ -1725,6 +1768,26 @@ async function applyPageTocConfig(distDir, config, tenantId) {
   html = html.replace(/<body(?=[\s>])/, `<body ${attrs.join(' ')}`);
   await fsp.writeFile(indexPath, html, 'utf8');
   console.log(`  ↳ enabled on-this-page TOC (${placement}) for ${tenantId}`);
+}
+
+/**
+ * Sidebar nav collapse behavior. Configurable via `navCollapse`:
+ *   "overlay" (default) — drawer hidden by default; hamburger slides it over the content
+ *   "push"             — nav visible; collapse slides it out and reflows the content
+ *   "instant"          — nav visible; collapse instantly hides the column
+ * Writes data-nav-collapse so styles.css can switch modes (drawer modes apply only
+ * to the default left-sidebar layout; positioned-nav demos are unaffected).
+ */
+async function applyNavCollapseConfig(distDir, config, tenantId) {
+  const raw = typeof config.navCollapse === 'string' ? config.navCollapse.toLowerCase() : '';
+  const mode = raw === 'push' || raw === 'instant' ? raw : 'overlay';
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+  let html = await fsp.readFile(indexPath, 'utf8');
+  if (/<body[^>]*data-nav-collapse(?:[\s=>])/.test(html)) return;
+  html = html.replace(/<body(?=[\s>])/, `<body data-nav-collapse="${mode}"`);
+  await fsp.writeFile(indexPath, html, 'utf8');
+  console.log(`  ↳ nav collapse mode: ${mode} for ${tenantId}`);
 }
 
 /**
@@ -4835,6 +4898,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyReadingProgressConfig(distDir, config, tenantId);
     await applyLivingScrollConfig(distDir, config, tenantId);
     await applyPageTocConfig(distDir, config, tenantId);
+    await applyNavCollapseConfig(distDir, config, tenantId);
     await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }

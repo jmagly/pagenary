@@ -430,6 +430,7 @@ a:focus {
   min-height: 0;
   height: 100%;
   overflow: hidden;
+  position: relative; /* anchor for the absolute nav drawer (overlay/push modes) */
 }
 
 .sidebar {
@@ -1348,9 +1349,68 @@ mark.hl {
   cursor: pointer;
   transition: background 0.2s;
 }
-/* Desktop nav collapse: drop the sidebar column to free reading width. */
-body.nav-collapsed .layout { grid-template-columns: minmax(0, 1fr); }
-body.nav-collapsed .sidebar { display: none; }
+/* Sidebar nav collapse modes (configurable via data-nav-collapse; default "overlay").
+   The drawer modes apply only to the default left-sidebar layout — positioned-nav
+   demos (top/bottom/right) keep their own layout and hide the desktop toggle. */
+@media (min-width: 60rem) {
+  body[data-nav-position] .mobile-menu-toggle { display: none; }
+
+  /* Overlay (default) + push share an absolute drawer inside .layout: no header-
+     height math, and .layout's overflow:hidden clips it when slid off-canvas. */
+  body[data-nav-collapse="overlay"]:not([data-nav-position]) .layout,
+  body[data-nav-collapse="push"]:not([data-nav-position]) .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-nav-collapse="overlay"]:not([data-nav-position]) .sidebar,
+  body[data-nav-collapse="push"]:not([data-nav-position]) .sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 19rem;
+    height: 100%;
+    z-index: 30;
+    overflow-y: auto;
+    transition: transform 0.3s ease;
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.1);
+  }
+  /* Overlay: hidden by default; the drawer slides over the full-width content. */
+  body[data-nav-collapse="overlay"]:not([data-nav-position]) .sidebar {
+    transform: translateX(-100%);
+  }
+  body[data-nav-collapse="overlay"]:not([data-nav-position]) .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  /* Dim scrim behind the open overlay drawer (clicking it closes via the doc handler). */
+  body[data-nav-collapse="overlay"]:not([data-nav-position]).menu-open .layout::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.18);
+    z-index: 25;
+  }
+  /* Push: visible by default beside padded content; collapse slides it out. */
+  body[data-nav-collapse="push"]:not([data-nav-position]) .sidebar {
+    transform: translateX(0);
+  }
+  body[data-nav-collapse="push"]:not([data-nav-position]) .canvas {
+    padding-left: 19rem;
+    transition: padding-left 0.3s ease;
+  }
+  body[data-nav-collapse="push"]:not([data-nav-position]).nav-collapsed .sidebar {
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+  body[data-nav-collapse="push"]:not([data-nav-position]).nav-collapsed .canvas {
+    padding-left: 0;
+  }
+  /* Instant: simply drop the sidebar column. */
+  body[data-nav-collapse="instant"]:not([data-nav-position]).nav-collapsed .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-nav-collapse="instant"]:not([data-nav-position]).nav-collapsed .sidebar {
+    display: none;
+  }
+}
 
 .mobile-menu-toggle:hover {
   background: rgba(var(--ink-rgb), 0.05);

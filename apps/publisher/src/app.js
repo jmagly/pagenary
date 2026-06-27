@@ -1497,56 +1497,54 @@ function highlightContent(root, query, { scrollToFirst = false } = {}) {
   }
 }
 
-// Mobile menu toggle
+// Sidebar nav toggle. Behavior depends on data-nav-collapse (default "overlay"):
+//   overlay — drawer: slide in/out over the content (the mobile UX, on desktop too)
+//   push / instant — collapse the sidebar column (push reflows, instant snaps)
+// Mobile (<=960px) always uses the drawer regardless of mode.
 if (mobileMenuToggle && sidebar) {
-  // Reflect the initial desktop state: the sidebar is shown (expanded).
-  if (window.innerWidth > 960) mobileMenuToggle.setAttribute('aria-expanded', 'true');
+  const navMode = () => document.body.dataset.navCollapse || 'overlay';
+  // A drawer is active on mobile (any mode) or on desktop in overlay mode.
+  const drawerActive = () => window.innerWidth <= 960 || navMode() === 'overlay';
+  const closeDrawer = () => {
+    sidebar.classList.remove('mobile-open');
+    document.body.classList.remove('menu-open');
+    mobileMenuToggle.setAttribute('aria-expanded', 'false');
+  };
+
+  // Initial desktop state: push/instant show the nav (expanded); overlay starts closed.
+  if (window.innerWidth > 960 && navMode() !== 'overlay') {
+    mobileMenuToggle.setAttribute('aria-expanded', 'true');
+  }
+
   mobileMenuToggle.addEventListener('click', () => {
-    // Desktop: collapse/expand the sidebar column to free reading width.
-    // Mobile: overlay the sidebar (existing behavior).
-    if (window.innerWidth > 960) {
+    // Desktop push/instant: collapse the sidebar column.
+    if (window.innerWidth > 960 && navMode() !== 'overlay') {
       const collapsed = document.body.classList.toggle('nav-collapsed');
       mobileMenuToggle.setAttribute('aria-expanded', String(!collapsed));
       return;
     }
-    const isOpen = sidebar.classList.contains('mobile-open');
-    if (isOpen) {
-      sidebar.classList.remove('mobile-open');
-      document.body.classList.remove('menu-open');
-      mobileMenuToggle.setAttribute('aria-expanded', 'false');
-    } else {
-      sidebar.classList.add('mobile-open');
-      document.body.classList.add('menu-open');
-      mobileMenuToggle.setAttribute('aria-expanded', 'true');
-    }
+    // Drawer (overlay on desktop, or any mobile): slide in/out.
+    const open = sidebar.classList.toggle('mobile-open');
+    document.body.classList.toggle('menu-open', open);
+    mobileMenuToggle.setAttribute('aria-expanded', String(open));
   });
 
-  // Close menu when clicking on a nav item (but not parent sections)
+  // Close the drawer when a nav leaf/item is chosen (not parent section headers).
   nav.addEventListener('click', (e) => {
-    if (window.innerWidth <= 960) {
-      const clickedElement = e.target.closest('.nav-item, .nav-leaf, .nav-parent');
-      if (clickedElement) {
-        // Only close if it's a leaf node or nav-item (actual navigation)
-        // Don't close for nav-parent (section headers that expand/collapse)
-        if (clickedElement.classList.contains('nav-item') ||
-            clickedElement.classList.contains('nav-leaf')) {
-          sidebar.classList.remove('mobile-open');
-          document.body.classList.remove('menu-open');
-          mobileMenuToggle.setAttribute('aria-expanded', 'false');
-        }
-      }
+    if (!drawerActive()) return;
+    const clicked = e.target.closest('.nav-item, .nav-leaf, .nav-parent');
+    if (clicked && (clicked.classList.contains('nav-item') || clicked.classList.contains('nav-leaf'))) {
+      closeDrawer();
     }
   });
 
-  // Close menu when clicking outside
+  // Close the drawer when clicking outside it.
   document.addEventListener('click', (e) => {
-    if (window.innerWidth <= 960 &&
+    if (drawerActive() &&
         sidebar.classList.contains('mobile-open') &&
         !sidebar.contains(e.target) &&
         !mobileMenuToggle.contains(e.target)) {
-      sidebar.classList.remove('mobile-open');
-      document.body.classList.remove('menu-open');
-      mobileMenuToggle.setAttribute('aria-expanded', 'false');
+      closeDrawer();
     }
   });
 }
