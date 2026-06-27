@@ -279,7 +279,46 @@ function accordion(root) {
   return () => bound.forEach(([el, fn]) => el.removeEventListener('toggle', fn));
 }
 
+/**
+ * Staggered reveal (#74): a `[data-reveal-stagger]` container sequences its
+ * children's entrance — each child gets an incremental transition delay so they
+ * arrive in a wave when the container scrolls into view. `data-reveal-stagger="80"`
+ * sets the per-child step in ms (default 90). The hidden base state lives in CSS
+ * scoped to `[data-reveal-stagger] > *` under `html.has-js` + no-preference, so
+ * JS-off and reduced-motion readers see every child immediately. JS only assigns
+ * the delay and flips `.is-revealed`.
+ */
+function staggeredReveal(root, ctx) {
+  const groups = root.querySelectorAll('[data-reveal-stagger]');
+  if (!groups.length) return;
+  const stepOf = (g) => {
+    const n = parseInt(g.getAttribute('data-reveal-stagger'), 10);
+    return Number.isFinite(n) && n > 0 ? n : 90;
+  };
+  groups.forEach((g) => {
+    const step = stepOf(g);
+    Array.from(g.children).forEach((kid, i) => {
+      kid.style.setProperty('--reveal-delay', `${i * step}ms`);
+    });
+  });
+  if (ctx.reducedMotion || typeof IntersectionObserver !== 'function') {
+    groups.forEach((g) => Array.from(g.children).forEach((k) => k.classList.add('is-revealed')));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        Array.from(entry.target.children).forEach((k) => k.classList.add('is-revealed'));
+        io.unobserve(entry.target);
+      }
+    }
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  groups.forEach((g) => io.observe(g));
+  return () => io.disconnect();
+}
+
 registerEffect(revealOnScroll);
+registerEffect(staggeredReveal);
 registerEffect(readingProgress);
 registerEffect(heroParallax);
 registerEffect(heroSticky);

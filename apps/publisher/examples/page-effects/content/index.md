@@ -81,6 +81,21 @@ the viewport, and appear instantly under reduced-motion.
 </div>
 ```
 
+## Staggered reveal
+
+The cards below arrive in a wave — `data-reveal-stagger` on the grid sequences
+each child's entrance as it scrolls into view (JS-off and reduced-motion show all
+at once).
+
+```html
+<div class="pe-card-grid" data-reveal-stagger="90">
+  <section class="pe-demo-card"><h3>One</h3><p>Arrives first.</p></section>
+  <section class="pe-demo-card"><h3>Two</h3><p>A beat later.</p></section>
+  <section class="pe-demo-card"><h3>Three</h3><p>Then this one.</p></section>
+  <section class="pe-demo-card"><h3>Four</h3><p>And finally this.</p></section>
+</div>
+```
+
 ## Authoring paths
 
 You have four ways to add a hero, from least to most control:

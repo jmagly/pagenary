@@ -120,6 +120,23 @@ Add `data-pe-single` to make it single-open — opening one panel closes its
 siblings. That grouping is the only thing JavaScript adds; drop the attribute (or
 run with JS off) and every panel works independently. Theme-token styled.
 
+### Staggered reveal
+
+Put `data-reveal-stagger` on a container and its direct children arrive in a wave
+as the container scrolls into view — each child carries an incremental delay.
+
+```html
+<div class="card-grid" data-reveal-stagger="80">
+  <div>…</div>
+  <div>…</div>
+  <div>…</div>
+</div>
+```
+
+The number is the per-child step in milliseconds (default `90`). Like
+reveal-on-scroll, the hidden base state is gated under `html.has-js` +
+no-preference, so JS-off and reduced-motion readers see every child immediately.
+
 ## Authoring paths
 
 You have four ways to add these, from least to most control:

@@ -2857,6 +2857,20 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     opacity: 1;
     transform: none;
   }
+  /* Staggered reveal (#74): children of a [data-reveal-stagger] container share
+     the reveal transition but each carries an incremental --reveal-delay (set by
+     JS), so they arrive in a wave. Same has-js + no-preference gating, so JS-off
+     and reduced-motion readers see every child at once. */
+  html.has-js [data-reveal-stagger] > * {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 600ms ease var(--reveal-delay, 0ms), transform 600ms ease var(--reveal-delay, 0ms);
+    will-change: opacity, transform;
+  }
+  html.has-js [data-reveal-stagger] > *.is-revealed {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Living scroll: content blocks reveal as they enter view. Layout-agnostic —
