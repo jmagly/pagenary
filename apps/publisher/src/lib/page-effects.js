@@ -148,28 +148,43 @@ function scrollContainer() {
  * and rAF; the translate is clamped to the layer's over-scan so an edge is never
  * revealed. With motion disabled (or the layer absent) the background is static.
  */
-function heroParallax(root, ctx) {
+/**
+ * Parallax (#54 hero, generalized in #75): `[data-pe-parallax]` drifts an element
+ * against the scroll. Two shapes share one clamped implementation:
+ *   - Hero: the element has a `.pe-hero-bg` child → that background layer moves
+ *     (default speed 0.16, travel clamped to the hero's over-scan).
+ *   - Any element: no `.pe-hero-bg` → the element itself moves, at a per-element
+ *     speed from `data-pe-parallax="0.3"` (clamped to a safe 0–0.5 range so it
+ *     never drifts far enough to disorient).
+ * Motion only — fully skipped under `prefers-reduced-motion`, so the static layout
+ * is the accessible final state.
+ */
+function parallax(root, ctx) {
   if (ctx.reducedMotion || typeof requestAnimationFrame !== 'function') return;
-  const heroes = root.querySelectorAll('[data-pe-parallax]');
-  if (!heroes.length) return;
+  const els = root.querySelectorAll('[data-pe-parallax]');
+  if (!els.length) return;
   const scroller = scrollContainer();
+  const SPEED_MAX = 0.5; // clamp per-element speed so drift stays gentle
   const layers = [];
-  heroes.forEach((hero) => {
-    const bg = hero.querySelector('.pe-hero-bg');
-    if (bg) layers.push({ hero, bg });
+  els.forEach((el) => {
+    const bg = el.querySelector('.pe-hero-bg');
+    const target = bg || el;             // hero moves its bg layer; anything else moves itself
+    const raw = parseFloat(el.getAttribute('data-pe-parallax'));
+    const speed = Number.isFinite(raw) ? Math.max(0, Math.min(SPEED_MAX, raw)) : 0.16;
+    const maxFrac = bg ? 0.12 : 0.18;    // travel clamp as a fraction of element height
+    layers.push({ el, target, speed, maxFrac });
   });
   if (!layers.length) return;
 
-  const SPEED = 0.16; // fraction of the hero's scroll offset
   let ticking = false;
   const update = () => {
     ticking = false;
     const sTop = scroller.scrollTop || 0;
-    for (const { hero, bg } of layers) {
-      const offset = hero.offsetTop - sTop; // hero position within the scroller
-      const max = hero.clientHeight * 0.12;  // stay within the -14% over-scan
-      const shift = Math.max(-max, Math.min(max, -offset * SPEED));
-      bg.style.transform = `translate3d(0, ${shift.toFixed(1)}px, 0)`;
+    for (const { el, target, speed, maxFrac } of layers) {
+      const offset = el.offsetTop - sTop; // element position within the scroller
+      const max = el.clientHeight * maxFrac;
+      const shift = Math.max(-max, Math.min(max, -offset * speed));
+      target.style.transform = `translate3d(0, ${shift.toFixed(1)}px, 0)`;
     }
   };
   const onScroll = () => {
@@ -320,7 +335,7 @@ function staggeredReveal(root, ctx) {
 registerEffect(revealOnScroll);
 registerEffect(staggeredReveal);
 registerEffect(readingProgress);
-registerEffect(heroParallax);
+registerEffect(parallax);
 registerEffect(heroSticky);
 registerEffect(livingScroll);
 registerEffect(accordion);

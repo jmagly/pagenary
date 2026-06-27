@@ -61,3 +61,16 @@ The CTA band primitive is just as portable:
 ```
 
 Keep scrolling to confirm the sticky hero releases at the end of the page.
+
+## Parallax on any element
+
+The card below isn't a hero — it drifts on its own with `data-pe-parallax="0.35"`.
+Any element can; the speed is clamped so it never wanders far, and it's skipped
+entirely under reduced motion.
+
+```html
+<div class="pe-demo-card" data-pe-parallax="0.35" style="max-width: 20rem;">
+  <h3>Parallax aside</h3>
+  <p>Drifts gently against the scroll — a non-hero element with its own speed.</p>
+</div>
+```

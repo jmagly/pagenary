@@ -137,6 +137,20 @@ The number is the per-child step in milliseconds (default `90`). Like
 reveal-on-scroll, the hidden base state is gated under `html.has-js` +
 no-preference, so JS-off and reduced-motion readers see every child immediately.
 
+### Parallax (any element)
+
+Heroes parallax their background automatically. To drift any other element against
+the scroll, add `data-pe-parallax` with a speed:
+
+```html
+<img class="pe-aside" src="ridge.svg" alt="" data-pe-parallax="0.3" />
+```
+
+The value is the parallax speed (fraction of scroll offset), **clamped to 0–0.5**
+so the drift stays gentle, and travel is bounded to a fraction of the element's
+height. Parallax is motion-only: under `prefers-reduced-motion` it's skipped
+entirely and the element sits in its normal position.
+
 ## Authoring paths
 
 You have four ways to add these, from least to most control:
