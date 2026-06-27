@@ -2928,6 +2928,21 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   padding: 0 1.1rem 1.05rem;
   color: var(--muted);
 }
+/* Smooth open/close so the disclosure doesn't pop and jolt the layout. The
+   ::details-content height transition (newer browsers) animates the reveal; a
+   content fade softens it everywhere else. Progressive enhancement — browsers
+   without ::details-content just snap, as before. Gated under reduced-motion. */
+.pe-accordion { interpolate-size: allow-keywords; }
+@media (prefers-reduced-motion: no-preference) {
+  .pe-accordion > details::details-content {
+    height: 0;
+    overflow: clip;
+    transition: height 280ms ease, content-visibility 280ms allow-discrete;
+  }
+  .pe-accordion > details[open]::details-content { height: auto; }
+  .pe-accordion > details[open] > :not(summary) { animation: pe-accordion-reveal 260ms ease; }
+}
+@keyframes pe-accordion-reveal { from { opacity: 0; transform: translateY(-4px); } }
 
 /* Figure zoom (#76): the figure shows its image normally (JS-off baseline). The
    effect wraps the image in .pe-zoom-trigger and opens .pe-zoom-dialog (native
@@ -3010,13 +3025,28 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   padding: 1rem 1.1rem; margin: 0 0 1.5rem;
   background: rgba(var(--surface-rgb), 0.5);
 }
-/* Rail placement: a sticky right rail on wide viewports (content wraps around it);
-   collapses to a bordered top block below 60rem so it never crowds narrow screens. */
+/* Rail placement: a real sticky right column on wide viewports. The content host
+   (.doc-content, which holds the markdown body — the full-bleed hero lives outside
+   it) becomes a 2-column grid only when it carries a rail TOC, so content never
+   overlaps the rail (the old float + sticky let content scroll under the rail).
+   Below 60rem it collapses to a bordered top block. */
 @media (min-width: 60rem) {
-  .page-toc--rail {
-    float: right; width: 13rem;
-    margin: 0.25rem 0 1rem 1.75rem;
-    position: sticky; top: 1rem;
+  .doc-content:has(> .page-toc--rail) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 13rem;
+    column-gap: 1.75rem;
+    align-items: start;
+  }
+  .doc-content:has(> .page-toc--rail) > :not(.page-toc--rail) {
+    grid-column: 1;
+    min-width: 0;
+  }
+  .doc-content > .page-toc--rail {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: 1rem;
+    align-self: start;
   }
 }
 @media (max-width: 59.99rem) {

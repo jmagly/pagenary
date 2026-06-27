@@ -408,9 +408,11 @@ function pageToc(root, ctx) {
   if (placement !== 'rail' && placement !== 'top') return;
   const content = root.querySelector('.doc.markdown .doc-content');
   if (!content) return;
-  // Article headings only — exclude the async Fortemi metadata panel's headings.
+  // Article headings only — exclude the async Fortemi metadata panel and headings
+  // that live inside decorative/demo widgets (hero, banner, card grid, snap,
+  // scrolly), which are widget content rather than the page's outline.
   const headings = Array.from(content.querySelectorAll('h2, h3'))
-    .filter((h) => !h.closest('.doc-fortemi-panel'));
+    .filter((h) => !h.closest('.doc-fortemi-panel, .pe-hero, .pe-banner, .pe-card-grid, .pe-snap, .pe-scrolly'));
   const minRaw = parseInt(document.body.dataset.pageTocMin, 10);
   const min = Number.isFinite(minRaw) && minRaw > 0 ? minRaw : 3;
   if (headings.length < min) return;
