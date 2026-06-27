@@ -92,6 +92,46 @@ never hijacks the page scroll, and every panel stays reachable by keyboard.
 </div>
 ```
 
+## Many themes, one component
+
+Every primitive reads the same `--surface` / `--ink` / `--accent` tokens, so a
+palette change restyles all of it at once. Below is the *same* card and button
+rendered under four palettes — scoped here for the demo, set globally per tenant
+in real use.
+
+```html
+<style>
+  .sc-themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 1rem; }
+  .sc-theme { border-radius: 14px; padding: 1.1rem 1.2rem; border: 1px solid rgba(127,127,127,0.18); background: var(--sc-surface); color: var(--sc-ink); }
+  .sc-theme h3 { margin: 0 0 0.4rem; font-size: 1rem; color: var(--sc-ink); }
+  .sc-theme p { margin: 0 0 0.9rem; font-size: 0.85rem; opacity: 0.72; }
+  .sc-theme .sc-btn { display: inline-block; padding: 0.42rem 0.95rem; border-radius: 8px; font-size: 0.82rem; font-weight: 600; background: var(--sc-accent); color: var(--sc-on-accent, #fff); }
+  .sc-theme--light  { --sc-surface:#ffffff; --sc-ink:#0b1220; --sc-accent:#2563eb; }
+  .sc-theme--dark   { --sc-surface:#0b1220; --sc-ink:#e7ecf3; --sc-accent:#60a5fa; --sc-on-accent:#0b1220; }
+  .sc-theme--rose   { --sc-surface:#fff1f4; --sc-ink:#4c0519; --sc-accent:#e11d48; }
+  .sc-theme--forest { --sc-surface:#f0f7f2; --sc-ink:#052e16; --sc-accent:#15803d; }
+</style>
+<div class="pe-card-grid sc-themes">
+  <div class="sc-theme sc-theme--light"><h3>Light</h3><p>The same card and button…</p><span class="sc-btn">Get started</span></div>
+  <div class="sc-theme sc-theme--dark"><h3>Dark</h3><p>…under a dark palette…</p><span class="sc-btn">Get started</span></div>
+  <div class="sc-theme sc-theme--rose"><h3>Rose</h3><p>…a brand accent…</p><span class="sc-btn">Get started</span></div>
+  <div class="sc-theme sc-theme--forest"><h3>Forest</h3><p>…or another entirely.</p><span class="sc-btn">Get started</span></div>
+</div>
+```
+
+## Zoom in
+
+Mark a `<figure>` with `data-pe-zoom` and readers can enlarge its image in a modal
+(focus-trapped, `Esc` to close). With JavaScript off the image is fully visible —
+zoom is an enhancement.
+
+```html
+<figure class="pe-figure" data-pe-zoom>
+  <img src="assets/images/pipeline.svg" alt="The Pagenary publishing pipeline: author, build, deploy." />
+  <figcaption>The publishing pipeline — click to enlarge.</figcaption>
+</figure>
+```
+
 ## See it as a story
 
 The [Storytelling](#showcase-story) page puts the same engine into a scrollytelling
