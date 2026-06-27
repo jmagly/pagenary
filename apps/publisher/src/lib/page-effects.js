@@ -451,7 +451,14 @@ function pageToc(root, ctx) {
   content.querySelectorAll('[id]').forEach((el) => used.add(el.id));
 
   const scroller = scrollContainer();
+  // Track our own programmatic scrolls so the scroll-spy doesn't resync the
+  // prev/next cursor mid-animation (which would make rapid clicks drift).
+  let programmaticScroll = false;
+  let progTimer = 0;
   const scrollToHeading = (h) => {
+    programmaticScroll = true;
+    if (progTimer) clearTimeout(progTimer);
+    progTimer = setTimeout(() => { programmaticScroll = false; }, ctx.reducedMotion ? 60 : 720);
     // Position relative to the scroller via rects — offsetTop is unreliable
     // because headings inside positioned containers have varied offsetParents.
     const top = scroller.scrollTop + (h.getBoundingClientRect().top - scroller.getBoundingClientRect().top) - 12;
@@ -501,7 +508,7 @@ function pageToc(root, ctx) {
     const a = document.createElement('a');
     a.href = `#${h.id}`;
     a.textContent = h.textContent || '';
-    const onClick = (e) => { e.preventDefault(); e.stopPropagation(); scrollToHeading(h); };
+    const onClick = (e) => { e.preventDefault(); e.stopPropagation(); navCursor = i; updateButtons(); scrollToHeading(h); };
     a.addEventListener('click', onClick);
     li.appendChild(a);
     list.appendChild(li);
@@ -514,24 +521,33 @@ function pageToc(root, ctx) {
   content.insertBefore(nav, content.firstChild);
 
   let current = null;
+  // navCursor is the heading prev/next operate from. It follows the scroll-spy on
+  // manual scroll, but prev/next mutate it directly so rapid clicks step exactly
+  // one heading each — independent of how fast the smooth scroll / scroll-spy
+  // catch up (which is why button-driven nav never drifts).
+  let navCursor = -1;
+  const updateButtons = () => {
+    prevBtn.disabled = navCursor <= 0;
+    nextBtn.disabled = navCursor < 0 || navCursor >= headings.length - 1;
+  };
   const setActive = (h) => {
-    if (h === current) return;
-    current = h;
-    for (const { a } of links) a.removeAttribute('aria-current');
-    const a = linkFor.get(h);
-    if (a) a.setAttribute('aria-current', 'true');
+    if (h !== current) {
+      current = h;
+      for (const { a } of links) a.removeAttribute('aria-current');
+      const a = linkFor.get(h);
+      if (a) a.setAttribute('aria-current', 'true');
+    }
+    // Resync the cursor to the reading position only on a manual scroll.
+    if (!programmaticScroll) { navCursor = headings.indexOf(h); updateButtons(); }
   };
 
-  // Prev/next step one heading away from the current (scroll-spy) active one. The
-  // smooth-scroll animation is cancelled on each new call, so the active heading
-  // settles before the next button press — no index drift.
   const onPrev = () => {
-    const idx = headings.indexOf(current);
-    if (idx > 0) scrollToHeading(headings[idx - 1]);
+    if (navCursor < 0) navCursor = headings.indexOf(current);
+    if (navCursor > 0) { navCursor -= 1; updateButtons(); scrollToHeading(headings[navCursor]); }
   };
   const onNext = () => {
-    const idx = headings.indexOf(current);
-    if (idx >= 0 && idx < headings.length - 1) scrollToHeading(headings[idx + 1]);
+    if (navCursor < 0) navCursor = headings.indexOf(current);
+    if (navCursor < headings.length - 1) { navCursor += 1; updateButtons(); scrollToHeading(headings[navCursor]); }
   };
   prevBtn.addEventListener('click', onPrev);
   nextBtn.addEventListener('click', onNext);
@@ -550,9 +566,6 @@ function pageToc(root, ctx) {
       if (h.getBoundingClientRect().top - sTop <= 96) active = h; else break;
     }
     setActive(active);
-    const idx = headings.indexOf(active);
-    prevBtn.disabled = idx <= 0;
-    nextBtn.disabled = idx >= headings.length - 1;
   };
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
   update();
