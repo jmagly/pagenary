@@ -3083,6 +3083,12 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     max-height: calc(100vh - 6rem);
     overflow-y: auto;
   }
+  /* Keep the Fortémi info icon at the right edge of the prose column, clear of
+     the rail (it's absolutely positioned to .doc-content, which now spans the
+     rail too — without this it lands on top of the TOC). */
+  .doc-content:has(> .page-toc--rail) .doc-fortemi-tools {
+    right: calc(14rem + 2.5rem);
+  }
 }
 /* Narrow / portrait: a compact, collapsible "On this page" card (the disc starts
    collapsed via JS), so it never dominates the screen; prev/next stay reachable. */
