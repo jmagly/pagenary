@@ -1338,7 +1338,7 @@ mark.hl {
 
 /* Mobile Menu Toggle Button */
 .mobile-menu-toggle {
-  display: none;
+  display: block; /* visible on every viewport: collapses the sidebar on desktop, overlays it on mobile */
   position: relative;
   width: 40px;
   height: 40px;
@@ -1348,6 +1348,9 @@ mark.hl {
   cursor: pointer;
   transition: background 0.2s;
 }
+/* Desktop nav collapse: drop the sidebar column to free reading width. */
+body.nav-collapsed .layout { grid-template-columns: minmax(0, 1fr); }
+body.nav-collapsed .sidebar { display: none; }
 
 .mobile-menu-toggle:hover {
   background: rgba(var(--ink-rgb), 0.05);
@@ -3080,9 +3083,6 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     max-height: calc(100vh - 6rem);
     overflow-y: auto;
   }
-  /* On the wide rail the menu is always expanded and not collapsible. */
-  .page-toc--rail .page-toc__title { cursor: default; pointer-events: none; }
-  .page-toc--rail .page-toc__title::after { display: none; }
 }
 /* Narrow / portrait: a compact, collapsible "On this page" card (the disc starts
    collapsed via JS), so it never dominates the screen; prev/next stay reachable. */

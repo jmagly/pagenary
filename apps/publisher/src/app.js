@@ -1499,7 +1499,16 @@ function highlightContent(root, query, { scrollToFirst = false } = {}) {
 
 // Mobile menu toggle
 if (mobileMenuToggle && sidebar) {
+  // Reflect the initial desktop state: the sidebar is shown (expanded).
+  if (window.innerWidth > 960) mobileMenuToggle.setAttribute('aria-expanded', 'true');
   mobileMenuToggle.addEventListener('click', () => {
+    // Desktop: collapse/expand the sidebar column to free reading width.
+    // Mobile: overlay the sidebar (existing behavior).
+    if (window.innerWidth > 960) {
+      const collapsed = document.body.classList.toggle('nav-collapsed');
+      mobileMenuToggle.setAttribute('aria-expanded', String(!collapsed));
+      return;
+    }
     const isOpen = sidebar.classList.contains('mobile-open');
     if (isOpen) {
       sidebar.classList.remove('mobile-open');
