@@ -6,6 +6,37 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.17] - 2026-06-28
+
+### Added
+
+- **On-this-page TOC placements.** `pageToc.placement` selects where and how the
+  outline renders: **`right`** — a persistent nav-style list in the right gutter,
+  collapsible to a chevron handle for full-width reading; **`left`** — the same
+  nav-style list mirrored into the sidebar under the site navigation (content runs
+  full-width); **`top`** — a bordered block above the content; **`rail`** — a
+  pinnable panel that collapses to a prev/next bar revealed on hover/tap. The heading
+  list scrolls on its own with the title and prev/next pinned above it.
+- **Quick-copy control on code blocks (#89).** Opt-in via `codeCopy: true` — a Copy
+  button on each `<pre>` copies the exact source via the Clipboard API with transient
+  "Copied" feedback; a pure enhancement (code stays selectable with JavaScript off).
+- The Pagenary docs enable reading-progress and code-copy as live examples.
+
+### Changed
+
+- **Docs content is centered by default** (`.doc-content`), so wide and landscape
+  viewports get balanced margins instead of crammed-left layouts.
+
+### Fixed
+
+- The on-this-page rail no longer inflates a long page to ~300,000px (a stray
+  grid-row span over the row gap).
+- Scroll-spy now activates the final heading at the bottom of the page — the last
+  entry was unreachable, so Next greyed one entry early.
+- The right-placement list is bounded to the viewport: it scrolls independently with
+  the title and prev/next pinned above, and never runs past the fold or under the
+  footer.
+
 ## [2026.6.16] - 2026-06-27
 
 ### Added
