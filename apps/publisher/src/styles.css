@@ -1003,6 +1003,9 @@ mark.hl {
   gap: 1.75rem;
   line-height: 1.7;
   max-width: 78ch;
+  /* Centre the content on every docs page so the layout stays consistent across
+     viewports and TOC placements (no crammed-left / huge-right-margin pages). */
+  margin-inline: auto;
   position: relative;
 }
 
@@ -3169,9 +3172,6 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   .doc-content:has(> .page-toc--right) {
     max-width: calc(78ch + 14rem + 2.5rem);
     padding-inline-end: calc(14rem + 2.5rem);
-    /* Centre the prose + rail cluster so wide/landscape viewports get balanced
-       margins instead of everything crammed left with a huge empty right. */
-    margin-inline: auto;
   }
   .doc-content:has(> .page-toc--right) > :not(.page-toc--right) { min-width: 0; }
   .doc-content:has(> .page-toc--right) > table,
