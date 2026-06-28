@@ -41,7 +41,6 @@
     "build:diff": "node scripts/build-tenants.js --diff-only",
     "tenants:list": "node bin/pagenary.mjs tenants:list",
     "tenants:diff": "node bin/pagenary.mjs tenants:diff",
-    "managed-hosting": "node bin/pagenary.mjs managed-hosting",
     "serve": "node bin/pagenary.mjs serve",
     "serve:dev": "NODE_ENV=development node bin/pagenary.mjs serve --dev",
     "start": "npm run build && npm run serve",

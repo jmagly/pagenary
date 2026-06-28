@@ -1,9 +1,0 @@
-{
-  "type": "build.failed",
-  "runId": "run-2026-06-22-acme-failed",
-  "commit": "def456",
-  "ref": "main",
-  "logUrl": "https://git.example.com/acme/docs/actions/runs/124",
-  "errors": ["build command exited 1"],
-  "occurredAt": "2026-06-22T00:05:00.000Z"
-}

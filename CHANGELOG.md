@@ -122,8 +122,7 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 - **Reading metadata model** — realistic reading-length estimation from content.
 - **Configurable export** (`export.enabled`, `export.scopes`) so publishers can
   disable export or restrict it to single-page exports.
-- **Managed-hosting concierge tooling** (public) and a **`navAlign`** sidebar
-  list alignment option.
+- A **`navAlign`** sidebar list alignment option.
 
 ### Changed
 
@@ -150,7 +149,7 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 - **Blog index cards behave as clickable tiles** — the whole card is one link, no
   text caret over the body.
 - The **Quick Find palette stays above** page-effects heroes.
-- Theme-token config alignment; docsite registration for Managed Hosting and the
+- Theme-token config alignment; docsite registration for the
   page-effects spike page; Fortemi deep-link format/hook-count docs.
 
 ## [2026.6.13] - 2026-06-21

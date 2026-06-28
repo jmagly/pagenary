@@ -313,13 +313,6 @@ export const COMMANDS = {
     flags: [['--json', 'Machine-readable diagnostics']],
     run: (_rest, ctx) => runDoctor({ json: ctx.json })
   },
-  'managed-hosting': {
-    group: 'Hosting',
-    summary: 'Validate concierge hosting plans, routing, and onboarding records.',
-    usage: 'pagenary managed-hosting <plans|validate|account-usage> [args]',
-    flags: [],
-    run: (rest) => spawnScript('managed-hosting.js', rest)
-  },
   caddy: {
     group: 'Hosting',
     summary: 'Manage the Caddy container for multi-tenant domain testing.',

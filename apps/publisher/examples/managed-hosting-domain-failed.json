@@ -1,6 +1,0 @@
-{
-  "type": "custom_domain.failed",
-  "domain": "docs.acme.com",
-  "reason": "DNS record did not resolve to acme.pagenary.app",
-  "effectiveAt": "2026-06-22T00:05:00.000Z"
-}

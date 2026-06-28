@@ -1,5 +1,0 @@
-{
-  "type": "webhook.installed",
-  "webhookSecretRef": "secret:WEBHOOK_SECRET/acme",
-  "effectiveAt": "2026-06-22T00:05:00.000Z"
-}

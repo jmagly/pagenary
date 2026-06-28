@@ -148,27 +148,6 @@ Unconfigured hosted providers produce a non-breaking note and preview artifact;
 hosted TTS credentials, rate limits, queueing, provider timeouts, and stale audio
 reuse belong in the private hosting/control-plane layer.
 
-### Managed Hosting Fields
-
-These fields are optional for ordinary static publishing. They define the public
-contract used by `pagenary managed-hosting` and the concierge managed-hosting
-flow.
-
-| Property | Required | Description |
-|----------|----------|-------------|
-| `plan` | No | Hosting plan gate: `free`, `pro`, or `team` (default `free`) |
-| `accountId` | No | Hosting account/group id used to enforce plan site limits across tenants |
-| `subdomain` | No | Public `name.pagenary.app` label; defaults to the tenant id |
-| `siteCount` | No | Number of hosted sites consumed by the account for plan limits |
-| `privateRepo` | No | Whether the connected source repo is private; requires Pro or Team |
-| `repoCredentialRef` | No | Name/reference for the private control-plane deploy key or OAuth credential |
-| `webhookSecretRef` | No | Name/reference for the private control-plane webhook secret |
-| `paymentStatus` | No | Concierge billing state: `free`, `manual-pending`, `active`, `past-due`, or `canceled` |
-| `verifiedDomains` | No | Custom domains that the private control plane has verified for DNS/TLS readiness |
-| `suspendedDomains` | No | Paid custom domains disabled by a downgrade/cancel event and retained for recovery |
-| `whiteLabel` | No | White-label entitlement request; requires Team |
-| `sso` | No | SSO entitlement request; requires Team |
-
 ### Source Types
 
 **Local Path:**

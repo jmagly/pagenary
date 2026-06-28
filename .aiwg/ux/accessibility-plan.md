@@ -13,7 +13,7 @@ Pagenary's product target is **WCAG 2.2 Level AA** for:
 - Generated tenant/output sites.
 - Product-authored templates, themes, navigation, search, exports, reports, and
   controls.
-- Any Pagenary-managed hosting/control-panel UI.
+- Any Pagenary control-panel UI.
 
 Rationale:
 
@@ -130,7 +130,7 @@ Metadata and exports:
 
 ## Control-Panel And Hosting Flows
 
-The managed hosting/control-panel UI should help users publish accessible sites
+The control-panel UI should help users publish accessible sites
 without requiring them to know every WCAG criterion.
 
 Authoring:
@@ -206,7 +206,7 @@ Automated gates:
 Manual checks:
 
 - Keyboard-only route through nav, search, command palette, docs map, post nav,
-  export controls, and any managed-hosting forms.
+  export controls, and any control-panel forms.
 - Screen-reader smoke checks with at least one common desktop reader/browser
   pair before release.
 - Reduced-motion checks for page effects and blog living scroll.
