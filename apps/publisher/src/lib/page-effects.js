@@ -435,7 +435,7 @@ function tocSlug(text, used) {
 
 function pageToc(root, ctx) {
   const placement = document.body.dataset.pageToc;
-  if (placement !== 'rail' && placement !== 'top') return;
+  if (placement !== 'rail' && placement !== 'top' && placement !== 'left') return;
   const content = root.querySelector('.doc.markdown .doc-content');
   if (!content) return;
   // Article headings only — exclude the async Fortemi metadata panel and headings
@@ -485,12 +485,17 @@ function pageToc(root, ctx) {
   // Pin toggle (wide rail only). Pinned (default) keeps the panel open in the
   // gutter; unpinned collapses it to a right-edge handle that peeks on hover and
   // lets the content go full-width. Persisted per-reader.
-  const pinBtn = document.createElement('button');
-  pinBtn.type = 'button';
-  pinBtn.className = 'page-toc__pin';
-  pinBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">'
-    + '<path fill="currentColor" d="M9.4 1 8 2.4l.5.6-2.9 2.9-2-.4-1.4 1.4 2.9 2.9L1 14.9 5 11l2.9 2.9 1.4-1.4-.4-2 2.9-2.9.6.5L13.9 6.6 9.4 1z"/></svg>';
-  summary.appendChild(pinBtn);
+  // The pin (collapse-to-handle control) is a rail-placement affordance only;
+  // the left/top placements render a persistent, always-open list.
+  let pinBtn = null;
+  if (placement === 'rail') {
+    pinBtn = document.createElement('button');
+    pinBtn.type = 'button';
+    pinBtn.className = 'page-toc__pin';
+    pinBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">'
+      + '<path fill="currentColor" d="M9.4 1 8 2.4l.5.6-2.9 2.9-2-.4-1.4 1.4 2.9 2.9L1 14.9 5 11l2.9 2.9 1.4-1.4-.4-2 2.9-2.9.6.5L13.9 6.6 9.4 1z"/></svg>';
+    summary.appendChild(pinBtn);
+  }
   const tbody = document.createElement('div');
   tbody.className = 'page-toc__body';
 
@@ -531,7 +536,11 @@ function pageToc(root, ctx) {
   tbody.append(controls, list);
   disc.append(summary, tbody);
   nav.appendChild(disc);
-  content.insertBefore(nav, content.firstChild);
+  // Left placement mirrors the main nav: drop the TOC into the sidebar, under the
+  // site navigation. Rail/top live in the content column.
+  const sidebarInner = placement === 'left' ? document.querySelector('.sidebar-inner') : null;
+  if (sidebarInner) sidebarInner.appendChild(nav);
+  else content.insertBefore(nav, content.firstChild);
 
   let current = null;
   // navCursor is the heading prev/next operate from. It follows the scroll-spy on
@@ -584,72 +593,83 @@ function pageToc(root, ctx) {
   update();
   scroller.addEventListener('scroll', onScroll, { passive: true });
 
-  // Open as a persistent rail on wide; collapse to an expandable menu on narrow.
-  const mq = window.matchMedia('(min-width: 60rem)');
-  const syncOpen = () => { disc.open = mq.matches; };
-  syncOpen();
-  if (mq.addEventListener) mq.addEventListener('change', syncOpen);
+  const cleanups = [];
+  if (placement === 'rail') {
+    // Open as a persistent rail on wide; collapse to an expandable menu on narrow.
+    const mq = window.matchMedia('(min-width: 60rem)');
+    const syncOpen = () => { disc.open = mq.matches; };
+    syncOpen();
+    if (mq.addEventListener) mq.addEventListener('change', syncOpen);
+    cleanups.push(() => { if (mq.removeEventListener) mq.removeEventListener('change', syncOpen); });
 
-  // Pin/unpin the wide rail. Pinned (default) holds it open in the gutter;
-  // unpinned collapses it to a right-edge handle that peeks on hover and lets the
-  // content go full-width. State persists per reader.
-  let tocPinned = true;
-  try { tocPinned = window.localStorage.getItem('pagenary:toc-pinned') !== 'false'; } catch (_) { /* private mode */ }
-  const applyPin = () => {
-    nav.classList.toggle('is-unpinned', !tocPinned);
-    pinBtn.setAttribute('aria-pressed', String(tocPinned));
-    pinBtn.title = tocPinned ? 'Unpin — let the panel auto-hide' : 'Pin the panel open';
-  };
-  const onPin = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    tocPinned = !tocPinned;
-    try { window.localStorage.setItem('pagenary:toc-pinned', String(tocPinned)); } catch (_) { /* private mode */ }
+    // Pin/unpin the wide rail. Pinned (default) holds it open in the gutter;
+    // unpinned collapses it to a prev/next bar that reveals on hover/tap. Persisted.
+    let tocPinned = true;
+    try { tocPinned = window.localStorage.getItem('pagenary:toc-pinned') !== 'false'; } catch (_) { /* private mode */ }
+    const applyPin = () => {
+      nav.classList.toggle('is-unpinned', !tocPinned);
+      pinBtn.setAttribute('aria-pressed', String(tocPinned));
+      pinBtn.title = tocPinned ? 'Unpin — let the panel auto-hide' : 'Pin the panel open';
+    };
+    const onPin = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      tocPinned = !tocPinned;
+      try { window.localStorage.setItem('pagenary:toc-pinned', String(tocPinned)); } catch (_) { /* private mode */ }
+      applyPin();
+    };
+    pinBtn.addEventListener('click', onPin);
     applyPin();
-  };
-  pinBtn.addEventListener('click', onPin);
-  applyPin();
+    cleanups.push(() => pinBtn.removeEventListener('click', onPin));
 
-  // On the wide rail the panel is always open — the pin is the only visibility
-  // control, so the summary should not also toggle a vertical collapse.
-  const onSummaryClick = (e) => { if (mq.matches) e.preventDefault(); };
-  summary.addEventListener('click', onSummaryClick);
+    // The pin is the only visibility control, so the summary should not also toggle.
+    const onSummaryClick = (e) => { if (mq.matches) e.preventDefault(); };
+    summary.addEventListener('click', onSummaryClick);
+    cleanups.push(() => summary.removeEventListener('click', onSummaryClick));
 
-  // Reveal the unpinned panel. Collapsed, it shows only prev/next; hover/focus
-  // expands the full table of contents (class-driven, not CSS :hover, so the
-  // moving box never re-triggers and stutters), and a tap holds it open for a few
-  // seconds — the touch-friendly way to glance at the title and headings.
-  let peekTimer = 0;
-  const openPeek = (holdMs) => {
-    window.clearTimeout(peekTimer);
-    nav.classList.add('is-peeking');
-    if (holdMs) peekTimer = window.setTimeout(() => nav.classList.remove('is-peeking'), holdMs);
-  };
-  const closePeek = () => {
-    window.clearTimeout(peekTimer);
-    peekTimer = window.setTimeout(() => nav.classList.remove('is-peeking'), 180);
-  };
-  const onEnter = () => openPeek();
-  const onTap = () => { if (nav.classList.contains('is-unpinned')) openPeek(3000); };
-  disc.addEventListener('mouseenter', onEnter);
-  disc.addEventListener('mouseleave', closePeek);
-  disc.addEventListener('focusin', onEnter);
-  disc.addEventListener('focusout', closePeek);
-  disc.addEventListener('click', onTap);
+    // Reveal the collapsed panel (only prev/next showing): hover/focus expands the
+    // full TOC; a tap holds it open ~3s. Class-driven, not CSS :hover, so the
+    // moving box never re-triggers and stutters.
+    let peekTimer = 0;
+    const openPeek = (holdMs) => {
+      window.clearTimeout(peekTimer);
+      nav.classList.add('is-peeking');
+      if (holdMs) peekTimer = window.setTimeout(() => nav.classList.remove('is-peeking'), holdMs);
+    };
+    const closePeek = () => {
+      window.clearTimeout(peekTimer);
+      peekTimer = window.setTimeout(() => nav.classList.remove('is-peeking'), 180);
+    };
+    const onEnter = () => openPeek();
+    const onTap = () => { if (nav.classList.contains('is-unpinned')) openPeek(3000); };
+    disc.addEventListener('mouseenter', onEnter);
+    disc.addEventListener('mouseleave', closePeek);
+    disc.addEventListener('focusin', onEnter);
+    disc.addEventListener('focusout', closePeek);
+    disc.addEventListener('click', onTap);
+    cleanups.push(() => {
+      disc.removeEventListener('mouseenter', onEnter);
+      disc.removeEventListener('mouseleave', closePeek);
+      disc.removeEventListener('focusin', onEnter);
+      disc.removeEventListener('focusout', closePeek);
+      disc.removeEventListener('click', onTap);
+      window.clearTimeout(peekTimer);
+    });
+  } else {
+    // Left (mirrors the main nav) and top: a persistent, always-open list. The
+    // header is a label, so don't let a click toggle the <details> shut.
+    disc.open = true;
+    const onSummaryClick = (e) => e.preventDefault();
+    summary.addEventListener('click', onSummaryClick);
+    cleanups.push(() => summary.removeEventListener('click', onSummaryClick));
+  }
 
   return () => {
     scroller.removeEventListener('scroll', onScroll);
-    if (mq.removeEventListener) mq.removeEventListener('change', syncOpen);
     prevBtn.removeEventListener('click', onPrev);
     nextBtn.removeEventListener('click', onNext);
-    pinBtn.removeEventListener('click', onPin);
-    summary.removeEventListener('click', onSummaryClick);
-    disc.removeEventListener('mouseenter', onEnter);
-    disc.removeEventListener('mouseleave', closePeek);
-    disc.removeEventListener('focusin', onEnter);
-    disc.removeEventListener('focusout', closePeek);
-    disc.removeEventListener('click', onTap);
-    window.clearTimeout(peekTimer);
+    links.forEach(({ a, onClick }) => a.removeEventListener('click', onClick));
+    cleanups.forEach((fn) => fn());
     nav.remove();
   };
 }
