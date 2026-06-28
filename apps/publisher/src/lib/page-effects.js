@@ -509,6 +509,7 @@ function pageToc(root, ctx) {
   controls.append(prevBtn, nextBtn);
 
   const list = document.createElement('ol');
+  list.className = 'page-toc__list';
   const links = [];
   const linkFor = new Map();
   const indexOf = new Map();
@@ -614,20 +615,27 @@ function pageToc(root, ctx) {
   const onSummaryClick = (e) => { if (mq.matches) e.preventDefault(); };
   summary.addEventListener('click', onSummaryClick);
 
-  // Hover-peek for the unpinned panel, driven by mouseenter/mouseleave + a short
-  // close delay rather than CSS :hover. CSS :hover re-evaluates as the panel
-  // slides under the cursor (the box moves), which makes the animation stutter;
-  // an explicit class with a close grace period slides it in once and holds it.
+  // Reveal the unpinned panel. Collapsed, it shows only prev/next; hover/focus
+  // expands the full table of contents (class-driven, not CSS :hover, so the
+  // moving box never re-triggers and stutters), and a tap holds it open for a few
+  // seconds — the touch-friendly way to glance at the title and headings.
   let peekTimer = 0;
-  const openPeek = () => { window.clearTimeout(peekTimer); nav.classList.add('is-peeking'); };
+  const openPeek = (holdMs) => {
+    window.clearTimeout(peekTimer);
+    nav.classList.add('is-peeking');
+    if (holdMs) peekTimer = window.setTimeout(() => nav.classList.remove('is-peeking'), holdMs);
+  };
   const closePeek = () => {
     window.clearTimeout(peekTimer);
     peekTimer = window.setTimeout(() => nav.classList.remove('is-peeking'), 180);
   };
-  disc.addEventListener('mouseenter', openPeek);
+  const onEnter = () => openPeek();
+  const onTap = () => { if (nav.classList.contains('is-unpinned')) openPeek(3000); };
+  disc.addEventListener('mouseenter', onEnter);
   disc.addEventListener('mouseleave', closePeek);
-  disc.addEventListener('focusin', openPeek);
+  disc.addEventListener('focusin', onEnter);
   disc.addEventListener('focusout', closePeek);
+  disc.addEventListener('click', onTap);
 
   return () => {
     scroller.removeEventListener('scroll', onScroll);
@@ -636,10 +644,11 @@ function pageToc(root, ctx) {
     nextBtn.removeEventListener('click', onNext);
     pinBtn.removeEventListener('click', onPin);
     summary.removeEventListener('click', onSummaryClick);
-    disc.removeEventListener('mouseenter', openPeek);
+    disc.removeEventListener('mouseenter', onEnter);
     disc.removeEventListener('mouseleave', closePeek);
-    disc.removeEventListener('focusin', openPeek);
+    disc.removeEventListener('focusin', onEnter);
     disc.removeEventListener('focusout', closePeek);
+    disc.removeEventListener('click', onTap);
     window.clearTimeout(peekTimer);
     nav.remove();
   };

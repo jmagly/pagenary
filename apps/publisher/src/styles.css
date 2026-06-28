@@ -3178,39 +3178,40 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     transition: transform 0.25s ease, box-shadow 0.25s ease;
   }
   /* Unpinned: the full-height rail is click-through; only its disc is interactive.
-     The disc parks off the trailing edge showing a slim handle, then slides in on
-     hover/focus as a floating panel over the prose. It is a child of the document
-     (absolute within .doc-content), so it overlays without reflowing anything. */
+     The disc is a floating card at the trailing edge — collapsed it shows only the
+     prev/next controls; hover/focus (or a tap, held briefly) expands the title and
+     the heading list. It is a child of the document (absolute within .doc-content),
+     so it overlays the prose without reflowing anything. Reveal is class-driven, so
+     the box never re-triggers :hover and stutters. */
   .doc-content > .page-toc--rail.is-unpinned { pointer-events: none; z-index: 5; }
   .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc {
     pointer-events: auto;
-    transform: translateX(calc(100% - 2.1rem));
-    will-change: transform;
+    margin-inline-start: auto;
+    width: 14rem;
     background: var(--surface);
     border: 1px solid var(--grid-line);
-    border-inline-end: none;
-    border-radius: 10px 0 0 10px;
-    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.07);
-    padding-inline-start: 0.9rem;
+    border-radius: 10px;
+    box-shadow: -2px 3px 14px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.2s ease;
   }
-  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc::before {
-    content: "\2630"; /* ☰ — a "show panel" affordance on the collapsed handle */
-    position: absolute;
-    top: 0.7rem;
-    inset-inline-start: 0.5rem;
-    font-size: 0.95rem;
-    color: var(--accent);
-    pointer-events: none;
-    transition: opacity 0.2s ease;
+  /* Collapsed: fold the title and the heading list away, leaving only prev/next. */
+  .doc-content > .page-toc--rail.is-unpinned:not(.is-peeking) > .page-toc__disc > .page-toc__title,
+  .doc-content > .page-toc--rail.is-unpinned:not(.is-peeking) > .page-toc__disc .page-toc__list {
+    max-height: 0; opacity: 0; overflow: hidden;
+    margin-block: 0; padding-block: 0;
+    transition: max-height 0.2s ease, opacity 0.15s ease;
   }
-  /* Peek is driven by JS (.is-peeking) rather than :hover, so the panel slides in
-     once and holds — no stutter as the moving box re-triggers :hover. */
+  /* Revealed: expand the title + heading list back in. */
   .doc-content > .page-toc--rail.is-unpinned.is-peeking > .page-toc__disc {
-    transform: translateX(0);
-    box-shadow: -8px 0 28px rgba(0, 0, 0, 0.16);
+    box-shadow: -8px 6px 26px rgba(0, 0, 0, 0.16);
   }
-  .doc-content > .page-toc--rail.is-unpinned.is-peeking > .page-toc__disc::before {
-    opacity: 0;
+  .doc-content > .page-toc--rail.is-unpinned.is-peeking > .page-toc__disc > .page-toc__title {
+    max-height: 2rem; opacity: 1;
+    transition: max-height 0.22s ease, opacity 0.2s ease;
+  }
+  .doc-content > .page-toc--rail.is-unpinned.is-peeking > .page-toc__disc .page-toc__list {
+    max-height: 70vh; opacity: 1;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
   }
   /* Wide rail: the pin is the only control — drop the vertical-collapse triangle
      and keep the "On this page" header as a plain label. */
