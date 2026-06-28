@@ -316,13 +316,17 @@ export function validateManagedHostingTenant(tenant, options = {}) {
   const subdomain = normalizeSubdomain(tenant?.subdomain || tenantId);
   const domains = normalizeDomains(tenant?.domains || []);
   const customDomains = domains.filter((domain) => !domain.endsWith('.pagenary.app'));
-  const siteCount = Number.isFinite(tenant?.siteCount) ? tenant.siteCount : 1;
+  const invalidDomains = customDomains.filter((domain) => !isValidHostname(domain));
+  const siteCount = normalizeSiteCount(tenant?.siteCount);
   const privateRepo = Boolean(tenant?.privateRepo);
   const paymentStatus = String(tenant?.paymentStatus || 'manual-pending').trim();
   const errors = [];
 
   if (!tenantId) errors.push('id is required');
   if (!subdomain) errors.push('subdomain is required');
+  if (invalidDomains.length > 0) {
+    errors.push(...invalidDomains.map((domain) => `invalid custom domain ${domain}`));
+  }
   if (siteCount > plan.siteLimit) {
     errors.push(`${plan.label} allows ${plan.siteLimit} hosted site${plan.siteLimit === 1 ? '' : 's'}; requested ${siteCount}`);
   }
@@ -721,6 +725,7 @@ export function buildManagedHostingCustomerHandoff(tenant, options = {}) {
 
 export function buildManagedHostingSupportPacket(tenant, options = {}) {
   const generatedAt = options.generatedAt || new Date().toISOString();
+  const accountTenants = getAccountTenants(tenant, options.tenants);
   const sharedOptions = {
     ...options,
     generatedAt
@@ -729,7 +734,7 @@ export function buildManagedHostingSupportPacket(tenant, options = {}) {
   const handoff = buildManagedHostingCustomerHandoff(tenant, sharedOptions);
   const publishPlan = buildManagedHostingPublishPlan(tenant, sharedOptions);
   const publishResult = buildManagedHostingPublishResult(tenant, sharedOptions);
-  const accountUsage = buildManagedHostingAccountUsage([tenant], {
+  const accountUsage = buildManagedHostingAccountUsage(accountTenants, {
     accountId: tenant?.accountId || tenant?.id,
     requirePaidActivation: false,
     generatedAt
@@ -825,6 +830,7 @@ export function buildManagedHostingWorkerRunRecord(tenant, event, options = {}) 
   const normalized = normalizeWorkerEvent(event);
   const generatedAt = options.generatedAt || new Date().toISOString();
   const validation = validateManagedHostingTenant(tenant);
+  const accountTenants = getAccountTenants(tenant, options.tenants);
   const repository = buildManagedHostingRepoSetup(tenant, {
     credentialRef: options.credentialRef,
     webhookSecretRef: options.webhookSecretRef,
@@ -837,9 +843,12 @@ export function buildManagedHostingWorkerRunRecord(tenant, event, options = {}) 
     logUrl: normalized.logUrl || options.logUrl
   };
   const supportPacket = normalized.type === 'publish.succeeded'
-    ? buildManagedHostingSupportPacket(tenant, sharedOptions)
+    ? buildManagedHostingSupportPacket(tenant, {
+        ...sharedOptions,
+        tenants: accountTenants
+      })
     : null;
-  const accountUsage = buildManagedHostingAccountUsage([tenant], {
+  const accountUsage = buildManagedHostingAccountUsage(accountTenants, {
     accountId: tenant?.accountId || tenant?.id,
     requirePaidActivation: false,
     generatedAt
@@ -983,6 +992,7 @@ export function buildManagedHostingDashboardState(tenants, options = {}) {
   const tenantStates = accountTenants.map((tenant) => {
     const supportPacket = buildManagedHostingSupportPacket(tenant, {
       ...options,
+      tenants,
       generatedAt
     });
     return {
@@ -1577,7 +1587,7 @@ function buildProposedTenantFromIntake(request) {
     accountId,
     plan: plan.id,
     subdomain: normalizeSubdomain(request.subdomain || tenantId),
-    siteCount: Number.isFinite(request.siteCount) ? request.siteCount : 1,
+    siteCount: normalizeSiteCount(request.siteCount),
     paymentStatus: request.paymentStatus || (plan.monthlyPrice === 0 ? 'free' : 'manual-pending'),
     privateRepo: Boolean(request.privateRepo),
     domains: normalizeDomains(request.domains || []),
@@ -1718,6 +1728,29 @@ function paymentStatusForEvent(type, plan) {
   if (type === 'subscription.past_due') return 'past-due';
   if (plan.monthlyPrice === 0) return 'free';
   return 'active';
+}
+
+function normalizeSiteCount(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function isValidHostname(value) {
+  if (typeof value !== 'string') return false;
+  const hostname = value.trim().toLowerCase();
+  if (!hostname || hostname.length > 253) return false;
+  if (/\s/.test(hostname)) return false;
+  try {
+    const normalized = new URL(`https://${hostname}`).hostname;
+    if (normalized !== hostname) return false;
+  } catch {
+    return false;
+  }
+  return hostname.split('.').every((part) => (
+    part.length > 0 &&
+    part.length <= 63 &&
+    /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(part)
+  ));
 }
 
 function normalizePaymentStatus(status) {
@@ -1985,6 +2018,13 @@ function readDirectoryArtifact(absPath) {
   } catch {
     return { exists: false, entries: 0, files: 0, directories: 0 };
   }
+}
+
+function getAccountTenants(tenant, tenants) {
+  if (!Array.isArray(tenants) || tenants.length === 0) return [tenant];
+  const accountId = normalizeAccountId(tenant?.accountId || tenant?.id);
+  const scoped = tenants.filter((entry) => normalizeAccountId(entry?.accountId || entry?.id) === accountId);
+  return scoped.length > 0 ? scoped : [tenant];
 }
 
 function sanitizeSource(source) {

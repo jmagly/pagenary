@@ -87,6 +87,36 @@ describe('managed hosting helpers', () => {
     expect(result.tenant.customDomains).toEqual(['docs.acme.com']);
   });
 
+  test('accepts numeric string siteCount values from intake payloads', () => {
+    const result = validateManagedHostingTenant({
+      id: 'acme',
+      plan: 'pro',
+      paymentStatus: 'active',
+      siteCount: '2'
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.tenant.siteCount).toBe(2);
+  });
+
+  test('rejects invalid custom domains before publishing', () => {
+    const result = validateManagedHostingTenant({
+      id: 'acme',
+      plan: 'pro',
+      paymentStatus: 'active',
+      source: {
+        type: 'git',
+        url: 'https://git.example.com/acme/docs.git',
+        ref: 'main'
+      },
+      domains: ['docs acme.com', 'https://good.acme.com/path']
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('invalid custom domain docs acme.com');
+    expect(result.errors).not.toContain('custom domains require Pro or Team');
+  });
+
   test('builds account usage for control-panel site limits', () => {
     const usage = buildManagedHostingAccountUsage([
       {
@@ -1592,6 +1622,85 @@ describe('managed hosting helpers', () => {
     expect(packet.billingAction.privateControlPlane.expectedAction).toBe('create-or-send-payment-link');
     expect(packet.customer.nextActions.join('\n')).toContain('Pro requires active payment before launch.');
     expect(packet.operator.blockers).toContain('Pro activation requires active payment status; current status is manual-pending');
+  });
+
+  test('builds account-scoped support packets and worker records', async () => {
+    const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-hosting-account-rollup-'));
+    const source = path.join(cwd, 'dist', 'acme-docs');
+    const target = path.join(cwd, 'sites', 'acme-docs');
+    await writeStaticOutput(source);
+    await writeStaticOutput(target);
+
+    const tenants = [
+      {
+        id: 'acme-docs',
+        accountId: 'acme',
+        plan: 'pro',
+        paymentStatus: 'active',
+        siteCount: 3,
+        source: {
+          type: 'git',
+          url: 'https://git.example.com/acme/docs.git',
+          ref: 'main'
+        }
+      },
+      {
+        id: 'acme-blog',
+        accountId: 'acme',
+        plan: 'pro',
+        paymentStatus: 'active',
+        siteCount: 3,
+        source: {
+          type: 'git',
+          url: 'https://git.example.com/acme/blog.git',
+          ref: 'main'
+        }
+      },
+      {
+        id: 'demo-site',
+        accountId: 'demo',
+        plan: 'pro',
+        paymentStatus: 'active',
+        siteCount: 2,
+        source: {
+          type: 'git',
+          url: 'https://git.example.com/demo/docs.git',
+          ref: 'main'
+        }
+      }
+    ];
+
+    const packet = buildManagedHostingSupportPacket(tenants[0], {
+      cwd,
+      deployRoot: path.join(cwd, 'sites'),
+      tenants,
+      generatedAt: '2026-06-22T00:00:00.000Z'
+    });
+    expect(packet.account).toMatchObject({
+      accountId: 'acme',
+      sitesUsed: 6,
+      canAddSite: false
+    });
+    expect(packet.account.errors).toContain('Pro allows 5 hosted sites; account uses 6');
+
+    const record = buildManagedHostingWorkerRunRecord(tenants[0], {
+      type: 'publish.succeeded',
+      runId: 'run-4',
+      commit: 'abc123',
+      ref: 'main',
+      logUrl: 'https://git.example.com/run/4',
+      occurredAt: '2026-06-22T00:00:00.000Z'
+    }, {
+      cwd,
+      deployRoot: path.join(cwd, 'sites'),
+      tenants,
+      generatedAt: '2026-06-22T00:00:00.000Z'
+    });
+
+    expect(record.account.sitesUsed).toBe(6);
+    expect(record.account.canAddSite).toBe(false);
+    expect(record.account.errors).toContain('Pro allows 5 hosted sites; account uses 6');
+    expect(record.operator.supportPacket.account.errors).toContain('Pro allows 5 hosted sites; account uses 6');
   });
 
   test('builds a worker run record for verified publish events', async () => {
