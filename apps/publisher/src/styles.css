@@ -1770,8 +1770,7 @@ mark.hl {
   }
 
   /* Bottom navigation responsive */
-  .bottom-nav {
-    display: flex;
+  .bottom-nav__inner {
     flex-direction: column;
     gap: 0.5rem;
     align-items: stretch;
@@ -2506,12 +2505,18 @@ pre:has(code.language-mermaid)::after {
    ───────────────────────────────────────────────────────── */
 
 .bottom-nav {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  /* Full-width separator: the border-top spans the section. The buttons sit in
+     .bottom-nav__inner, which is centred to the content width on desktop so they
+     align with the page above instead of the screen edges. */
   margin-top: 3rem;
   padding-top: 2rem;
   border-top: 1px solid var(--grid-line);
+}
+
+.bottom-nav__inner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .bottom-nav.mobile-only {
@@ -2520,7 +2525,19 @@ pre:has(code.language-mermaid)::after {
 
 @media (max-width: 960px) {
   .bottom-nav.mobile-only {
-    display: flex;
+    display: block;
+  }
+}
+
+/* Align the buttons with the centred content above (matches .doc-content),
+   keeping the border-top full width. Only where the centred layout applies. */
+@media (min-width: 60rem) {
+  .bottom-nav__inner {
+    max-width: 78ch;
+    margin-inline: auto;
+  }
+  .section:has(.page-toc--right) .bottom-nav__inner {
+    max-width: calc(78ch + 14rem + 2.5rem);
   }
 }
 
@@ -2574,7 +2591,7 @@ pre:has(code.language-mermaid)::after {
    back-to-index, next post — always visible (a post with the sidebar hidden
    has no other way to move between posts). The prev/next items reuse the docs
    bottom-nav styling above; only the index affordance and layout differ. */
-.bottom-nav--posts {
+.bottom-nav--posts .bottom-nav__inner {
   align-items: stretch;
   gap: 0.75rem 1rem;
   flex-wrap: wrap;

@@ -794,7 +794,10 @@ function renderPostNav(currentId) {
   nav.className = 'bottom-nav bottom-nav--posts';
   nav.setAttribute('aria-label', 'Post navigation');
 
-  nav.appendChild(showPrev ? buildNavItem(prev, 'prev') : navSpacer());
+  const inner = document.createElement('div');
+  inner.className = 'bottom-nav__inner';
+
+  inner.appendChild(showPrev ? buildNavItem(prev, 'prev') : navSpacer());
 
   if (showIndex) {
     const label = cfg.label
@@ -808,13 +811,14 @@ function renderPostNav(currentId) {
       e.preventDefault();
       navigate(indexId);
     });
-    nav.appendChild(indexLink);
+    inner.appendChild(indexLink);
   } else {
-    nav.appendChild(navSpacer());
+    inner.appendChild(navSpacer());
   }
 
-  nav.appendChild(showNext ? buildNavItem(next, 'next') : navSpacer());
+  inner.appendChild(showNext ? buildNavItem(next, 'next') : navSpacer());
 
+  nav.appendChild(inner);
   const section = app.querySelector('section') || app;
   section.appendChild(nav);
 }
@@ -855,10 +859,15 @@ function renderBottomNav(currentId) {
     nav.classList.add('mobile-only');
   }
 
-  nav.appendChild(prev ? buildNavItem(prev, 'prev') : navSpacer());
+  // Buttons live in an inner wrapper so they align with the centered content
+  // above while the nav's border-top still spans the full width.
+  const inner = document.createElement('div');
+  inner.className = 'bottom-nav__inner';
+  inner.appendChild(prev ? buildNavItem(prev, 'prev') : navSpacer());
   if (next) {
-    nav.appendChild(buildNavItem(next, 'next'));
+    inner.appendChild(buildNavItem(next, 'next'));
   }
+  nav.appendChild(inner);
 
   // Append to the section content
   const section = app.querySelector('section') || app;
