@@ -100,8 +100,9 @@ sidebar hidden. Prev/next are scoped to the collection (newest→oldest, with
 titles) and never jump out to the index or another group.
 
 It is a real `<nav aria-label="Post navigation">` of `<a>` links, visible on all
-screen sizes (unlike the docs prev/next, which is mobile-only). Trim or disable
-the affordances with `postNav` in config:
+screen sizes — like the docs prev/next article nav, which is also visible on all
+screens by default (`bottomNav: "always"`). Trim or disable the affordances with
+`postNav` in config:
 
 ```json
 { "postNav": { "prev": true, "next": true, "index": true, "label": "All posts" } }

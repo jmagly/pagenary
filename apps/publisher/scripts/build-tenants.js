@@ -3942,8 +3942,11 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   const layout = typeof config.layout === 'string' ? config.layout.toLowerCase() : 'docs';
   const blogCfg = (config.blog && typeof config.blog === 'object') ? config.blog : {};
   const siteConfig = {
-    bottomNav: rootManifest?.bottomNav || 'mobile',
-    bottomNavSections: rootManifest?.bottomNavSections || [],
+    // Prev/next article nav at the bottom of each page is a generic docs feature,
+    // visible on all screens by default. Honor config.json or the root manifest;
+    // a tenant can scope it down with "mobile" or turn it off with "never".
+    bottomNav: config.bottomNav || rootManifest?.bottomNav || 'always',
+    bottomNavSections: config.bottomNavSections || rootManifest?.bottomNavSections || [],
     // Pass SEO-relevant config to SPA for dynamic meta tag updates.
     // siteUrl falls back to `domain` (#15); ogImage drives social cards (#16).
     siteTitle: config.title || '',
@@ -4142,7 +4145,7 @@ function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig =
   const manifestJson = JSON.stringify(manifestEntries, null, 2);
   const defaultJson = JSON.stringify(defaultSection || null);
   const configJson = JSON.stringify({
-    bottomNav: siteConfig.bottomNav || 'mobile', // 'always' | 'mobile' | 'never'
+    bottomNav: siteConfig.bottomNav || 'always', // 'always' | 'mobile' | 'never'
     bottomNavSections: siteConfig.bottomNavSections || [], // Section prefixes to always show nav
     ...siteConfig
   }, null, 2);
@@ -4335,8 +4338,10 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
 
   // Extract site configuration from manifest
   const siteConfig = {
-    bottomNav: manifestData.bottomNav || 'mobile',
-    bottomNavSections: manifestData.bottomNavSections || [],
+    // Prev/next article nav is a generic docs feature, visible on all screens by
+    // default; honor config.json or the manifest, scope down with "mobile"/"never".
+    bottomNav: config.bottomNav || manifestData.bottomNav || 'always',
+    bottomNavSections: config.bottomNavSections || manifestData.bottomNavSections || [],
     // SEO-relevant config for runtime meta updates — parity with the nested path
     // so the runtime <title> brand matches config.title, not a generic fallback (#29).
     siteTitle: config.title || manifestData.title || '',

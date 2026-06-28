@@ -695,7 +695,8 @@ If no `manifest.json` exists, the build system auto-generates navigation from th
 
 ## Bottom Navigation
 
-Configure bottom navigation bar behavior in root `_manifest.json` or `manifest.json`:
+Configure the bottom prev/next article navigation in `config.json`, root
+`_manifest.json`, or `manifest.json` (it is on for all screens by default):
 
 ```json
 {
@@ -711,13 +712,13 @@ Configure bottom navigation bar behavior in root `_manifest.json` or `manifest.j
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `bottomNav` | string | `"mobile"` | When to show **docs** bottom nav: `"mobile"`, `"always"`, or `"never"` |
+| `bottomNav` | string | `"always"` | When to show the **docs** prev/next article nav at the bottom of each page: `"always"`, `"mobile"`, or `"never"` |
 | `bottomNavSections` | string[] | `[]` | Section IDs to include (empty array = all sections) |
 | `postNav` | object \| bool | all on | **Blog** post navigation affordances. `false` disables it; an object toggles `{ prev, next, index, label }`. Posts always get a persistent prev/next + back-to-index control regardless of `bottomNav`. |
 
 **Behavior:**
-- `"mobile"` - Show only on small screens (default)
-- `"always"` - Show on all screen sizes
+- `"always"` - Show on all screen sizes (default): titled prev/next links to the adjacent article in nav order, so readers move between pages without opening the menu
+- `"mobile"` - Show only on small screens
 - `"never"` - Hide bottom navigation completely
 
 Blog posts use a separate, always-visible **post navigation** (collection-scoped
