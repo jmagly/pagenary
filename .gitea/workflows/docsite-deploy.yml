@@ -19,11 +19,11 @@
 # Required repo secrets: DEPLOY_SSH_KEY, DEPLOY_HOST, DEPLOY_PORT, DEPLOY_USER,
 # DEPLOY_PATH (DEPLOY_PATH = ~/production-deploy/docs-pagenary-com).
 #
-# Optional (edge-cache purge, #37): CLOUDFLARE_ZONE_ID + CLOUDFLARE_API_TOKEN
-# (token scoped to Zone.Cache Purge). When both are set, the deploy purges the
-# Cloudflare edge cache so edits to existing pages/assets (stable filenames,
-# max-age=14400) appear immediately instead of after the 4h TTL. When unset, the
-# step is skipped and content propagates on TTL expiry.
+# Optional (edge-cache purge, #37): CF_ZONE_ID + CF_CACHE_PURGE (an API token
+# scoped to Zone.Cache Purge for the pagenary.com zone). When both are set, the
+# deploy purges the Cloudflare edge cache so edits to existing pages/assets
+# (stable filenames, max-age=14400) appear immediately instead of after the 4h
+# TTL. When unset, the step is skipped and content propagates on TTL expiry.
 
 name: Docsite Deploy
 
@@ -168,8 +168,8 @@ jobs:
       - name: Purge Cloudflare edge cache (#37)
         if: success()
         env:
-          CF_ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE: ${{ secrets.CF_ZONE_ID }}
+          CF_TOKEN: ${{ secrets.CF_CACHE_PURGE }}
         run: |
           set -euo pipefail
           if [ -z "${CF_ZONE:-}" ] || [ -z "${CF_TOKEN:-}" ]; then
