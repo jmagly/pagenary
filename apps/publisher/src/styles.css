@@ -3212,9 +3212,11 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     position: sticky; top: 1rem; display: block;
   }
   /* Scroll only the heading list (not the whole panel), so the title + prev/next
-     above it never scroll out of reach on a long outline. */
+     above it never scroll out of reach on a long outline. Bound it to clear the
+     fixed chrome — topbar, the panel header, and the footer — so it never runs
+     past the fold or under the footer (~21rem of height-independent chrome). */
   .doc-content > .page-toc--right .page-toc__list {
-    max-height: calc(100vh - 9rem);
+    max-height: calc(100vh - 21rem);
     overflow-y: auto;
     scrollbar-width: thin;
   }
