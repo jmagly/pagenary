@@ -3117,17 +3117,17 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
    overlaps the rail (the old float + sticky let content scroll under the rail).
    Below 60rem it collapses to a bordered top block. */
 @media (min-width: 60rem) {
-  /* Widen the content host so the rail uses the gutter to the right of the prose
-     instead of squeezing into the 78ch column: the text keeps its readable width
-     (column 1, capped at 78ch) and the rail (column 2) extends into the landscape. */
+  /* Widen the content host and reserve a right gutter for the rail. The prose
+     keeps its single-column flow (and its 1.75rem block gap); the rail is taken
+     OUT of the flow (absolute, full-height) so it never adds grid rows, stretches
+     a row, or inflates the page height — a sticky inner panel does the sticking.
+     (A grid-row span here is a trap: `1 / -1` stretches row 1, and a big end line
+     creates thousands of phantom rows whose gaps blow the page to ~300k px.) */
   .doc-content:has(> .page-toc--rail) {
     max-width: calc(78ch + 14rem + 2.5rem);
-    grid-template-columns: minmax(0, 78ch) 14rem;
-    column-gap: 2.5rem;
-    align-items: start;
+    padding-inline-end: calc(14rem + 2.5rem);
   }
   .doc-content:has(> .page-toc--rail) > :not(.page-toc--rail) {
-    grid-column: 1;
     min-width: 0;
   }
   /* Wide tables/pre scroll within the prose column rather than overflowing the rail. */
@@ -3138,20 +3138,22 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     overflow-x: auto;
   }
   .doc-content > .page-toc--rail {
-    grid-column: 2;
-    /* Span all content rows. `1 / -1` resolves against the (absent) explicit grid
-       and instead stretches row 1 to the rail's height — leaving a big gap under
-       the first heading. A large explicit end line spans every implicit row. */
-    grid-row: 1 / 9999;
+    position: absolute;
+    top: 0;
+    inset-inline-end: 0;
+    width: 14rem;
+    height: 100%;
+  }
+  /* The sticky panel sticks within the full-height absolute rail. */
+  .doc-content > .page-toc--rail > .page-toc__disc {
     position: sticky;
     top: 1rem;
-    align-self: start;
+    display: block;
     max-height: calc(100vh - 6rem);
     overflow-y: auto;
   }
   /* Keep the Fortémi info icon at the right edge of the prose column, clear of
-     the rail (it's absolutely positioned to .doc-content, which now spans the
-     rail too — without this it lands on top of the TOC). */
+     the rail (it's absolutely positioned to .doc-content, which spans the gutter). */
   .doc-content:has(> .page-toc--rail) .doc-fortemi-tools {
     right: calc(14rem + 2.5rem);
   }
