@@ -478,7 +478,19 @@ function pageToc(root, ctx) {
   disc.className = 'page-toc__disc';
   const summary = document.createElement('summary');
   summary.className = 'page-toc__title';
-  summary.textContent = 'On this page';
+  const summaryLabel = document.createElement('span');
+  summaryLabel.className = 'page-toc__title-text';
+  summaryLabel.textContent = 'On this page';
+  summary.appendChild(summaryLabel);
+  // Pin toggle (wide rail only). Pinned (default) keeps the panel open in the
+  // gutter; unpinned collapses it to a right-edge handle that peeks on hover and
+  // lets the content go full-width. Persisted per-reader.
+  const pinBtn = document.createElement('button');
+  pinBtn.type = 'button';
+  pinBtn.className = 'page-toc__pin';
+  pinBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">'
+    + '<path fill="currentColor" d="M9.4 1 8 2.4l.5.6-2.9 2.9-2-.4-1.4 1.4 2.9 2.9L1 14.9 5 11l2.9 2.9 1.4-1.4-.4-2 2.9-2.9.6.5L13.9 6.6 9.4 1z"/></svg>';
+  summary.appendChild(pinBtn);
   const tbody = document.createElement('div');
   tbody.className = 'page-toc__body';
 
@@ -577,11 +589,32 @@ function pageToc(root, ctx) {
   syncOpen();
   if (mq.addEventListener) mq.addEventListener('change', syncOpen);
 
+  // Pin/unpin the wide rail. Pinned (default) holds it open in the gutter;
+  // unpinned collapses it to a right-edge handle that peeks on hover and lets the
+  // content go full-width. State persists per reader.
+  let tocPinned = true;
+  try { tocPinned = window.localStorage.getItem('pagenary:toc-pinned') !== 'false'; } catch (_) { /* private mode */ }
+  const applyPin = () => {
+    nav.classList.toggle('is-unpinned', !tocPinned);
+    pinBtn.setAttribute('aria-pressed', String(tocPinned));
+    pinBtn.title = tocPinned ? 'Unpin — let the panel auto-hide' : 'Pin the panel open';
+  };
+  const onPin = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    tocPinned = !tocPinned;
+    try { window.localStorage.setItem('pagenary:toc-pinned', String(tocPinned)); } catch (_) { /* private mode */ }
+    applyPin();
+  };
+  pinBtn.addEventListener('click', onPin);
+  applyPin();
+
   return () => {
     scroller.removeEventListener('scroll', onScroll);
     if (mq.removeEventListener) mq.removeEventListener('change', syncOpen);
     prevBtn.removeEventListener('click', onPrev);
     nextBtn.removeEventListener('click', onNext);
+    pinBtn.removeEventListener('click', onPin);
     links.forEach(({ a, onClick }) => a.removeEventListener('click', onClick));
     nav.remove();
   };

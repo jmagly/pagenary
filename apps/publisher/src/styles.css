@@ -3084,6 +3084,22 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
 .page-toc__title::after { content: "▾"; font-size: 0.8em; opacity: 0.7; }
 .page-toc__disc[open] > .page-toc__title::after { content: "▴"; }
 .page-toc__title:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Pin toggle: wide rail only (enabled in the >=60rem block). Pinned = accent;
+   unpinned = a dimmed, tilted pin. */
+.page-toc__pin {
+  display: none;
+  align-items: center; justify-content: center; flex: 0 0 auto;
+  margin-inline-start: auto;
+  width: 1.55rem; height: 1.55rem; padding: 0;
+  border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--muted);
+  cursor: pointer; line-height: 0;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+.page-toc__pin:hover { background: rgba(127, 127, 127, 0.14); color: var(--ink); }
+.page-toc__pin:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.page-toc__pin[aria-pressed="true"] { color: var(--accent); }
+.page-toc__pin[aria-pressed="false"] { transform: rotate(45deg); opacity: 0.65; }
 /* Prev / next section controls. */
 .page-toc__controls { display: flex; gap: 0.4rem; margin-bottom: 0.65rem; }
 .page-toc__btn {
@@ -3123,9 +3139,16 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
      a row, or inflates the page height — a sticky inner panel does the sticking.
      (A grid-row span here is a trap: `1 / -1` stretches row 1, and a big end line
      creates thousands of phantom rows whose gaps blow the page to ~300k px.) */
-  .doc-content:has(> .page-toc--rail) {
+  /* Pinned (default): reserve the gutter and hold the rail open beside the prose. */
+  .doc-content:has(> .page-toc--rail:not(.is-unpinned)) {
     max-width: calc(78ch + 14rem + 2.5rem);
     padding-inline-end: calc(14rem + 2.5rem);
+  }
+  /* Unpinned: the prose reclaims the full width for a focused, full-screen read;
+     the rail collapses to a hover-peek handle on the trailing edge. */
+  .doc-content:has(> .page-toc--rail.is-unpinned) {
+    max-width: none;
+    padding-inline-end: 0;
   }
   .doc-content:has(> .page-toc--rail) > :not(.page-toc--rail) {
     min-width: 0;
@@ -3137,6 +3160,7 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     max-width: 100%;
     overflow-x: auto;
   }
+  .page-toc__pin { display: inline-flex; }
   .doc-content > .page-toc--rail {
     position: absolute;
     top: 0;
@@ -3151,10 +3175,45 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     display: block;
     max-height: calc(100vh - 6rem);
     overflow-y: auto;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
   }
-  /* Keep the Fortémi info icon at the right edge of the prose column, clear of
-     the rail (it's absolutely positioned to .doc-content, which spans the gutter). */
-  .doc-content:has(> .page-toc--rail) .doc-fortemi-tools {
+  /* Unpinned: the full-height rail is click-through; only its disc is interactive.
+     The disc parks off the trailing edge showing a slim handle, then slides in on
+     hover/focus as a floating panel over the prose. It is a child of the document
+     (absolute within .doc-content), so it overlays without reflowing anything. */
+  .doc-content > .page-toc--rail.is-unpinned { pointer-events: none; z-index: 5; }
+  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc {
+    pointer-events: auto;
+    transform: translateX(calc(100% - 2.1rem));
+    background: var(--surface);
+    border: 1px solid var(--grid-line);
+    border-inline-end: none;
+    border-radius: 10px 0 0 10px;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.07);
+    padding-inline-start: 0.9rem;
+  }
+  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc::before {
+    content: "\2630"; /* ☰ — a "show panel" affordance on the collapsed handle */
+    position: absolute;
+    top: 0.7rem;
+    inset-inline-start: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--accent);
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc:hover,
+  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc:focus-within {
+    transform: translateX(0);
+    box-shadow: -8px 0 28px rgba(0, 0, 0, 0.16);
+  }
+  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc:hover::before,
+  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc:focus-within::before {
+    opacity: 0;
+  }
+  /* Keep the Fortémi info icon clear of the rail when pinned; when unpinned the
+     prose is full-width, so it returns to the prose edge. */
+  .doc-content:has(> .page-toc--rail:not(.is-unpinned)) .doc-fortemi-tools {
     right: calc(14rem + 2.5rem);
   }
 }
