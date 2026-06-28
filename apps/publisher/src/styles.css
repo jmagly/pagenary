@@ -3185,6 +3185,7 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc {
     pointer-events: auto;
     transform: translateX(calc(100% - 2.1rem));
+    will-change: transform;
     background: var(--surface);
     border: 1px solid var(--grid-line);
     border-inline-end: none;
@@ -3202,15 +3203,19 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     pointer-events: none;
     transition: opacity 0.2s ease;
   }
-  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc:hover,
-  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc:focus-within {
+  /* Peek is driven by JS (.is-peeking) rather than :hover, so the panel slides in
+     once and holds — no stutter as the moving box re-triggers :hover. */
+  .doc-content > .page-toc--rail.is-unpinned.is-peeking > .page-toc__disc {
     transform: translateX(0);
     box-shadow: -8px 0 28px rgba(0, 0, 0, 0.16);
   }
-  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc:hover::before,
-  .doc-content > .page-toc--rail.is-unpinned > .page-toc__disc:focus-within::before {
+  .doc-content > .page-toc--rail.is-unpinned.is-peeking > .page-toc__disc::before {
     opacity: 0;
   }
+  /* Wide rail: the pin is the only control — drop the vertical-collapse triangle
+     and keep the "On this page" header as a plain label. */
+  .page-toc--rail > .page-toc__disc > .page-toc__title { cursor: default; }
+  .page-toc--rail > .page-toc__disc > .page-toc__title::after { display: none; }
   /* Keep the Fortémi info icon clear of the rail when pinned; when unpinned the
      prose is full-width, so it returns to the prose edge. */
   .doc-content:has(> .page-toc--rail:not(.is-unpinned)) .doc-fortemi-tools {

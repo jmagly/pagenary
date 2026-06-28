@@ -609,13 +609,38 @@ function pageToc(root, ctx) {
   pinBtn.addEventListener('click', onPin);
   applyPin();
 
+  // On the wide rail the panel is always open — the pin is the only visibility
+  // control, so the summary should not also toggle a vertical collapse.
+  const onSummaryClick = (e) => { if (mq.matches) e.preventDefault(); };
+  summary.addEventListener('click', onSummaryClick);
+
+  // Hover-peek for the unpinned panel, driven by mouseenter/mouseleave + a short
+  // close delay rather than CSS :hover. CSS :hover re-evaluates as the panel
+  // slides under the cursor (the box moves), which makes the animation stutter;
+  // an explicit class with a close grace period slides it in once and holds it.
+  let peekTimer = 0;
+  const openPeek = () => { window.clearTimeout(peekTimer); nav.classList.add('is-peeking'); };
+  const closePeek = () => {
+    window.clearTimeout(peekTimer);
+    peekTimer = window.setTimeout(() => nav.classList.remove('is-peeking'), 180);
+  };
+  disc.addEventListener('mouseenter', openPeek);
+  disc.addEventListener('mouseleave', closePeek);
+  disc.addEventListener('focusin', openPeek);
+  disc.addEventListener('focusout', closePeek);
+
   return () => {
     scroller.removeEventListener('scroll', onScroll);
     if (mq.removeEventListener) mq.removeEventListener('change', syncOpen);
     prevBtn.removeEventListener('click', onPrev);
     nextBtn.removeEventListener('click', onNext);
     pinBtn.removeEventListener('click', onPin);
-    links.forEach(({ a, onClick }) => a.removeEventListener('click', onClick));
+    summary.removeEventListener('click', onSummaryClick);
+    disc.removeEventListener('mouseenter', openPeek);
+    disc.removeEventListener('mouseleave', closePeek);
+    disc.removeEventListener('focusin', openPeek);
+    disc.removeEventListener('focusout', closePeek);
+    window.clearTimeout(peekTimer);
     nav.remove();
   };
 }
