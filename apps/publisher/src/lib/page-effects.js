@@ -585,6 +585,14 @@ function pageToc(root, ctx) {
   let ticking = false;
   const update = () => {
     ticking = false;
+    // At the bottom, the final headings sit in the last viewport and can never
+    // scroll up into the activation band, so they'd never highlight and Next would
+    // grey on whatever entry the band last caught (an off-by-one near the end).
+    // Pin the active to the last heading once the scroller bottoms out.
+    if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) {
+      setActive(headings[headings.length - 1]);
+      return;
+    }
     const sTop = scroller.getBoundingClientRect().top;
     let active = headings[0];
     for (const h of headings) {
@@ -665,6 +673,35 @@ function pageToc(root, ctx) {
     const onSummaryClick = (e) => e.preventDefault();
     summary.addEventListener('click', onSummaryClick);
     cleanups.push(() => summary.removeEventListener('click', onSummaryClick));
+
+    if (placement === 'right') {
+      // Collapsible: a chevron hides the panel for full-width reading, shrinking the
+      // sticky disc to a small handle; clicking it again restores. Persisted.
+      const collapseBtn = document.createElement('button');
+      collapseBtn.type = 'button';
+      collapseBtn.className = 'page-toc__collapse';
+      collapseBtn.innerHTML = '<span aria-hidden="true">›</span>';
+      summary.appendChild(collapseBtn);
+      let collapsed = false;
+      try { collapsed = window.localStorage.getItem('pagenary:toc-collapsed') === 'true'; } catch (_) { /* private mode */ }
+      const applyCollapse = () => {
+        nav.classList.toggle('is-collapsed', collapsed);
+        collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+        const label = collapsed ? 'Show the on-this-page panel' : 'Hide the on-this-page panel';
+        collapseBtn.setAttribute('aria-label', label);
+        collapseBtn.title = collapsed ? 'Show on-this-page' : 'Hide on-this-page';
+      };
+      const onCollapse = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        collapsed = !collapsed;
+        try { window.localStorage.setItem('pagenary:toc-collapsed', String(collapsed)); } catch (_) { /* private mode */ }
+        applyCollapse();
+      };
+      collapseBtn.addEventListener('click', onCollapse);
+      applyCollapse();
+      cleanups.push(() => collapseBtn.removeEventListener('click', onCollapse));
+    }
   }
 
   return () => {
