@@ -3210,7 +3210,13 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   }
   .doc-content > .page-toc--right > .page-toc__disc {
     position: sticky; top: 1rem; display: block;
-    max-height: calc(100vh - 6rem); overflow-y: auto;
+  }
+  /* Scroll only the heading list (not the whole panel), so the title + prev/next
+     above it never scroll out of reach on a long outline. */
+  .doc-content > .page-toc--right .page-toc__list {
+    max-height: calc(100vh - 9rem);
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
   .doc-content:has(> .page-toc--right) .doc-fortemi-tools { right: calc(14rem + 2.5rem); }
 }
