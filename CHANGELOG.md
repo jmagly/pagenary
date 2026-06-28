@@ -6,6 +6,23 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.16] - 2026-06-27
+
+### Added
+
+- **Prev/next article navigation is a generic docs feature, on by default.** The
+  bottom prev/next pager (titled links to the adjacent article in nav order) now
+  shows on all screen sizes for docs layouts — `bottomNav` defaults to `"always"`
+  and is read from `config.json` as well as the manifest. Readers move between
+  pages without opening the menu; scope it down with `"mobile"` or `"never"`.
+
+### Changed
+
+- **Deploy: Cloudflare edge-cache purge** now uses the `CF_ZONE_ID` /
+  `CF_CACHE_PURGE` secrets, so a docs deploy purges the `pagenary.com` edge cache
+  and edits to existing pages/assets go live immediately instead of waiting out
+  the 4-hour cache TTL.
+
 ## [2026.6.15] - 2026-06-27
 
 ### Added
