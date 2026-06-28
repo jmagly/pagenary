@@ -5375,5 +5375,11 @@ export {
   renderBannerMarkup,
   extractNarrationTextFromMarkdown,
   buildNarration,
-  ensureMarkdownModule
+  ensureMarkdownModule,
+  // Git-source helpers — exported for regression coverage (#80 shell-safety,
+  // #81 GIT_CREDENTIALS). execWithRetry only runs spawn after the argv guard.
+  execWithRetry,
+  withGitCredentials,
+  maskAuthSegment,
+  isImmutableRef
 };
