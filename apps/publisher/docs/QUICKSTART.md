@@ -183,7 +183,7 @@ registry is an array; `source` is an object (`local` or `git`):
 
 ```bash
 # Build your tenant
-npx pagenary build:tenants my-docs
+npx pagenary build my-docs
 
 # Start the server
 npx pagenary serve
@@ -192,6 +192,7 @@ npx pagenary serve
 ```
 
 > From source, the equivalents are `npm run build:tenants my-docs` and `npm run serve`.
+> Tip: `pagenary new my-docs` scaffolds a buildable tenant for you in one step.
 
 You should see your documentation with your branding applied.
 
@@ -291,7 +292,7 @@ Your built site is in `dist/my-docs/`. Deploy it anywhere that serves static fil
 
 1. Check that `manifest.json` references the correct file paths
 2. Verify files exist in `content/`
-3. Run `npx pagenary build:tenants my-docs` and check for errors
+3. Run `npx pagenary build my-docs` and check for errors
 
 ### Styles not applied?
 

@@ -437,55 +437,59 @@ interface Chapter {
 
 ---
 
-## Build Scripts
+## CLI
 
-### scripts/build.js
+The **`pagenary`** CLI is the supported, stable interface to the publisher. The
+internal `scripts/*.js` entry points it wraps are an implementation detail and
+are not invoked directly. Run `pagenary --help` for the full command surface and
+`pagenary <command> --help` for per-command options.
 
-Core build script for copying and minifying assets.
+### pagenary build
 
-```bash
-node scripts/build.js [--dev]
-```
-
-Options:
-- `--dev` - Skip minification
-
-### scripts/build-tenants.js
-
-Multi-tenant build orchestrator. It processes tenant content, applies branding
-and overrides, copies public assets, then calls the build library modules for
-SEO artifacts and collections.
+Build the default bundle, a single tenant, or every tenant. Processes tenant
+content, applies branding and overrides, copies public assets, then calls the
+build library modules for SEO artifacts and collections.
 
 ```bash
-node scripts/build-tenants.js [tenant-id] [--incremental]
+pagenary build [tenant] [--all] [--incremental] [--target <dir>] [--dev]
 ```
 
-Arguments:
-- `tenant-id` - Build specific tenant (omit for all)
-- `--incremental` - Only rebuild changed files
+Arguments / options:
+- `tenant` - Build a specific tenant (omit for the default bundle)
+- `--all` - Build every enabled tenant
+- `--incremental` - Only rebuild changed content
+- `--target <dir>` - Override the output directory
+- `--dev` - Development build (skip minification; default bundle)
 
 See [Build Library Modules](#build-library-modules) for the helper modules used
-by this orchestrator.
+during a build.
 
-### scripts/serve.js
+### pagenary serve
 
-Development server.
+Preview the built output over HTTP.
 
 ```bash
-node scripts/serve.js [--port=5173]
+pagenary serve [--dev] [--port <n>]
 ```
 
-### scripts/sync-docs.js
+### pagenary sync
 
 Regenerate section template modules.
 
 ```bash
-node scripts/sync-docs.js
+pagenary sync
 ```
+
+### pagenary tenants / check / doctor / new
+
+`pagenary tenants list|diff` inspects the registry (`--json` for scripts);
+`pagenary check [target]` runs quality checks; `pagenary doctor` reports
+environment/config diagnostics; `pagenary new <name>` scaffolds a buildable
+tenant. See `pagenary --help` for the complete list.
 
 ## Build Library Modules
 
-These modules are called by `scripts/build-tenants.js` during tenant builds.
+These modules are called during tenant builds.
 They generate files that ship in each tenant output, so they are part of the
 build-time API surface even though they do not run in the browser.
 

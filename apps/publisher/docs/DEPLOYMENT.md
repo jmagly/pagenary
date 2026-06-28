@@ -2,11 +2,16 @@
 
 Pagenary produces static files that can be served by any web server, CDN, or object storage.
 
+All builds run through the **`pagenary`** CLI — the one supported interface. It
+works the same way whether Pagenary is installed (`pagenary …`), run via npx
+(`npx pagenary …` / `npx @pagenary/publisher …`), or invoked from source
+(`npm run build` delegates to it). Run `pagenary --help` to see every command.
+
 ## Quick Deploy
 
 ```bash
 # Build a tenant to a specific directory
-node scripts/build-tenants.js my-tenant --target /var/www/docs
+pagenary build my-tenant --target /var/www/docs
 
 # The output is ready to serve - no server setup required
 ```
@@ -17,10 +22,10 @@ node scripts/build-tenants.js my-tenant --target /var/www/docs
 
 ```bash
 # Override target for all tenants
-node scripts/build-tenants.js --target /var/www/html
+pagenary build --all --target /var/www/html
 
 # Build specific tenant to custom location
-node scripts/build-tenants.js my-docs --target /opt/docs/my-docs
+pagenary build my-docs --target /opt/docs/my-docs
 ```
 
 ### Build from Git Repository
@@ -49,7 +54,7 @@ Configure a git source in your registry:
 
 Then build:
 ```bash
-node scripts/build-tenants.js my-docs
+pagenary build my-docs
 ```
 
 ### External Registry
@@ -57,12 +62,12 @@ node scripts/build-tenants.js my-docs
 Use a registry file from any location:
 
 ```bash
-node scripts/build-tenants.js --registry /etc/pagenary/tenants.json
+pagenary build --all --registry /etc/pagenary/tenants.json
 ```
 
 Or via environment variable:
 ```bash
-TENANT_REGISTRY=/etc/pagenary/tenants.json node scripts/build-tenants.js
+TENANT_REGISTRY=/etc/pagenary/tenants.json pagenary build --all
 ```
 
 ### Git Authentication
@@ -71,13 +76,13 @@ For private repositories:
 
 ```bash
 # SSH key
-GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key" node scripts/build-tenants.js
+GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key" pagenary build --all
 
 # HTTPS token
-GIT_CREDENTIALS="username:token" node scripts/build-tenants.js
+GIT_CREDENTIALS="username:token" pagenary build --all
 
 # Disable interactive prompts (recommended for CI)
-GIT_TERMINAL_PROMPT=0 node scripts/build-tenants.js
+GIT_TERMINAL_PROMPT=0 pagenary build --all
 ```
 
 ## CI/CD Integration
@@ -103,7 +108,7 @@ jobs:
       - run: npm ci
 
       - name: Build documentation
-        run: node scripts/build-tenants.js my-docs --target ./output
+        run: npx pagenary build my-docs --target ./output
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -119,7 +124,7 @@ build-docs:
   image: node:20
   script:
     - npm ci
-    - node scripts/build-tenants.js my-docs --target ./public
+    - npx pagenary build my-docs --target ./public
   artifacts:
     paths:
       - public/
@@ -131,10 +136,10 @@ For faster CI builds with git-based sources:
 
 ```bash
 # Only rebuild changed content
-node scripts/build-tenants.js my-docs --incremental --keep-cache
+pagenary build my-docs --incremental --keep-cache
 
 # Show what changed without building
-node scripts/build-tenants.js my-docs --diff-only
+pagenary build my-docs --diff-only
 ```
 
 ## Hosting Patterns
@@ -201,7 +206,7 @@ docs.example.com {
 ### Netlify / Vercel
 
 1. Point to your repository
-2. Build command: `node scripts/build-tenants.js my-docs --target ./dist`
+2. Build command: `npx pagenary build my-docs --target ./dist`
 3. Publish directory: `dist/`
 
 ## Multi-Tenant Deployment
@@ -211,7 +216,7 @@ docs.example.com {
 Build all tenants to subdirectories:
 
 ```bash
-node scripts/build-tenants.js --target /var/www/docs
+pagenary build --all --target /var/www/docs
 # Creates /var/www/docs/tenant-a/, /var/www/docs/tenant-b/, etc.
 ```
 
