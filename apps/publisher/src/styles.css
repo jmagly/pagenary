@@ -3169,6 +3169,9 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   .doc-content:has(> .page-toc--right) {
     max-width: calc(78ch + 14rem + 2.5rem);
     padding-inline-end: calc(14rem + 2.5rem);
+    /* Centre the prose + rail cluster so wide/landscape viewports get balanced
+       margins instead of everything crammed left with a huge empty right. */
+    margin-inline: auto;
   }
   .doc-content:has(> .page-toc--right) > :not(.page-toc--right) { min-width: 0; }
   .doc-content:has(> .page-toc--right) > table,
@@ -3202,7 +3205,9 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   /* Collapsed: free the content to full width; shrink the sticky disc to a small
      handle showing just the chevron. */
   .doc-content:has(> .page-toc--right.is-collapsed) {
-    max-width: none;
+    /* Keep the same centred host (inherits max-width + margin from above) so the
+       page doesn't reflow edge-to-edge on collapse — the prose just reclaims the
+       freed gutter and the chevron handle sits at its right. */
     padding-inline-end: 2rem;
   }
   .page-toc--right.is-collapsed { pointer-events: none; }
