@@ -435,7 +435,7 @@ function tocSlug(text, used) {
 
 function pageToc(root, ctx) {
   const placement = document.body.dataset.pageToc;
-  if (placement !== 'rail' && placement !== 'top' && placement !== 'left') return;
+  if (placement !== 'rail' && placement !== 'top' && placement !== 'left' && placement !== 'right') return;
   const content = root.querySelector('.doc.markdown .doc-content');
   if (!content) return;
   // Article headings only — exclude the async Fortemi metadata panel and headings
@@ -472,7 +472,10 @@ function pageToc(root, ctx) {
   // The <details> is open on wide viewports (a persistent rail) and collapsed on
   // narrow/portrait (an expandable menu), so it never crowds small screens.
   const nav = document.createElement('nav');
-  nav.className = `page-toc page-toc--${placement}`;
+  // left + right share the main-nav design (page-toc--navstyle); their placement
+  // class only controls where the list lives (sidebar vs right gutter).
+  const navStyle = placement === 'left' || placement === 'right' ? ' page-toc--navstyle' : '';
+  nav.className = `page-toc page-toc--${placement}${navStyle}`;
   nav.setAttribute('aria-label', 'On this page');
   const disc = document.createElement('details');
   disc.className = 'page-toc__disc';

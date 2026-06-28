@@ -3127,39 +3127,60 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   padding: 1rem 1.1rem; margin: 0 0 1.5rem;
   background: rgba(var(--surface-rgb), 0.5);
 }
-/* Left placement: the on-this-page TOC mirrors the main nav, stacked beneath it in
-   the sidebar — a plain list with the nav's hover/active treatment, no card/pin. */
-.page-toc--left {
-  margin: 0;
-  padding-top: 1.2rem;
-  border-top: 1px solid var(--grid-line);
-}
-.page-toc--left .page-toc__disc { display: block; }
-.page-toc--left .page-toc__title {
+/* Nav-style design, shared by the left and right placements: a plain list with the
+   main nav's leaf / hover / active treatment — no card, no pin, no collapse. The
+   placement class only decides where it lives (sidebar vs right gutter). */
+.page-toc--navstyle .page-toc__disc { display: block; }
+.page-toc--navstyle .page-toc__title {
   pointer-events: none; cursor: default;
   margin: 0 0 0.6rem; padding-inline: 1.1rem;
   font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
 }
-.page-toc--left .page-toc__title::after { display: none; }
-.page-toc--left .page-toc__body { display: grid; gap: 0.6rem; }
-.page-toc--left .page-toc__controls { margin: 0; padding-inline: 1.1rem; gap: 0.4rem; }
-.page-toc--left .page-toc__btn { flex: 1; font-size: 0.72rem; padding: 0.28rem 0.4rem; }
-.page-toc--left ol { gap: 0.1rem; }
-.page-toc--left .page-toc__item--sub { padding-left: 0; }
-.page-toc--left a {
+.page-toc--navstyle .page-toc__title::after { display: none; }
+.page-toc--navstyle .page-toc__body { display: grid; gap: 0.6rem; }
+.page-toc--navstyle .page-toc__controls { margin: 0; padding-inline: 1.1rem; gap: 0.4rem; }
+.page-toc--navstyle .page-toc__btn { flex: 1; font-size: 0.72rem; padding: 0.28rem 0.4rem; }
+.page-toc--navstyle ol { gap: 0.1rem; }
+.page-toc--navstyle .page-toc__item--sub { padding-left: 0; }
+.page-toc--navstyle a {
   padding: 0.4rem 0.9rem 0.4rem 1.1rem;
   border: 1px solid transparent; border-left: 2px solid transparent;
   color: var(--ink); font-size: 0.86rem; line-height: 1.4;
   transition: border-color 160ms ease, background 160ms ease;
 }
-.page-toc--left .page-toc__item--sub a { padding-left: 1.7rem; font-size: 0.82rem; color: var(--muted); }
-.page-toc--left a:hover {
+.page-toc--navstyle .page-toc__item--sub a { padding-left: 1.7rem; font-size: 0.82rem; color: var(--muted); }
+.page-toc--navstyle a:hover {
   color: var(--ink); border-color: var(--grid-line); border-left-color: var(--ink);
   background: rgba(var(--ink-rgb), 0.03);
 }
-.page-toc--left a[aria-current="true"] {
+.page-toc--navstyle a[aria-current="true"] {
   color: var(--ink); border-color: var(--grid-line); border-left-color: var(--ink);
   background: rgba(var(--ink-rgb), 0.05); font-weight: 600;
+}
+/* Left: stacked under the site nav in the sidebar (divider above). */
+.page-toc--left {
+  margin: 0;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--grid-line);
+}
+@media (min-width: 60rem) {
+  /* Right: the same nav-style list in a sticky right gutter (the rail's spot, the
+     left nav's look) — persistent, no pin/collapse. */
+  .doc-content:has(> .page-toc--right) {
+    max-width: calc(78ch + 14rem + 2.5rem);
+    padding-inline-end: calc(14rem + 2.5rem);
+  }
+  .doc-content:has(> .page-toc--right) > :not(.page-toc--right) { min-width: 0; }
+  .doc-content:has(> .page-toc--right) > table,
+  .doc-content:has(> .page-toc--right) > pre { display: block; max-width: 100%; overflow-x: auto; }
+  .doc-content > .page-toc--right {
+    position: absolute; top: 0; inset-inline-end: 0; width: 14rem; height: 100%;
+  }
+  .doc-content > .page-toc--right > .page-toc__disc {
+    position: sticky; top: 1rem; display: block;
+    max-height: calc(100vh - 6rem); overflow-y: auto;
+  }
+  .doc-content:has(> .page-toc--right) .doc-fortemi-tools { right: calc(14rem + 2.5rem); }
 }
 /* Rail placement: a real sticky right column on wide viewports. The content host
    (.doc-content, which holds the markdown body — the full-bleed hero lives outside

@@ -1754,7 +1754,10 @@ async function applyPageTocConfig(distDir, config, tenantId) {
   if (toc !== true && (!toc || typeof toc !== 'object')) return;
   const placementRaw = toc && typeof toc === 'object' ? toc.placement : undefined;
   if (placementRaw === 'off' || (toc && typeof toc === 'object' && toc.enabled === false)) return;
-  const placement = placementRaw === 'top' ? 'top' : placementRaw === 'left' ? 'left' : 'rail';
+  const placement = placementRaw === 'top' ? 'top'
+    : placementRaw === 'left' ? 'left'
+    : placementRaw === 'right' ? 'right'
+    : 'rail';
   const min = toc && typeof toc === 'object' && Number.isInteger(toc.minHeadings) && toc.minHeadings > 0
     ? toc.minHeadings : null;
 
