@@ -1212,6 +1212,35 @@ mark.hl {
   padding: 0;
 }
 
+/* Quick-copy control on code blocks (#89), enabled per tenant via codeCopy.
+   Added by JS; the code stays fully selectable with JS off. */
+.doc-content pre.has-code-copy { position: relative; }
+.code-copy {
+  position: absolute;
+  top: 0.5rem; inset-inline-end: 0.5rem;
+  display: inline-flex; align-items: center;
+  padding: 0.25rem 0.55rem;
+  font-family: var(--font-body, inherit);
+  font-size: 0.72rem; font-weight: 600; line-height: 1;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--grid-line); border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+/* Reveal on hover/focus; keyboard focus shows it too. */
+.doc-content pre.has-code-copy:hover .code-copy,
+.doc-content pre.has-code-copy:focus-within .code-copy,
+.code-copy:focus-visible { opacity: 1; }
+.code-copy:hover { color: var(--ink); border-color: var(--accent); }
+.code-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.code-copy.is-copied { color: var(--accent); border-color: var(--accent); }
+/* Touch / no-hover devices: keep it visible (no hover affordance). */
+@media (hover: none) {
+  .doc-content pre.has-code-copy .code-copy { opacity: 1; }
+}
+
 .doc-content table {
   width: 100%;
   border-collapse: collapse;

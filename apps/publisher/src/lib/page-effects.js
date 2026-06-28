@@ -759,6 +759,65 @@ function scrollytelling(root, ctx) {
   return () => cleanups.forEach((fn) => fn());
 }
 
+/**
+ * Quick-copy control on code blocks (#89), opt-in via `body[data-code-copy]`.
+ * Adds a Copy button to each `<pre>` with a `<code>` child; the page is complete
+ * and the code fully selectable with JS off (the button is a pure enhancement).
+ * Copies the exact source text via the async Clipboard API (textarea fallback),
+ * with transient "Copied" feedback.
+ */
+function codeCopy(root) {
+  if (!document.body.hasAttribute('data-code-copy')) return;
+  const scope = root && root.querySelector ? root : document;
+  const pres = Array.from(scope.querySelectorAll('.doc-content pre'));
+  const undo = [];
+  for (const pre of pres) {
+    const code = pre.querySelector('code');
+    if (!code || pre.querySelector(':scope > .code-copy')) continue;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'code-copy';
+    btn.setAttribute('aria-label', 'Copy code to clipboard');
+    btn.innerHTML = '<span class="code-copy__label">Copy</span>';
+    let resetTimer = 0;
+    const setLabel = (text, copied) => {
+      btn.querySelector('.code-copy__label').textContent = text;
+      btn.classList.toggle('is-copied', !!copied);
+      btn.setAttribute('aria-label', copied ? 'Copied to clipboard' : 'Copy code to clipboard');
+    };
+    const onClick = async () => {
+      const text = code.innerText.replace(/\n$/, '');
+      let ok = true;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.cssText = 'position:fixed;top:-9999px;opacity:0';
+          document.body.appendChild(ta);
+          ta.select();
+          ok = document.execCommand('copy');
+          ta.remove();
+        }
+      } catch { ok = false; }
+      setLabel(ok ? 'Copied' : 'Press ⌘C', ok);
+      window.clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => setLabel('Copy', false), 1600);
+    };
+    btn.addEventListener('click', onClick);
+    pre.classList.add('has-code-copy');
+    pre.appendChild(btn);
+    undo.push(() => {
+      window.clearTimeout(resetTimer);
+      btn.removeEventListener('click', onClick);
+      btn.remove();
+      pre.classList.remove('has-code-copy');
+    });
+  }
+  return () => undo.forEach((fn) => fn());
+}
+
 registerEffect(revealOnScroll);
 registerEffect(staggeredReveal);
 registerEffect(figureZoom);
@@ -769,3 +828,4 @@ registerEffect(parallax);
 registerEffect(heroSticky);
 registerEffect(livingScroll);
 registerEffect(accordion);
+registerEffect(codeCopy);

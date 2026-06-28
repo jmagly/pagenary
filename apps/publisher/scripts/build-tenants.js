@@ -1714,6 +1714,24 @@ async function applyReadingProgressConfig(distDir, config, tenantId) {
 }
 
 /**
+ * Quick-copy control on code/example blocks (#89). Opt-in via `codeCopy: true`
+ * (or `{ enabled: true }`). Writes the `data-code-copy` body flag the page-effect
+ * reads; the button is added by JS, so JS-off pages keep fully-selectable code.
+ */
+async function applyCodeCopyConfig(distDir, config, tenantId) {
+  const cc = config.codeCopy;
+  const enabled = cc === true || (cc && typeof cc === 'object' && cc.enabled !== false);
+  if (!enabled) return;
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+  let html = await fsp.readFile(indexPath, 'utf8');
+  if (/<body[^>]*data-code-copy(?:[\s=>])/.test(html)) return;
+  html = html.replace(/<body(?=[\s>])/, '<body data-code-copy');
+  await fsp.writeFile(indexPath, html, 'utf8');
+  console.log(`  ↳ enabled code-copy for ${tenantId}`);
+}
+
+/**
  * Living scroll on any layout (docs included). Blog tenants opt in via
  * `blog.livingScroll` (handled in applyBlogLayout); this is the general path,
  * driven by a top-level `livingScroll: true` (or `reader.livingScroll`). It sets
@@ -4907,6 +4925,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyLivingScrollConfig(distDir, config, tenantId);
     await applyPageTocConfig(distDir, config, tenantId);
     await applyNavCollapseConfig(distDir, config, tenantId);
+    await applyCodeCopyConfig(distDir, config, tenantId);
     await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }
