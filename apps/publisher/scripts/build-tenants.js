@@ -1642,48 +1642,77 @@ async function applyNavAlignment(distDir, config, tenantId) {
  * attribute. No motion/animation is added here — that is Phase 2 (transitions).
  */
 async function applyBlogLayout(distDir, config, tenantId) {
-  const layout = typeof config.layout === 'string' ? config.layout.toLowerCase() : 'docs';
-
-  if (layout === 'docs') return; // default layout, nothing to do
-
-  if (!LAYOUTS.has(layout)) {
+  const rawLayout = typeof config.layout === 'string' ? config.layout.toLowerCase() : 'docs';
+  if (typeof config.layout === 'string' && !LAYOUTS.has(rawLayout)) {
     console.warn(`  ↳ ${tenantId}: unknown layout "${config.layout}" ` +
       `(expected docs|blog) — leaving default`);
-    return;
   }
+  const tenantIsBlog = rawLayout === 'blog';
+
+  // Section-scoped blog shells (#90): a tenant may default to docs yet mark one
+  // or more collections as the blog shell, so the blog chrome must be set up even
+  // when the tenant default is docs. A blog collection is one whose `layout`
+  // resolves to "blog".
+  const collections = Array.isArray(config.collections) ? config.collections : [];
+  const blogCollections = collections.filter((c) => c && normalizeLayout(c.layout) === 'blog');
+
+  // Nothing uses the blog shell → leave the docs default untouched.
+  if (!tenantIsBlog && blogCollections.length === 0) return;
 
   const blog = (config.blog && typeof config.blog === 'object') ? config.blog : {};
   const sidebar = blog.sidebar === 'rail' ? 'rail' : 'hidden';
   // Living scroll (opt-in): post content reveals as it enters view + a reading
   // progress bar. Both are accessibility-gated and JS-off safe (page-effects.js);
-  // the build only sets the body hooks.
-  const livingScroll = blog.livingScroll === true;
+  // the build only sets the body hooks. Auto-enabled only for whole-blog tenants;
+  // a mixed site keeps docs pages free of it (operators can opt in site-wide via
+  // the top-level `livingScroll`).
+  const livingScroll = tenantIsBlog && blog.livingScroll === true;
   const livingAttrs = livingScroll ? ' data-blog-living-scroll data-reading-progress' : '';
 
   const indexPath = path.join(distDir, 'index.html');
   if (!(await pathExists(indexPath))) return;
 
   let html = await fsp.readFile(indexPath, 'utf8');
-  if (!/<body[^>]*data-layout=/.test(html)) {
-    html = html.replace(/<body(?=[\s>])/,
-      `<body data-layout="${layout}" data-blog-sidebar="${sidebar}"${livingAttrs}`);
-    await fsp.writeFile(indexPath, html, 'utf8');
+  if (tenantIsBlog) {
+    // Whole-blog tenant: the blog shell is the global default (today's behavior).
+    if (!/<body[^>]*data-layout=/.test(html)) {
+      html = html.replace(/<body(?=[\s>])/,
+        `<body data-layout="blog" data-blog-sidebar="${sidebar}"${livingAttrs}`);
+      await fsp.writeFile(indexPath, html, 'utf8');
+    }
+  } else {
+    // Mixed site: the docs shell stays the default; only seed the blog sidebar
+    // config so the runtime can flip `data-layout="blog"` per blog route and the
+    // scoped CSS has its sidebar mode.
+    if (!/<body[^>]*data-blog-sidebar=/.test(html)) {
+      html = html.replace(/<body(?=[\s>])/, `<body data-blog-sidebar="${sidebar}"`);
+      await fsp.writeFile(indexPath, html, 'utf8');
+    }
   }
 
-  // Wire the blog index from the chosen collection (named via blog.collection,
-  // else the first declared collection). Its index.json is emitted later by
-  // generateCollections; the section module fetches it at runtime.
-  const collections = Array.isArray(config.collections) ? config.collections : [];
-  const chosen = collections.find(c => blog.collection && c.path === blog.collection)
-    || collections[0];
-  if (chosen) {
+  // Wire the blog index. Its index.json is emitted later by generateCollections;
+  // the section module fetches it at runtime.
+  if (tenantIsBlog) {
+    const chosen = collections.find((c) => blog.collection && c.path === blog.collection)
+      || collections[0];
+    if (chosen) {
+      const outDir = String(chosen.route || chosen.path || '').replace(/^\/+|\/+$/g, '');
+      const title = typeof blog.indexTitle === 'string' ? blog.indexTitle
+        : (chosen.title || 'Blog');
+      await wireBlogIndexSection(distDir, tenantId, outDir, title, { setDefault: true, layout: 'blog' });
+    }
+  } else {
+    // Mixed site: wire the first blog collection's index as a blog-shell section,
+    // but keep the docs landing page as the tenant default. (One blog index per
+    // site for now; multiple blog collections is a future extension.)
+    const chosen = blogCollections[0];
     const outDir = String(chosen.route || chosen.path || '').replace(/^\/+|\/+$/g, '');
-    const title = typeof blog.indexTitle === 'string' ? blog.indexTitle
-      : (chosen.title || 'Blog');
-    await wireBlogIndexSection(distDir, tenantId, outDir, title);
+    const title = chosen.title || (typeof blog.indexTitle === 'string' ? blog.indexTitle : 'Blog');
+    await wireBlogIndexSection(distDir, tenantId, outDir, title, { setDefault: false, layout: 'blog' });
   }
 
-  console.log(`  ↳ applied blog layout (${sidebar} sidebar${livingScroll ? ', living scroll' : ''}) for ${tenantId}`);
+  console.log(`  ↳ applied blog ${tenantIsBlog ? 'layout' : 'shell (mixed)'} ` +
+    `(${sidebar} sidebar${livingScroll ? ', living scroll' : ''}) for ${tenantId}`);
 }
 
 function progressConfigEnabled(value) {
@@ -1816,7 +1845,13 @@ async function applyNavCollapseConfig(distDir, config, tenantId) {
  * Write the synthetic blog-index section module and register it in manifest.js.
  * Mirrors applyDocsMap's injection (append + idempotent).
  */
-async function wireBlogIndexSection(distDir, tenantId, outDir, title) {
+async function wireBlogIndexSection(distDir, tenantId, outDir, title, opts = {}) {
+  // setDefault: make this index the tenant's landing page (true for a whole-blog
+  //   tenant; false for a mixed site where a docs page stays the landing).
+  // layout: tag the synthetic entry with a shell so the runtime resolver
+  //   (layoutForSection → entry.layout) renders the index in the blog shell even
+  //   though it's appended after SECTION_LAYOUTS is computed.
+  const { setDefault = true, layout = null } = opts;
   const manifestPath = path.join(distDir, 'manifest.js');
   if (!(await pathExists(manifestPath))) return;
 
@@ -1830,14 +1865,16 @@ async function wireBlogIndexSection(distDir, tenantId, outDir, title) {
     'utf8'
   );
 
-  const entry = [
+  const entryLines = [
     '  {',
     '    "id": "blog",',
     `    "title": ${JSON.stringify(title)},`,
-    '    "summary": "Latest posts.",',
-    '    "module": "./sections/blog.js"',
-    '  }'
-  ].join('\n');
+    '    "summary": "Latest posts.",'
+  ];
+  if (layout) entryLines.push(`    "layout": ${JSON.stringify(layout)},`);
+  entryLines.push('    "module": "./sections/blog.js"');
+  entryLines.push('  }');
+  const entry = entryLines.join('\n');
 
   let js = await fsp.readFile(manifestPath, 'utf8');
   if (/"id":\s*"blog"/.test(js)) return; // idempotent
@@ -1848,8 +1885,11 @@ async function wireBlogIndexSection(distDir, tenantId, outDir, title) {
     if (updated === js) return; // couldn't locate the array — leave manifest untouched
     js = updated;
   }
-  // The blog index is the natural landing page for a blog.
-  js = js.replace(/export const DEFAULT_SECTION = [^;]*;/, 'export const DEFAULT_SECTION = "blog";');
+  // The blog index is the natural landing page for a whole-blog tenant; a mixed
+  // site keeps its docs landing page as the default.
+  if (setDefault) {
+    js = js.replace(/export const DEFAULT_SECTION = [^;]*;/, 'export const DEFAULT_SECTION = "blog";');
+  }
   await fsp.writeFile(manifestPath, js, 'utf8');
   console.log(`  ↳ wired blog index for ${tenantId} (collection: ${outDir})`);
 }
@@ -3963,6 +4003,12 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   const rootManifest = await loadDirectoryManifest(contentRoot.basePath);
   const layout = typeof config.layout === 'string' ? config.layout.toLowerCase() : 'docs';
   const blogCfg = (config.blog && typeof config.blog === 'object') ? config.blog : {};
+  // The blog shell is used if the tenant defaults to blog OR any collection is
+  // marked as a blog shell (#90 mixed sites). Either way the synthetic index
+  // section id is "blog", so post-nav's back-to-index needs blogIndex set.
+  const blogShellUsed = layout === 'blog'
+    || (Array.isArray(config.collections)
+      && config.collections.some((c) => c && normalizeLayout(c.layout) === 'blog'));
   const siteConfig = {
     // Prev/next article nav at the bottom of each page is a generic docs feature,
     // visible on all screens by default. Honor config.json or the root manifest;
@@ -3980,7 +4026,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     // section (always "blog" when layout:"blog"; wireBlogIndex creates it), and
     // `blogIndexTitle` labels the back-to-index affordance.
     postNav: config.postNav,
-    ...(layout === 'blog'
+    ...(blogShellUsed
       ? { blogIndex: 'blog', blogIndexTitle: blogCfg.indexTitle || blogCfg.title || '' }
       : {})
   };

@@ -1,4 +1,4 @@
-import { MANIFEST, DEFAULT_SECTION, findSection, getAdjacentSections, SITE_CONFIG, EXPORT_CONFIG } from './manifest.js';
+import { MANIFEST, DEFAULT_SECTION, findSection, getAdjacentSections, SITE_CONFIG, EXPORT_CONFIG, layoutForSection } from './manifest.js';
 import { updateMetaTags } from './seo.js';
 import { escapeRegExp, searchContentPage, flattenManifest, findPreferredIndex, resolveSectionMetadata } from './lib/search.js';
 import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
@@ -374,8 +374,24 @@ function resolveEntry(id) {
   return resolveEntryFn(id, findSection);
 }
 
+/**
+ * Section-scoped shell switching (#90, ADR-016 phase 3). Set body[data-layout]
+ * to the route's resolved shell *before* rendering the section, so the scoped
+ * CSS (e.g. the blog reading column) applies on first paint with no flash. The
+ * shell map is emitted per tenant in manifest.js; docs is the default.
+ * @param {string} id - section id being navigated to
+ */
+function applyShell(id) {
+  if (typeof layoutForSection !== 'function') return;
+  const shell = layoutForSection(id);
+  if (shell && document.body.dataset.layout !== shell) {
+    document.body.dataset.layout = shell;
+  }
+}
+
 async function loadSection(entry) {
   if (!entry) return;
+  applyShell(entry.id);
   const module = await import(entry.module);
   const loader = module.load || module.default;
   if (typeof loader !== 'function') {
