@@ -253,6 +253,26 @@ export function getAdjacentSections(currentId) {
   };
 }
 
+// Section-scoped layout shells (#90, ADR-016). The default/dev manifest declares
+// no per-section shells, so the map is empty and everything resolves to the
+// tenant default. A built tenant's generated manifest.js overrides these with a
+// populated SECTION_LAYOUTS / TENANT_LAYOUT.
+export const SECTION_LAYOUTS = {};
+export const TENANT_LAYOUT = 'docs';
+
+/**
+ * Resolve the active shell for a section id. Falls back to a section entry's own
+ * declared layout, then the tenant default.
+ * @param {string} id
+ * @returns {string} shell id ("docs" | "blog" | …)
+ */
+export function layoutForSection(id) {
+  if (SECTION_LAYOUTS[id]) return SECTION_LAYOUTS[id];
+  const entry = findSection(id);
+  if (entry && typeof entry.layout === 'string') return entry.layout;
+  return TENANT_LAYOUT;
+}
+
 // Site configuration (can be overridden by tenant manifest)
 export const SITE_CONFIG = {
   bottomNav: 'mobile' // 'always' | 'mobile' | 'never'

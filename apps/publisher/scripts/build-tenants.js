@@ -19,6 +19,7 @@ import { writeAccessibilityReportArtifacts } from './lib/accessibility-report.js
 import { generateSearchIndex } from './lib/search-index-generator.js';
 import { buildFortemiIndexExport, stripHtml } from '../src/lib/fortemi-corpus.js';
 import { aiwgFortemiIndexToCommunityGraph } from '../src/vendor/fortemi-aiwg-index.js';
+import { buildSectionLayoutMap, normalizeLayout } from '../src/lib/layout.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = process.cwd();
@@ -4065,7 +4066,10 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   const defaultSection = context.leafOrder[0];
 
   // Generate manifest.js with site configuration and export branding
-  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig, exportConfig);
+  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig, exportConfig, {
+    collections: context.collections,
+    tenantLayout: config.layout
+  });
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied nested content structure for ${tenantId} (${context.leafOrder.length} sections)`);
 
@@ -4096,10 +4100,17 @@ async function processManifestEntries(entries, context) {
     const title = entry.title || id;
     const summary = entry.summary || '';
     const type = entry.type || null; // Support content type (e.g., 'press-release')
+    // Section-scoped layout (#90) + declared template (#90 phase 4). `layout` is
+    // a shell id (normalized; unknown values dropped); `template` is a registry
+    // id carried through for the runtime/validator.
+    const layout = normalizeLayout(entry.layout);
+    const template = typeof entry.template === 'string' ? entry.template : null;
     if (Array.isArray(entry.sections) && entry.sections.length) {
       const subsections = await processManifestEntries(entry.sections, context);
       const groupEntry = { id, title, summary, subsections };
       if (type) groupEntry.type = type;
+      if (layout) groupEntry.layout = layout;
+      if (template) groupEntry.template = template;
       processed.push(groupEntry);
       continue;
     }
@@ -4109,6 +4120,8 @@ async function processManifestEntries(entries, context) {
       context.leafOrder.push(id);
       const leafEntry = { id, title, summary, module: modulePath };
       if (type) leafEntry.type = type;
+      if (layout) leafEntry.layout = layout;
+      if (template) leafEntry.template = template;
       processed.push(leafEntry);
     }
   }
@@ -4162,7 +4175,7 @@ async function materializeSectionModule(entry, context) {
   return `./sections/${outFile}`;
 }
 
-function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}, exportConfig = {}) {
+function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig = {}, exportConfig = {}, layoutOpts = {}) {
   const manifestJson = JSON.stringify(manifestEntries, null, 2);
   const defaultJson = JSON.stringify(defaultSection || null);
   const configJson = JSON.stringify({
@@ -4171,8 +4184,44 @@ function buildManifestModuleSource(manifestEntries, defaultSection, siteConfig =
     ...siteConfig
   }, null, 2);
   const exportJson = JSON.stringify(exportConfig, null, 2);
+
+  // Section-scoped layout map (#90, ADR-016 phase 2). Resolve every leaf's shell
+  // once at build, emit only the entries that differ from the tenant default so
+  // the artifact stays small and the runtime fallback (TENANT_LAYOUT) is clean.
+  const tenantLayout = normalizeLayout(layoutOpts.tenantLayout) || 'docs';
+  const fullMap = buildSectionLayoutMap({
+    manifest: manifestEntries,
+    collections: Array.isArray(layoutOpts.collections) ? layoutOpts.collections : [],
+    tenant: tenantLayout
+  });
+  const sectionLayouts = {};
+  for (const [id, shell] of Object.entries(fullMap)) {
+    if (shell !== tenantLayout) sectionLayouts[id] = shell;
+  }
+  const sectionLayoutsJson = JSON.stringify(sectionLayouts, null, 2);
+  const tenantLayoutJson = JSON.stringify(tenantLayout);
+
   return `export const MANIFEST = ${manifestJson};
 export const DEFAULT_SECTION = ${defaultJson};
+
+// Section-scoped layout shells (#90). Only sections whose shell differs from the
+// tenant default appear here; everything else resolves to TENANT_LAYOUT.
+export const SECTION_LAYOUTS = ${sectionLayoutsJson};
+export const TENANT_LAYOUT = ${tenantLayoutJson};
+
+/**
+ * Resolve the active shell for a section id. Falls back to a section entry's own
+ * declared layout (covers post-hoc synthetic sections like the blog index) and
+ * finally the tenant default.
+ * @param {string} id
+ * @returns {string} shell id ("docs" | "blog" | …)
+ */
+export function layoutForSection(id) {
+  if (SECTION_LAYOUTS[id]) return SECTION_LAYOUTS[id];
+  const entry = typeof findSection === 'function' ? findSection(id) : null;
+  if (entry && typeof entry.layout === 'string') return entry.layout;
+  return TENANT_LAYOUT;
+}
 
 const SECTION_INDEX = new Map();
 
@@ -4414,7 +4463,10 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
   }
 
   const defaultSection = manifestData.default || manifestData.defaultSection || context.leafOrder[0];
-  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig);
+  const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig, {}, {
+    collections: config.collections,
+    tenantLayout: config.layout
+  });
   await fsp.writeFile(path.join(distDir, 'manifest.js'), manifestModule, 'utf8');
   console.log(`  ↳ applied manifest-driven content for ${tenantId}`);
 
