@@ -146,7 +146,7 @@ player used for native audio, with no autoplay, a transcript/source-text link,
 optional duration, optional download link, and the configured disclosure.
 Unconfigured hosted providers produce a non-breaking note and preview artifact;
 hosted TTS credentials, rate limits, queueing, provider timeouts, and stale audio
-reuse belong in the private hosting/control-plane layer.
+reuse belong in a hosted/server-side layer, not the static publisher.
 
 ### Source Types
 
