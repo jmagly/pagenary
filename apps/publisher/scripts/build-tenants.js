@@ -4239,6 +4239,9 @@ async function processManifestEntries(entries, context) {
     // id carried through for the runtime/validator.
     const layout = normalizeLayout(entry.layout);
     const template = typeof entry.template === 'string' ? entry.template : null;
+    // A manifest entry may declare its collection so post-nav (#55) scopes
+    // prev/next to the collection — the scanned path sets this automatically.
+    const collection = typeof entry.collection === 'string' ? entry.collection : null;
     if (Array.isArray(entry.sections) && entry.sections.length) {
       const subsections = await processManifestEntries(entry.sections, context);
       const groupEntry = { id, title, summary, subsections };
@@ -4256,6 +4259,25 @@ async function processManifestEntries(entries, context) {
       if (type) leafEntry.type = type;
       if (layout) leafEntry.layout = layout;
       if (template) leafEntry.template = template;
+      if (collection) leafEntry.collection = collection;
+      // If this leaf lives in a configured collection (a blog post), attach its
+      // frontmatter metadata (date, author, hero, reading length, tags) + the
+      // collection's display flags so the runtime renders the post byline,
+      // reading time, and collection-scoped prev/next — parity with the scanned
+      // path. Derived from the file path, so an explicit `collection` field is
+      // optional.
+      const relPath = entry.file || `${id}.md`;
+      const ext = path.extname(relPath).toLowerCase();
+      if (ext === '.md' || ext === '.markdown') {
+        const coll = collectionForRelPath(relPath, context.collections);
+        if (coll) {
+          const sourcePath = path.join(context.contentDir, relPath);
+          try {
+            const metadata = await readContentMetadata(sourcePath);
+            decorateCollectionEntry(leafEntry, metadata, coll);
+          } catch { /* metadata is a best-effort enhancement; never fail the build */ }
+        }
+      }
       processed.push(leafEntry);
     }
   }
@@ -4563,6 +4585,9 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     keepFiles,
     leafOrder: [],
     siteConfig,
+    // Collections drive blog-post metadata (date/author/reading) + display flags
+    // for manifest-listed posts, mirroring the scanned path.
+    collections: Array.isArray(config.collections) ? config.collections : [],
     // Link transformation context
     sectionIndex,
     linkWarnings,

@@ -88,6 +88,22 @@
       ]
     },
     {
+      "id": "blog",
+      "title": "Blog",
+      "layout": "blog",
+      "summary": "Monthly reports and updates — dogfooded through Pagenary's own blog layout.",
+      "sections": [
+        {
+          "id": "posts/2026-06-pagenary",
+          "title": "Pagenary — June 2026",
+          "summary": "A flagship month: blogs, the page-effects suite, meaning-based search, an auto page-map, and managed hosting.",
+          "file": "posts/2026-06-pagenary.md",
+          "template": "post",
+          "collection": "/posts"
+        }
+      ]
+    },
+    {
       "id": "showcase",
       "title": "Showcase",
       "summary": "Live demos: docs, marketing, interactive, and scrollytelling from one build.",
