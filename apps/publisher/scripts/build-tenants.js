@@ -1902,26 +1902,42 @@ async function wireBlogIndexSection(distDir, tenantId, outDir, title, opts = {})
     'utf8'
   );
 
-  const entryLines = [
-    '  {',
-    '    "id": "blog",',
-    `    "title": ${JSON.stringify(title)},`,
-    '    "summary": "Latest posts.",'
-  ];
-  if (layout) entryLines.push(`    "layout": ${JSON.stringify(layout)},`);
-  entryLines.push('    "module": "./sections/blog.js"');
-  entryLines.push('  }');
-  const entry = entryLines.join('\n');
-
   let js = await fsp.readFile(manifestPath, 'utf8');
-  if (/"id":\s*"blog"/.test(js)) return; // idempotent
-  if (/export const MANIFEST = \[\s*\];/.test(js)) {
-    js = js.replace(/export const MANIFEST = \[\s*\];/, `export const MANIFEST = [\n${entry}\n];`);
+  const arrayMatch = js.match(/export const MANIFEST\s*=\s*(\[[\s\S]*?\n\]);/);
+  let entries = null;
+  if (arrayMatch) {
+    try { entries = JSON.parse(arrayMatch[1]); } catch { entries = null; }
+  }
+
+  if (Array.isArray(entries)) {
+    // If the tenant already declares a "blog" entry (e.g. a mixed site's Blog nav
+    // group containing the posts), attach the index module to it so its title
+    // navigates to the card-grid list while its children stay expandable — a
+    // group-with-content. Otherwise append a standalone index leaf (whole-blog).
+    const existing = entries.find((e) => e && e.id === 'blog');
+    if (existing) {
+      existing.module = './sections/blog.js';
+      if (layout && !existing.layout) existing.layout = layout;
+    } else {
+      const leaf = { id: 'blog', title, summary: 'Latest posts.', module: './sections/blog.js' };
+      if (layout) leaf.layout = layout;
+      entries.push(leaf);
+    }
+    js = js.replace(arrayMatch[1], JSON.stringify(entries, null, 2));
   } else {
+    // Fallback: array couldn't be parsed — use the original regex append (and
+    // stay idempotent on a pre-existing "blog" id).
+    if (/"id":\s*"blog"/.test(js)) return;
+    const entryLines = ['  {', '    "id": "blog",', `    "title": ${JSON.stringify(title)},`, '    "summary": "Latest posts.",'];
+    if (layout) entryLines.push(`    "layout": ${JSON.stringify(layout)},`);
+    entryLines.push('    "module": "./sections/blog.js"');
+    entryLines.push('  }');
+    const entry = entryLines.join('\n');
     const updated = js.replace(/(export const MANIFEST = \[[\s\S]*?)\n\];/, `$1,\n${entry}\n];`);
-    if (updated === js) return; // couldn't locate the array — leave manifest untouched
+    if (updated === js) return;
     js = updated;
   }
+
   // The blog index is the natural landing page for a whole-blog tenant; a mixed
   // site keeps its docs landing page as the default.
   if (setDefault) {
@@ -4591,7 +4607,14 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     // so the runtime <title> brand matches config.title, not a generic fallback (#29).
     siteTitle: config.title || manifestData.title || '',
     siteUrl: resolveBaseUrl(config),
-    ogImage: resolveOgImage(config, resolveBaseUrl(config))
+    ogImage: resolveOgImage(config, resolveBaseUrl(config)),
+    // Post-nav back-to-index target. The blog index section id is always "blog";
+    // set it whenever the blog shell is used (tenant layout or a blog collection),
+    // so post pages get a "back to the Blog" link — parity with the nested path.
+    ...((typeof config.layout === 'string' && config.layout.toLowerCase() === 'blog')
+      || (Array.isArray(config.collections) && config.collections.some((c) => c && normalizeLayout(c.layout) === 'blog'))
+      ? { blogIndex: 'blog', blogIndexTitle: (config.blog && config.blog.indexTitle) || '' }
+      : {})
   };
 
   const context = {
