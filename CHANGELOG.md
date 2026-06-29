@@ -6,6 +6,17 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.18] - 2026-06-29
+
+### Changed
+
+- Trimmed the published package to the public publisher surface. Internal
+  commercial tooling that is not part of the open publisher has been moved to a
+  separate private repository, and the related tenant-config fields were removed
+  from the public schema. The supported CLI surface is `build`, `serve`,
+  `tenants`, `check`, `new`/`init`, `doctor`, `lint`, `clean`, `sync`, and
+  `caddy` (run `npx pagenary --help`).
+
 ## [2026.6.17] - 2026-06-28
 
 ### Added
