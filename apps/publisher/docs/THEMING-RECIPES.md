@@ -24,6 +24,7 @@ thing — not just a screenshot:
 
 | Recipe | Live demo |
 | --- | --- |
+| **Consolidated showcase** (docs + blog in one deploy) | [docs.pagenary.com/showcase/](https://docs.pagenary.com/showcase/) |
 | Custom palette | [docs.pagenary.com/theme-colors/](https://docs.pagenary.com/theme-colors/) |
 | Dark preset | [docs.pagenary.com/theme-dark/](https://docs.pagenary.com/theme-dark/) |
 | Matrix preset | [docs.pagenary.com/theme-matrix/](https://docs.pagenary.com/theme-matrix/) |
@@ -38,11 +39,9 @@ thing — not just a screenshot:
 | Page effects | [docs.pagenary.com/page-effects/](https://docs.pagenary.com/page-effects/) |
 | Interocitor showcase | [docs.pagenary.com/interocitor/](https://docs.pagenary.com/interocitor/) |
 | Blog (default) | [docs.pagenary.com/blog-demo/](https://docs.pagenary.com/blog-demo/) |
-| Blog: dark | [docs.pagenary.com/blog-dark/](https://docs.pagenary.com/blog-dark/) |
 | Blog: editorial | [docs.pagenary.com/blog-editorial/](https://docs.pagenary.com/blog-editorial/) |
 | Blog: posts rail | [docs.pagenary.com/blog-rail/](https://docs.pagenary.com/blog-rail/) |
 | Blog: vivid | [docs.pagenary.com/blog-vivid/](https://docs.pagenary.com/blog-vivid/) |
-| Blog: matrix | [docs.pagenary.com/blog-matrix/](https://docs.pagenary.com/blog-matrix/) |
 
 > **Where recipes get their content.** The color/style/nav recipes share one
 > small docs set in [`../examples/content-base/`](../examples/content-base/) and
@@ -313,14 +312,6 @@ fonts. The recipes below are **one set of posts, many looks**: each reuses
 [living scroll](#living-scroll) on — content reveals as you read, with a
 reading-progress bar — so scroll through a post to see it.
 
-### Dark (`blog-dark`)
-
-A dark blog via the `dark` preset with a violet accent:
-
-```json
-{ "brandMark": "Umbra", "theme": "dark", "accentColor": "#a78bfa" }
-```
-
 ### Editorial (`blog-editorial`)
 
 A warm, serif reading experience — `surfaceColor`/`inkColor` plus a serif
@@ -356,14 +347,6 @@ A bright, high-accent palette:
   "surfaceColor": "#fff7fb",
   "inkColor": "#3b0a2a"
 }
-```
-
-### Matrix (`blog-matrix`)
-
-The `matrix` preset, for a terminal-green blog:
-
-```json
-{ "brandMark": "Terminal", "theme": "matrix" }
 ```
 
 > Want a richer post page? Add a [page-effects](#page-effects) `hero` block to a

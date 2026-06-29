@@ -114,6 +114,11 @@
       "source": { "type": "local", "path": "./examples/interocitor" }
     },
     {
+      "$comment": "Consolidated capability showcase (#79): docs + blog in ONE deploy via section-scoped layouts (#90), plus page-effects, on-this-page TOC, code-copy, living scroll, and an opt-in Tally form (#91). Separate tenants below are reserved for theming.",
+      "id": "showcase",
+      "source": { "type": "local", "path": "./examples/showcase" }
+    },
+    {
       "id": "blog-demo",
       "source": { "type": "local", "path": "./examples/blog-demo" }
     },
@@ -122,18 +127,7 @@
       "source": { "type": "local", "path": "./examples/page-effects" }
     },
     {
-      "$comment": "Blog theme gallery — every variant reuses examples/blog-demo's posts and differs only by its inline theme config (the same content-base pattern the docs recipes use). Same blog layout, many looks.",
-      "id": "blog-dark",
-      "source": { "type": "local", "path": "./examples/blog-demo" },
-      "config": {
-        "title": "Umbra — a dark blog",
-        "brandMark": "Umbra",
-        "brandSub": "Journal",
-        "theme": "dark",
-        "accentColor": "#a78bfa"
-      }
-    },
-    {
+      "$comment": "Blog theme gallery — each variant reuses examples/blog-demo's posts and differs only by its inline theme config (same blog layout, distinct looks). Dark/matrix palettes are already shown by theme-dark/theme-matrix on docs content, so the blog gallery keeps the looks unique to it: editorial, rail, and vivid.",
       "id": "blog-editorial",
       "source": { "type": "local", "path": "./examples/blog-demo" },
       "config": {
@@ -171,16 +165,6 @@
         "inkColor": "#3b0a2a",
         "mutedColor": "#9d4e7c",
         "gridLineColor": "rgba(219, 39, 119, 0.16)"
-      }
-    },
-    {
-      "id": "blog-matrix",
-      "source": { "type": "local", "path": "./examples/blog-demo" },
-      "config": {
-        "title": "Terminal — a matrix blog",
-        "brandMark": "Terminal",
-        "brandSub": "Log",
-        "theme": "matrix"
       }
     }
   ]

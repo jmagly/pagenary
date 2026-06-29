@@ -1,0 +1,28 @@
+{
+  "title": "Pagenary Showcase",
+  "brandMark": "Pagenary",
+  "brandSub": "Showcase",
+  "tagline": "Docs and a blog, page-effects and an on-this-page TOC — one site, one deploy.",
+  "description": "A single Pagenary deploy that mixes a docs shell and a blog shell, with page-effects, an on-this-page TOC, code-copy, living scroll, and an opt-in Tally feedback form.",
+  "accentColor": "#0ea5e9",
+  "layout": "docs",
+  "pageToc": { "placement": "rail", "minHeadings": 2 },
+  "codeCopy": true,
+  "livingScroll": true,
+  "siteForm": { "provider": "tally", "id": "xXo4Kd", "mode": "popup", "button": "Feedback" },
+  "collections": [
+    {
+      "path": "posts",
+      "route": "/posts",
+      "title": "Blog",
+      "layout": "blog",
+      "manifest": true,
+      "feed": true,
+      "sortBy": "date",
+      "order": "desc",
+      "showDate": true,
+      "showSummary": true,
+      "showReadingTime": true
+    }
+  ]
+}
