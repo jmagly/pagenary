@@ -21,6 +21,7 @@ import { buildFortemiIndexExport, stripHtml } from '../src/lib/fortemi-corpus.js
 import { aiwgFortemiIndexToCommunityGraph } from '../src/vendor/fortemi-aiwg-index.js';
 import { buildSectionLayoutMap, normalizeLayout } from '../src/lib/layout.js';
 import { validateFrontmatter } from '../src/lib/templates.js';
+import { isFormProvider, parseFormFenceConfig, renderFormEmbed } from '../src/lib/form-providers.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = process.cwd();
@@ -1763,6 +1764,41 @@ async function applyCodeCopyConfig(distDir, config, tenantId) {
 }
 
 /**
+ * Site-wide form affordance (#91). Opt-in via a tenant-level `siteForm`:
+ *   "siteForm": { "provider": "tally", "id": "w4XyZ9", "mode": "popup", "button": "Feedback" }
+ * Injects a persistent `.form-embed--site` placeholder before </body>; the runtime
+ * (initSiteForm) upgrades it once and loads the provider script only because a
+ * siteForm is configured. JS-off shows a working link to the hosted form.
+ */
+async function applySiteFormConfig(distDir, config, tenantId) {
+  const sf = config.siteForm;
+  if (!sf || typeof sf !== 'object') return;
+  const provider = typeof sf.provider === 'string' ? sf.provider : '';
+  if (!isFormProvider(provider)) {
+    if (provider) console.warn(`  ↳ ${tenantId}: unknown siteForm provider "${provider}" — skipping`);
+    return;
+  }
+  const id = typeof sf.id === 'string' ? sf.id.trim() : '';
+  if (!id) {
+    console.warn(`  ↳ ${tenantId}: siteForm missing "id" — skipping`);
+    return;
+  }
+  const indexPath = path.join(distDir, 'index.html');
+  if (!(await pathExists(indexPath))) return;
+  let html = await fsp.readFile(indexPath, 'utf8');
+  if (html.includes('form-embed--site')) return; // idempotent
+  const markup = renderFormEmbed(provider, {
+    id,
+    mode: sf.mode || 'popup',
+    button: sf.button,
+    title: sf.title
+  }, { site: true });
+  html = html.replace(/<\/body>/, `    ${markup}\n  </body>`);
+  await fsp.writeFile(indexPath, html, 'utf8');
+  console.log(`  ↳ enabled site-wide form (${provider}) for ${tenantId}`);
+}
+
+/**
  * Living scroll on any layout (docs included). Blog tenants opt in via
  * `blog.livingScroll` (handled in applyBlogLayout); this is the general path,
  * driven by a top-level `livingScroll: true` (or `reader.livingScroll`). It sets
@@ -2284,6 +2320,11 @@ function markdownToHtml(markdown, linkContext = null) {
           // Raw HTML block: ```html - renders HTML directly (use with caution)
           // Note: We don't escape here to allow HTML rendering
           chunks.push(`<div class="html-block">${codeBlockContent.join('\n')}</div>`);
+        } else if (isFormProvider(codeBlockLang)) {
+          // Form embed (#91): a ```<provider> fence (e.g. ```tally) whose body is
+          // the form config. Emits a static, progressively-enhanced placeholder
+          // (a real hosted-form link); form-embeds.js upgrades it at runtime.
+          chunks.push(renderFormEmbed(codeBlockLang, parseFormFenceConfig(codeBlockContent.join('\n'))));
         } else {
           // Standard code block
           const langAttr = codeBlockLang ? ` class="language-${escapeAttribute(codeBlockLang)}"` : '';
@@ -5080,6 +5121,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyPageTocConfig(distDir, config, tenantId);
     await applyNavCollapseConfig(distDir, config, tenantId);
     await applyCodeCopyConfig(distDir, config, tenantId);
+    await applySiteFormConfig(distDir, config, tenantId);
     await applyDocsMap(distDir, config, tenantId);
     await applyWelcome(distDir, config, tenantId);
   }

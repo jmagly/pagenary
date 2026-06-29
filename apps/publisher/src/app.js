@@ -7,6 +7,7 @@ import { renderMermaidBlocks } from './mermaid-init.js';
 import { initMediaEmbeds } from './media-init.js';
 import { highlightCodeBlocks } from './syntax-highlight.js';
 import { initPageEffects } from './lib/page-effects.js';
+import { initSiteForm } from './lib/form-embeds.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -962,6 +963,9 @@ function boot() {
     handleRoute();
   });
   yearMarker.textContent = new Date().getFullYear();
+  // Wire the persistent site-wide form affordance once (#91); per-page embeds are
+  // handled by the formEmbeds page-effect on each section render.
+  initSiteForm();
   handleRoute();
 }
 

@@ -259,16 +259,17 @@ above plus `colorScheme` (`light` \| `dark`) and dark-mode surface keys
 |----------|------|---------|-------------|
 | `navPosition` | string | `left` | Navigation placement: `left` \| `right` \| `top` \| `bottom` \| `hybrid` |
 | `navAlign` | string | `top` | Sidebar list alignment. Vertical: `top` (default), `spread` (distribute across the column), `bottom`. Horizontal: `left` (default edge), `right`. |
-| `layout` | string | `docs` | Layout family: `docs` (sidebar shell) or `blog` (chronological index + hero post pages). See [Blog Layout](#blog-layout). |
+| `layout` | string | `docs` | Default shell: `docs` (sidebar shell) or `blog` (chronological index + hero post pages). The shell is also resolvable **per nav group / collection / section** — precedence `section ?? collection ?? group ?? tenant ?? docs` — so one site/deploy can mix a docs group and a blog group, with the shell switching per route. Declare a group/section `layout` in `_manifest.json`, or a collection `layout` (below). See [Blog Layout](#blog-layout). |
 | `blog.sidebar` | string | `hidden` | Blog only: `hidden` (single reading column) or `rail` (content + posts/tags rail). |
 | `blog.indexTitle` | string | collection title | Blog only: heading above the post index. |
 | `livingScroll` | bool | `false` | **Any layout** (docs included): reveal page content on scroll + a reading-progress bar (opt-in, reduced-motion + JS-off safe). The layout-agnostic form of `blog.livingScroll`. |
 | `blog.livingScroll` | bool | `false` | Blog shortcut for the same living-scroll treatment on post pages. Equivalent to top-level `livingScroll` scoped to the blog layout. See [Blog Layout](#blog-layout). |
 | `reader.progress` / `readingProgress` | bool/object | `false` | Enable the presentational reading-progress bar for the tenant without hand-editing `<body>`. Frontmatter `progress: { enabled: true }` can opt in one document. |
 | `codeCopy` | bool/object | `false` | Add a quick-copy button to every code block (`<pre>`). `true` (or `{ enabled: true }`) enables it. The button is added by JS and copies the exact source text with brief "Copied" feedback; it appears on hover/focus (always visible on touch). Code stays fully selectable with JS off. |
+| `siteForm` | object | — | Site-wide form affordance — a persistent floating control on every page. `{ provider, id, mode, button, title }`. `provider` selects a form host (`tally` today); `id` is the public form id; `mode` is `popup` (default) or `inline`; `button` labels the trigger. The provider script loads only because a `siteForm` is configured. JS-off shows a working link to the hosted form. See the **Form Embeds** section. |
 | `pageToc` | bool/object | `false` | "On this page" heading nav + scroll-spy, generated client-side from each page's `h2`/`h3`. `true` ⇒ right rail; `{ placement: "rail" \| "right" \| "left" \| "top" \| "off", minHeadings: N }` configures placement and the heading-count threshold (default 3). **`rail`** — a pinnable right-gutter panel (unpin to collapse it to a prev/next bar that reveals on hover/tap). **`right`** — a persistent nav-style list in the right gutter, styled like the main nav (hover rows, active accent bar, indented sub-headings); no pin/collapse. **`left`** — the same nav-style list, but mirrored into the sidebar under the site navigation (content runs full-width). **`top`** — a bordered block above the content. Accessible (`<nav aria-label>`, real links, `aria-current`); content is complete with JS off (the nav is an enhancement). |
 | `navCollapse` | string | `"overlay"` | How the sidebar nav collapses (the header menu button toggles it). `"overlay"` (default) — drawer hidden by default; the button slides it in over the full-width content (the mobile UX, on desktop too), with a scrim and click-outside to close. `"push"` — nav stays visible; collapsing slides it out and reflows the content. `"instant"` — nav visible; collapsing drops the column with no animation. Mobile always uses the drawer regardless. Positioned-nav layouts (`navPosition` top/bottom/right) keep their own layout and hide the desktop toggle. |
-| `collections` | array | — | Folders the build scans as dated post collections (emits `index.json` + `feed.xml`). See [Blog Layout](#blog-layout). |
+| `collections` | array | — | Folders the build scans as dated post collections (emits `index.json` + `feed.xml`). A collection may set `layout: "blog"` to render its posts in the blog shell even when the tenant defaults to `docs` (mixed docs + blog in one deploy). See [Blog Layout](#blog-layout). |
 
 `top` and `bottom` render navigation as a horizontal bar; `hybrid` adds a
 horizontal primary strip (built from your top-level sections) above the left
@@ -564,6 +565,64 @@ The build writes to `dist/<route>/`:
 
 > A collection's posts are still rendered as normal pages (each `.md` becomes a
 > section). The manifest/feed are additive, machine-readable indexes.
+
+## Form Embeds
+
+Opt-in embedding of third-party **hosted forms** (feedback, contact, waitlist, a
+per-page "was this helpful?") via a generic **provider seam**. Authors reference
+a form by id instead of pasting provider embed markup. Pagenary is static — the
+form posts to the provider; form ids are public, **never secrets**.
+
+**Providers.** Tally is the first provider (fence id `tally`). Adding another host
+is a single registry entry in `src/lib/form-providers.js` — the authoring surface
+and runtime are generic.
+
+### Per-page (fenced block)
+
+A fenced block whose **fence id is the provider** drops a form exactly where you
+place it. Inline renders an iframe in the page flow; popup renders a button that
+opens the form in the provider's focus-trapping, Esc-closable modal:
+
+````markdown
+```tally
+id: w4XyZ9
+mode: inline          # inline | popup
+title: Customer survey  # iframe / modal accessible title
+```
+
+```tally
+id: w4XyZ9
+mode: popup
+button: Send feedback   # popup trigger label
+title: Contact us
+```
+````
+
+### Site-wide (`siteForm`)
+
+A tenant-level `config.json` block renders a persistent floating affordance on
+every page:
+
+```json
+{ "siteForm": { "provider": "tally", "id": "w4XyZ9", "mode": "popup", "button": "Feedback" } }
+```
+
+### Behavior (all providers)
+
+- **Conditional script loading** — a provider's embed script loads only on pages
+  that use that provider (per-page), or globally only when a `siteForm` of that
+  provider is configured. Never unconditionally site-wide.
+- **Progressive enhancement** — the static page contains only a real link to the
+  hosted form, so with JS off (or before the script resolves) the form is always
+  reachable. The iframe / popup button is a JS enhancement (gated under
+  `html.has-js`); the page is complete as static markup.
+- **Accessibility** — the inline iframe carries a `title`; the popup trigger is a
+  real `<button>` with `aria-label`; the provider modal traps focus and closes on
+  Esc.
+- **Privacy / CSP** — strictly opt-in. Tenants enforcing a Content-Security-Policy
+  must allow the provider's hosts. For **Tally**: add `https://tally.so` to
+  `script-src` and `frame-src` (its embed script and form iframe). No tokens or
+  secrets are emitted.
 
 ## Navigation Manifest (manifest.json)
 

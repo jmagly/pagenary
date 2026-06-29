@@ -1241,6 +1241,69 @@ mark.hl {
   .doc-content pre.has-code-copy .code-copy { opacity: 1; }
 }
 
+/* ─────────────────────────────────────────────────────────
+   Form embeds (#91) — opt-in third-party hosted forms (Tally first).
+   The build emits only the hosted-form link (.form-embed__fallback), so a
+   JS-off page is complete. The runtime swaps in the iframe (inline) or popup
+   button (popup) and marks the container .is-enhanced, hiding the link.
+   ───────────────────────────────────────────────────────── */
+.form-embed { margin: 1.5rem 0; }
+.form-embed__fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid var(--grid-line);
+  border-radius: 0.5rem;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+}
+.form-embed__fallback:hover { border-color: var(--accent); color: var(--accent); }
+.form-embed__fallback:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Once the runtime has injected the iframe / popup button, the link is redundant. */
+.form-embed.is-enhanced .form-embed__fallback { display: none; }
+.form-embed__frame {
+  width: 100%;
+  min-height: 18rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+}
+.form-embed__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.form-embed__button:hover { filter: brightness(1.05); }
+.form-embed__button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Site-wide affordance: a persistent floating control, every page. */
+.form-embed--site {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  margin: 0;
+  z-index: 40;
+}
+.form-embed--site .form-embed__fallback,
+.form-embed--site .form-embed__button {
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+.form-embed--site .form-embed__fallback {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .doc-content table {
   width: 100%;
   border-collapse: collapse;
