@@ -1,0 +1,54 @@
+{
+  "provider": "gitea",
+  "rebuilt_at": "2026-06-28T16:21:43.201Z",
+  "issues": [
+    {
+      "id": "PGR-0001",
+      "title": "Test issue",
+      "status": "closed",
+      "type": "task",
+      "priority": "P2",
+      "labels": [],
+      "assignees": [],
+      "updated_at": "2026-06-27T18:25:09.418Z",
+      "closed_at": "2026-06-27T18:25:09.418Z",
+      "path": "items/PGR-0001.md"
+    },
+    {
+      "id": "PGR-0002",
+      "title": "Hosted build worker: shell-injection risk in git command execution",
+      "status": "open",
+      "type": "task",
+      "priority": "P2",
+      "labels": [],
+      "assignees": [],
+      "updated_at": "2026-06-27T18:25:13.769Z",
+      "closed_at": null,
+      "path": "items/PGR-0002.md"
+    },
+    {
+      "id": "PGR-0003",
+      "title": "build-tenants: advertised GIT_CREDENTIALS path is not implemented",
+      "status": "open",
+      "type": "task",
+      "priority": "P2",
+      "labels": [],
+      "assignees": [],
+      "updated_at": "2026-06-27T18:25:14.019Z",
+      "closed_at": null,
+      "path": "items/PGR-0003.md"
+    },
+    {
+      "id": "PGR-0006",
+      "title": "VS Code-compatible extension for Pagenary Markdown preview and config validation",
+      "status": "open",
+      "type": "task",
+      "priority": "P2",
+      "labels": [],
+      "assignees": [],
+      "updated_at": "2026-06-28T16:21:43.137Z",
+      "closed_at": null,
+      "path": "items/PGR-0006.md"
+    }
+  ]
+}
