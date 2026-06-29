@@ -4791,23 +4791,57 @@ async function hashTopLevelAssets(distDir) {
   return map;
 }
 
+/**
+ * Build content-address literal replacements, split into:
+ *  - `qualified`: directory-anchored forms (`from`, `./from`, `../from`) that are
+ *    unambiguous and safe to apply to any file.
+ *  - `baseByDir`: bare-basename forms grouped by the hashed file's directory.
+ *    A bare `./x.js` import is only valid in a file in the SAME directory, and a
+ *    `../x.js` import in a file whose PARENT is that directory — so these must be
+ *    scoped per consuming file (see replacementsForFile). Applying them globally
+ *    causes cross-directory collisions when two dirs share a basename, e.g. the
+ *    `page-effects.js` runtime lib vs a `sections/page-effects.js` content page
+ *    (#90 follow-up): `lib/form-embeds.js`'s `./page-effects.js` must resolve to
+ *    the lib hash, not the section's.
+ */
 function buildLiteralReplacements(map) {
-  const replacements = [];
+  const qualified = [];
+  const baseByDir = new Map(); // dir -> [[ baseName, hashedBaseName ], ...]
   for (const [from, to] of map.entries()) {
-    replacements.push([from, to]);
-    replacements.push([`./${from}`, `./${to}`]);
-    replacements.push([`../${from}`, `../${to}`]);
-    if (path.posix.dirname(from) === path.posix.dirname(to)) {
-      replacements.push([`./${path.posix.basename(from)}`, `./${path.posix.basename(to)}`]);
-      replacements.push([`../${path.posix.basename(from)}`, `../${path.posix.basename(to)}`]);
+    qualified.push([from, to]);
+    qualified.push([`./${from}`, `./${to}`]);
+    qualified.push([`../${from}`, `../${to}`]);
+    const fromDir = path.posix.dirname(from);
+    if (fromDir === path.posix.dirname(to)) {
+      const list = baseByDir.get(fromDir) || [];
+      list.push([path.posix.basename(from), path.posix.basename(to)]);
+      baseByDir.set(fromDir, list);
     }
   }
-  return replacements;
+  return { qualified, baseByDir };
+}
+
+/**
+ * Flatten the split replacements for a single consuming file (relative posix
+ * path). Includes the global qualified forms plus only the bare-basename forms
+ * whose directory the file's `./` and `../` imports actually resolve into.
+ */
+function replacementsForFile(built, fileRel) {
+  const out = built.qualified.slice();
+  const fileDir = path.posix.dirname(fileRel);          // dir of the consuming file
+  const parentDir = path.posix.dirname(fileDir);        // where its `../x` resolves
+  for (const [base, hashed] of built.baseByDir.get(fileDir) || []) {
+    out.push([`./${base}`, `./${hashed}`]);
+  }
+  for (const [base, hashed] of built.baseByDir.get(parentDir) || []) {
+    out.push([`../${base}`, `../${hashed}`]);
+  }
+  return out;
 }
 
 async function rewriteAllTextArtifacts(distDir, map) {
-  const replacements = buildLiteralReplacements(map);
-  if (!replacements.length) return;
+  const built = buildLiteralReplacements(map);
+  if (!built.qualified.length && built.baseByDir.size === 0) return;
   const shouldRewrite = (rel) => {
     if (rel.startsWith('search-index/')) return false;
     if (rel.startsWith('pages/')) return false;
@@ -4824,7 +4858,7 @@ async function rewriteAllTextArtifacts(distDir, map) {
       } else if (entry.isFile()) {
         const rel = path.relative(distDir, abs).split(path.sep).join('/');
         if (!shouldRewrite(rel)) continue;
-        await rewriteFileLiterals(abs, replacements);
+        await rewriteFileLiterals(abs, replacementsForFile(built, rel));
       }
     }
   }
@@ -4918,7 +4952,7 @@ async function finalizeContentAddressedBundle(distDir, tenantId, config = {}) {
   if (appHashed && appHashed !== 'app.js') finalMap.set('app.js', appHashed);
 
   const indexPath = path.join(distDir, 'index.html');
-  const indexReplacements = buildLiteralReplacements(finalMap);
+  const indexReplacements = replacementsForFile(buildLiteralReplacements(finalMap), 'index.html');
   await rewriteFileLiterals(indexPath, indexReplacements);
   await rewriteStaticPageStyles(distDir, finalMap.get('styles.css'));
 
@@ -5577,5 +5611,9 @@ export {
   execWithRetry,
   withGitCredentials,
   maskAuthSegment,
-  isImmutableRef
+  isImmutableRef,
+  // Content-addressing literal rewriting — exported for regression coverage of the
+  // directory-scoped basename rule (lib vs sections name collisions).
+  buildLiteralReplacements,
+  replacementsForFile
 };
