@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.6.19] - 2026-06-29
+
+### Changed
+
+- Declared the repository remote topology in AIWG project config: Gitea
+  `origin` remains the primary, issue-tracker, and CI remote, while GitHub is
+  now recorded as a secondary `publish` mirror for release workflows.
+
 ## [2026.6.18] - 2026-06-29
 
 ### Changed
