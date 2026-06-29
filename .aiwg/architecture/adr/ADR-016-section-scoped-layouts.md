@@ -1,8 +1,28 @@
 # ADR-016: Section-Scoped Layouts and Template Schemas
 
-Status: Proposed
+Status: Accepted (implemented 2026-06-29)
 Date: 2026-06-28
-Related: #79 (examples consolidation — the trigger), ADR-007 (unified tenant deployment), ADR-010 (nested content directories)
+Related: #79 (examples consolidation — the trigger), #90 (implementation), #91 (form-embed seam shipped alongside), ADR-007 (unified tenant deployment), ADR-010 (nested content directories)
+
+## Implementation note (2026-06-29)
+
+All five phases shipped and were browser-verified:
+
+1. `src/lib/layout.js` — pure `resolveLayout` + `buildSectionLayoutMap` (17 tests).
+2. The build emits `SECTION_LAYOUTS` / `TENANT_LAYOUT` / `layoutForSection()` in
+   each tenant's `manifest.js`; only sections differing from the tenant default
+   are listed.
+3. The runtime sets `body[data-layout]` per route on navigation (no FOUC);
+   `applyBlogLayout` generalized to scaffold the blog shell for mixed sites
+   (tenant docs + a `layout: "blog"` collection) without forcing the global
+   default.
+4. `src/lib/templates.js` — template registry `{ id, schema? }` with `post` /
+   `guide` reference schemas and a dependency-free validator; the build hard-fails
+   on invalid frontmatter only when a section explicitly declares `template`
+   (16 tests).
+5. `examples/showcase` — one deploy mixing a docs group and a blog collection,
+   with page-effects, on-this-page TOC, code-copy, living scroll, and forms;
+   featured in the recipe gallery (closes #79).
 
 ## Context
 
