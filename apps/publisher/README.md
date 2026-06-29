@@ -11,7 +11,7 @@ audit, and ship this project.
 
 ```bash
 npm install --save-dev @pagenary/publisher   # add Pagenary to your project
-npx pagenary build:tenants my-docs           # build your docs tenant
+npx pagenary build my-docs           # build your docs tenant
 npx pagenary serve                           # serve on http://localhost:5173
 ```
 
@@ -43,12 +43,12 @@ New here? Follow the **[Getting Started guide](docs/GETTING-STARTED.md)**.
 ```bash
 npm install --save-dev @pagenary/publisher
 
-npx pagenary build:tenants my-docs   # build your tenant (see Tenant Registry below)
+npx pagenary build my-docs   # build your tenant (see Tenant Registry below)
 npx pagenary serve                   # preview on http://localhost:5173
 ```
 
-Commands: `build`, `build:tenants [id]`, `tenants:list`,
-`serve` (run `npx pagenary --help`). The package also
+Commands: `build`, `serve`, `tenants list`, `check`, `new`
+(run `npx pagenary --help` for the full list). The package also
 ships a compiled reference site under `site/` — the Pagenary docs, built by
 Pagenary itself.
 
@@ -264,9 +264,9 @@ With the package installed (the default):
 
 ```bash
 npx pagenary build                    # build the default bundle to dist/
-npx pagenary build:tenants            # build all enabled tenants
-npx pagenary build:tenants my-tenant  # build a specific tenant
-npx pagenary tenants:list             # list configured tenants
+npx pagenary build --all              # build all enabled tenants
+npx pagenary build my-tenant          # build a specific tenant
+npx pagenary tenants list             # list configured tenants
 npx pagenary serve                    # serve dist/ on localhost:5173
 ```
 

@@ -39,7 +39,7 @@ Build locally to preview:
 ```bash
 npm install --no-save @pagenary/publisher \
   --registry=https://git.integrolabs.net/api/packages/pagenary/npm/
-npx pagenary build:tenants mydocs --target ./_site
+npx pagenary build mydocs --target ./_site
 npx pagenary serve            # http://localhost:5173/mydocs/
 ```
 
@@ -85,7 +85,7 @@ jobs:
         run: |
           npm install --no-save @pagenary/publisher \
             --registry=https://git.integrolabs.net/api/packages/pagenary/npm/
-          npx pagenary build:tenants mydocs --target ./_site
+          npx pagenary build mydocs --target ./_site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./_site/mydocs
@@ -130,7 +130,7 @@ jobs:
         run: |
           npm install --no-save @pagenary/publisher \
             --registry=https://git.integrolabs.net/api/packages/pagenary/npm/
-          npx pagenary build:tenants mydocs --target ./_site
+          npx pagenary build mydocs --target ./_site
       - name: Publish to the pages branch
         env:
           GIT_TOKEN: ${{ secrets.PAGES_TOKEN }}   # a token with repo write
@@ -170,7 +170,7 @@ live in **another** repo — handy for monorepos or aggregating several sources:
 }
 ```
 
-`pagenary build:tenants --incremental` then rebuilds only what changed between
+`pagenary build --incremental` then rebuilds only what changed between
 runs (it tracks the source commit), which keeps CI fast on large corpora.
 
 ## Works even when the layout isn't ideal

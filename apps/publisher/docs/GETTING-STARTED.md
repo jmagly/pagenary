@@ -36,7 +36,7 @@ Verify it's available:
 npx pagenary --help
 ```
 
-You should see the commands: `build`, `build:tenants`, `tenants:list`, `serve`.
+You should see the commands: `build`, `serve`, `tenants list`, `check`, `new` (run `pagenary --help` for the full list).
 
 ---
 
@@ -98,7 +98,7 @@ Create a `tenants.json` at your project root. A **tenant** is one published site
 ## Step 4 — Build
 
 ```bash
-npx pagenary build:tenants my-docs
+npx pagenary build my-docs
 ```
 
 This writes a complete static site to `dist/my-docs/`. On success you'll see
@@ -139,7 +139,7 @@ For multi-tenant domain routing and hosting patterns, see [Deployment](DEPLOYMEN
 | Build "fails" on broken links | `strictLinks: true` is doing its job — fix the link or set `strictLinks: false`. |
 | `No tenants to build` | Check `tenants.json` exists at your CWD and the tenant `id` matches the one you passed. |
 | Tenant builds but pages are empty | Ensure your content lives under `content/` (or matches your `manifest.json`). |
-| Want to script it | Every command is plain CLI; extra flags pass through (e.g. `npx pagenary build:tenants --incremental`). |
+| Want to script it | Every command is plain CLI; extra flags pass through (e.g. `npx pagenary build --incremental`). |
 
 ---
 

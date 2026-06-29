@@ -13,7 +13,7 @@ audit, and ship this project.
 
 ```bash
 npm install --save-dev @pagenary/publisher   # add Pagenary to your project
-npx pagenary build:tenants my-docs           # build your docs tenant
+npx pagenary build my-docs           # build your docs tenant
 npx pagenary serve                           # serve on http://localhost:5173
 ```
 
@@ -198,13 +198,13 @@ npx @pagenary/publisher --help
 
 # Add it to your project, then build and serve your docs
 npm install --save-dev @pagenary/publisher
-npx pagenary build:tenants my-docs    # build your tenant (see "Creating Your First Tenant")
+npx pagenary build my-docs    # build your tenant (see "Creating Your First Tenant")
 npx pagenary serve                    # serve on http://localhost:5173
 ```
 
-`pagenary` commands: `build`, `build:tenants [id]`, `tenants:list`, `serve`.
+`pagenary` commands: `build`, `serve`, `tenants list`, `check`, `new` (run `pagenary --help` for the full list).
 Extra flags pass through to the underlying script (e.g.
-`pagenary build:tenants --incremental`). The published tarball also ships a
+`pagenary build --incremental`). The published tarball also ships a
 compiled reference site under `site/` — the Pagenary docs, built by Pagenary
 itself.
 
@@ -267,7 +267,7 @@ docs/
 
 4. **Build and preview**:
 ```bash
-npx pagenary build:tenants my-docs
+npx pagenary build my-docs
 npx pagenary serve
 # Visit http://localhost:5173/my-docs/
 ```
@@ -307,8 +307,8 @@ pagenary/
 
 ```bash
 npx pagenary build              # build the default bundle to dist/
-npx pagenary build:tenants [id] # build a tenant (or all enabled tenants)
-npx pagenary tenants:list       # list configured tenants
+npx pagenary build [id]         # build a tenant; --all builds all enabled tenants
+npx pagenary tenants list       # list configured tenants
 npx pagenary serve              # serve dist/ on localhost:5173
 ```
 
