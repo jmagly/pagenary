@@ -2164,13 +2164,30 @@ function parseInlineMarkdown(input, linkContext = null) {
  * @param {object} [linkContext] - Optional context for link transformation
  * @returns {string} HTML string
  */
+/**
+ * Remove HTML comments (`<!-- … -->`, including multi-line authoring notes) from
+ * Markdown before rendering, so they never leak onto the page as text. Fenced
+ * code blocks are preserved untouched, so a code example that *shows* an HTML
+ * comment still renders literally.
+ * @param {string} md
+ * @returns {string}
+ */
+function stripHtmlCommentsOutsideCode(md) {
+  // Odd-indexed segments are fenced code blocks (kept verbatim); strip comments
+  // only from the even-indexed prose between them.
+  return String(md == null ? '' : md)
+    .split(/(```[\s\S]*?```)/g)
+    .map((seg, i) => (i % 2 === 1 ? seg : seg.replace(/<!--[\s\S]*?-->/g, '')))
+    .join('');
+}
+
 function markdownToHtml(markdown, linkContext = null) {
   // Strip YAML frontmatter before rendering so the fence block doesn't leak
   // into the page as <hr>/<p>… text (#19). #18 made frontmatter mandatory on
   // collection posts; this wires the same parser the collections generator
   // already uses into the page render path so every caller benefits.
   const parsed = parseFrontmatter(markdown);
-  markdown = parsed.body;
+  markdown = stripHtmlCommentsOutsideCode(parsed.body);
   const mediaConfig = mergeMediaConfig(linkContext?.mediaConfig || {}, parsed.data?.media || {});
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   const chunks = [];

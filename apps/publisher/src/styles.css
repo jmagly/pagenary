@@ -3024,6 +3024,31 @@ body[data-layout="blog"] .canvas {
 .post-hero img { width: 100%; height: auto; display: block; aspect-ratio: 2 / 1; object-fit: cover; }
 body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
 
+/* The byline tag list is injected inside .doc-content, whose list styling would
+   otherwise turn each tag into a full-width grid row. Re-assert the pill layout
+   with higher specificity so tags read as small inline pills, not bars. */
+.doc-content .post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.doc-content .post-tags li {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+  border: 1px solid var(--grid-line);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+}
+.doc-content .post-tags li::before { content: none; }
+
 /* ─────────────────────────────────────────────────────────
    Page effects (#51) — opt-in, accessible.
    Reveal-on-scroll base state is hidden ONLY when JS is present

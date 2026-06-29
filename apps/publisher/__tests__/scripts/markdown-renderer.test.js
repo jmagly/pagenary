@@ -84,3 +84,39 @@ describe('markdownToHtml frontmatter handling (#19)', () => {
     expect(html).toMatch(/<hr\b/);
   });
 });
+
+describe('markdownToHtml HTML comment stripping', () => {
+  it('removes single-line and multi-line HTML comments from the body', () => {
+    const html = markdownToHtml([
+      '# Title',
+      '',
+      '<!-- an authoring note -->',
+      'Visible paragraph.',
+      '',
+      '<!-- a multi-line',
+      'comment that spans',
+      'several lines -->',
+      '',
+      'Another paragraph.'
+    ].join('\n'));
+    expect(html).toContain('Visible paragraph.');
+    expect(html).toContain('Another paragraph.');
+    expect(html).not.toContain('authoring note');
+    expect(html).not.toContain('multi-line');
+    expect(html).not.toContain('<!--');
+    expect(html).not.toContain('-->');
+  });
+
+  it('preserves an HTML comment shown inside a fenced code block', () => {
+    const html = markdownToHtml([
+      '# Title',
+      '',
+      '```html',
+      '<!-- this is example code -->',
+      '<p>hi</p>',
+      '```'
+    ].join('\n'));
+    // The code example must still show the literal comment (escaped).
+    expect(html).toContain('this is example code');
+  });
+})
