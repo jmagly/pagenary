@@ -2916,6 +2916,13 @@ body[data-layout="blog"][data-blog-sidebar="hidden"] .layout {
 body[data-layout="blog"][data-blog-sidebar="hidden"] .sidebar {
   display: none;
 }
+/* …but in a mixed docs + blog site the nav drawer must still open on a blog
+   route so a reader can reach the docs navigation. When the overlay/mobile drawer
+   is open (`.sidebar.mobile-open`), restore the sidebar so it slides in as the
+   drawer rather than the toggle just dimming the screen (#90 follow-up). */
+body[data-layout="blog"][data-blog-sidebar="hidden"] .sidebar.mobile-open {
+  display: block;
+}
 
 /* Sidebar rail → content + a narrow posts/tags rail on the trailing edge. */
 body[data-layout="blog"][data-blog-sidebar="rail"] .layout {
