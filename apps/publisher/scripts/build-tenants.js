@@ -20,6 +20,7 @@ import { generateSearchIndex } from './lib/search-index-generator.js';
 import { buildFortemiIndexExport, stripHtml } from '../src/lib/fortemi-corpus.js';
 import { aiwgFortemiIndexToCommunityGraph } from '../src/vendor/fortemi-aiwg-index.js';
 import { buildSectionLayoutMap, normalizeLayout } from '../src/lib/layout.js';
+import { validateFrontmatter } from '../src/lib/templates.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = process.cwd();
@@ -2822,6 +2823,27 @@ function renderBannerMarkup(banner) {
 async function ensureMarkdownModule(sourcePath, targetPath, linkContext = null) {
   const raw = await fsp.readFile(sourcePath, 'utf8');
   const { data } = parseFrontmatter(raw);
+
+  // Template frontmatter validation (#90 phase 4). Validation runs ONLY when a
+  // section explicitly declares a `template` (in frontmatter or its manifest
+  // entry) that maps to a registered schema — inferred categories never gate, so
+  // existing undeclared sections are unaffected. Errors collect into the shared
+  // templateErrors array (gated after materialization); if none is wired, throw
+  // so the failure still surfaces in the caller's try/catch.
+  const declaredTemplate = (data && typeof data.template === 'string') ? data.template
+    : (linkContext && typeof linkContext.template === 'string' ? linkContext.template : null);
+  if (declaredTemplate) {
+    const result = validateFrontmatter(declaredTemplate, data);
+    if (!result.valid) {
+      const where = (linkContext && linkContext.route) || path.basename(sourcePath);
+      if (linkContext && Array.isArray(linkContext.templateErrors)) {
+        linkContext.templateErrors.push({ route: where, template: declaredTemplate, errors: result.errors });
+      } else {
+        throw new Error(`template "${declaredTemplate}" frontmatter invalid in ${where}: ${result.errors.join('; ')}`);
+      }
+    }
+  }
+
   const section = markdownToHtml(raw, linkContext);
   const narration = await buildNarration(raw, {
     ...(linkContext || {}),
@@ -3135,6 +3157,22 @@ function printLinkWarnings(warnings, tenantId, strictLinks = true) {
       console.log(`      ... and ${caseMismatches.length - 5} more`);
     }
   }
+}
+
+/**
+ * Hard gate for declared-template frontmatter errors (#90 phase 4). A section
+ * that declares `template: "<id>"` against a registered schema must satisfy it;
+ * unlike link warnings (tunable via strictLinks), a declared-schema violation is
+ * an unambiguous authoring error and always fails the build.
+ * @returns {boolean} true if the build should fail
+ */
+function reportTemplateErrors(templateErrors, tenantId) {
+  if (!Array.isArray(templateErrors) || templateErrors.length === 0) return false;
+  console.error(`  ↳ [ERROR] ${tenantId}: ${templateErrors.length} template frontmatter error(s):`);
+  for (const e of templateErrors) {
+    console.error(`      ${e.route} (template "${e.template}"): ${e.errors.join('; ')}`);
+  }
+  return true;
 }
 
 // ============================================================================
@@ -3817,6 +3855,8 @@ async function materializeScannedSections(sections, context) {
             contentRoot: context.contentRoot,
             sectionIndex: context.sectionIndex,
             linkWarnings: context.linkWarnings,
+            templateErrors: context.templateErrors,
+            template: metadata.template,
             strictLinks: context.strictLinks,
             mediaConfig: context.mediaConfig,
             narrationConfig: context.narrationConfig,
@@ -4046,6 +4086,8 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     // Link transformation context (populated after scan)
     sectionIndex: null,
     linkWarnings,
+    // Declared-template frontmatter validation errors (#90 phase 4)
+    templateErrors: [],
     strictLinks,
     mediaConfig: config.media || {},
     narrationConfig: config.narration || {},
@@ -4106,6 +4148,11 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   const accessibilityResult = await accessibilityBuildResult(context.accessibility, tenantId, distDir, config);
   if (accessibilityResult.success === false) {
     return accessibilityResult;
+  }
+
+  // Gate on declared-template frontmatter errors (#90 phase 4).
+  if (reportTemplateErrors(context.templateErrors, tenantId)) {
+    return { success: false, templateErrors: context.templateErrors.length };
   }
 
   // Determine default section
@@ -4197,6 +4244,8 @@ async function materializeSectionModule(entry, context) {
         contentRoot: context.contentDir,
         sectionIndex: context.sectionIndex,
         linkWarnings: context.linkWarnings,
+        templateErrors: context.templateErrors,
+        template: entry.template,
         strictLinks: context.strictLinks,
         mediaConfig: context.mediaConfig,
         narrationConfig: context.narrationConfig,
@@ -4476,6 +4525,8 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     // Link transformation context
     sectionIndex,
     linkWarnings,
+    // Declared-template frontmatter validation errors (#90 phase 4)
+    templateErrors: [],
     strictLinks,
     mediaConfig: config.media || {},
     narrationConfig: config.narration || {},
@@ -4506,6 +4557,11 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
   const accessibilityResult = await accessibilityBuildResult(context.accessibility, tenantId, distDir, config);
   if (accessibilityResult.success === false) {
     return accessibilityResult;
+  }
+
+  // Gate on declared-template frontmatter errors (#90 phase 4).
+  if (reportTemplateErrors(context.templateErrors, tenantId)) {
+    return { success: false, templateErrors: context.templateErrors.length };
   }
 
   const defaultSection = manifestData.default || manifestData.defaultSection || context.leafOrder[0];
