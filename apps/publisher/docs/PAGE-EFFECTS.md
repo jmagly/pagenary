@@ -158,8 +158,8 @@ modal:
 
 ```html
 <figure class="pe-figure" data-pe-zoom>
-  <img src="images/diagram.svg" alt="Architecture diagram" />
-  <figcaption>The publishing pipeline.</figcaption>
+  <img src="assets/images/pipeline.svg" alt="The Pagenary publishing pipeline: author, build, deploy." />
+  <figcaption>The publishing pipeline — click to enlarge.</figcaption>
 </figure>
 ```
 
