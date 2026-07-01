@@ -276,6 +276,29 @@ horizontal primary strip (built from your top-level sections) above the left
 rail. See the [Theming Recipes gallery](THEMING-RECIPES.md) for screenshots of
 each.
 
+When customizing a tenant stylesheet, preserve the generated `pageToc` DOM
+contract. The rail placement is rendered as:
+
+```html
+<nav class="page-toc page-toc--rail">
+  <details class="page-toc__disc">
+    <summary class="page-toc__title">…</summary>
+    <div class="page-toc__body">
+      <div class="page-toc__controls">…</div>
+      <ol class="page-toc__list">…</ol>
+    </div>
+  </details>
+</nav>
+```
+
+For `placement: "rail"`, the scroll container should be the heading list, not
+the whole panel. Keep the outer rail/disc viewport-capped and keep
+`.page-toc__controls` plus `.page-toc__title` outside the scrolling region. If a
+tenant replaces `styles.css` through `overrides/`, start from the current
+generated stylesheet or copy the complete `.page-toc--rail` rule set; replacing
+only the base `.page-toc__body` or `.page-toc__list` rules can make long rails
+overflow below the fold or let the header scroll away.
+
 #### Reading length and progress
 
 Pagenary emits `reading_time` for backward compatibility and a richer
@@ -597,6 +620,37 @@ The build writes to `dist/<route>/`:
 
 > A collection's posts are still rendered as normal pages (each `.md` becomes a
 > section). The manifest/feed are additive, machine-readable indexes.
+
+For mixed docs + blog sites, the collection folder must live under the detected
+content root. With the common flat layout, use `content/posts/*.md` and set
+`collections[].path` to `"posts"`:
+
+```json
+{
+  "layout": "docs",
+  "collections": [
+    {
+      "path": "posts",
+      "route": "/blog",
+      "title": "Blog",
+      "layout": "blog",
+      "manifest": true,
+      "feed": true
+    }
+  ]
+}
+```
+
+The build then does two things for the same Markdown files:
+
+- renders each post as a normal hash-routed section such as `#posts/launch`;
+- emits `dist/blog/index.json` and `feed.xml` for the blog index/feed.
+
+The `path` field in `index.json` may reflect the public collection route
+(`/blog/launch`), but the bundled blog index prefers the section `id` and links
+cards to `#posts/launch` so the hash-routed SPA loads the post. If you build a
+custom index UI from `index.json`, use `id` for in-app navigation unless you also
+emit and serve real per-post route pages.
 
 ## Form Embeds
 
@@ -1058,6 +1112,13 @@ Use for:
 - Custom stylesheets
 - Custom favicons
 - Additional assets
+
+`overrides/styles.css` is a full replacement, not a patch. If you use it, copy
+forward the current generated rules for runtime features you still enable
+(`pageToc`, blog shell, post navigation, forms, media, page effects, theme
+picker). For smaller brand customizations, prefer theme config, `.public/`
+assets, or an extra stylesheet linked by an `overrides/index.html` shell so the
+base runtime CSS stays intact.
 
 ## Static Assets (.public/)
 

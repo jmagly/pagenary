@@ -60,6 +60,35 @@ existing collections engine — only the *shape* changes.
    page. The example lives at `examples/blog-demo/` — build it with
    `npm run build:examples` and open `dist/blog-demo/`.
 
+### Mixed docs + blog site
+
+A tenant can keep `layout: "docs"` as the default shell and mark only a
+collection as blog content:
+
+```json
+{
+  "layout": "docs",
+  "collections": [
+    {
+      "path": "posts",
+      "route": "/blog",
+      "title": "Blog",
+      "layout": "blog",
+      "manifest": true,
+      "feed": true
+    }
+  ]
+}
+```
+
+Put the posts under the tenant content root, for example
+`content/posts/launch.md`. The build renders that file as the SPA section
+`#posts/launch` and also includes it in `dist/blog/index.json`. The bundled blog
+index uses the section `id` for card links, so clicks stay inside the hash router
+and load the post. If you replace the blog index with custom JavaScript, prefer
+`entry.id` for in-app links (`#${entry.id}`); use `entry.path` only when you
+also emit and serve real route pages for those paths.
+
 ## Config reference
 
 | Key | Default | Description |
@@ -146,6 +175,12 @@ each one this same demo with a different `config`.
 Posts can also carry a [page-effects](#page-effects) `hero` block in frontmatter
 for a full-bleed, overlaid banner, and use `data-reveal` for reveal-on-scroll —
 both opt-in, accessible, and reduced-motion safe.
+
+If a tenant uses `overrides/styles.css`, treat it as a complete replacement of
+the generated stylesheet. Copy forward the current blog and `pageToc` rules for
+features the tenant still enables. In particular, `pageToc.placement: "rail"`
+expects the generated `.page-toc--rail` flex-column rules so the title and
+prev/next controls remain visible while only the heading list scrolls.
 
 ## Accessibility
 
