@@ -3416,10 +3416,28 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
   .doc-content > .page-toc--rail > .page-toc__disc {
     position: sticky;
     top: 1rem;
-    display: block;
+    display: flex;
+    flex-direction: column;
     max-height: calc(100vh - 6rem);
-    overflow-y: auto;
+    overflow: hidden;
     transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .doc-content > .page-toc--rail .page-toc__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .doc-content > .page-toc--rail .page-toc__controls,
+  .doc-content > .page-toc--rail .page-toc__title {
+    flex: 0 0 auto;
+  }
+  .doc-content > .page-toc--rail .page-toc__list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
   /* Unpinned: the full-height rail is click-through; only its disc is interactive.
      The disc is a floating card at the trailing edge — collapsed it shows only the
