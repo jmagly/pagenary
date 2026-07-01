@@ -41,6 +41,15 @@ git push origin main
 git push origin v2026.5.2
 ```
 
+`origin` should be the Gitea SSH remote:
+
+```bash
+git@git.integrolabs.net:roctinam/pagenary.git
+```
+
+HTTPS remotes require interactive credentials and can fail in automation with
+`could not read Username`.
+
 **A `v*` tag push triggers three workflows:** `npm-publish.yml` (publishes the
 package), `release.yml` (Gitea + GitHub release records), and `docsite-deploy.yml`
 (the tag matches its `v*` trigger, so docs.pagenary.com redeploys too).
