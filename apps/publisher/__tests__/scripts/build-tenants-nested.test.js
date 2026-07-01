@@ -626,6 +626,16 @@ describe('export configuration', () => {
     expect(cfg.enabled).toBe(false);
     expect(cfg.scopes).toEqual([]);
   });
+
+  test('passes optional export watermark text through to EXPORT_CONFIG', async () => {
+    const cfg = await buildWithExport({ watermark: { enabled: true, text: 'Generated for ACME' } });
+    expect(cfg.watermark).toEqual({ text: 'Generated for ACME' });
+  });
+
+  test('leaves export watermark disabled by default', async () => {
+    const cfg = await buildWithExport(undefined);
+    expect(cfg.watermark).toBeNull();
+  });
 });
 
 describe('living scroll (any layout)', () => {

@@ -437,6 +437,12 @@ The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,
     "generateSitemap": true,
     "generateStaticPages": true,
     "generateRobotsTxt": true,
+    "noIndex": false,
+    "robots": {
+      "allow": ["/", "/pages/"],
+      "disallow": ["/sections/", "/lib/"],
+      "sitemap": true
+    },
     "defaultChangeFreq": "weekly",
     "structuredData": {
       "organizationName": "ACME Corporation",
@@ -454,6 +460,12 @@ The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,
 | `generateSitemap` | boolean | `true` | Emit `sitemap.xml` |
 | `generateStaticPages` | boolean | `true` | Emit per-section static HTML snapshots under `/pages/` (crawler-friendly; the SPA uses hash routing) |
 | `generateRobotsTxt` | boolean | `true` | Emit `robots.txt` |
+| `noIndex` | boolean | `false` | Emit `noindex, nofollow` static-page metadata and a restrictive `robots.txt` (`Disallow: /`) without a sitemap pointer |
+| `robots.userAgent` | string | `"*"` | User-agent line for generated `robots.txt` |
+| `robots.allow` | string[] | `["/", "/pages/"]` | `Allow:` directives for generated `robots.txt` |
+| `robots.disallow` | string[] | `["/sections/", "/lib/"]` | `Disallow:` directives for generated `robots.txt` |
+| `robots.sitemap` | boolean | `true` | Include a `Sitemap:` directive when a sitemap is generated |
+| `robots.blockAll` | boolean | `false` | Emit `Disallow: /` for the configured user agent |
 | `defaultChangeFreq` | string | `"weekly"` | `<changefreq>` for the sitemap root entry |
 | `structuredData.organizationName` | string | - | Organization name in the JSON-LD `publisher` |
 | `structuredData.logoUrl` | string | - | Organization logo URL in the JSON-LD `publisher` |
@@ -469,6 +481,12 @@ engines drop URL fragments, so hash canonicals would collapse every page onto th
 homepage. The `#hash` route is still used for the in-page "interactive version"
 link and the JS redirect.
 
+**Search visibility:** use `seo.noIndex: true` for static bundles that should not
+invite indexing. Use `seo.robots` to customize advisory crawler directives while
+preserving the generated output flow. Robots directives and noindex metadata are
+not authorization; private docs still need hosting-layer access control. See
+[Tenant Security and Privacy Controls](TENANT-CONTROLS.md).
+
 #### Export (`export`)
 
 The header's **Export** button compiles the current page or the whole site into a
@@ -483,10 +501,17 @@ pop-up window** to allow or dismiss, and nothing is left open afterward.
     "scopes": ["page", "site"],
     "logo": "embed",
     "showTagline": true,
-    "showDate": true
+    "showDate": true,
+    "watermark": {
+      "enabled": true,
+      "text": "Generated for ACME Docs"
+    }
   }
 }
 ```
+
+For content-control boundaries, watermarking recommendations, and hosting-layer
+privacy/security controls, see [Tenant Security and Privacy Controls](TENANT-CONTROLS.md).
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -496,12 +521,19 @@ pop-up window** to allow or dismiss, and nothing is left open afterward.
 | `logoPath` | string | — | Path within `.public/` to the export header logo. |
 | `showTagline` | bool | `true` | Show the tenant `tagline` under the export header. |
 | `showDate` | bool | `true` | Show the generated-on date in the export header. |
+| `watermark` | string/object | — | Optional visible watermark for exported print/PDF output. Use a string or `{ "enabled": true, "text": "..." }`. This is an intent signal, not DRM. |
 
 Disable export for a tenant, or restrict it to single-page exports:
 
 ```json
 { "export": { "enabled": false } }
 { "export": { "scopes": ["page"] } }
+```
+
+Add a visible export watermark without blocking print, copy, or selection:
+
+```json
+{ "export": { "watermark": "Generated for ACME Docs" } }
 ```
 
 ## Collections

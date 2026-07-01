@@ -1,8 +1,0 @@
-{
-  "provider": "gitea",
-  "issue_key": {
-    "prefix": "PGR",
-    "padding": 4,
-    "next": 7
-  }
-}

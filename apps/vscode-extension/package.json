@@ -1,0 +1,68 @@
+{
+  "name": "@pagenary/vscode-extension",
+  "displayName": "Pagenary",
+  "description": "Pagenary Markdown preview and configuration validation tools for VS Code-compatible editors.",
+  "version": "0.0.1",
+  "publisher": "pagenary",
+  "license": "AGPL-3.0-or-later",
+  "type": "commonjs",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "workspaceContains:**/tenants.json",
+    "workspaceContains:**/config.json",
+    "onCommand:pagenary.validateActiveFile",
+    "onCommand:pagenary.validateWorkspace",
+    "onCommand:pagenary.openPreview"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pagenary.validateActiveFile",
+        "title": "Pagenary: Validate Active File"
+      },
+      {
+        "command": "pagenary.validateWorkspace",
+        "title": "Pagenary: Validate Workspace"
+      },
+      {
+        "command": "pagenary.openPreview",
+        "title": "Pagenary: Open Markdown Preview"
+      }
+    ],
+    "configuration": {
+      "title": "Pagenary",
+      "properties": {
+        "pagenary.validation.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Pagenary diagnostics for recognized workspace files."
+        },
+        "pagenary.preview.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Pagenary preview commands for Markdown files."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/smoke.mjs",
+    "test": "node scripts/smoke.mjs && node scripts/activation-smoke.mjs",
+    "package": "node scripts/package-vsix.mjs"
+  },
+  "files": [
+    "src/",
+    "scripts/",
+    "docs/",
+    "README.md",
+    "package.json"
+  ]
+}

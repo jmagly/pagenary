@@ -166,17 +166,31 @@ export async function generateRobotsTxt(distDir, config) {
   const baseUrl = resolveBaseUrl(config);
   const sitemapUrl = baseUrl ? `${baseUrl}/sitemap.xml` : '/sitemap.xml';
   const buildDate = new Date().toISOString();
+  const robotsConfig = seoConfig.robots || {};
+  const userAgent = robotsConfig.userAgent || '*';
+  const allowRules = Array.isArray(robotsConfig.allow) ? robotsConfig.allow : ['/', '/pages/'];
+  const disallowRules = Array.isArray(robotsConfig.disallow) ? robotsConfig.disallow : ['/sections/', '/lib/'];
+  const includeSitemap = robotsConfig.sitemap !== false && seoConfig.generateSitemap !== false;
+
+  let directives;
+  if (seoConfig.noIndex || robotsConfig.blockAll) {
+    directives = [
+      `User-agent: ${userAgent}`,
+      'Disallow: /'
+    ];
+  } else {
+    directives = [
+      `User-agent: ${userAgent}`,
+      ...allowRules.map((rule) => `Allow: ${rule}`),
+      ...disallowRules.map((rule) => `Disallow: ${rule}`)
+    ];
+  }
 
   const content = `# ${config.title || 'Documentation'}
 # Generated: ${buildDate}
 
-User-agent: *
-Allow: /
-Allow: /pages/
-Disallow: /sections/
-Disallow: /lib/
-
-Sitemap: ${sitemapUrl}
+${directives.join('\n')}
+${includeSitemap && !seoConfig.noIndex && !robotsConfig.blockAll ? `\nSitemap: ${sitemapUrl}` : ''}
 `;
 
   await fsp.writeFile(path.join(distDir, 'robots.txt'), content, 'utf8');
@@ -331,6 +345,9 @@ export function buildStaticPage(options) {
   const imageTags = safeImage
     ? `\n  <meta property="og:image" content="${safeImage}" />\n  <meta name="twitter:image" content="${safeImage}" />`
     : '';
+  const robotsMeta = config?.seo?.noIndex
+    ? '\n  <meta name="robots" content="noindex, nofollow" />'
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -338,7 +355,7 @@ export function buildStaticPage(options) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle} | ${safeSiteTitle}</title>
-  <meta name="description" content="${safeSummary}" />
+  <meta name="description" content="${safeSummary}" />${robotsMeta}
   <link rel="canonical" href="${canonicalUrl}" />
 
   <!-- Open Graph -->

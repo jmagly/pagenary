@@ -14,6 +14,7 @@
  * @param {string|null} [config.logo] - Logo as data URI or null
  * @param {boolean} [config.showTagline=true] - Whether to show tagline
  * @param {boolean} [config.showDate=true] - Whether to show generation date
+ * @param {{text: string}|null} [config.watermark] - Optional visible export watermark
  * @returns {string} Complete HTML document
  */
 export function composeExportDocument(chapters, config = {}) {
@@ -24,7 +25,8 @@ export function composeExportDocument(chapters, config = {}) {
     tagline = '',
     logo = null,
     showTagline = true,
-    showDate = true
+    showDate = true,
+    watermark = null
   } = config;
 
   const date = new Date().toLocaleString();
@@ -45,6 +47,10 @@ export function composeExportDocument(chapters, config = {}) {
 
   const dateHtml = showDate
     ? `<p class="meta">Generated ${date}</p>`
+    : '';
+  const watermarkText = typeof watermark?.text === 'string' ? watermark.text.trim() : '';
+  const watermarkHtml = watermarkText
+    ? `<div class="export-watermark" aria-hidden="true">${escapeHtml(watermarkText)}</div>`
     : '';
 
   // Determine header class based on content
@@ -85,6 +91,22 @@ ${chapter.html}
       .toc h2 { margin-top: 0; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem; }
       .toc ul { margin: 0; padding-left: 1.2rem; }
       .toc li { margin: 0.4rem 0; break-inside: avoid; }
+      .export-watermark {
+        color: rgba(17, 17, 17, 0.08);
+        font-size: clamp(2rem, 8vw, 4.8rem);
+        font-weight: 700;
+        inset: 42% auto auto 50%;
+        letter-spacing: 0;
+        line-height: 1.1;
+        max-width: 80vw;
+        pointer-events: none;
+        position: fixed;
+        text-align: center;
+        transform: translate(-50%, -50%) rotate(-24deg);
+        white-space: pre-line;
+        z-index: 0;
+      }
+      body > *:not(.export-watermark) { position: relative; z-index: 1; }
       /* Long content sections must be allowed to break across pages; only keep
          individual blocks (paragraphs, cards, tables) and headings intact. */
       section { margin-bottom: 2.75rem; }
@@ -134,6 +156,7 @@ ${chapter.html}
       @media print {
         @page { size: A4; margin: 1in; }
         body { box-shadow: none; }
+        .export-watermark { color: rgba(17, 17, 17, 0.11); }
         .front-matter { break-after: page; page-break-after: always; }
         .toc { break-inside: avoid; page-break-inside: avoid; }
         h2 { break-after: avoid; page-break-after: avoid; }
@@ -142,6 +165,7 @@ ${chapter.html}
     </style>
   </head>
   <body>
+    ${watermarkHtml}
     <div class="front-matter">
       <header class="${headerClass}">
         <div class="export-brand">
@@ -199,4 +223,13 @@ export function collectExportableSections(manifest) {
     }
   }
   return allSections;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

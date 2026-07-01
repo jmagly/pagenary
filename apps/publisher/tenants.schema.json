@@ -276,6 +276,14 @@
           "pattern": "^/?[^\\s?#]*$",
           "description": "Optional deploy mount path for the generated <base href>, such as /react/. Registry-level basePath overrides this value."
         },
+        "seo": {
+          "$ref": "#/definitions/seoConfig",
+          "description": "SEO, crawl, and search visibility controls"
+        },
+        "export": {
+          "$ref": "#/definitions/exportConfig",
+          "description": "Print/PDF export controls"
+        },
         "welcome": {
           "$ref": "#/definitions/welcomeConfig",
           "description": "Welcome section customization"
@@ -334,6 +342,144 @@
         "fontMono": {
           "type": "string",
           "description": "CSS font stack for code and monospace UI"
+        }
+      },
+      "additionalProperties": true
+    },
+    "exportConfig": {
+      "type": "object",
+      "description": "Print/PDF export controls",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Set false to remove the Export button"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["page", "site"]
+          },
+          "default": ["page", "site"],
+          "description": "Allowed export scopes"
+        },
+        "logo": {
+          "type": "string",
+          "enum": ["embed", "reference", "none"],
+          "default": "embed",
+          "description": "Export header logo mode"
+        },
+        "logoPath": {
+          "type": "string",
+          "description": "Path within .public/ to the export header logo"
+        },
+        "showTagline": {
+          "type": "boolean",
+          "default": true
+        },
+        "showDate": {
+          "type": "boolean",
+          "default": true
+        },
+        "watermark": {
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean", "default": true },
+                "text": { "type": "string" }
+              },
+              "required": ["text"],
+              "additionalProperties": false
+            }
+          ],
+          "description": "Optional visible export watermark. This is an intent signal, not DRM."
+        }
+      },
+      "additionalProperties": true
+    },
+    "seoConfig": {
+      "type": "object",
+      "description": "SEO artifact and crawl visibility configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Set false to skip all SEO artifact generation"
+        },
+        "siteUrl": {
+          "type": "string",
+          "description": "Absolute base URL for sitemap, canonical, Open Graph, and robots sitemap URLs"
+        },
+        "ogImage": {
+          "type": "string",
+          "description": "Social share image for Open Graph and Twitter cards"
+        },
+        "generateSitemap": {
+          "type": "boolean",
+          "default": true,
+          "description": "Emit sitemap.xml"
+        },
+        "generateStaticPages": {
+          "type": "boolean",
+          "default": true,
+          "description": "Emit per-section static HTML snapshots"
+        },
+        "generateRobotsTxt": {
+          "type": "boolean",
+          "default": true,
+          "description": "Emit robots.txt"
+        },
+        "noIndex": {
+          "type": "boolean",
+          "default": false,
+          "description": "Emit noindex/nofollow metadata and a restrictive robots.txt"
+        },
+        "defaultChangeFreq": {
+          "type": "string",
+          "default": "weekly",
+          "description": "Default sitemap change frequency for the root entry"
+        },
+        "robots": {
+          "type": "object",
+          "description": "robots.txt directives. These are crawler hints, not access control.",
+          "properties": {
+            "userAgent": {
+              "type": "string",
+              "default": "*"
+            },
+            "allow": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Allow directives"
+            },
+            "disallow": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Disallow directives"
+            },
+            "sitemap": {
+              "type": "boolean",
+              "default": true,
+              "description": "Include the Sitemap directive in robots.txt"
+            },
+            "blockAll": {
+              "type": "boolean",
+              "default": false,
+              "description": "Emit Disallow: / for the configured user agent"
+            }
+          },
+          "additionalProperties": false
+        },
+        "structuredData": {
+          "type": "object",
+          "properties": {
+            "organizationName": { "type": "string" },
+            "logoUrl": { "type": "string" }
+          },
+          "additionalProperties": true
         }
       },
       "additionalProperties": true

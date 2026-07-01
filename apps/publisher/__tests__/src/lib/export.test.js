@@ -93,6 +93,32 @@ describe('lib/export.js', () => {
       expect(result).toContain('@page');
     });
 
+    test('omits watermark by default', () => {
+      const result = composeExportDocument([]);
+      expect(result).not.toContain('class="export-watermark"');
+    });
+
+    test('renders optional visible watermark without disabling print or selection', () => {
+      const result = composeExportDocument([], {
+        watermark: { text: 'Generated for ACME' }
+      });
+
+      expect(result).toContain('class="export-watermark"');
+      expect(result).toContain('Generated for ACME');
+      expect(result).toContain('pointer-events: none');
+      expect(result).not.toContain('user-select: none');
+      expect(result).not.toContain('display: none');
+    });
+
+    test('escapes watermark text', () => {
+      const result = composeExportDocument([], {
+        watermark: { text: '<script>alert(1)</script>' }
+      });
+
+      expect(result).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+      expect(result).not.toContain('<script>alert(1)</script>');
+    });
+
     test('includes generated timestamp', () => {
       const result = composeExportDocument([]);
       expect(result).toContain('Generated');

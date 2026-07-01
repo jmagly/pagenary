@@ -13,7 +13,8 @@ import {
   resolveOgImage,
   buildPageJsonLd,
   buildStaticPage,
-  generateSitemap
+  generateSitemap,
+  generateRobotsTxt
 } from '../../scripts/lib/seo-generator.js';
 
 describe('resolveBaseUrl (#15)', () => {
@@ -105,6 +106,14 @@ describe('buildStaticPage (#17 + #16)', () => {
     expect(html).not.toContain('og:image');
     expect(html).toContain('<meta name="twitter:card" content="summary" />');
   });
+
+  test('emits noindex metadata when seo.noIndex is set', () => {
+    const html = buildStaticPage({
+      ...baseOpts,
+      config: { seo: { siteUrl: 'https://docs.pagenary.com', noIndex: true }, title: 'Pagenary Docs' }
+    });
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow" />');
+  });
 });
 
 describe('generateSitemap (#15)', () => {
@@ -117,6 +126,61 @@ describe('generateSitemap (#15)', () => {
       expect(xml).toContain('<loc>https://docs.pagenary.com/</loc>');
       expect(xml).toContain('<loc>https://docs.pagenary.com/pages/welcome.html</loc>');
       expect(xml).not.toContain('<loc>/</loc>');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('generateRobotsTxt (#95)', () => {
+  test('preserves default public robots output', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-robots-'));
+    try {
+      await generateRobotsTxt(dir, { title: 'Docs', domain: 'docs.pagenary.com' });
+      const text = await fsp.readFile(path.join(dir, 'robots.txt'), 'utf8');
+      expect(text).toContain('User-agent: *');
+      expect(text).toContain('Allow: /');
+      expect(text).toContain('Allow: /pages/');
+      expect(text).toContain('Disallow: /sections/');
+      expect(text).toContain('Disallow: /lib/');
+      expect(text).toContain('Sitemap: https://docs.pagenary.com/sitemap.xml');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('emits restrictive robots without sitemap when seo.noIndex is set', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-robots-'));
+    try {
+      await generateRobotsTxt(dir, { title: 'Private Docs', seo: { noIndex: true, siteUrl: 'https://private.example' } });
+      const text = await fsp.readFile(path.join(dir, 'robots.txt'), 'utf8');
+      expect(text).toContain('User-agent: *');
+      expect(text).toContain('Disallow: /');
+      expect(text).not.toContain('Allow: /pages/');
+      expect(text).not.toContain('Sitemap:');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('honors custom allow/disallow rules and sitemap toggle', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-robots-'));
+    try {
+      await generateRobotsTxt(dir, {
+        seo: {
+          siteUrl: 'https://docs.example',
+          robots: {
+            allow: ['/public/'],
+            disallow: ['/', '/drafts/'],
+            sitemap: false
+          }
+        }
+      });
+      const text = await fsp.readFile(path.join(dir, 'robots.txt'), 'utf8');
+      expect(text).toContain('Allow: /public/');
+      expect(text).toContain('Disallow: /');
+      expect(text).toContain('Disallow: /drafts/');
+      expect(text).not.toContain('Sitemap:');
     } finally {
       await fsp.rm(dir, { recursive: true, force: true });
     }

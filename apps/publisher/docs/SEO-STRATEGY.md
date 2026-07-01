@@ -17,6 +17,11 @@ time by `scripts/lib/seo-generator.js` and configured via the tenant
 | Shell `<title>` | The build sets the static shell title from the **default page's metadata title** (`"<page title> · <brand>"`), so the crawler-visible root URL is specific, not generic. The brand alone is only a fallback |
 | Runtime meta | `src/seo.js` keeps `<title>`, description, canonical, OG, and Twitter tags in sync as the SPA navigates |
 
+For tenants that need less discoverability, use `seo.noIndex` or custom
+`seo.robots` directives and read
+[Tenant Security and Privacy Controls](TENANT-CONTROLS.md). These controls are
+crawler hints, not access control.
+
 ## Make URLs absolute
 
 Declare a `domain` (or `seo.siteUrl`) on the tenant. This is what turns the

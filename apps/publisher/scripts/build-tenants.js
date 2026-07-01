@@ -978,6 +978,7 @@ async function buildExportConfig(config, sourceDir) {
   const scopes = Array.isArray(exportSettings.scopes)
     ? exportSettings.scopes.filter((s) => allowedScopes.includes(s))
     : allowedScopes;
+  const watermark = normalizeExportWatermark(exportSettings.watermark);
 
   return {
     enabled: exportSettings.enabled !== false && scopes.length > 0,
@@ -988,8 +989,20 @@ async function buildExportConfig(config, sourceDir) {
     tagline: config.tagline || '',
     logo,
     showTagline: exportSettings.showTagline !== false,
-    showDate: exportSettings.showDate !== false
+    showDate: exportSettings.showDate !== false,
+    watermark
   };
+}
+
+function normalizeExportWatermark(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return text ? { text } : null;
+  }
+  if (typeof value !== 'object' || value.enabled === false) return null;
+  const text = String(value.text || '').trim();
+  return text ? { text } : null;
 }
 
 async function applyBranding(distDir, config, tenantId) {
