@@ -180,7 +180,7 @@ Templates + per-tenant content/config
 - **Theming** — per-tenant colors, branding, and typography
 - **Blog Layout** — a reading-first `layout: "blog"` family: chronological post index, hero post pages, post navigation, optional living scroll, and themeable like the docs layout
 - **Page Effects** — opt-in, accessible primitives: hero/banner (full-bleed, overlay, parallax, sticky, CTA band), reveal-on-scroll and staggered reveal, a reading-progress bar, living scroll, disclosure accordions, scroll-snap sections, scrollytelling, figure zoom, generalized parallax, and a quick-copy control on code blocks — authored by class, fenced HTML, or a declarative frontmatter block
-- **Navigation** — collapsible sidebar with configurable drawer modes (`overlay`/`push`/`instant`) and an opt-in on-this-page TOC (scroll-spy, prev/next) with selectable placement: a persistent nav-style list in the **right** gutter or **left** sidebar mirror, a bordered **top** block, or a pinnable/collapsible **rail**
+- **Navigation** — collapsible sidebar with configurable drawer modes (`overlay`/`push`/`instant`) and an opt-in on-this-page TOC (scroll-spy, prev/next) with selectable placement: a persistent nav-style list in the **right** gutter or **left** sidebar mirror, a bordered **top** block, or a pinnable/collapsible **rail** with a viewport-capped internal heading scroller
 - **Document Export** — compile the current page or whole site to the browser's print / Save-as-PDF dialog (no pop-up window); configurable per tenant
 - **Incremental Builds** — Git-aware builds for fast iteration
 

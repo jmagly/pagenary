@@ -6,6 +6,16 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.0] - 2026-07-01
+
+### Fixed
+
+- Repaired the page-effects figure image reference in the published docs so the
+  current examples render with the expected visual asset.
+- Capped the wide rail on-this-page TOC to the viewport and moved scrolling into
+  the heading list, keeping the title and prev/next controls visible while long
+  outlines scroll internally.
+
 ## [2026.6.19] - 2026-06-29
 
 ### Changed
