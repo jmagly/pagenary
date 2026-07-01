@@ -4543,6 +4543,14 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}, 
     return (await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options, config)) ?? { success: true };
   }
 
+  // Flat content/ structure without a manifest still needs content scanning.
+  // Otherwise mixed docs+blog tenants that rely on auto-discovered
+  // content/posts/*.md can emit collection metadata without rendering the
+  // actual post sections.
+  if (contentRoot.type === 'flat' && !hasManifest) {
+    return (await processNestedContent(sourceDir, distDir, tenantId, contentRoot, options, config)) ?? { success: true };
+  }
+
   // Flat content/ structure with manifest - use legacy processing
   if (hasManifest && contentRoot.type === 'flat') {
     return (await processTenantManifestLegacy(sourceDir, distDir, tenantId, options, config)) ?? { success: true };

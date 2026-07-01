@@ -571,6 +571,101 @@ describe('blog post navigation (#55)', () => {
   });
 });
 
+describe('mixed docs + blog collections', () => {
+  const TEST_ID = '__test-mixed-blog-' + Date.now();
+  let tenantDir;
+
+  const post = (title, date) =>
+    `---\ntitle: ${title}\ndate: ${date}\ntemplate: post\nsummary: ${title} summary.\n---\n\n# ${title}\n\nBody of ${title}.\n`;
+
+  afterEach(async () => {
+    if (tenantDir) await cleanup(tenantDir);
+    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+  });
+
+  test('renders collection posts as hash-routed sections and links the blog index to them', async () => {
+    tenantDir = await createNestedTenant(TEST_ID, {
+      config: {
+        title: 'Mixed Blog Demo',
+        layout: 'docs',
+        collections: [
+          {
+            path: 'posts',
+            route: '/blog',
+            title: 'Blog',
+            layout: 'blog',
+            manifest: true,
+            feed: true,
+            sortBy: 'date',
+            order: 'desc',
+            showDate: true,
+            showSummary: true,
+            showReadingTime: true
+          }
+        ]
+      },
+      directories: {
+        content: {
+          files: {
+            'welcome.md': '# Welcome\n\nDocs landing page.'
+          }
+        },
+        'content/posts': {
+          files: {
+            'alpha.md': post('Alpha', '2026-06-10'),
+            'bravo.md': post('Bravo', '2026-05-22')
+          }
+        }
+      }
+    });
+
+    const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
+    expect(result.code).toBe(0);
+
+    const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID);
+    const manifestFile = path.join(distDir, 'manifest.js');
+    const { MANIFEST, findSection, layoutForSection } = await import(`file://${manifestFile}?t=${Date.now()}`);
+    const indexJson = JSON.parse(await fsp.readFile(path.join(distDir, 'blog', 'index.json'), 'utf8'));
+
+    expect(MANIFEST.some((entry) => entry.id === 'blog')).toBe(true);
+    expect(findSection('posts/alpha')).toMatchObject({
+      id: 'posts/alpha',
+      collection: 'posts'
+    });
+    expect(findSection('posts/bravo')).toMatchObject({
+      id: 'posts/bravo',
+      collection: 'posts'
+    });
+    expect(layoutForSection('blog')).toBe('blog');
+    expect(layoutForSection('posts/alpha')).toBe('blog');
+    await expect(fsp.access(path.join(distDir, 'pages', 'posts--alpha.html'))).resolves.toBeUndefined();
+    await expect(fsp.access(path.join(distDir, 'sections', 'posts--alpha.js'))).resolves.toBeUndefined();
+
+    expect(indexJson.posts[0]).toMatchObject({
+      id: 'posts/alpha',
+      path: '/blog/alpha'
+    });
+
+    const { loadBlogIndex } = await import(`file://${path.join(distDir, 'lib', 'blog-index.js')}?t=${Date.now()}`);
+    const previousDocument = global.document;
+    const previousFetch = global.fetch;
+    global.document = { baseURI: `file://${distDir}/index.html` };
+    global.fetch = async () => ({
+      ok: true,
+      async json() { return indexJson; }
+    });
+    try {
+      const { html } = await loadBlogIndex({ collection: 'blog', title: 'Blog' });
+      expect(html).toContain('href="#posts/alpha"');
+      expect(html).toContain('href="#posts/bravo"');
+      expect(html).not.toContain('href="/blog/alpha"');
+    } finally {
+      global.document = previousDocument;
+      global.fetch = previousFetch;
+    }
+  });
+});
+
 // Configurable export (publisher opt-out / scope subset). EXPORT_CONFIG drives
 // whether the SPA shows the export button and which scopes it offers.
 describe('export configuration', () => {
