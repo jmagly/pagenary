@@ -50,6 +50,12 @@
           "file": "TENANT-CONFIG.md"
         },
         {
+          "id": "tenant-controls",
+          "title": "Tenant Controls",
+          "summary": "Per-tenant security, privacy, and governance controls for published sites.",
+          "file": "TENANT-CONTROLS.md"
+        },
+        {
           "id": "theming-recipes",
           "title": "Theming Recipes",
           "summary": "Copy-paste recipes for colors, fonts, and nav positions — with live demos.",
