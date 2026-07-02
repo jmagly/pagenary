@@ -6,6 +6,24 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.1] - 2026-07-02
+
+### Fixed
+
+- Published the mixed docs + blog materialization fix so npm-pinned consumers
+  receive navigable collection posts: manifestless flat `content/` tenants now
+  render `content/posts/*.md` as hash-routed sections/pages in addition to
+  collection metadata.
+- Regenerated and guarded packaged site CSS so released artifacts preserve the
+  rail on-this-page TOC viewport cap, static header/controls, and internal list
+  scrolling rules.
+
+### Documentation
+
+- Clarified the supported mixed docs + blog configuration, hash-router linking
+  rule (`entry.id` for `#...` links), and the `pageToc.placement: "rail"` CSS
+  contract for stylesheet customizations.
+
 ## [2026.7.0] - 2026-07-01
 
 ### Fixed
