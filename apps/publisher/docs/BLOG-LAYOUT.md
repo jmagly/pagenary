@@ -86,8 +86,16 @@ Put the posts under the tenant content root, for example
 `#posts/launch` and also includes it in `dist/blog/index.json`. The bundled blog
 index uses the section `id` for card links, so clicks stay inside the hash router
 and load the post. If you replace the blog index with custom JavaScript, prefer
-`entry.id` for in-app links (`#${entry.id}`); use `entry.path` only when you
-also emit and serve real route pages for those paths.
+`entry.id` for in-app links (`#${entry.id}`). `entry.path` is also hash-routed
+for Pagenary-generated collection indexes; use route-style links only if your
+consumer adds and serves separate per-post route pages.
+
+Tenants with an explicit `manifest.json` do not need to hand-list every post.
+The manifest remains the curated docs navigation, and the build appends any
+configured collection posts under the collection route group, for example
+`blog -> posts/launch`. Only files under configured `collections[].path`
+folders are added this way; unrelated unlisted content is not scanned into the
+site.
 
 ## Config reference
 

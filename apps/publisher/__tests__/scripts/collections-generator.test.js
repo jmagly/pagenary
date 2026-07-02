@@ -74,7 +74,7 @@ describe('generateCollections (#18)', () => {
     expect(newer.title).toBe('Newer Post');
     expect(newer.summary).toBe('The newer one');
     expect(newer.hero).toBe('/img/n.png');
-    expect(newer.path).toBe('/blog/newer');
+    expect(newer.path).toBe('/#blog/newer');
     expect(newer.canonical).toBe('https://docs.aiwg.io/pages/blog--newer.html'); // absolute via domain + static-page scheme
     expect(newer.reading_time).toBeGreaterThanOrEqual(1);
   });

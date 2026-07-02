@@ -573,6 +573,7 @@ describe('blog post navigation (#55)', () => {
 
 describe('mixed docs + blog collections', () => {
   const TEST_ID = '__test-mixed-blog-' + Date.now();
+  const MANIFESTED_TEST_ID = `${TEST_ID}-manifested`;
   let tenantDir;
 
   const post = (title, date) =>
@@ -581,6 +582,7 @@ describe('mixed docs + blog collections', () => {
   afterEach(async () => {
     if (tenantDir) await cleanup(tenantDir);
     await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+    await cleanup(path.join(PUBLISHER_ROOT, 'dist', MANIFESTED_TEST_ID));
   });
 
   test('renders collection posts as hash-routed sections and links the blog index to them', async () => {
@@ -643,7 +645,7 @@ describe('mixed docs + blog collections', () => {
 
     expect(indexJson.posts[0]).toMatchObject({
       id: 'posts/alpha',
-      path: '/blog/alpha'
+      path: '/#posts/alpha'
     });
 
     const { loadBlogIndex } = await import(`file://${path.join(distDir, 'lib', 'blog-index.js')}?t=${Date.now()}`);
@@ -663,6 +665,76 @@ describe('mixed docs + blog collections', () => {
       global.document = previousDocument;
       global.fetch = previousFetch;
     }
+  });
+
+  test('manifested tenants materialize configured collection posts without scanning unrelated content', async () => {
+    tenantDir = await createNestedTenant(MANIFESTED_TEST_ID, {
+      config: {
+        title: 'Manifested Blog Demo',
+        layout: 'docs',
+        strictLinks: true,
+        collections: [
+          {
+            path: 'posts',
+            route: '/blog',
+            title: 'Blog',
+            layout: 'blog',
+            manifest: true,
+            feed: true,
+            sortBy: 'date',
+            order: 'desc',
+            showDate: true,
+            showSummary: true,
+            showReadingTime: true
+          }
+        ]
+      },
+      manifest: {
+        sections: [
+          { id: 'welcome', title: 'Welcome', file: 'welcome.md' }
+        ]
+      },
+      directories: {
+        content: {
+          files: {
+            'welcome.md': '# Welcome\n\nDocs landing page.',
+            'design-note.md': '# Design Note\n\nThis unlisted note links outside [repo](../../CLAUDE.md).'
+          }
+        },
+        'content/posts': {
+          files: {
+            'alpha.md': post('Alpha', '2026-06-10'),
+            'bravo.md': post('Bravo', '2026-05-22')
+          }
+        }
+      }
+    });
+
+    const result = await runBuildTenantsWithRegistry([{ id: MANIFESTED_TEST_ID }]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('materialized 2 collection post(s)');
+
+    const distDir = path.join(PUBLISHER_ROOT, 'dist', MANIFESTED_TEST_ID);
+    const manifestFile = path.join(distDir, 'manifest.js');
+    const { findSection, layoutForSection } = await import(`file://${manifestFile}?t=${Date.now()}-${Math.random()}`);
+    const blog = findSection('blog');
+    const indexJson = JSON.parse(await fsp.readFile(path.join(distDir, 'blog', 'index.json'), 'utf8'));
+
+    expect(blog.id).toBe('blog');
+    expect(blog.module).toMatch(/^\.\/sections\/blog(?:\.[a-f0-9]{12})?\.js$/);
+    expect(blog.subsections.map((entry) => entry.id)).toEqual(['posts/alpha', 'posts/bravo']);
+    const alpha = findSection('posts/alpha');
+    expect(alpha).toMatchObject({
+      id: 'posts/alpha',
+      collection: 'posts'
+    });
+    expect(alpha.module).toMatch(/^\.\/sections\/posts--alpha(?:\.[a-f0-9]{12})?\.js$/);
+    expect(layoutForSection('posts/alpha')).toBe('blog');
+    await expect(fsp.access(path.join(distDir, 'sections', 'posts--alpha.js'))).resolves.toBeUndefined();
+    await expect(fsp.access(path.join(distDir, 'pages', 'posts--alpha.html'))).resolves.toBeUndefined();
+    await expect(fsp.access(path.join(distDir, 'sections', 'design-note.js'))).rejects.toBeDefined();
+
+    expect(indexJson.posts.map((entry) => entry.path)).toEqual(['/#posts/alpha', '/#posts/bravo']);
   });
 });
 

@@ -66,9 +66,7 @@ async function collectEntries(collection, contentBasePath, baseUrl) {
     // Section id mirrors the build's nested-id scheme: <collection.path>/<slug>
     const sectionId = `${collection.path.replace(/^\/+|\/+$/g, '')}/${slug}`;
     const staticPath = `/pages/${encodePathForFilename(sectionId)}.html`;
-    const routePath = collection.route
-      ? `${collection.route.replace(/\/+$/, '')}/${slug}`
-      : `/#${sectionId}`;
+    const routePath = `/#${sectionId}`;
 
     entries.push({
       id: sectionId,

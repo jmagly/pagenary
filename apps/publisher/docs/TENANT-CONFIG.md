@@ -663,11 +663,17 @@ The build then does two things for the same Markdown files:
 - renders each post as a normal hash-routed section such as `#posts/launch`;
 - emits `dist/blog/index.json` and `feed.xml` for the blog index/feed.
 
-The `path` field in `index.json` may reflect the public collection route
-(`/blog/launch`), but the bundled blog index prefers the section `id` and links
-cards to `#posts/launch` so the hash-routed SPA loads the post. If you build a
-custom index UI from `index.json`, use `id` for in-app navigation unless you also
-emit and serve real per-post route pages.
+The `path` field in `index.json` is hash-routed for Pagenary-generated
+collection indexes, for example `/#posts/launch`. The bundled blog index also
+uses the section `id` and links cards to `#posts/launch` so the hash-routed SPA
+loads the post. If you build a custom index UI from `index.json`, use `id` for
+in-app navigation unless you also emit and serve real per-post route pages.
+
+Tenants with an explicit `manifest.json` keep their curated docs navigation.
+Configured collection posts are appended automatically under the collection
+route group, such as `blog -> posts/launch`; only files under configured
+`collections[].path` folders are added, so unrelated unlisted content is not
+strict-link-checked or published as a section.
 
 ## Form Embeds
 

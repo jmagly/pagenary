@@ -3387,6 +3387,111 @@ function sortCollectionEntries(entries, collection) {
   return entries;
 }
 
+function walkManifestEntries(entries, visitor) {
+  if (!Array.isArray(entries)) return;
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    visitor(entry);
+    if (Array.isArray(entry.sections)) walkManifestEntries(entry.sections, visitor);
+  }
+}
+
+function collectManifestRefs(entries) {
+  const ids = new Set();
+  const files = new Set();
+  walkManifestEntries(entries, (entry) => {
+    if (entry.id) ids.add(String(entry.id));
+    if (entry.file) files.add(normalizePathForModule(entry.file));
+  });
+  return { ids, files };
+}
+
+function appendEntriesToManifest(entries, containerId, collection, additions) {
+  let target = null;
+  walkManifestEntries(entries, (entry) => {
+    if (!target && entry.id === containerId) target = entry;
+  });
+
+  if (target) {
+    if (!Array.isArray(target.sections)) target.sections = [];
+    target.sections.push(...additions);
+    return;
+  }
+
+  const group = {
+    id: containerId,
+    title: collection.title || 'Blog',
+    summary: collection.summary || '',
+    sections: additions
+  };
+  const layout = normalizeLayout(collection.layout);
+  if (layout) group.layout = layout;
+  entries.push(group);
+}
+
+async function appendCollectionPostEntries(entries, contentDir, collections = []) {
+  if (!Array.isArray(entries) || !Array.isArray(collections) || collections.length === 0) {
+    return 0;
+  }
+
+  const refs = collectManifestRefs(entries);
+  let added = 0;
+
+  for (const collection of collections) {
+    if (!collection || !collection.path) continue;
+    const collectionPath = routePath(collection.path);
+    if (!collectionPath) continue;
+
+    const srcDir = path.join(contentDir, collectionPath);
+    let files;
+    try {
+      files = await fsp.readdir(srcDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    const additions = [];
+    for (const file of files) {
+      if (!file.isFile()) continue;
+      const ext = path.extname(file.name).toLowerCase();
+      if (ext !== '.md' && ext !== '.markdown') continue;
+      if (file.name.startsWith('_') || file.name.toLowerCase() === 'index.md') continue;
+
+      const slug = file.name.slice(0, -ext.length);
+      const relPath = `${collectionPath}/${file.name}`;
+      const id = `${collectionPath}/${slug}`;
+      if (refs.ids.has(id) || refs.files.has(relPath)) continue;
+
+      let metadata = {};
+      try {
+        metadata = await readContentMetadata(path.join(contentDir, relPath));
+      } catch { /* best effort; materialization will report real file errors */ }
+
+      const entry = {
+        id,
+        title: metadata.title || slug,
+        summary: metadata.summary || '',
+        file: relPath
+      };
+      const layout = normalizeLayout(collection.layout);
+      if (layout) entry.layout = layout;
+      decorateCollectionEntry(entry, metadata, collection);
+      additions.push(entry);
+      refs.ids.add(id);
+      refs.files.add(relPath);
+    }
+
+    if (additions.length > 0) {
+      sortCollectionEntries(additions, collection);
+      const containerId = routePath(collection.route || collection.path) || collectionPath;
+      appendEntriesToManifest(entries, containerId, collection, additions);
+      added += additions.length;
+    }
+  }
+
+  return added;
+}
+
 /**
  * Encode section ID for use in output filename
  * Replaces / with -- to create flat output structure
@@ -4608,6 +4713,12 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     return;
   }
 
+  const collections = Array.isArray(config.collections) ? config.collections : [];
+  const appendedCollectionPosts = await appendCollectionPostEntries(entries, contentDir, collections);
+  if (appendedCollectionPosts > 0) {
+    console.log(`  ↳ materialized ${appendedCollectionPosts} collection post(s) from manifest-driven content`);
+  }
+
   const sectionsDir = path.join(distDir, 'sections');
   const keepFiles = new Set(['section-templates.js']);
   await pruneSectionsDirectory(sectionsDir, keepFiles);
@@ -4659,7 +4770,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     siteConfig,
     // Collections drive blog-post metadata (date/author/reading) + display flags
     // for manifest-listed posts, mirroring the scanned path.
-    collections: Array.isArray(config.collections) ? config.collections : [],
+    collections,
     // Link transformation context
     sectionIndex,
     linkWarnings,
