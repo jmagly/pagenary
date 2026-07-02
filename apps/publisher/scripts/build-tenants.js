@@ -6,7 +6,7 @@ import path from 'path';
 import { spawn, execSync } from 'child_process';
 import { createHash } from 'crypto';
 import os from 'os';
-import { generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
+import { extractHtmlFromModule, generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
 import { estimateReadingLength, parseFrontmatter } from './lib/frontmatter.js';
 import {
@@ -1139,6 +1139,46 @@ async function applyDefaultPageTitle(distDir, config) {
   if (replaced !== html) {
     await fsp.writeFile(indexPath, replaced, 'utf8');
     console.log(`  ↳ default page title: ${shellTitle}`);
+  }
+}
+
+/**
+ * Embed the default section HTML in the SPA shell so the root URL has useful
+ * content before JavaScript runs. The runtime replaces #app after loading, but
+ * JS-disabled crawlers/readers and transient module failures should not see an
+ * empty chrome-only page.
+ * @param {string} distDir - Tenant output directory
+ */
+async function applyRootHtmlFallback(distDir) {
+  const indexPath = path.join(distDir, 'index.html');
+  const manifestPath = path.join(distDir, 'manifest.js');
+  if (!(await pathExists(indexPath)) || !(await pathExists(manifestPath))) return;
+
+  let entry = null;
+  try {
+    const mod = await import(`${pathToFileURL(manifestPath).href}?t=${Date.now()}`);
+    const id = mod.DEFAULT_SECTION;
+    entry = id && typeof mod.findSection === 'function' ? mod.findSection(id) : null;
+  } catch {
+    return;
+  }
+
+  if (!entry?.module) return;
+  const modulePath = path.join(distDir, entry.module);
+  if (!(await pathExists(modulePath))) return;
+
+  const moduleContent = await fsp.readFile(modulePath, 'utf8');
+  const fallbackHtml = extractHtmlFromModule(moduleContent);
+  if (!fallbackHtml) return;
+
+  const html = await fsp.readFile(indexPath, 'utf8');
+  const next = html.replace(
+    /<main id="app" class="canvas" tabindex="-1" aria-live="polite"><\/main>/,
+    `<main id="app" class="canvas" tabindex="-1" aria-live="polite">${fallbackHtml}</main>`
+  );
+  if (next !== html) {
+    await fsp.writeFile(indexPath, next, 'utf8');
+    console.log(`  ↳ embedded root HTML fallback: ${entry.id}`);
   }
 }
 
@@ -5379,6 +5419,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   // Set the shell <title> from the default page's metadata title (SEO, #28),
   // falling back to the generic brand only when no default title exists.
   await applyDefaultPageTitle(distDir, config);
+  await applyRootHtmlFallback(distDir);
 
   // Copy static assets from .public/ directory
   await copyPublicAssets(sourceDir, distDir, tenantId);

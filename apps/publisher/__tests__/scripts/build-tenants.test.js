@@ -326,6 +326,27 @@ describe('build-tenants.js', () => {
       expect(record.text).toMatch(/quick brown fox jumps over the lazy dog/);
     });
 
+    test('embeds default page HTML in the root shell for no-JS fallback', async () => {
+      const manifest = {
+        default: 'fallback-page',
+        sections: [
+          { id: 'fallback-page', title: 'Fallback Page', file: 'fallback.md' }
+        ]
+      };
+      const content = {
+        'fallback.md': '# Fallback Page\n\nRoot HTML fallback body.'
+      };
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const index = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
+      expect(index).toMatch(/<main id="app" class="canvas" tabindex="-1" aria-live="polite"><section class="section doc markdown">/);
+      expect(index).toContain('Fallback Page');
+      expect(index).toContain('Root HTML fallback body.');
+    });
+
     test('emits base-relative shell + module URLs resolved via the tenant base', async () => {
       const manifest = {
         sections: [

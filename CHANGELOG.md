@@ -6,6 +6,13 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.5] - 2026-07-02
+
+### Fixed
+
+- Embedded the default page HTML into the root SPA shell so published docs show
+  useful content without JavaScript instead of an empty header/footer chrome.
+
 ## [2026.7.4] - 2026-07-02
 
 ### Fixed
