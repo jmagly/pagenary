@@ -6,6 +6,22 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.2] - 2026-07-02
+
+### Added
+
+- Added launch-time base path overrides for tenant builds: `pagenary build
+  <tenant> --base <path|auto>` and `PAGENARY_BASE=<path|auto>`.
+- Added `pagenary serve --mount <path>` / `--base <path>` so local previews can
+  serve a built tenant at the same subpath used in deployment.
+
+### Changed
+
+- Base-less tenant builds now resolve runtime assets from the served
+  `index.html` directory, making one build portable across `/`, `/docs/`,
+  `/<tenant-id>/`, and reverse-proxy subpath mounts. Explicit `basePath` values
+  still hard-pin the generated base.
+
 ## [2026.7.1] - 2026-07-02
 
 ### Fixed
