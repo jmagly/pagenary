@@ -1149,7 +1149,9 @@ async function applyDefaultPageTitle(distDir, config) {
  * empty chrome-only page.
  * @param {string} distDir - Tenant output directory
  */
-async function applyRootHtmlFallback(distDir) {
+async function applyRootHtmlFallback(distDir, config = {}) {
+  if (config?.seo?.rootHtmlFallback === false) return;
+
   const indexPath = path.join(distDir, 'index.html');
   const manifestPath = path.join(distDir, 'manifest.js');
   if (!(await pathExists(indexPath)) || !(await pathExists(manifestPath))) return;
@@ -5419,7 +5421,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   // Set the shell <title> from the default page's metadata title (SEO, #28),
   // falling back to the generic brand only when no default title exists.
   await applyDefaultPageTitle(distDir, config);
-  await applyRootHtmlFallback(distDir);
+  await applyRootHtmlFallback(distDir, config);
 
   // Copy static assets from .public/ directory
   await copyPublicAssets(sourceDir, distDir, tenantId);

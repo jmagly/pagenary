@@ -13,6 +13,7 @@ time by `scripts/lib/seo-generator.js` and configured via the tenant
 | `robots.txt` | Allows `/` and `/pages/`, points at the sitemap |
 | `llms.txt` | LLM-friendly site index ([llmstxt.org](https://llmstxt.org/)) |
 | `/pages/<id>.html` | Per-section static snapshots with full metadata + JSON-LD, for crawlers |
+| Root HTML fallback | The root `index.html` embeds the default page's rendered HTML by default (`seo.rootHtmlFallback: true`) so no-JS readers do not see an empty SPA shell |
 | JSON-LD | `TechArticle` + `BreadcrumbList` per page; `WebSite` + optional `Organization` site-wide |
 | Shell `<title>` | The build sets the static shell title from the **default page's metadata title** (`"<page title> · <brand>"`), so the crawler-visible root URL is specific, not generic. The brand alone is only a fallback |
 | Runtime meta | `src/seo.js` keeps `<title>`, description, canonical, OG, and Twitter tags in sync as the SPA navigates |
@@ -39,6 +40,12 @@ Static snapshots and the runtime SPA canonicalize to the **crawlable static URL*
 fragments, so hash canonicals (`/#section`) would collapse every page onto the
 homepage. The `#hash` route is still used for the human-facing "interactive
 version" link and the JavaScript redirect on the static page.
+
+The root SPA shell is also readable without JavaScript by default: the build
+embeds the default page's rendered HTML into `index.html` before the runtime
+loads. JavaScript-enabled browsers still hydrate/replace that content. Set
+`seo.rootHtmlFallback: false` only for tenants that deliberately want a JS-only
+root shell.
 
 ## Social cards
 

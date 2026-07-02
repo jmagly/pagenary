@@ -427,6 +427,11 @@
           "default": true,
           "description": "Emit per-section static HTML snapshots"
         },
+        "rootHtmlFallback": {
+          "type": "boolean",
+          "default": true,
+          "description": "Embed the default page HTML into the root SPA shell so the root URL remains readable without JavaScript"
+        },
         "generateRobotsTxt": {
           "type": "boolean",
           "default": true,

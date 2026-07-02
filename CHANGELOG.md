@@ -6,6 +6,13 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.6] - 2026-07-02
+
+### Added
+
+- Added `seo.rootHtmlFallback` so tenants can explicitly enable or disable the
+  root `index.html` no-JS fallback. It defaults to enabled.
+
 ## [2026.7.5] - 2026-07-02
 
 ### Fixed

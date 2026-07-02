@@ -347,6 +347,31 @@ describe('build-tenants.js', () => {
       expect(index).toContain('Root HTML fallback body.');
     });
 
+    test('can disable the root shell HTML fallback per tenant', async () => {
+      const manifest = {
+        default: 'fallback-page',
+        sections: [
+          { id: 'fallback-page', title: 'Fallback Page', file: 'fallback.md' }
+        ]
+      };
+      const content = {
+        'fallback.md': '# Fallback Page\n\nRoot HTML fallback body.'
+      };
+      testTenantDir = await createTestTenant(
+        TEST_TENANT_ID,
+        { seo: { rootHtmlFallback: false } },
+        manifest,
+        content
+      );
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const index = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
+      expect(index).toMatch(/<main id="app" class="canvas" tabindex="-1" aria-live="polite"><\/main>/);
+      expect(index).not.toContain('Root HTML fallback body.');
+    });
+
     test('emits base-relative shell + module URLs resolved via the tenant base', async () => {
       const manifest = {
         sections: [

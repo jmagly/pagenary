@@ -476,6 +476,7 @@ The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,
     "ogImage": "/assets/og-card.png",
     "generateSitemap": true,
     "generateStaticPages": true,
+    "rootHtmlFallback": true,
     "generateRobotsTxt": true,
     "noIndex": false,
     "robots": {
@@ -499,6 +500,7 @@ The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,
 | `ogImage` | string | - | Social share image for `og:image` / `twitter:image`. Absolute URL or site-relative path (joined to the base URL). When set, `twitter:card` is upgraded to `summary_large_image`. Per-section override: set `ogImage` on a manifest entry. |
 | `generateSitemap` | boolean | `true` | Emit `sitemap.xml` |
 | `generateStaticPages` | boolean | `true` | Emit per-section static HTML snapshots under `/pages/` (crawler-friendly; the SPA uses hash routing) |
+| `rootHtmlFallback` | boolean | `true` | Embed the default page's rendered HTML inside the root SPA shell (`index.html`) so the root URL is readable without JavaScript. Set `false` for a JS-only shell. |
 | `generateRobotsTxt` | boolean | `true` | Emit `robots.txt` |
 | `noIndex` | boolean | `false` | Emit `noindex, nofollow` static-page metadata and a restrictive `robots.txt` (`Disallow: /`) without a sitemap pointer |
 | `robots.userAgent` | string | `"*"` | User-agent line for generated `robots.txt` |
@@ -520,6 +522,12 @@ crawlable static URL (`/pages/<id>.html`), not the SPA `#hash` route — search
 engines drop URL fragments, so hash canonicals would collapse every page onto the
 homepage. The `#hash` route is still used for the in-page "interactive version"
 link and the JS redirect.
+
+**Root HTML fallback:** `seo.rootHtmlFallback` controls the human-facing root
+`index.html`, not the `/pages/` snapshots. It is enabled by default so browsers,
+crawlers, and extractors that do not run JavaScript still receive the default
+page content at the site root. Disable it only when you intentionally want an
+empty JS-only SPA shell.
 
 **Search visibility:** use `seo.noIndex: true` for static bundles that should not
 invite indexing. Use `seo.robots` to customize advisory crawler directives while

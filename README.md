@@ -173,7 +173,7 @@ Templates + per-tenant content/config
 - **Multi-Tenant Architecture** — isolated content, branding, and configuration per tenant
 - **Zero Runtime Dependencies** — published output is vanilla HTML, CSS, and ES modules
 - **Fortemi-backed search + graph** — command palette (`Ctrl/Cmd+K`) ranks results with snippets over a static chunked index ([`@fortemi/core`](https://www.npmjs.com/package/@fortemi/core)), with lazy precache, infinite scroll, page metadata, and an inspectable Docs Map with weighted relationships — all client-side (no server, no WASM)
-- **SEO-first output** — metadata-driven page titles, crawlable `/pages/` static snapshots, and `sitemap.xml` / `robots.txt` / `llms.txt` / JSON-LD / Open Graph generated at build time
+- **SEO-first output** — metadata-driven page titles, a configurable no-JS root HTML fallback, crawlable `/pages/` static snapshots, and `sitemap.xml` / `robots.txt` / `llms.txt` / JSON-LD / Open Graph generated at build time
 - **Flexible hosting** — per-tenant `<base>` resolution serves the same bundle at a domain root *or* under a subpath; any static host, CDN, or the bundled Caddy
 - **Mermaid Diagrams** — native flowcharts, sequence diagrams, and more
 - **Syntax Highlighting** — Prism.js integration for code blocks

@@ -109,6 +109,7 @@ inspect, build, or run the AIWG project from `~/dev/aiwg`.
 - **Metadata-driven titles** — the shell `<title>` derives from the default page's metadata title (`"<page title> · <brand>"`), and each section sets its own title/description at runtime; the generic brand is only a fallback
 - **Absolute URLs** — declare a `domain` (or `seo.siteUrl`) and the sitemap, canonical, `og:url`, and `robots` URLs become fully-qualified
 - **Static snapshots** — crawler-friendly `/pages/<id>.html` for every section, self-canonical (the SPA hash route isn't crawlable)
+- **Root HTML fallback** — `seo.rootHtmlFallback` defaults on, embedding the default page in `index.html` so no-JS readers do not see an empty shell
 - **`sitemap.xml`, `robots.txt`, `llms.txt`** — generated automatically
 - **JSON-LD + Open Graph** — `TechArticle`/`BreadcrumbList` per page, optional Organization data, and `og:image`/`twitter:image` via `seo.ogImage`
 - **Subpath-safe assets** — a per-tenant `<base>` keeps stylesheet/script/snapshot URLs valid whether served at a domain root or a subpath
