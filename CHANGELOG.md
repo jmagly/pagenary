@@ -6,6 +6,22 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.3] - 2026-07-02
+
+### Fixed
+
+- Materialized configured collection posts for tenants that use an explicit
+  `manifest.json`, so curated docs navigation can coexist with a mixed docs +
+  blog collection without hand-listing every post.
+- Made generated collection `index.json` post paths hash-routed
+  (`/#posts/<slug>`) so custom blog indexes can use the emitted `path` without
+  navigating to missing route pages.
+
+### Documentation
+
+- Clarified mixed docs + blog behavior for manifested tenants and custom blog
+  index links.
+
 ## [2026.7.2] - 2026-07-02
 
 ### Added
