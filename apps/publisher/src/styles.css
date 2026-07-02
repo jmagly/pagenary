@@ -965,6 +965,7 @@ mark.hl {
   --pe-bleed-y: clamp(2rem, 5vw, 5.5rem);
   padding: var(--pe-bleed-y) var(--pe-bleed-x);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   /* Keep rows AND items at their natural (content) height. Without these, a
      fixed-height grid stretches its single child to the container, so the
      child's overflow is clipped instead of scrolling the canvas — content was
@@ -978,6 +979,11 @@ mark.hl {
   overflow-y: auto;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
+}
+
+.canvas > * {
+  grid-column: 1;
+  min-width: 0;
 }
 
 /* Custom scrollbar styling - minimal black line aesthetic */
@@ -1662,7 +1668,7 @@ mark.hl {
   .section {
     max-width: 100%;
     min-width: 0;
-    overflow-x: hidden;
+    overflow: visible;
   }
 
   .ghost-label {
@@ -2592,6 +2598,29 @@ pre:has(code.language-mermaid)::after {
   }
 }
 
+@media (max-width: 560px) {
+  .bottom-nav__inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bottom-nav .bottom-nav-item,
+  .bottom-nav .bottom-nav-prev,
+  .bottom-nav .bottom-nav-next {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+  .bottom-nav .bottom-nav-link {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+  }
+  .bottom-nav .bottom-nav-spacer {
+    display: none;
+  }
+}
+
 /* Align the buttons with the centred content above (matches .doc-content),
    keeping the border-top full width. Only where the centred layout applies. */
 @media (min-width: 60rem) {
@@ -3494,6 +3523,48 @@ body[data-layout="blog"] .post-tags { margin-top: 1.25rem; }
     padding: 0.85rem 1rem; margin: 0 0 1.5rem;
     background: rgba(var(--surface-rgb), 0.5);
   }
+  .page-toc--rail,
+  .page-toc--right {
+    position: static;
+    width: auto;
+    height: auto;
+    z-index: auto;
+    pointer-events: auto;
+  }
+  .page-toc--rail > .page-toc__disc,
+  .page-toc--right > .page-toc__disc {
+    position: static;
+    display: block;
+    max-height: none;
+    overflow: visible;
+    box-shadow: none;
+  }
+  .page-toc--rail .page-toc__pin,
+  .page-toc--right .page-toc__collapse {
+    display: none;
+  }
+  .page-toc--navstyle .page-toc__title {
+    pointer-events: auto;
+    cursor: pointer;
+    margin: 0;
+    padding-inline: 0;
+    font-size: 0.72rem;
+  }
+  .page-toc--navstyle .page-toc__title::after {
+    display: inline;
+  }
+  .page-toc--navstyle .page-toc__body {
+    gap: 0.65rem;
+  }
+  .page-toc--navstyle .page-toc__controls {
+    padding-inline: 0;
+  }
+  .page-toc--navstyle a {
+    padding: 0.38rem 0.55rem;
+  }
+  .page-toc--navstyle .page-toc__item--sub a {
+    padding-left: 1rem;
+  }
   .page-toc__disc[open] > .page-toc__title { margin-bottom: 0.65rem; }
 }
 
@@ -3778,6 +3849,33 @@ html.has-js .pe-scrolly__stage > [data-pe-step].is-active { opacity: 1; }
 }
 
 @media (max-width: 560px) {
+  .pe-hero {
+    align-items: flex-end;
+    min-height: var(--pe-hero-height, clamp(22rem, 64vh, 34rem));
+    padding: clamp(2rem, 10vw, 3rem) clamp(1rem, 6vw, 1.5rem);
+  }
+  .pe-hero-content {
+    max-width: none;
+  }
+  .pe-hero-content[data-pe-align="center"],
+  .pe-hero-content[data-pe-align="end"] {
+    align-items: stretch;
+    text-align: left;
+  }
+  .pe-hero-actions,
+  .pe-banner-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .pe-cta {
+    justify-content: center;
+    width: 100%;
+    min-height: 2.75rem;
+    line-height: 1.2;
+    white-space: normal;
+    text-align: center;
+  }
   .pe-banner-inner {
     flex-direction: column;
     align-items: flex-start;

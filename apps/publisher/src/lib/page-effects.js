@@ -667,10 +667,24 @@ function pageToc(root, ctx) {
       window.clearTimeout(peekTimer);
     });
   } else {
-    // Left (mirrors the main nav) and top: a persistent, always-open list. The
-    // header is a label, so don't let a click toggle the <details> shut.
-    disc.open = true;
-    const onSummaryClick = (e) => e.preventDefault();
+    // Left and top stay persistent. Right behaves like a desktop rail on wide
+    // viewports, but must collapse inline on portrait so it does not cover the
+    // first screen of article content.
+    let mq = null;
+    let syncOpen = null;
+    if (placement === 'right') {
+      mq = window.matchMedia('(min-width: 60rem)');
+      syncOpen = () => { disc.open = mq.matches; };
+      syncOpen();
+      if (mq.addEventListener) mq.addEventListener('change', syncOpen);
+      cleanups.push(() => { if (mq.removeEventListener) mq.removeEventListener('change', syncOpen); });
+    } else {
+      disc.open = true;
+    }
+
+    const onSummaryClick = (e) => {
+      if (placement !== 'right' || (mq && mq.matches)) e.preventDefault();
+    };
     summary.addEventListener('click', onSummaryClick);
     cleanups.push(() => summary.removeEventListener('click', onSummaryClick));
 

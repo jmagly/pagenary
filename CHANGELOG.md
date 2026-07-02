@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.4] - 2026-07-02
+
+### Fixed
+
+- Repaired the mobile portrait showcase and page-effects layout so full-bleed
+  heroes, CTAs, on-this-page controls, and bottom navigation stack in readable
+  flow instead of overlapping the first screen.
+
 ## [2026.7.3] - 2026-07-02
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "@pagenary/publisher",
-  "version": "2026.7.3",
+  "version": "2026.7.4",
   "type": "module",
   "description": "Multi-tenant static publishing component for Pagenary platform.",
   "license": "AGPL-3.0-or-later",

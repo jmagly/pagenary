@@ -771,6 +771,10 @@ function navSpacer() {
   return spacer;
 }
 
+function getBottomNavMount() {
+  return app.querySelector('section.doc, article.section, section:not(.pe-hero)') || app;
+}
+
 /**
  * Resolve post-navigation affordances (#55) from SITE_CONFIG.postNav.
  * `postNav: false` disables it; an object toggles {prev,next,index,label}.
@@ -836,8 +840,7 @@ function renderPostNav(currentId) {
   inner.appendChild(showNext ? buildNavItem(next, 'next') : navSpacer());
 
   nav.appendChild(inner);
-  const section = app.querySelector('section') || app;
-  section.appendChild(nav);
+  getBottomNavMount().appendChild(nav);
 }
 
 /**
@@ -887,8 +890,7 @@ function renderBottomNav(currentId) {
   nav.appendChild(inner);
 
   // Append to the section content
-  const section = app.querySelector('section') || app;
-  section.appendChild(nav);
+  getBottomNavMount().appendChild(nav);
 }
 
 function focusCanvas() {
