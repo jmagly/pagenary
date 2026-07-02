@@ -24,7 +24,25 @@
     }
   ],
   "description": "Turn a git repo of Markdown into a fast, searchable, SEO-ready docs site you host yourself for next to nothing — with the features you'd expect from a paid docs platform. Pagenary's own developer docs, built and published with Pagenary.",
-  "accentColor": "#111111",
+  "theme": {
+    "colorScheme": "light",
+    "surface": "#faf9f6",
+    "ink": "#15140f",
+    "muted": "#6b6862",
+    "accent": "#0e7490",
+    "gridLine": "#e7e4dd",
+    "highlightBg": "rgba(14, 116, 144, 0.12)",
+    "highlightBorder": "rgba(14, 116, 144, 0.35)",
+    "fontBody": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif",
+    "fontMono": "ui-monospace, SFMono-Regular, Menlo, Consolas, \"Liberation Mono\", monospace"
+  },
+  "accentColor": "#0e7490",
+  "surfaceColor": "#faf9f6",
+  "inkColor": "#15140f",
+  "mutedColor": "#6b6862",
+  "gridLineColor": "#e7e4dd",
+  "fontBody": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif",
+  "fontMono": "ui-monospace, SFMono-Regular, Menlo, Consolas, \"Liberation Mono\", monospace",
   "accessibility": {
     "report": {
       "enabled": true
