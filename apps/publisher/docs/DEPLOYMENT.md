@@ -250,7 +250,9 @@ tenant-b.example.com {
 }
 ```
 
-If a tenant is mounted at a subpath that does not match its tenant id, configure
+By default, Pagenary resolves runtime assets from the directory that served
+`index.html`, so a base-less build can move between `/`, `/docs/`, and other
+subpath mounts. If a tenant must be hard-pinned to one subpath, configure
 `basePath` so the generated `<base href>` points at the public mount:
 
 ```json
@@ -264,6 +266,21 @@ If a tenant is mounted at a subpath that does not match its tenant id, configure
     }
   ]
 }
+```
+
+When the same tenant is deployed to more than one mount, keep committed config
+portable and set the base at launch time:
+
+```bash
+pagenary build fortemi-docs --base /server
+PAGENARY_BASE=/docs pagenary build fortemi-docs
+PAGENARY_BASE=auto pagenary build fortemi-docs
+```
+
+For local preview of a deploy-oriented build, serve it at the matching mount:
+
+```bash
+pagenary serve --mount /server
 ```
 
 ## Cache Strategy

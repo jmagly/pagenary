@@ -451,7 +451,7 @@ content, applies branding and overrides, copies public assets, then calls the
 build library modules for SEO artifacts and collections.
 
 ```bash
-pagenary build [tenant] [--all] [--incremental] [--target <dir>] [--dev]
+pagenary build [tenant] [--all] [--incremental] [--target <dir>] [--base <path|auto>] [--dev]
 ```
 
 Arguments / options:
@@ -459,6 +459,9 @@ Arguments / options:
 - `--all` - Build every enabled tenant
 - `--incremental` - Only rebuild changed content
 - `--target <dir>` - Override the output directory
+- `--base <path|auto>` - Override the tenant `basePath` for this build. `auto`
+  omits an explicit base so the browser resolves assets from the served
+  `index.html` directory. `PAGENARY_BASE` provides the same override for CI.
 - `--dev` - Development build (skip minification; default bundle)
 
 See [Build Library Modules](#build-library-modules) for the helper modules used
@@ -469,7 +472,14 @@ during a build.
 Preview the built output over HTTP.
 
 ```bash
-pagenary serve [--dev] [--port <n>]
+pagenary serve [--dev] [--port <n>] [--mount <path>]
+```
+
+Use `--mount` (or alias `--base`) to preview a built tenant at the same subpath
+used in deployment:
+
+```bash
+pagenary serve --mount /server
 ```
 
 ### pagenary sync

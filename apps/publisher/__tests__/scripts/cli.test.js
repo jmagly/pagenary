@@ -4,8 +4,9 @@
 // in issue #92: grouped help, per-command help, actionable unknown-command
 // errors with non-zero exit, --json output, and the doctor/new diagnostics.
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(__dirname, '..', '..');
 const BIN = path.join(PKG_ROOT, 'bin', 'pagenary.mjs');
+const SERVE_SCRIPT = path.join(PKG_ROOT, 'scripts', 'serve.js');
 
 /** Run the CLI and capture stdout/stderr/exit code. */
 function cli(args, opts = {}) {
@@ -22,6 +24,21 @@ function cli(args, opts = {}) {
     env: { ...process.env, ...(opts.env || {}) }
   });
   return { code: res.status, stdout: res.stdout || '', stderr: res.stderr || '' };
+}
+
+async function waitForHttp(url, deadlineMs = 5000) {
+  const deadline = Date.now() + deadlineMs;
+  let lastErr;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(url);
+      if (res.status < 500) return res;
+    } catch (err) {
+      lastErr = err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw lastErr || new Error(`server not ready at ${url}`);
 }
 
 describe('pagenary CLI dispatch', () => {
@@ -48,6 +65,15 @@ describe('pagenary CLI dispatch', () => {
     expect(stdout).toContain('pagenary build');
     expect(stdout).toContain('--all');
     expect(stdout).toContain('--target');
+    expect(stdout).toContain('--base');
+  });
+
+  test('serve --help documents mount preview flags', () => {
+    const { code, stdout } = cli(['serve', '--help']);
+    expect(code).toBe(0);
+    expect(stdout).toContain('pagenary serve');
+    expect(stdout).toContain('--mount');
+    expect(stdout).toContain('--base');
   });
 
   test('--version prints name and version', () => {
@@ -115,6 +141,42 @@ describe('pagenary read-only commands', () => {
     expect(report.ok).toBe(true);
     expect(Array.isArray(report.checks)).toBe(true);
     expect(report.checks.some((c) => c.name === 'node-version')).toBe(true);
+  });
+});
+
+describe('pagenary serve mount preview', () => {
+  test('serves the only tenant at --mount for deploy-path previews (#107)', async () => {
+    const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-serve-'));
+    const tenantDir = path.join(tmp, 'dist', 'fortemi-docs');
+    await fsp.mkdir(tenantDir, { recursive: true });
+    await fsp.writeFile(path.join(tenantDir, 'index.html'), '<!doctype html><title>Fortemi</title>', 'utf8');
+    await fsp.writeFile(path.join(tenantDir, 'styles.css'), 'body { color: black; }', 'utf8');
+
+    const port = 22000 + Math.floor(Math.random() * 1000);
+    const child = spawn(process.execPath, [SERVE_SCRIPT, '--dev'], {
+      cwd: tmp,
+      env: {
+        ...process.env,
+        PORT: String(port),
+        HOST: '127.0.0.1',
+        PAGENARY_SERVE_MOUNT: '/server'
+      },
+      stdio: 'ignore'
+    });
+
+    try {
+      const rootRes = await waitForHttp(`http://127.0.0.1:${port}/server/`);
+      expect(rootRes.status).toBe(200);
+      expect(await rootRes.text()).toContain('Fortemi');
+
+      const cssRes = await fetch(`http://127.0.0.1:${port}/server/styles.css`);
+      expect(cssRes.status).toBe(200);
+      expect(await cssRes.text()).toContain('color: black');
+    } finally {
+      child.kill('SIGTERM');
+      await new Promise((resolve) => child.once('exit', resolve));
+      await fsp.rm(tmp, { recursive: true, force: true });
+    }
   });
 });
 

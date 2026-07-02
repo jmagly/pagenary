@@ -395,14 +395,15 @@ matching CDN headers.
 
 #### Deploy mount path
 
-By default Pagenary supports domain-root deploys (`/`) and tenant-id subpath
-deploys (`/<tenant-id>/`). Set `basePath` when the public mount path differs
-from the tenant id, for example when tenant `fortemi-react-docs` is served from
-`/react/`.
+By default Pagenary resolves runtime assets from the directory that served
+`index.html`, so a base-less build can be mounted at `/`, `/docs/`,
+`/<tenant-id>/`, or another reverse-proxy path. Set `basePath` only when the
+bundle must be hard-pinned to one public mount, for example when tenant
+`fortemi-react-docs` is always served from `/react/`.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `basePath` | string | auto | Optional mount path used for the generated `<base href>`. Values normalize to leading and trailing slashes, so `"react"` becomes `"/react/"`. |
+| `basePath` | string | auto | Optional mount path used for the generated `<base href>`. Values normalize to leading and trailing slashes, so `"react"` becomes `"/react/"`. Use `"auto"` or omit the field to resolve from the served document location. |
 
 ```json
 { "basePath": "/react/" }
@@ -410,6 +411,22 @@ from the tenant id, for example when tenant `fortemi-react-docs` is served from
 
 Registry-level `basePath` overrides a value from the tenant source
 `config.json`, which lets one source bundle be published at different mounts.
+For launch-specific builds, prefer a command-line or environment override over
+editing committed tenant config:
+
+```bash
+pagenary build fortemi-docs --base /server
+PAGENARY_BASE=/server pagenary build fortemi-docs
+PAGENARY_BASE=auto pagenary build fortemi-docs
+```
+
+Precedence is `--base` / `PAGENARY_BASE`, then registry `basePath`, then tenant
+`config.json` `basePath`, then auto-detection. For local preview of a hard-pinned
+build, serve the tenant at the same mount:
+
+```bash
+pagenary serve --mount /server
+```
 
 #### Docs map (relationship view)
 

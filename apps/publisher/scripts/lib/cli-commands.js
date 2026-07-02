@@ -25,7 +25,7 @@ import { scaffoldTenant } from './cli-scaffold.js';
 const TENANT_FLAGS = new Set([
   '--all', '--target', '-t', '--registry', '-r', '--incremental', '-i',
   '--diff-only', '--keep-cache', '--clean-cache', '--files', '-f',
-  '--cache-dir', '--git-depth', '--no-sparse', '--list'
+  '--cache-dir', '--git-depth', '--no-sparse', '--list', '--base'
 ]);
 
 function flagBase(arg) {
@@ -51,6 +51,7 @@ function runBuild(rest) {
 
 function runServe(rest) {
   const { value: port, rest: rest2 } = extractFlag(rest, ['--port', '-p']);
+  const { value: mount, rest: rest3 } = extractFlag(rest2, ['--mount', '--base']);
   const env = {};
   if (port !== null) {
     if (!/^\d+$/.test(port)) {
@@ -59,7 +60,14 @@ function runServe(rest) {
     }
     env.PORT = port;
   }
-  return spawnScript('serve.js', rest2, { env });
+  if (mount !== null) {
+    if (!mount || /^[a-z][a-z0-9+.-]*:/i.test(mount) || mount.startsWith('//')) {
+      process.stderr.write(`pagenary: --mount expects an absolute path like "/docs", got "${mount || ''}"\n`);
+      return Promise.resolve(1);
+    }
+    env.PAGENARY_SERVE_MOUNT = mount;
+  }
+  return spawnScript('serve.js', rest3, { env });
 }
 
 // --- tenants ----------------------------------------------------------------
@@ -223,6 +231,7 @@ export const COMMANDS = {
       ['[tenant]', 'Build a single tenant by id (omit for the default bundle)'],
       ['--all', 'Build every enabled tenant'],
       ['--target <dir>', 'Override the output directory'],
+      ['--base <path|auto>', 'Override tenant basePath for this build (or auto-detect)'],
       ['--registry <path>', 'Use an alternate tenant registry'],
       ['--incremental', 'Only rebuild changed content'],
       ['--diff-only', 'Show what changed without building'],
@@ -234,10 +243,12 @@ export const COMMANDS = {
   serve: {
     group: 'Build & preview',
     summary: 'Serve the built output over HTTP.',
-    usage: 'pagenary serve [--dev] [--port <n>]',
+    usage: 'pagenary serve [--dev] [--port <n>] [--mount <path>]',
     flags: [
       ['--dev', 'Disable caching for local development'],
-      ['--port <n>', 'Port to listen on (default 5173, or $PORT)']
+      ['--port <n>', 'Port to listen on (default 5173, or $PORT)'],
+      ['--mount <path>', 'Preview the tenant at a deploy mount such as /server'],
+      ['--base <path>', 'Alias for --mount']
     ],
     run: (rest) => runServe(rest)
   },

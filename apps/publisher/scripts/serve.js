@@ -10,6 +10,7 @@ const port = Number(process.env.PORT || 5173);
 const host = process.env.HOST || '0.0.0.0';
 const DEV = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
 const DEFAULT_TENANT = process.env.DEFAULT_TENANT || 'tenant-default';
+const SERVE_MOUNT = normalizeMount(process.env.PAGENARY_SERVE_MOUNT || '');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -36,6 +37,20 @@ try {
   // dist may not exist yet
 }
 
+function normalizeMount(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === '/') return '';
+  const cleaned = raw.replace(/\\/g, '/').replace(/\/+/g, '/');
+  const withLeading = cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+  return withLeading.endsWith('/') ? withLeading.slice(0, -1) : withLeading;
+}
+
+function mountedTenant() {
+  if (tenantDirs.has(DEFAULT_TENANT)) return DEFAULT_TENANT;
+  if (tenantDirs.size === 1) return [...tenantDirs][0];
+  return null;
+}
+
 /**
  * Parse tenant from path. Returns { tenant, localPath }
  * e.g., /tenant-alpha/app.js -> { tenant: 'tenant-alpha', localPath: '/app.js' }
@@ -43,6 +58,15 @@ try {
  *       /app.js -> { tenant: null, localPath: '/app.js' }
  */
 function parseTenantPath(pathname) {
+  if (SERVE_MOUNT && (pathname === SERVE_MOUNT || pathname.startsWith(`${SERVE_MOUNT}/`))) {
+    const tenant = mountedTenant();
+    if (tenant) {
+      return {
+        tenant,
+        localPath: pathname.slice(SERVE_MOUNT.length) || '/'
+      };
+    }
+  }
   const match = pathname.match(/^\/([^/]+)(\/.*)?$/);
   if (match && tenantDirs.has(match[1])) {
     return {
@@ -56,6 +80,19 @@ function parseTenantPath(pathname) {
 const server = http.createServer((req, res) => {
   const parsed = url.parse(req.url);
   let pathname = decodeURIComponent(parsed.pathname || '/');
+
+  // Redirect root to default tenant
+  if (pathname === '/' && SERVE_MOUNT && mountedTenant()) {
+    res.writeHead(302, { Location: `${SERVE_MOUNT}/` });
+    res.end();
+    return;
+  }
+
+  if (SERVE_MOUNT && pathname === SERVE_MOUNT) {
+    res.writeHead(302, { Location: `${SERVE_MOUNT}/` });
+    res.end();
+    return;
+  }
 
   // Redirect root to default tenant
   if (pathname === '/' && tenantDirs.has(DEFAULT_TENANT)) {
@@ -138,5 +175,9 @@ server.listen(port, host, () => {
   console.log(`Serving dist at http://${host}:${port} ${DEV ? '(dev cache disabled)' : ''}`);
   if (tenantDirs.size > 0) {
     console.log(`Tenants: ${[...tenantDirs].join(', ')}`);
+  }
+  if (SERVE_MOUNT) {
+    const tenant = mountedTenant();
+    console.log(`Mount: ${SERVE_MOUNT}/ -> ${tenant || '(no default tenant)'}`);
   }
 });

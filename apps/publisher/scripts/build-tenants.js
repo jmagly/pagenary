@@ -76,7 +76,8 @@ function parseArgs(argv) {
     incremental: false,
     diffOnly: false,
     // Direct file targeting
-    files: []
+    files: [],
+    basePath: process.env.PAGENARY_BASE ?? null
   };
 
   let i = 0;
@@ -93,6 +94,13 @@ function parseArgs(argv) {
       result.registry = args[i + 1];
       if (!result.registry) {
         console.error('Error: --registry requires a path argument');
+        process.exit(1);
+      }
+      i += 2;
+    } else if (arg === '--base') {
+      result.basePath = args[i + 1];
+      if (result.basePath == null) {
+        console.error('Error: --base requires a path argument');
         process.exit(1);
       }
       i += 2;
@@ -165,6 +173,7 @@ Arguments:
 Options:
   -r, --registry      Path to tenant registry JSON file (default: tenants.json)
   -t, --target        Override target directory for all tenants
+  --base              Override tenant basePath for this build (use "auto" to omit)
   -l, --list          List available tenants and exit
   -h, --help          Show this help message
 
@@ -182,6 +191,7 @@ Incremental Build Options:
 
 Environment Variables:
   TENANT_REGISTRY     Path to tenant registry (alternative to --registry)
+  PAGENARY_BASE       Build-time basePath override (same as --base)
   GIT_CACHE_DIR       Default cache directory for git clones
   GIT_CLONE_DEPTH     Default clone depth (default: 1)
   GIT_TERMINAL_PROMPT Set to 0 to disable interactive git prompts (recommended for CI)
@@ -1067,6 +1077,7 @@ function normalizeBasePath(value) {
   if (value == null || value === '') return '';
   const raw = String(value).trim();
   if (!raw) return '';
+  if (raw.toLowerCase() === 'auto') return '';
   if (/^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith('//')) {
     throw new Error('basePath must be an absolute path like "/docs/", not a full URL');
   }
@@ -5144,6 +5155,9 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   if (tenant.basePath !== undefined) {
     config.basePath = tenant.basePath;
   }
+  if (buildOptions.basePath !== null && buildOptions.basePath !== undefined) {
+    config.basePath = buildOptions.basePath;
+  }
   try {
     config.basePath = normalizeBasePath(config.basePath);
   } catch (err) {
@@ -5596,7 +5610,8 @@ async function main() {
     gitDepth: args.gitDepth,
     incremental: args.incremental,
     diffOnly: args.diffOnly,
-    files: args.files
+    files: args.files,
+    basePath: args.basePath
   };
 
   // Handle diff-only mode header
