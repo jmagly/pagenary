@@ -83,6 +83,19 @@ When `domain` or `seo.siteUrl` is configured, URLs in these artifacts are
 absolute. Restrictive profiles and `seo.noIndex` suppress these corpus artifacts
 by default.
 
+## Section Heading Pages And Future Topic Pages
+
+Prefer real section heading pages when a section has a meaningful theme and
+multiple child pages. A heading page should be useful to a human arriving from
+search or a machine-readable index: it needs visible intro content, natural
+title/H1/metadata, and links to the most important child pages.
+
+Do not use generated topic pages as hidden SEO copies, doorway pages, or
+keyword-loaded alternate versions of existing pages. Any future generated topic
+page feature must publish human-visible content, avoid one-page duplication,
+honor `limited`, `locked`, `seo.noIndex`, and `robots.blockAll`, and include only
+structured data that matches visible page content.
+
 ## AI crawler signals
 
 Set `seo.aiCrawlers.search`, `seo.aiCrawlers.aiInput`, and
