@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.8] - 2026-07-03
+
+### Fixed
+
+- Removed the no-JS fallback-only nav class when the JavaScript runtime mounts
+  the interactive navigation, so browser accessibility smoke sees the hydrated
+  primary nav.
+
 ## [2026.7.7] - 2026-07-03
 
 ### Fixed

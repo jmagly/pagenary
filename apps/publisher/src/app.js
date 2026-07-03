@@ -50,6 +50,7 @@ function createExternalLink(item, className) {
 
 function initNav() {
   nav.innerHTML = '';
+  nav.classList.remove('nav-static-fallback');
   navButtons.clear();
   navGroups.clear();
   let groupApplied = expandedGroups.size > 0;

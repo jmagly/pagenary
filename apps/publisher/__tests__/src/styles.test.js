@@ -64,6 +64,12 @@ describe('styles.css', () => {
     expect(css).toMatch(/html:not\(\.has-js\) \.nav-sublist,\s*html:not\(\.has-js\) \.nav-sublist-nested,\s*html:not\(\.has-js\) \.nav-sublist-deep,\s*html:not\(\.has-js\) \.nav-sublist-ultra\s*{[^}]*display: grid;/s);
   });
 
+  test('runtime replaces fallback-only nav with interactive nav', async () => {
+    const appJs = await fsp.readFile(path.join(PUBLISHER_ROOT, 'src', 'app.js'), 'utf8');
+
+    expect(appJs).toContain("nav.classList.remove('nav-static-fallback')");
+  });
+
   test('runtime collapses right-side page TOC on portrait widths', async () => {
     const pageEffects = await fsp.readFile(path.join(PUBLISHER_ROOT, 'src', 'lib', 'page-effects.js'), 'utf8');
 
