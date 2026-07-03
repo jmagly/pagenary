@@ -43,7 +43,7 @@ See TENANT-CONFIG.md for full configuration details and examples.
 - **Export Testing** – open the app locally and use the Export button to confirm the combined PDF-ready document looks correct.
 
 ## Tenant Content Bundles
-- Each tenant folder supports a `manifest.json` describing nav groupings, titles, and the content file backing each section. Use nested `sections` arrays to create expandable groups.
+- Each tenant folder supports a `manifest.json` describing nav groupings, titles, and the content file backing each section. Use nested `sections` arrays to create expandable groups. Put `file` on a grouped entry when that group should publish its own authored section heading page; omit `file` when it should stay a navigation-only container that routes to its first child.
 - Supported content types live in `tenants/<id>/content/`:
   - `.md` → converted to structured HTML (headings, lists, blockquotes supported by the lightweight parser).
   - `.html` → shipped as-is, wrapped in a loader module.

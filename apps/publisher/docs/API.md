@@ -67,6 +67,8 @@ export const MANIFEST = [
   {
     id: 'guides',
     title: 'Guides',
+    summary: 'Step-by-step tutorials',
+    module: './sections/guides.js',
     subsections: [
       { id: 'guides/setup', title: 'Setup', module: './sections/guides--setup.js' }
     ]
@@ -164,6 +166,8 @@ escapeRegExp('foo.bar'); // 'foo\\.bar'
 **`flattenManifest(manifest: SectionEntry[]): FlatSection[]`**
 
 Flatten nested manifest into searchable sections.
+Entries with both `module` and `subsections` are included as navigable authored
+group pages, then their children are included recursively.
 
 ```javascript
 const flat = flattenManifest(MANIFEST);
@@ -284,6 +288,7 @@ const html = composeExportDocument([
 **`collectExportableSections(manifest: SectionEntry[]): SectionEntry[]`**
 
 Get all sections that can be exported (have module paths).
+Authored group pages are exportable when the group entry has its own `module`.
 
 ```javascript
 const sections = collectExportableSections(MANIFEST);
@@ -434,6 +439,10 @@ interface Chapter {
   html: string;
 }
 ```
+
+A `SectionEntry` can carry both `module` and `subsections`: that represents an
+authored group/section heading page with child pages. Entries with `subsections`
+and no `module` are navigation containers that route to their first child.
 
 ---
 

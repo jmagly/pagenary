@@ -204,7 +204,8 @@ ${body || '<p>No sections available.</p>'}
 
 /**
  * Collect all exportable sections from a manifest.
- * Returns leaf sections (those with module paths) in navigation order.
+ * Returns module-bearing sections, including authored groups with their own
+ * pages, in navigation order.
  * @param {Array} manifest - Navigation manifest
  * @returns {Array} Flat array of exportable sections
  */

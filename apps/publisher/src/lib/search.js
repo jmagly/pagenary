@@ -82,12 +82,11 @@ export function flattenManifest(manifest, parentGroup = '') {
   for (const entry of manifest) {
     const groupLabel = parentGroup ? `${parentGroup} > ${entry.title}` : entry.title;
     const hasSubsections = Array.isArray(entry.subsections) && entry.subsections.length > 0;
-    // Include an entry as a searchable section when it has a module (a
-    // navigable leaf in production manifests) OR when it is a leaf with no
+    // Include an entry as a searchable section when it has a module (including
+    // authored groups with their own page) OR when it is a leaf with no
     // subsections (flat manifests carry navigable sections without a module
-    // field). Group entries — those with subsections — are containers, not
-    // navigable targets, so they are not included directly; their children
-    // are picked up by the recursion below.
+    // field). Container-only groups are skipped directly; their children are
+    // picked up by the recursion below.
     if (entry.module || !hasSubsections) {
       flat.push({
         ...entry,
