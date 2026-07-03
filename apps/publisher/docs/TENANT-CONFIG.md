@@ -668,7 +668,7 @@ Post body…
 The build writes to `dist/<route>/`:
 
 - **`index.json`** — `{ title, route, count, generated, posts: [...] }`, where each
-  post is `{ slug, title, date, summary, hero, tags, reading_time, reading_label,
+  post is `{ slug, title, date, summary, hero, heroAlt, tags, reading_time, reading_label,
   reading_length, word_count, checklist_progress, progress, canonical, path }`,
   sorted per `sortBy`/`order`. `canonical` is the absolute static-page URL (uses
   the same base URL as [SEO](#seo-seo)); `reading_time` is the rounded minute

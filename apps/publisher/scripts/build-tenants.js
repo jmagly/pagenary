@@ -3204,6 +3204,7 @@ async function readMarkdownMetadata(sourcePath) {
     // time, so it must not leak here as entry.hero (which expects a URL string).
     hero: typeof data.hero === 'string' ? data.hero
       : (typeof data.image === 'string' ? data.image : null),
+    heroAlt: data.heroAlt || data.imageAlt || null,
     tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [data.tags] : []),
     reading_time: readingLength.minutes,
     reading_label: readingLength.label,
@@ -3590,6 +3591,7 @@ function decorateCollectionEntry(entry, metadata, collection) {
   if (metadata.progress !== undefined && metadata.progress !== null) entry.progress = metadata.progress;
   if (metadata.author) entry.author = metadata.author;
   if (metadata.hero) entry.hero = metadata.hero;
+  if (metadata.heroAlt) entry.heroAlt = metadata.heroAlt;
   if (Array.isArray(metadata.tags) && metadata.tags.length) entry.tags = metadata.tags;
   return entry;
 }

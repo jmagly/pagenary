@@ -4,12 +4,16 @@ template: post
 date: 2026-06-28
 author: Pagenary Team
 summary: "A flagship month: Pagenary learned to publish blogs, mixed docs and blog layouts in one site, gained a full page-effects suite, shipped meaning-based search, drew an automatic page map, hardened git-source publishing, and promoted the CLI."
+hero: /assets/images/pagenary-2026-06-hero.png
+heroAlt: "A glowing Markdown document transforming into several fast, clean web pages fanning out to the right, with a search lens."
 tags: [report, publishing, release]
 ---
 
 # Pagenary — June 2026
 
 *Pagenary turns your Markdown docs into a fast, good-looking website. You write plain text; it builds a finished site made of plain files — no server or database to run, so it's cheap and quick to host. One setup can publish many separate, branded sites from a shared set of templates. Pagenary is also the tool that publishes these monthly updates, and it powers the docs sites across the portfolio.*
+
+*Hero image: AI-generated with ChatGPT from a brand-specified prompt; no text or logos are AI-rendered.*
 
 ## TL;DR
 

@@ -76,6 +76,7 @@ async function collectEntries(collection, contentBasePath, baseUrl) {
       summary: data.summary || data.description || '',
       author: data.author || null,
       hero: data.hero || data.image || null,
+      heroAlt: data.heroAlt || data.imageAlt || null,
       tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [data.tags] : []),
       reading_time: readingLength.minutes,
       reading_label: readingLength.label,

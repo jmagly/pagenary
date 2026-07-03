@@ -456,7 +456,7 @@ function renderEntryMetadata(entry) {
     fig.className = 'post-hero';
     const img = document.createElement('img');
     img.src = entry.hero;
-    img.alt = '';
+    img.alt = entry.heroAlt || '';
     img.loading = 'eager';
     fig.appendChild(img);
     heading.before(fig);

@@ -118,6 +118,7 @@ site.
 | `summary` / `description` | Index card excerpt and the page summary line. |
 | `tags` | Tag chips on the card and the page. |
 | `hero` / `image` | Banner image on the card and atop the post. A string is a simple image; an *object* is a rich [page-effects](#page-effects) hero. |
+| `heroAlt` / `imageAlt` | Alt text for the post banner image. Card thumbnails remain decorative because the title and summary are adjacent. |
 
 ## How it renders
 

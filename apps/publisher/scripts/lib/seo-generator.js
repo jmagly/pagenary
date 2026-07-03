@@ -161,6 +161,8 @@ export function collectAllSections(manifest, parentTitle = null) {
         summary: entry.summary || '',
         module: entry.module,
         parent: parentTitle,
+        hero: entry.hero || '',
+        heroAlt: entry.heroAlt || '',
         ogImage: entry.ogImage || ''
       });
     }
@@ -431,6 +433,7 @@ export function buildStaticPage(options) {
     sectionTitle,
     sectionSummary,
     sectionParent,
+    section,
     contentHtml,
     siteTitle,
     baseUrl,
@@ -455,6 +458,12 @@ export function buildStaticPage(options) {
   const safeTitle = escapeHtml(sectionTitle);
   const safeSiteTitle = escapeHtml(siteTitle);
   const safeSummary = escapeHtml(sectionSummary || '');
+  const sectionHero = section && typeof section.hero === 'string' ? section.hero : '';
+  const safeHero = sectionHero ? escapeHtml(sectionHero) : '';
+  const safeHeroAlt = section && section.heroAlt ? escapeHtml(section.heroAlt) : '';
+  const heroHtml = safeHero
+    ? `\n      <figure class="post-hero"><img src="${safeHero}" alt="${safeHeroAlt}" loading="eager" /></figure>`
+    : '';
 
   // Social share image (#16): summary_large_image when present, else summary.
   const safeImage = ogImage ? escapeHtml(ogImage) : '';
@@ -518,6 +527,7 @@ ${jsonLd}
 <body>
   <main class="static-content">
     <article>
+      ${heroHtml}
       <h1>${safeTitle}</h1>
       ${sectionSummary ? `<p class="lead">${safeSummary}</p>` : ''}
       <div class="section-body">
@@ -621,6 +631,7 @@ export async function generateStaticSnapshots(distDir, manifest, config) {
         sectionTitle: section.title,
         sectionSummary: section.summary,
         sectionParent: section.parent,
+        section,
         contentHtml,
         siteTitle: config.title || 'Documentation',
         baseUrl,
