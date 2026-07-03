@@ -100,6 +100,12 @@ describe('buildStaticPage (#17 + #16)', () => {
     expect(html).not.toContain('<noscript>');
   });
 
+  test('allows no-JS readers to scroll the static snapshot', () => {
+    const html = buildStaticPage(baseOpts);
+    expect(html).toMatch(/html,\s*body\s*{[\s\S]*height: auto;[\s\S]*overflow: auto;/);
+    expect(html).toMatch(/body\s*{[\s\S]*display: block;/);
+  });
+
   test('og:image + twitter:image emitted and card upgraded when image present (#16)', () => {
     const html = buildStaticPage({ ...baseOpts, ogImage: 'https://docs.pagenary.com/og.png' });
     expect(html).toContain('<meta property="og:image" content="https://docs.pagenary.com/og.png" />');

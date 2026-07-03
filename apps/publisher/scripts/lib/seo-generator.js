@@ -384,6 +384,17 @@ ${jsonLd}
 
   <link rel="stylesheet" href="../styles.css" />
   <style>
+    html,
+    body {
+      height: auto;
+      min-height: 100%;
+      overflow: auto;
+    }
+
+    body {
+      display: block;
+    }
+
     .static-content { max-width: 800px; margin: 0 auto; padding: 2rem; }
     .static-footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.9rem; color: #666; }
   </style>

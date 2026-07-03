@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.10] - 2026-07-03
+
+### Fixed
+
+- Allowed generated `/pages/*.html` static snapshots to scroll normally by
+  overriding the app-shell fixed-height and hidden-overflow styles in the
+  standalone HTML view.
+
 ## [2026.7.9] - 2026-07-03
 
 ### Fixed
