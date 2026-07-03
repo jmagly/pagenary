@@ -6,6 +6,22 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.12] - 2026-07-03
+
+### Added
+
+- Added authored section heading pages: manifest groups can now publish their
+  own navigable page when they declare `file` alongside child `sections`.
+- Added visible child-page link lists to authored Markdown and HTML section
+  heading pages.
+
+### Changed
+
+- Included module-bearing group pages in recursive prev/next navigation and
+  export/search documentation.
+- Documented section heading page authoring and SEO guardrails across the
+  tenant, SEO, API, and developer docs.
+
 ## [2026.7.11] - 2026-07-03
 
 ### Fixed
