@@ -1191,6 +1191,106 @@ function renderStaticNavFallback(manifest) {
   return manifest.map((entry) => renderStaticNavEntry(entry)).join('');
 }
 
+function replaceOrInsertHeadTag(html, pattern, tag) {
+  if (!tag) return html;
+  if (pattern.test(html)) return html.replace(pattern, tag);
+  return html.replace(/<\/head>/i, `  ${tag}\n</head>`);
+}
+
+function upsertRootSeoMetadata(html, entry, config = {}) {
+  if (!entry?.title) return html;
+
+  const baseUrl = resolveBaseUrl(config);
+  const rootUrl = baseUrl ? `${baseUrl}/` : '/';
+  const title = config.title ? `${entry.title} · ${config.title}` : entry.title;
+  const description = entry.summary || config.description || '';
+  const ogImage = resolveOgImage(config, baseUrl);
+  const twitterCard = ogImage ? 'summary_large_image' : 'summary';
+
+  let next = html;
+  next = replaceOrInsertHeadTag(
+    next,
+    /<meta\s+name=["']description["'][^>]*>/i,
+    `<meta name="description" content="${escapeAttr(description)}" />`
+  );
+  if (config?.seo?.noIndex) {
+    next = replaceOrInsertHeadTag(
+      next,
+      /<meta\s+name=["']robots["'][^>]*>/i,
+      '<meta name="robots" content="noindex, nofollow" />'
+    );
+  }
+  next = replaceOrInsertHeadTag(
+    next,
+    /<link\s+rel=["']canonical["'][^>]*>/i,
+    `<link rel="canonical" href="${escapeAttribute(rootUrl)}" />`
+  );
+  next = replaceOrInsertHeadTag(
+    next,
+    /<meta\s+property=["']og:title["'][^>]*>/i,
+    `<meta property="og:title" content="${escapeAttr(title)}" />`
+  );
+  next = replaceOrInsertHeadTag(
+    next,
+    /<meta\s+property=["']og:description["'][^>]*>/i,
+    `<meta property="og:description" content="${escapeAttr(description)}" />`
+  );
+  next = replaceOrInsertHeadTag(
+    next,
+    /<meta\s+property=["']og:type["'][^>]*>/i,
+    '<meta property="og:type" content="website" />'
+  );
+  next = replaceOrInsertHeadTag(
+    next,
+    /<meta\s+property=["']og:url["'][^>]*>/i,
+    `<meta property="og:url" content="${escapeAttribute(rootUrl)}" />`
+  );
+  if (config.title) {
+    next = replaceOrInsertHeadTag(
+      next,
+      /<meta\s+property=["']og:site_name["'][^>]*>/i,
+      `<meta property="og:site_name" content="${escapeAttr(config.title)}" />`
+    );
+  }
+  if (ogImage) {
+    next = replaceOrInsertHeadTag(
+      next,
+      /<meta\s+property=["']og:image["'][^>]*>/i,
+      `<meta property="og:image" content="${escapeAttribute(ogImage)}" />`
+    );
+  }
+  next = replaceOrInsertHeadTag(
+    next,
+    /<meta\s+name=["']twitter:card["'][^>]*>/i,
+    `<meta name="twitter:card" content="${twitterCard}" />`
+  );
+  next = replaceOrInsertHeadTag(
+    next,
+    /<meta\s+name=["']twitter:title["'][^>]*>/i,
+    `<meta name="twitter:title" content="${escapeAttr(title)}" />`
+  );
+  next = replaceOrInsertHeadTag(
+    next,
+    /<meta\s+name=["']twitter:description["'][^>]*>/i,
+    `<meta name="twitter:description" content="${escapeAttr(description)}" />`
+  );
+  if (ogImage) {
+    next = replaceOrInsertHeadTag(
+      next,
+      /<meta\s+name=["']twitter:image["'][^>]*>/i,
+      `<meta name="twitter:image" content="${escapeAttribute(ogImage)}" />`
+    );
+  }
+  return next;
+}
+
+function injectRootFallbackIntoApp(html, fallbackHtml) {
+  return html.replace(
+    /<main\b([^>]*\bid=["']app["'][^>]*)>\s*<\/main>/i,
+    `<main$1>${fallbackHtml}</main>`
+  );
+}
+
 /**
  * Embed the default section HTML in the SPA shell so the root URL has useful
  * content before JavaScript runs. The runtime replaces #app after loading, but
@@ -1232,10 +1332,7 @@ async function applyRootHtmlFallback(distDir, config = {}) {
       `<nav id="nav" class="nav nav-static-fallback" aria-label="Primary">${staticNav}</nav>`
     );
   }
-  const next = html.replace(
-    /<main id="app" class="canvas" tabindex="-1" aria-live="polite"><\/main>/,
-    `<main id="app" class="canvas" tabindex="-1" aria-live="polite">${fallbackHtml}</main>`
-  );
+  const next = injectRootFallbackIntoApp(upsertRootSeoMetadata(html, entry, config), fallbackHtml);
   if (next !== html) {
     await fsp.writeFile(indexPath, next, 'utf8');
     console.log(`  ↳ embedded root HTML fallback: ${entry.id}`);

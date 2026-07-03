@@ -360,6 +360,72 @@ describe('build-tenants.js', () => {
       expect(index).toMatch(/<script type="module" src="\.\/app\.[a-f0-9]+\.js"><\/script>/);
     });
 
+    test('embeds root fallback into tenant shell variants and emits root SEO metadata', async () => {
+      const manifest = {
+        default: 'welcome',
+        sections: [
+          {
+            id: 'welcome',
+            title: 'Welcome',
+            summary: 'Start here with the published docs.',
+            file: 'welcome.md'
+          }
+        ]
+      };
+      const content = {
+        'welcome.md': '# Welcome\n\nVariant shell fallback body.'
+      };
+      testTenantDir = await createTestTenant(
+        TEST_TENANT_ID,
+        {
+          title: 'Variant Docs',
+          description: 'Generic site description.',
+          domain: 'docs.example.com',
+          seo: { ogImage: '/social.png' }
+        },
+        manifest,
+        content
+      );
+      const overridesDir = path.join(testTenantDir, 'overrides');
+      await fsp.mkdir(overridesDir, { recursive: true });
+      await fsp.writeFile(path.join(overridesDir, 'index.html'), `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Override Shell</title>
+    <meta name="description" content="Override description." />
+    <script>var t = "__PAGENARY_TENANT__"; var configuredBase = "__PAGENARY_BASE_PATH__";</script>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <nav id="nav" class="nav" aria-label="Primary"></nav>
+    <main id="app" class="main-panel" tabindex="-1" aria-live="polite"></main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
+`);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const index = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
+      expect(index).toMatch(/<main id="app" class="main-panel" tabindex="-1" aria-live="polite"><section class="section doc markdown">/);
+      expect(index).toContain('Variant shell fallback body.');
+      expect(index).toContain('<title>Welcome · Variant Docs</title>');
+      expect(index).toContain('<meta name="description" content="Start here with the published docs." />');
+      expect(index).toContain('<link rel="canonical" href="https://docs.example.com/" />');
+      expect(index).toContain('<meta property="og:title" content="Welcome · Variant Docs" />');
+      expect(index).toContain('<meta property="og:description" content="Start here with the published docs." />');
+      expect(index).toContain('<meta property="og:type" content="website" />');
+      expect(index).toContain('<meta property="og:url" content="https://docs.example.com/" />');
+      expect(index).toContain('<meta property="og:image" content="https://docs.example.com/social.png" />');
+      expect(index).toContain('<meta name="twitter:card" content="summary_large_image" />');
+      expect(index).toContain('<meta name="twitter:title" content="Welcome · Variant Docs" />');
+      expect(index).toContain('<meta name="twitter:description" content="Start here with the published docs." />');
+      expect(index).toContain('<meta name="twitter:image" content="https://docs.example.com/social.png" />');
+    });
+
     test('can disable the root shell HTML fallback per tenant', async () => {
       const manifest = {
         default: 'fallback-page',
