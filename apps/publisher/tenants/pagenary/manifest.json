@@ -13,16 +13,16 @@
       "summary": "From an empty folder to a published, searchable docs site.",
       "sections": [
         {
-          "id": "overview",
-          "title": "Overview",
-          "summary": "From nothing to a published site using the npm package.",
-          "file": "GETTING-STARTED.md"
-        },
-        {
           "id": "quickstart",
           "title": "Quickstart",
-          "summary": "Install, build the default bundle, and serve it locally.",
+          "summary": "Use the default theme to scaffold, build, and preview a site with minimal setup.",
           "file": "QUICKSTART.md"
+        },
+        {
+          "id": "overview",
+          "title": "Detailed Walkthrough",
+          "summary": "Manual setup with content files, config, manifest, tenant registration, build, and preview.",
+          "file": "GETTING-STARTED.md"
         },
         {
           "id": "publishing",

@@ -1,152 +1,300 @@
-# Getting Started with Pagenary
+# Detailed Walkthrough
 
-This guide takes you from nothing to a published documentation site using the
-**`@pagenary/publisher` npm package**. No cloning, no build-from-source — you
-install the package and point it at your content.
-
-> **What Pagenary does:** it turns a folder of Markdown/HTML into a self-contained
-> static documentation site (a single-page app with hash routing, search, and
-> export). One install can publish many separately-branded sites ("tenants").
-
-You only need to clone this repository if you want to **modify Pagenary itself**
-(templates, the generator). To *use* it, follow the steps below.
-
----
+This walkthrough keeps the manual setup path: create content, add branding,
+write a manifest, register a tenant, build, and preview. If you only want the
+fastest default-theme start, use [Quickstart](quickstart.md) first.
 
 ## Prerequisites
 
-- **Node.js ≥ 16** (`node --version`). Node 20+ recommended.
-- A project directory to work in. A fresh folder is fine:
-  ```bash
-  mkdir my-site && cd my-site
-  npm init -y
-  ```
+- Node.js >= 16 (20+ recommended)
 
----
+## Step 1: Install Pagenary
 
-## Step 1 — Install the package
+Use the published package. No clone is required:
 
 ```bash
 npm install --save-dev @pagenary/publisher
-```
-
-Verify it's available:
-
-```bash
 npx pagenary --help
 ```
 
-You should see the commands: `build`, `serve`, `tenants list`, `check`, `new` (run `pagenary --help` for the full list).
-
----
-
-## Step 2 — Add your content
-
-Create a `docs/` folder with a `content/` subfolder and one or more Markdown files:
+Building Pagenary from source instead? Clone the repo and work from the
+workspace when you want to modify the generator:
 
 ```bash
-mkdir -p docs/content
-cat > docs/content/welcome.md <<'EOF'
-# Welcome
-
-This is my first Pagenary page. Add more `.md` files under `content/`.
-EOF
+git clone https://github.com/jmagly/pagenary.git
+cd pagenary
+npm run bootstrap
+npm run publisher:build
+npm run publisher:serve
 ```
 
-Add a `config.json` in `docs/` for branding:
+## What You Get
+
+Pagenary includes these features out of the box:
+
+- **Command palette** - Press `Ctrl+K` or `Cmd+K` for ranked full-text search,
+  navigation, and export.
+- **SEO-first output** - Metadata-driven titles, crawlable `/pages/` snapshots,
+  sitemap, robots, `llms.txt`, JSON-LD, and Open Graph metadata.
+- **Static hosting** - The same bundle serves at a domain root or under a
+  subpath on any static host, CDN, or the bundled Caddy setup.
+- **Mermaid diagrams** - Embed flowcharts, sequence diagrams, and more using
+  Mermaid syntax.
+- **Safe external links** - External links open in new tabs with security
+  headers.
+
+## Step 2: Create Your Tenant Directory
+
+Create a directory for your documentation:
 
 ```bash
-cat > docs/config.json <<'EOF'
+mkdir my-docs
+cd my-docs
+mkdir content
+```
+
+## Step 3: Add Branding Configuration
+
+Create `config.json`:
+
+```json
 {
-  "title": "My Docs",
-  "brandMark": "My",
-  "brandSub": "Docs",
-  "tagline": "Documentation, the easy way."
+  "title": "My Product Documentation",
+  "description": "Complete guide to using My Product",
+  "brandMark": "MY",
+  "brandSub": "PRODUCT",
+  "tagline": "Documentation that works",
+  "copyright": "My Company",
+  "accentColor": "#3B82F6",
+  "surfaceColor": "#F8FAFC"
 }
-EOF
 ```
 
-That's the minimum. (Navigation, themes, SEO, and more are optional — see
-[Tenant Configuration](TENANT-CONFIG.md).)
+For the fastest start, you can omit the color fields and keep the default theme.
 
----
+## Step 4: Create Your First Content
 
-## Step 3 — Register the tenant
+Create `content/welcome.md`:
 
-Create a `tenants.json` at your project root. A **tenant** is one published site;
-`source` points at the content folder you just made:
+```markdown
+# Welcome to My Product
+
+This is your documentation home page.
+
+## Getting Started
+
+Here's what you need to know to get started with My Product.
+
+### Installation
+
+\`\`\`bash
+npm install my-product
+\`\`\`
+
+### Quick Example
+
+\`\`\`javascript
+import { MyProduct } from 'my-product';
+
+const app = new MyProduct();
+app.start();
+\`\`\`
+
+## Features
+
+- **Fast** - Built for speed
+- **Simple** - Easy to use
+- **Powerful** - Full-featured
+
+## Architecture
+
+\`\`\`mermaid
+graph TD
+    A[User] --> B[Frontend]
+    B --> C[API]
+    C --> D[Database]
+\`\`\`
+```
+
+Create `content/installation.md`:
+
+```markdown
+# Installation Guide
+
+## Requirements
+
+- Node.js 18 or higher
+- npm or yarn
+
+## Install via npm
+
+\`\`\`bash
+npm install my-product
+\`\`\`
+
+## Install via yarn
+
+\`\`\`bash
+yarn add my-product
+\`\`\`
+
+## Verify Installation
+
+\`\`\`bash
+npx my-product --version
+\`\`\`
+```
+
+## Step 5: Create Navigation Manifest
+
+Create `manifest.json`:
+
+```json
+[
+  {
+    "id": "welcome",
+    "title": "Welcome",
+    "summary": "Introduction to My Product",
+    "file": "welcome.md"
+  },
+  {
+    "id": "installation",
+    "title": "Installation",
+    "summary": "How to install My Product",
+    "file": "installation.md"
+  }
+]
+```
+
+## Step 6: Register Your Tenant
+
+Create or edit `tenants.json` at your project root:
 
 ```json
 {
   "tenants": [
     {
       "id": "my-docs",
-      "source": { "type": "local", "path": "./docs" },
+      "source": { "type": "local", "path": "./my-docs" },
       "strictLinks": true
     }
   ]
 }
 ```
 
-- `id` — the tenant's name (lowercase, used in the output path and URL).
-- `source.path` — a path **relative to where you run the command** (your project).
-- `strictLinks: true` — **fail the build** if any internal link is broken (a good
-  CI gate). Set it to `false` to downgrade broken links to warnings.
+Building from source? Edit `apps/publisher/tenants.json` in the cloned repo
+instead.
 
----
-
-## Step 4 — Build
+## Step 7: Build and Preview
 
 ```bash
 npx pagenary build my-docs
-```
-
-This writes a complete static site to `dist/my-docs/`. On success you'll see
-`Tenant my-docs ready` and `Build complete. Built: 1`.
-
-If you set `strictLinks: true` and a link is broken, the build **fails with a
-non-zero exit code** — that's intentional, so CI can catch it. Fix the link, or
-set `strictLinks: false`.
-
----
-
-## Step 5 — Preview it locally
-
-```bash
 npx pagenary serve
 ```
 
-Open **http://localhost:5173/my-docs/** in a browser. You'll see your site with
-working navigation, search, and export.
+Open:
 
----
+```text
+http://localhost:5173/my-docs/
+```
 
-## Step 6 — Deploy
+You should see your documentation with your branding applied.
 
-The output in `dist/my-docs/` is **static files with zero runtime dependencies**.
-Host it anywhere that serves files — GitHub/Gitea Pages, Netlify, S3, nginx, a CDN.
-Just upload the contents of `dist/my-docs/`.
+From source, the equivalents are:
 
-For multi-tenant domain routing and hosting patterns, see [Deployment](DEPLOYMENT.md).
+```bash
+npm run build:tenants my-docs
+npm run serve
+```
 
----
+## Step 8: Set Up a Local Domain
 
-## Common first-time issues
+This step is optional. Use it when you want a more realistic local preview.
 
-| Symptom | Cause / fix |
-|---------|-------------|
-| `Cannot find module … build.js` on an old version | Upgrade: `npm install -D @pagenary/publisher@latest` (fixed in 2026.5.1). |
-| Build "fails" on broken links | `strictLinks: true` is doing its job — fix the link or set `strictLinks: false`. |
-| `No tenants to build` | Check `tenants.json` exists at your CWD and the tenant `id` matches the one you passed. |
-| Tenant builds but pages are empty | Ensure your content lives under `content/` (or matches your `manifest.json`). |
-| Want to script it | Every command is plain CLI; extra flags pass through (e.g. `npx pagenary build --incremental`). |
+Edit `/etc/hosts` on Linux or macOS, or
+`C:\Windows\System32\drivers\etc\hosts` on Windows:
 
----
+```text
+127.0.0.1 my-docs.local
+```
 
-## Where to go next
+Start the Caddy server:
 
-- [Tenant Configuration](TENANT-CONFIG.md) — every `config.json` / `tenants.json` option (branding, navigation, themes, SEO, overrides).
-- [Quick Start Guide](QUICKSTART.md) — a more detailed tenant walkthrough.
-- [Architecture](ARCHITECTURE.md) — how the static SPA + build pipeline work.
-- [Deployment](DEPLOYMENT.md) — hosting and multi-tenant domains.
-- [Extending](EXTENDING.md) — add section templates and content types (build-from-source territory).
+```bash
+npm run caddy:up
+```
+
+Visit:
+
+```text
+http://my-docs.local
+```
+
+## Next Steps
+
+### Add More Content
+
+Create additional `.md`, `.html`, or `.js` files in `content/`:
+
+```text
+content/
+├── welcome.md
+├── installation.md
+├── guides/
+│   ├── _manifest.json
+│   ├── getting-started.md
+│   └── advanced.md
+└── api/
+    ├── _manifest.json
+    └── reference.md
+```
+
+### Organize with Section Manifests
+
+Create `content/guides/_manifest.json`:
+
+```json
+{
+  "title": "Guides",
+  "sections": [
+    { "id": "getting-started", "title": "Getting Started", "file": "getting-started.md" },
+    { "id": "advanced", "title": "Advanced Usage", "file": "advanced.md" }
+  ]
+}
+```
+
+### Add Rich Content
+
+Tables:
+
+```html
+<table class="spec-table">
+  <thead>
+    <tr><th>Feature</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Search</td><td>Ready</td></tr>
+    <tr><td>Export</td><td>Ready</td></tr>
+  </tbody>
+</table>
+```
+
+Diagrams:
+
+```mermaid
+sequenceDiagram
+    User->>API: Request
+    API->>DB: Query
+    DB-->>API: Results
+    API-->>User: Response
+```
+
+### Customize Theme
+
+Adjust colors in `config.json` when you are ready to move beyond the default
+theme:
+
+| Color | Purpose | Example |
+|-------|---------|---------|
+| `accentColor` | Links, buttons, highlights | `#3B82F6` |
+| `surfaceColor` | Page background | `#F8FAFC` |
