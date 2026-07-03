@@ -60,7 +60,11 @@ describe('styles.css', () => {
 
     expect(css).toMatch(/\.has-js \.nav-static-fallback\s*{[^}]*display: none;/s);
     expect(css).toMatch(/html:not\(\.has-js\) \.mobile-menu-toggle\s*{[^}]*display: none;/s);
+    expect(css).toMatch(/html:not\(\.has-js\),\s*html:not\(\.has-js\) body\s*{[^}]*height: auto;[^}]*overflow: auto;/s);
+    expect(css).toMatch(/html:not\(\.has-js\) body\s*{[^}]*display: block;/s);
+    expect(css).toMatch(/html:not\(\.has-js\) \.layout\s*{[^}]*height: auto;[^}]*overflow: visible;/s);
     expect(css).toMatch(/html:not\(\.has-js\) \.sidebar\s*{[^}]*display: block;[^}]*position: relative;[^}]*left: auto;[^}]*top: auto;[^}]*height: auto;[^}]*transform: none;/s);
+    expect(css).toMatch(/html:not\(\.has-js\) \.canvas\s*{[^}]*height: auto;[^}]*overflow: visible;/s);
     expect(css).toMatch(/html:not\(\.has-js\) \.nav-sublist,\s*html:not\(\.has-js\) \.nav-sublist-nested,\s*html:not\(\.has-js\) \.nav-sublist-deep,\s*html:not\(\.has-js\) \.nav-sublist-ultra\s*{[^}]*display: grid;/s);
   });
 

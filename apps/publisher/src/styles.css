@@ -618,7 +618,20 @@ html:not(.has-js) .mobile-menu-toggle {
   display: none;
 }
 
+html:not(.has-js),
+html:not(.has-js) body {
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
+}
+
+html:not(.has-js) body {
+  display: block;
+}
+
 html:not(.has-js) .layout {
+  height: auto;
+  min-height: 0;
   overflow: visible;
 }
 
@@ -635,6 +648,12 @@ html:not(.has-js) .sidebar {
 html:not(.has-js) .sidebar-inner {
   height: auto;
   max-height: none;
+  overflow: visible;
+}
+
+html:not(.has-js) .canvas {
+  height: auto;
+  overflow: visible;
 }
 
 html:not(.has-js) .nav-sublist,

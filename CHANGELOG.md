@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.11] - 2026-07-03
+
+### Fixed
+
+- Let the root no-JS HTML fallback scroll as a normal document by removing
+  app-shell fixed-height and hidden-overflow behavior only when JavaScript is
+  unavailable.
+
 ## [2026.7.10] - 2026-07-03
 
 ### Fixed
