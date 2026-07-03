@@ -473,12 +473,20 @@ The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,
   "seo": {
     "enabled": true,
     "siteUrl": "https://docs.acme.com",
+    "discoverabilityProfile": "standard",
     "ogImage": "/assets/og-card.png",
     "generateSitemap": true,
     "generateStaticPages": true,
     "rootHtmlFallback": true,
     "generateRobotsTxt": true,
+    "generateLlmsTxt": true,
+    "generateCorpusArtifacts": false,
     "noIndex": false,
+    "aiCrawlers": {
+      "search": true,
+      "aiInput": false,
+      "aiTrain": false
+    },
     "robots": {
       "allow": ["/", "/pages/"],
       "disallow": ["/sections/", "/lib/"],
@@ -497,12 +505,18 @@ The optional `seo` block controls the build-time SEO artifacts (sitemap, robots,
 |----------|------|---------|-------------|
 | `enabled` | boolean | `true` | Set `false` to skip all SEO artifact generation |
 | `siteUrl` | string | falls back to `domain` | Absolute base URL for sitemap `<loc>`, canonical, `og:url`, and `robots` `Sitemap:`. **If omitted, the tenant's top-level `domain` is used** (https-prefixed). If neither is set, URLs are emitted relative and the build prints a warning. |
+| `discoverabilityProfile` | `"standard"`, `"open"`, `"limited"`, or `"locked"` | `"standard"` | High-level preset for sitemap, robots, `llms.txt`, static snapshots, root fallback, and machine-readable corpus artifacts |
 | `ogImage` | string | - | Social share image for `og:image` / `twitter:image`. Absolute URL or site-relative path (joined to the base URL). When set, `twitter:card` is upgraded to `summary_large_image`. Per-section override: set `ogImage` on a manifest entry. |
 | `generateSitemap` | boolean | `true` | Emit `sitemap.xml` |
 | `generateStaticPages` | boolean | `true` | Emit per-section static HTML snapshots under `/pages/` (crawler-friendly; the SPA uses hash routing) |
 | `rootHtmlFallback` | boolean | `true` | Embed the default page's rendered HTML inside the root SPA shell (`index.html`) so the root URL is readable without JavaScript. Set `false` for a JS-only shell. |
 | `generateRobotsTxt` | boolean | `true` | Emit `robots.txt` |
+| `generateLlmsTxt` | boolean | profile-aware | Emit `llms.txt` |
+| `generateCorpusArtifacts` | boolean | profile-aware | Emit `content-index.json`, `documents.jsonl`, per-page JSON/text extracts, and size-guarded `llms-full.txt` |
 | `noIndex` | boolean | `false` | Emit `noindex, nofollow` static-page metadata and a restrictive `robots.txt` (`Disallow: /`) without a sitemap pointer |
+| `aiCrawlers.search` | boolean | profile-aware | Advisory content signal for search crawler use |
+| `aiCrawlers.aiInput` | boolean | profile-aware | Advisory content signal for AI answer/input grounding use |
+| `aiCrawlers.aiTrain` | boolean | profile-aware | Advisory content signal for AI training use |
 | `robots.userAgent` | string | `"*"` | User-agent line for generated `robots.txt` |
 | `robots.allow` | string[] | `["/", "/pages/"]` | `Allow:` directives for generated `robots.txt` |
 | `robots.disallow` | string[] | `["/sections/", "/lib/"]` | `Disallow:` directives for generated `robots.txt` |
@@ -529,11 +543,29 @@ crawlers, and extractors that do not run JavaScript still receive the default
 page content at the site root. Disable it only when you intentionally want an
 empty JS-only SPA shell.
 
+**Discoverability profiles:** `standard` preserves the public-doc defaults.
+`open` additionally emits machine-readable corpus artifacts and permissive
+content signals. `limited` suppresses sitemap, `llms.txt`, and corpus artifacts
+while adding noindex metadata. `locked` additionally disables static snapshots
+and root fallback by default and emits `Disallow: /`. Low-level generation fields
+override profile artifact defaults, but these profiles remain static-site
+crawler preferences rather than access control.
+
+**Open corpus artifacts:** the `open` profile emits `content-index.json`,
+`documents.jsonl`, `/pages/<id>.json`, `/pages/<id>.txt`, and a size-guarded
+`llms-full.txt`. Records include page id, title, summary, parent, canonical URL,
+static HTML URL, extract URLs, body text, and build timestamp. URLs are absolute
+when `domain` or `seo.siteUrl` is configured.
+
 **Search visibility:** use `seo.noIndex: true` for static bundles that should not
 invite indexing. Use `seo.robots` to customize advisory crawler directives while
 preserving the generated output flow. Robots directives and noindex metadata are
 not authorization; private docs still need hosting-layer access control. See
 [Tenant Security and Privacy Controls](TENANT-CONTROLS.md).
+
+**AI crawler signals:** `seo.aiCrawlers` emits an advisory `Content-Signal:` line
+in `robots.txt`. These preferences are not universal and do not guarantee AI
+training or generated-answer exclusion.
 
 #### Export (`export`)
 

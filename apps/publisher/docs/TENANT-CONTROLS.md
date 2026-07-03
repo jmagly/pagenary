@@ -17,16 +17,14 @@ Use this guide to choose the right control for the risk.
 
 ## Recommended Profiles
 
-### Public Docs
+### Standard Public Docs
 
-Use the defaults:
+Use the default profile:
 
 ```json
 {
   "seo": {
-    "generateSitemap": true,
-    "generateRobotsTxt": true,
-    "generateStaticPages": true
+    "discoverabilityProfile": "standard"
   }
 }
 ```
@@ -35,22 +33,55 @@ This emits crawlable static snapshots, sitemap entries, canonical URLs, and a
 robots file that advertises public page paths while hiding internal generated
 paths such as `/sections/` and `/lib/`.
 
-### Internal But Static Docs
+### Open Docs And Automation-Friendly Extraction
+
+Use `open` when the site should be easy for search, LLM tooling, and automation
+to ingest without browser execution:
+
+```json
+{
+  "seo": {
+    "discoverabilityProfile": "open"
+  }
+}
+```
+
+This emits the standard public artifacts plus `content-index.json`,
+`documents.jsonl`, per-page JSON/text extracts, extract links in `llms.txt`, and
+permissive advisory `Content-Signal` values in `robots.txt`.
+
+### Limited Public Docs
 
 For docs that are public at the hosting layer but should avoid casual indexing:
 
 ```json
 {
   "seo": {
-    "noIndex": true,
-    "generateSitemap": false
+    "discoverabilityProfile": "limited"
   }
 }
 ```
 
-This emits `noindex, nofollow` metadata on static snapshots and a restrictive
-`robots.txt` with `Disallow: /`. This is only an advisory signal. Anyone with the
-URL can still fetch the content.
+This emits `noindex, nofollow` metadata on static snapshots, suppresses sitemap,
+`llms.txt`, and corpus artifacts, and writes restrictive `robots.txt` output.
+This is only an advisory signal. Anyone with the URL can still fetch the content.
+
+### Advisory Locked Static Bundle
+
+Use `locked` only as a static-site crawler preference profile:
+
+```json
+{
+  "seo": {
+    "discoverabilityProfile": "locked"
+  }
+}
+```
+
+This disables sitemap, `/pages/*.html` snapshots, `llms.txt`, corpus artifacts,
+and root HTML fallback by default, while writing `Disallow: /` and noindex
+signals where generated. It is not a privacy boundary; use hosting-layer access
+control for private docs.
 
 ### Private Or Auth-Gated Docs
 
@@ -87,6 +118,23 @@ Use `seo.robots` when you need explicit directives:
 Robots directives are crawler hints. They do not hide files, remove content from
 already indexed search results, or prevent direct access.
 
+`seo.aiCrawlers` can add advisory content-signal preferences to `robots.txt`:
+
+```json
+{
+  "seo": {
+    "aiCrawlers": {
+      "search": true,
+      "aiInput": false,
+      "aiTrain": false
+    }
+  }
+}
+```
+
+These signals are non-universal preferences for cooperating crawlers. They do not
+guarantee AI training exclusion or generated-answer exclusion.
+
 ## Export and Watermarking
 
 Use `export.enabled` and `export.scopes` to control Pagenary's own Export button.
@@ -111,3 +159,5 @@ choose to embed.
 `llms.txt` is a discovery aid, not an access-control mechanism. Do not publish
 references there for content you do not want broadly discoverable. For private
 docs, enforce access at the host and avoid generating public discovery artifacts.
+The `limited` and `locked` profiles suppress `llms.txt` and machine-readable
+corpus artifacts by default.

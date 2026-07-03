@@ -6,7 +6,7 @@ import path from 'path';
 import { spawn, execSync } from 'child_process';
 import { createHash } from 'crypto';
 import os from 'os';
-import { extractHtmlFromModule, generateSeoArtifacts, resolveBaseUrl, resolveOgImage } from './lib/seo-generator.js';
+import { extractHtmlFromModule, generateSeoArtifacts, resolveBaseUrl, resolveDiscoverabilityProfile, resolveOgImage } from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
 import { estimateReadingLength, parseFrontmatter } from './lib/frontmatter.js';
 import {
@@ -5576,13 +5576,14 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   // Set the shell <title> from the default page's metadata title (SEO, #28),
   // falling back to the generic brand only when no default title exists.
   await applyDefaultPageTitle(distDir, config);
-  await applyRootHtmlFallback(distDir, config);
+  const resolvedSeoConfig = resolveDiscoverabilityProfile(config);
+  await applyRootHtmlFallback(distDir, resolvedSeoConfig);
 
   // Copy static assets from .public/ directory
   await copyPublicAssets(sourceDir, distDir, tenantId);
 
   // Generate SEO artifacts (sitemap.xml, robots.txt, static pages)
-  await generateSeoArtifacts(distDir, config);
+  await generateSeoArtifacts(distDir, resolvedSeoConfig);
 
   // Generate collection manifests/feeds (#18) — opt-in via config.collections
   if (Array.isArray(config.collections) && config.collections.length > 0) {

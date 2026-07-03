@@ -83,7 +83,10 @@ function validateSeoConfig(seo, path, findings) {
     findings.push(finding('`seo` must be an object.', path));
     return;
   }
-  for (const key of ['enabled', 'generateSitemap', 'generateStaticPages', 'generateRobotsTxt', 'noIndex']) {
+  if (seo.discoverabilityProfile !== undefined && !['standard', 'open', 'limited', 'locked'].includes(seo.discoverabilityProfile)) {
+    findings.push(finding('`seo.discoverabilityProfile` must be one of `standard`, `open`, `limited`, or `locked`.', [...path, 'discoverabilityProfile']));
+  }
+  for (const key of ['enabled', 'generateSitemap', 'generateStaticPages', 'generateRobotsTxt', 'generateLlmsTxt', 'generateCorpusArtifacts', 'noIndex']) {
     if (seo[key] !== undefined && typeof seo[key] !== 'boolean') {
       findings.push(finding(`\`seo.${key}\` must be a boolean.`, [...path, key]));
     }
@@ -100,6 +103,17 @@ function validateSeoConfig(seo, path, findings) {
       for (const key of ['sitemap', 'blockAll']) {
         if (seo.robots[key] !== undefined && typeof seo.robots[key] !== 'boolean') {
           findings.push(finding(`\`seo.robots.${key}\` must be a boolean.`, [...path, 'robots', key]));
+        }
+      }
+    }
+  }
+  if (seo.aiCrawlers) {
+    if (typeof seo.aiCrawlers !== 'object' || Array.isArray(seo.aiCrawlers)) {
+      findings.push(finding('`seo.aiCrawlers` must be an object.', [...path, 'aiCrawlers']));
+    } else {
+      for (const key of ['search', 'aiInput', 'aiTrain']) {
+        if (seo.aiCrawlers[key] !== undefined && typeof seo.aiCrawlers[key] !== 'boolean') {
+          findings.push(finding(`\`seo.aiCrawlers.${key}\` must be a boolean.`, [...path, 'aiCrawlers', key]));
         }
       }
     }

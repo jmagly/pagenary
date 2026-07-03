@@ -6,6 +6,99 @@
 import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 
+const DISCOVERABILITY_PROFILES = new Set(['standard', 'open', 'limited', 'locked']);
+
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
+/**
+ * Resolve high-level discoverability profiles into concrete SEO switches.
+ * Explicit low-level generation fields override profile artifact defaults,
+ * while restrictive profiles keep noindex/robots blocking as their safety floor.
+ *
+ * @param {object} config - Tenant configuration
+ * @returns {object} Tenant config copy with resolved `seo`
+ */
+export function resolveDiscoverabilityProfile(config = {}) {
+  const seoConfig = config.seo || {};
+  const profile = DISCOVERABILITY_PROFILES.has(seoConfig.discoverabilityProfile)
+    ? seoConfig.discoverabilityProfile
+    : 'standard';
+  const defaultsByProfile = {
+    standard: {
+      generateSitemap: true,
+      generateStaticPages: true,
+      rootHtmlFallback: true,
+      generateRobotsTxt: true,
+      generateLlmsTxt: true,
+      generateCorpusArtifacts: false,
+      noIndex: false,
+      robots: {}
+    },
+    open: {
+      generateSitemap: true,
+      generateStaticPages: true,
+      rootHtmlFallback: true,
+      generateRobotsTxt: true,
+      generateLlmsTxt: true,
+      generateCorpusArtifacts: true,
+      noIndex: false,
+      robots: {},
+      aiCrawlers: { search: true, aiInput: true, aiTrain: true }
+    },
+    limited: {
+      generateSitemap: false,
+      generateStaticPages: true,
+      rootHtmlFallback: true,
+      generateRobotsTxt: true,
+      generateLlmsTxt: false,
+      generateCorpusArtifacts: false,
+      noIndex: true,
+      robots: { sitemap: false }
+    },
+    locked: {
+      generateSitemap: false,
+      generateStaticPages: false,
+      rootHtmlFallback: false,
+      generateRobotsTxt: true,
+      generateLlmsTxt: false,
+      generateCorpusArtifacts: false,
+      noIndex: true,
+      robots: { blockAll: true, sitemap: false }
+    }
+  };
+  const defaults = defaultsByProfile[profile];
+  const resolvedSeo = {
+    ...defaults,
+    ...seoConfig,
+    discoverabilityProfile: profile,
+    robots: {
+      ...(defaults.robots || {}),
+      ...(seoConfig.robots || {})
+    }
+  };
+
+  if (defaults.aiCrawlers || seoConfig.aiCrawlers) {
+    resolvedSeo.aiCrawlers = {
+      ...(defaults.aiCrawlers || {}),
+      ...(seoConfig.aiCrawlers || {})
+    };
+  }
+
+  if ((profile === 'limited' || profile === 'locked') && !hasOwn(seoConfig, 'noIndex')) {
+    resolvedSeo.noIndex = true;
+  }
+  if (profile === 'locked' && !hasOwn(seoConfig.robots, 'blockAll')) {
+    resolvedSeo.robots.blockAll = true;
+  }
+  if ((profile === 'limited' || profile === 'locked') && !hasOwn(seoConfig.robots, 'sitemap')) {
+    resolvedSeo.robots.sitemap = false;
+  }
+
+  return { ...config, seo: resolvedSeo };
+}
+
 /**
  * Resolve the absolute base URL for a tenant's SEO output.
  *
@@ -120,6 +213,7 @@ function escapeXml(str) {
  * @param {object} config - Tenant configuration
  */
 export async function generateSitemap(distDir, manifest, config) {
+  config = resolveDiscoverabilityProfile(config);
   const seoConfig = config.seo || {};
   if (seoConfig.generateSitemap === false) return;
 
@@ -160,6 +254,7 @@ export async function generateSitemap(distDir, manifest, config) {
  * @param {object} config - Tenant configuration
  */
 export async function generateRobotsTxt(distDir, config) {
+  config = resolveDiscoverabilityProfile(config);
   const seoConfig = config.seo || {};
   if (seoConfig.generateRobotsTxt === false) return;
 
@@ -171,6 +266,7 @@ export async function generateRobotsTxt(distDir, config) {
   const allowRules = Array.isArray(robotsConfig.allow) ? robotsConfig.allow : ['/', '/pages/'];
   const disallowRules = Array.isArray(robotsConfig.disallow) ? robotsConfig.disallow : ['/sections/', '/lib/'];
   const includeSitemap = robotsConfig.sitemap !== false && seoConfig.generateSitemap !== false;
+  const contentSignals = buildContentSignalDirectives(seoConfig.aiCrawlers);
 
   let directives;
   if (seoConfig.noIndex || robotsConfig.blockAll) {
@@ -190,11 +286,28 @@ export async function generateRobotsTxt(distDir, config) {
 # Generated: ${buildDate}
 
 ${directives.join('\n')}
+${contentSignals ? `\n${contentSignals}` : ''}
 ${includeSitemap && !seoConfig.noIndex && !robotsConfig.blockAll ? `\nSitemap: ${sitemapUrl}` : ''}
 `;
 
   await fsp.writeFile(path.join(distDir, 'robots.txt'), content, 'utf8');
   console.log(`  ↳ generated robots.txt`);
+}
+
+function buildContentSignalDirectives(aiCrawlers) {
+  if (!aiCrawlers || typeof aiCrawlers !== 'object') return '';
+  const signals = [
+    ['search', 'search'],
+    ['aiInput', 'ai-input'],
+    ['aiTrain', 'ai-train']
+  ]
+    .filter(([key]) => typeof aiCrawlers[key] === 'boolean')
+    .map(([key, label]) => `${label}=${aiCrawlers[key] ? 'yes' : 'no'}`);
+  if (!signals.length) return '';
+  return [
+    '# Content signals are advisory crawler preferences, not access control.',
+    `Content-Signal: ${signals.join(', ')}`
+  ].join('\n');
 }
 
 /**
@@ -204,6 +317,7 @@ ${includeSitemap && !seoConfig.noIndex && !robotsConfig.blockAll ? `\nSitemap: $
  * @returns {string} JSON-LD script content
  */
 export function buildPageJsonLd(section, config) {
+  config = resolveDiscoverabilityProfile(config);
   const seoConfig = config.seo || {};
   const baseUrl = resolveBaseUrl(config);
   // Canonical points at the crawlable static snapshot, not the SPA hash route
@@ -282,6 +396,7 @@ export function buildPageJsonLd(section, config) {
  * @returns {string} JSON-LD content
  */
 export function buildHomePageJsonLd(config) {
+  config = resolveDiscoverabilityProfile(config);
   const seoConfig = config.seo || {};
   const baseUrl = resolveBaseUrl(config);
 
@@ -322,6 +437,7 @@ export function buildStaticPage(options) {
     ogImage = '',
     config
   } = options;
+  const resolvedConfig = resolveDiscoverabilityProfile(config || {});
 
   // Canonical = the crawlable static snapshot (#17). The SPA hash route is for
   // JavaScript-enabled browsers and the "interactive version" link. Do not add
@@ -333,7 +449,7 @@ export function buildStaticPage(options) {
     title: sectionTitle,
     summary: sectionSummary,
     parent: sectionParent
-  }, config);
+  }, resolvedConfig);
 
   // Escape content for HTML
   const safeTitle = escapeHtml(sectionTitle);
@@ -346,7 +462,7 @@ export function buildStaticPage(options) {
   const imageTags = safeImage
     ? `\n  <meta property="og:image" content="${safeImage}" />\n  <meta name="twitter:image" content="${safeImage}" />`
     : '';
-  const robotsMeta = config?.seo?.noIndex
+  const robotsMeta = resolvedConfig?.seo?.noIndex
     ? '\n  <meta name="robots" content="noindex, nofollow" />'
     : '';
 
@@ -469,6 +585,7 @@ export function extractHtmlFromModule(moduleContent) {
  * @param {object} config - Tenant configuration
  */
 export async function generateStaticSnapshots(distDir, manifest, config) {
+  config = resolveDiscoverabilityProfile(config);
   const seoConfig = config.seo || {};
   if (seoConfig.generateStaticPages === false) return;
 
@@ -554,7 +671,9 @@ export async function readManifestFromDist(distDir) {
  * @param {object} config - Tenant configuration
  */
 export async function generateLlmsTxt(distDir, manifest, config) {
+  config = resolveDiscoverabilityProfile(config);
   const seoConfig = config.seo || {};
+  if (seoConfig.generateLlmsTxt === false) return;
   const baseUrl = resolveBaseUrl(config);
   const title = config.title || 'Documentation';
   const description = config.description || '';
@@ -579,7 +698,7 @@ export async function generateLlmsTxt(distDir, manifest, config) {
       if (entry.module) {
         const filename = encodePathForFilename(entry.id);
         const url = baseUrl ? `${baseUrl}/pages/${filename}.html` : `/pages/${filename}.html`;
-        lines.push(`- [${entry.title}](${url}): ${entry.summary || ''}`);
+        lines.push(`- [${entry.title}](${url}): ${entry.summary || ''}${buildLlmsExtractSuffix(baseUrl, filename, seoConfig)}`);
       }
 
       // Add subsection pages
@@ -588,7 +707,7 @@ export async function generateLlmsTxt(distDir, manifest, config) {
         if (sub.module) {
           const filename = encodePathForFilename(sub.id);
           const url = baseUrl ? `${baseUrl}/pages/${filename}.html` : `/pages/${filename}.html`;
-          lines.push(`- [${sub.title}](${url}): ${sub.summary || ''}`);
+          lines.push(`- [${sub.title}](${url}): ${sub.summary || ''}${buildLlmsExtractSuffix(baseUrl, filename, seoConfig)}`);
         }
         // Recurse one more level for deeply nested sections
         if (sub.subsections) {
@@ -596,7 +715,7 @@ export async function generateLlmsTxt(distDir, manifest, config) {
             if (!nested.module) continue;
             const filename = encodePathForFilename(nested.id);
             const url = baseUrl ? `${baseUrl}/pages/${filename}.html` : `/pages/${filename}.html`;
-            lines.push(`- [${nested.title}](${url}): ${nested.summary || ''}`);
+            lines.push(`- [${nested.title}](${url}): ${nested.summary || ''}${buildLlmsExtractSuffix(baseUrl, filename, seoConfig)}`);
           }
         }
       }
@@ -605,7 +724,7 @@ export async function generateLlmsTxt(distDir, manifest, config) {
       const filename = encodePathForFilename(entry.id);
       const url = baseUrl ? `${baseUrl}/pages/${filename}.html` : `/pages/${filename}.html`;
       lines.push('');
-      lines.push(`- [${entry.title}](${url}): ${entry.summary || ''}`);
+      lines.push(`- [${entry.title}](${url}): ${entry.summary || ''}${buildLlmsExtractSuffix(baseUrl, filename, seoConfig)}`);
     }
   }
 
@@ -614,12 +733,113 @@ export async function generateLlmsTxt(distDir, manifest, config) {
   console.log(`  ↳ generated llms.txt`);
 }
 
+function buildLlmsExtractSuffix(baseUrl, filename, seoConfig) {
+  if (seoConfig.generateCorpusArtifacts !== true || seoConfig.noIndex) return '';
+  const url = baseUrl ? `${baseUrl}/pages/${filename}.txt` : `/pages/${filename}.txt`;
+  return `; extract: ${url}`;
+}
+
+function htmlToText(html) {
+  return String(html || '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function resolveArtifactUrl(baseUrl, pathname) {
+  return baseUrl ? `${baseUrl}${pathname}` : pathname;
+}
+
+export async function generateCorpusArtifacts(distDir, manifest, config) {
+  config = resolveDiscoverabilityProfile(config);
+  const seoConfig = config.seo || {};
+  if (seoConfig.generateCorpusArtifacts !== true || seoConfig.noIndex) return;
+
+  const pagesDir = path.join(distDir, 'pages');
+  await fsp.mkdir(pagesDir, { recursive: true });
+
+  const baseUrl = resolveBaseUrl(config);
+  const buildTimestamp = new Date().toISOString();
+  const siteTitle = config.title || 'Documentation';
+  const sections = collectAllSections(manifest);
+  const documents = [];
+  const pages = [];
+  const seen = new Set();
+
+  for (const section of sections) {
+    if (seen.has(section.id)) continue;
+    seen.add(section.id);
+
+    try {
+      const moduleContent = await fsp.readFile(path.join(distDir, section.module), 'utf8');
+      const contentHtml = extractHtmlFromModule(moduleContent) || '';
+      const bodyText = htmlToText(contentHtml);
+      const filename = encodePathForFilename(section.id);
+      const staticPath = `/pages/${filename}.html`;
+      const jsonPath = `/pages/${filename}.json`;
+      const textPath = `/pages/${filename}.txt`;
+      const record = {
+        id: section.id,
+        title: section.title,
+        summary: section.summary || '',
+        parent: section.parent || null,
+        siteTitle,
+        canonicalUrl: resolveArtifactUrl(baseUrl, staticPath),
+        staticHtmlUrl: resolveArtifactUrl(baseUrl, staticPath),
+        extractUrls: {
+          json: resolveArtifactUrl(baseUrl, jsonPath),
+          text: resolveArtifactUrl(baseUrl, textPath)
+        },
+        bodyText,
+        buildTimestamp
+      };
+
+      await fsp.writeFile(path.join(pagesDir, `${filename}.json`), `${JSON.stringify(record, null, 2)}\n`, 'utf8');
+      await fsp.writeFile(path.join(pagesDir, `${filename}.txt`), `${bodyText}\n`, 'utf8');
+      documents.push(record);
+      pages.push({
+        id: record.id,
+        title: record.title,
+        summary: record.summary,
+        parent: record.parent,
+        canonicalUrl: record.canonicalUrl,
+        staticHtmlUrl: record.staticHtmlUrl,
+        extractUrls: record.extractUrls,
+        buildTimestamp
+      });
+    } catch (err) {
+      console.warn(`  ⚠ Failed to generate corpus artifact for ${section.id}: ${err.message}`);
+    }
+  }
+
+  await fsp.writeFile(path.join(distDir, 'content-index.json'), `${JSON.stringify({ siteTitle, buildTimestamp, pages }, null, 2)}\n`, 'utf8');
+  await fsp.writeFile(path.join(distDir, 'documents.jsonl'), `${documents.map((doc) => JSON.stringify(doc)).join('\n')}\n`, 'utf8');
+
+  const fullText = documents
+    .map((doc) => `# ${doc.title}\n\n${doc.summary ? `${doc.summary}\n\n` : ''}${doc.bodyText}`)
+    .join('\n\n---\n\n');
+  if (fullText.length <= (seoConfig.llmsFullMaxBytes || 1_000_000)) {
+    await fsp.writeFile(path.join(distDir, 'llms-full.txt'), `${fullText}\n`, 'utf8');
+  }
+
+  console.log(`  ↳ generated corpus artifacts (${documents.length} pages)`);
+}
+
 /**
  * Generate all SEO artifacts for a tenant
  * @param {string} distDir - Tenant dist directory
  * @param {object} config - Tenant configuration
  */
 export async function generateSeoArtifacts(distDir, config) {
+  config = resolveDiscoverabilityProfile(config);
   const seoConfig = config.seo || {};
 
   // Skip if SEO is explicitly disabled
@@ -645,4 +865,5 @@ export async function generateSeoArtifacts(distDir, config) {
   await generateRobotsTxt(distDir, config);
   await generateLlmsTxt(distDir, manifest, config);
   await generateStaticSnapshots(distDir, manifest, config);
+  await generateCorpusArtifacts(distDir, manifest, config);
 }

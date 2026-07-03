@@ -13,8 +13,12 @@ import {
   resolveOgImage,
   buildPageJsonLd,
   buildStaticPage,
+  generateCorpusArtifacts,
+  generateLlmsTxt,
+  generateSeoArtifacts,
   generateSitemap,
-  generateRobotsTxt
+  generateRobotsTxt,
+  resolveDiscoverabilityProfile
 } from '../../scripts/lib/seo-generator.js';
 
 describe('resolveBaseUrl (#15)', () => {
@@ -56,6 +60,55 @@ describe('resolveOgImage (#16)', () => {
 
   test('returns empty string when no image configured', () => {
     expect(resolveOgImage({}, base)).toBe('');
+  });
+});
+
+describe('resolveDiscoverabilityProfile (#113, #115)', () => {
+  test('keeps standard public-doc defaults', () => {
+    const resolved = resolveDiscoverabilityProfile({ seo: { discoverabilityProfile: 'standard' } });
+    expect(resolved.seo.generateSitemap).toBe(true);
+    expect(resolved.seo.generateStaticPages).toBe(true);
+    expect(resolved.seo.generateLlmsTxt).toBe(true);
+    expect(resolved.seo.generateCorpusArtifacts).toBe(false);
+    expect(resolved.seo.noIndex).toBe(false);
+  });
+
+  test('open profile enables machine-readable corpus artifacts', () => {
+    const resolved = resolveDiscoverabilityProfile({ seo: { discoverabilityProfile: 'open' } });
+    expect(resolved.seo.generateCorpusArtifacts).toBe(true);
+    expect(resolved.seo.generateLlmsTxt).toBe(true);
+    expect(resolved.seo.aiCrawlers).toEqual({ search: true, aiInput: true, aiTrain: true });
+  });
+
+  test('limited profile suppresses advertising artifacts and forces noindex', () => {
+    const resolved = resolveDiscoverabilityProfile({ seo: { discoverabilityProfile: 'limited' } });
+    expect(resolved.seo.generateSitemap).toBe(false);
+    expect(resolved.seo.generateLlmsTxt).toBe(false);
+    expect(resolved.seo.generateCorpusArtifacts).toBe(false);
+    expect(resolved.seo.noIndex).toBe(true);
+    expect(resolved.seo.robots.sitemap).toBe(false);
+  });
+
+  test('locked profile disables static snapshots and root fallback by default', () => {
+    const resolved = resolveDiscoverabilityProfile({ seo: { discoverabilityProfile: 'locked' } });
+    expect(resolved.seo.generateStaticPages).toBe(false);
+    expect(resolved.seo.rootHtmlFallback).toBe(false);
+    expect(resolved.seo.robots.blockAll).toBe(true);
+  });
+
+  test('explicit low-level generation fields override profile artifact defaults', () => {
+    const resolved = resolveDiscoverabilityProfile({
+      seo: {
+        discoverabilityProfile: 'locked',
+        generateStaticPages: true,
+        rootHtmlFallback: true,
+        robots: { sitemap: true }
+      }
+    });
+    expect(resolved.seo.generateStaticPages).toBe(true);
+    expect(resolved.seo.rootHtmlFallback).toBe(true);
+    expect(resolved.seo.robots.sitemap).toBe(true);
+    expect(resolved.seo.noIndex).toBe(true);
   });
 });
 
@@ -193,6 +246,152 @@ describe('generateRobotsTxt (#95)', () => {
       expect(text).toContain('Disallow: /');
       expect(text).toContain('Disallow: /drafts/');
       expect(text).not.toContain('Sitemap:');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('emits configured AI content-signal controls', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-robots-'));
+    try {
+      await generateRobotsTxt(dir, {
+        title: 'Docs',
+        seo: {
+          siteUrl: 'https://docs.example',
+          aiCrawlers: { search: true, aiInput: false, aiTrain: false }
+        }
+      });
+      const text = await fsp.readFile(path.join(dir, 'robots.txt'), 'utf8');
+      expect(text).toContain('Content-Signal: search=yes, ai-input=no, ai-train=no');
+      expect(text).toContain('Sitemap: https://docs.example/sitemap.xml');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('open profile emits permissive content signals by default', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-robots-'));
+    try {
+      await generateRobotsTxt(dir, { title: 'Open Docs', seo: { discoverabilityProfile: 'open' } });
+      const text = await fsp.readFile(path.join(dir, 'robots.txt'), 'utf8');
+      expect(text).toContain('Content-Signal: search=yes, ai-input=yes, ai-train=yes');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('profile artifact matrix (#114, #115, #117)', () => {
+  const manifest = [
+    { id: 'welcome', title: 'Welcome', summary: 'Default page', module: './sections/welcome.js' },
+    {
+      id: 'guides',
+      title: 'Guides',
+      summary: 'Guide group',
+      subsections: [
+        { id: 'guides/start', title: 'Start', summary: 'Nested page', module: './sections/start.js' }
+      ]
+    }
+  ];
+
+  async function writeSeoFixture() {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-seo-profile-'));
+    await fsp.mkdir(path.join(dir, 'sections'), { recursive: true });
+    await fsp.writeFile(
+      path.join(dir, 'manifest.js'),
+      `export const MANIFEST = ${JSON.stringify(manifest, null, 2)};\n`,
+      'utf8'
+    );
+    await fsp.writeFile(path.join(dir, 'sections', 'welcome.js'), 'export default { html: "<h1>Welcome</h1><p>Default body text.</p>" };\n', 'utf8');
+    await fsp.writeFile(path.join(dir, 'sections', 'start.js'), 'export default { html: "<h1>Start</h1><p>Nested body text.</p>" };\n', 'utf8');
+    return dir;
+  }
+
+  test('open profile emits parseable site-wide and per-page corpus artifacts', async () => {
+    const dir = await writeSeoFixture();
+    try {
+      await generateSeoArtifacts(dir, {
+        title: 'Open Docs',
+        domain: 'docs.example',
+        seo: { discoverabilityProfile: 'open' }
+      });
+      const index = JSON.parse(await fsp.readFile(path.join(dir, 'content-index.json'), 'utf8'));
+      expect(index.pages).toHaveLength(2);
+      expect(index.pages[0].canonicalUrl).toBe('https://docs.example/pages/welcome.html');
+
+      const jsonl = (await fsp.readFile(path.join(dir, 'documents.jsonl'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+      expect(jsonl.map((doc) => doc.id)).toEqual(['welcome', 'guides/start']);
+      expect(jsonl[0].bodyText).toContain('Default body text.');
+      expect(jsonl[1].bodyText).toContain('Nested body text.');
+
+      const pageJson = JSON.parse(await fsp.readFile(path.join(dir, 'pages', 'guides--start.json'), 'utf8'));
+      expect(pageJson.extractUrls.text).toBe('https://docs.example/pages/guides--start.txt');
+      await expect(fsp.readFile(path.join(dir, 'pages', 'guides--start.txt'), 'utf8')).resolves.toContain('Nested body text.');
+      await expect(fsp.readFile(path.join(dir, 'llms-full.txt'), 'utf8')).resolves.toContain('# Welcome');
+
+      const llms = await fsp.readFile(path.join(dir, 'llms.txt'), 'utf8');
+      expect(llms).toContain('extract: https://docs.example/pages/welcome.txt');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('limited profile suppresses sitemap, llms, and corpus artifacts by default', async () => {
+    const dir = await writeSeoFixture();
+    try {
+      await generateSeoArtifacts(dir, {
+        title: 'Limited Docs',
+        seo: { discoverabilityProfile: 'limited' }
+      });
+      await expect(fsp.access(path.join(dir, 'sitemap.xml'))).rejects.toThrow();
+      await expect(fsp.access(path.join(dir, 'llms.txt'))).rejects.toThrow();
+      await expect(fsp.access(path.join(dir, 'content-index.json'))).rejects.toThrow();
+      await expect(fsp.access(path.join(dir, 'documents.jsonl'))).rejects.toThrow();
+      await expect(fsp.readFile(path.join(dir, 'pages', 'welcome.html'), 'utf8')).resolves.toContain('noindex, nofollow');
+      const robots = await fsp.readFile(path.join(dir, 'robots.txt'), 'utf8');
+      expect(robots).toContain('Disallow: /');
+      expect(robots).not.toContain('Sitemap:');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('locked profile suppresses pages and discovery artifacts by default', async () => {
+    const dir = await writeSeoFixture();
+    try {
+      await generateSeoArtifacts(dir, {
+        title: 'Locked Docs',
+        seo: { discoverabilityProfile: 'locked' }
+      });
+      await expect(fsp.access(path.join(dir, 'pages'))).rejects.toThrow();
+      await expect(fsp.access(path.join(dir, 'sitemap.xml'))).rejects.toThrow();
+      await expect(fsp.access(path.join(dir, 'llms.txt'))).rejects.toThrow();
+      await expect(fsp.access(path.join(dir, 'content-index.json'))).rejects.toThrow();
+      const robots = await fsp.readFile(path.join(dir, 'robots.txt'), 'utf8');
+      expect(robots).toContain('Disallow: /');
+      expect(robots).not.toContain('Sitemap:');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('noIndex suppresses open-profile corpus artifacts unless explicitly disabled', async () => {
+    const dir = await writeSeoFixture();
+    try {
+      await generateCorpusArtifacts(dir, manifest, {
+        seo: { discoverabilityProfile: 'open', noIndex: true }
+      });
+      await expect(fsp.access(path.join(dir, 'content-index.json'))).rejects.toThrow();
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('llms.txt is skipped when the profile disables it', async () => {
+    const dir = await writeSeoFixture();
+    try {
+      await generateLlmsTxt(dir, manifest, { seo: { discoverabilityProfile: 'limited' } });
+      await expect(fsp.access(path.join(dir, 'llms.txt'))).rejects.toThrow();
     } finally {
       await fsp.rm(dir, { recursive: true, force: true });
     }

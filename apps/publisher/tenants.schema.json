@@ -413,6 +413,12 @@
           "type": "string",
           "description": "Absolute base URL for sitemap, canonical, Open Graph, and robots sitemap URLs"
         },
+        "discoverabilityProfile": {
+          "type": "string",
+          "enum": ["standard", "open", "limited", "locked"],
+          "default": "standard",
+          "description": "High-level SEO artifact preset: standard public docs, open machine-readable corpus, limited reduced discoverability, or locked advisory static-site lockdown"
+        },
         "ogImage": {
           "type": "string",
           "description": "Social share image for Open Graph and Twitter cards"
@@ -436,6 +442,14 @@
           "type": "boolean",
           "default": true,
           "description": "Emit robots.txt"
+        },
+        "generateLlmsTxt": {
+          "type": "boolean",
+          "description": "Emit llms.txt. Defaults are profile-aware."
+        },
+        "generateCorpusArtifacts": {
+          "type": "boolean",
+          "description": "Emit content-index.json, documents.jsonl, and per-page machine-readable JSON/text extracts. Defaults on for the open profile only."
         },
         "noIndex": {
           "type": "boolean",
@@ -474,6 +488,25 @@
               "type": "boolean",
               "default": false,
               "description": "Emit Disallow: / for the configured user agent"
+            }
+          },
+          "additionalProperties": false
+        },
+        "aiCrawlers": {
+          "type": "object",
+          "description": "Advisory AI crawler/content-signal preferences emitted in robots.txt when configured",
+          "properties": {
+            "search": {
+              "type": "boolean",
+              "description": "Signal whether search indexing/fetching is allowed"
+            },
+            "aiInput": {
+              "type": "boolean",
+              "description": "Signal whether use as AI answer/input grounding is allowed"
+            },
+            "aiTrain": {
+              "type": "boolean",
+              "description": "Signal whether AI training use is allowed"
             }
           },
           "additionalProperties": false
