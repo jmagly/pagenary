@@ -791,6 +791,7 @@ Located at tenant root, defines top-level navigation:
     "id": "guides",
     "title": "Guides",
     "summary": "Step-by-step tutorials",
+    "file": "guides/index.md",
     "subsections": [
       {
         "id": "guides/getting-started",
@@ -822,6 +823,15 @@ Located at tenant root, defines top-level navigation:
 
 *Not required for external links
 **Use either `file` OR `url`, not both
+
+Groups can also provide `file` alongside `subsections`. When present, the group
+becomes its own navigable section heading page at its route, with authored
+content plus generated links to child pages. When omitted, the group remains a
+navigation container and selecting it routes to the first child.
+
+Use section heading pages for real introductions, orientation, summaries, and
+child-page discovery. Do not use them as doorway pages, keyword-stuffed topic
+copies, or hidden SEO-only variants of existing child content.
 
 ### External Links in Navigation
 

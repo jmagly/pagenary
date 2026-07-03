@@ -15,7 +15,7 @@ export function currentSectionId(hash, defaultSection) {
 
 /**
  * Resolve target section and parent group from an ID.
- * If ID is a group with subsections, redirects to first subsection.
+ * If ID is a group with subsections and no own module, redirects to first subsection.
  * @param {string} id - Section ID to resolve
  * @param {Function} findSection - Function to look up section by ID
  * @returns {{targetId: string, parentId: string|null}} Resolved target and parent

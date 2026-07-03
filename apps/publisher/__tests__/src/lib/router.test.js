@@ -33,7 +33,16 @@ const TEST_SECTIONS = new Map([
   }],
   ['developers-overview', { id: 'developers-overview', title: 'Developer Hub', module: './sections/developers-overview.js', parentId: 'developers' }],
   ['developers-sdks', { id: 'developers-sdks', title: 'Developers SDKs', module: './sections/developers-sdks.js', parentId: 'developers' }],
-  ['developers-api-reference', { id: 'developers-api-reference', title: 'Developers API Reference', module: './sections/developers-api-reference.js', parentId: 'developers' }]
+  ['developers-api-reference', { id: 'developers-api-reference', title: 'Developers API Reference', module: './sections/developers-api-reference.js', parentId: 'developers' }],
+  ['guides', {
+    id: 'guides',
+    title: 'Guides',
+    module: './sections/guides.js',
+    subsections: [
+      { id: 'guides-install', title: 'Install', module: './sections/guides-install.js' }
+    ]
+  }],
+  ['guides-install', { id: 'guides-install', title: 'Install', module: './sections/guides-install.js', parentId: 'guides' }]
 ]);
 
 const DEFAULT_SECTION = 'welcome-overview';
@@ -80,6 +89,12 @@ describe('lib/router.js', () => {
       const result = resolveTarget('getting-started', findSection);
       expect(result.targetId).toBe('getting-started-introduction');
       expect(result.parentId).toBe('getting-started');
+    });
+
+    test('resolves authored group with module to itself', () => {
+      const result = resolveTarget('guides', findSection);
+      expect(result.targetId).toBe('guides');
+      expect(result.parentId).toBeNull();
     });
 
     test('resolves developers group to first subsection', () => {

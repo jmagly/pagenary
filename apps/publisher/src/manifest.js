@@ -214,13 +214,13 @@ export function findSection(id) {
 // Build flat list of navigable sections for prev/next navigation
 function buildFlatNav() {
   const flat = [];
-  MANIFEST.forEach((entry) => {
-    if (entry.subsections && entry.subsections.length) {
-      entry.subsections.forEach((sub) => flat.push(sub));
-    } else {
-      flat.push(entry);
+  const walk = (entries) => {
+    for (const entry of entries || []) {
+      if (entry.module) flat.push(entry);
+      if (entry.subsections && entry.subsections.length) walk(entry.subsections);
     }
-  });
+  };
+  walk(MANIFEST);
   return flat;
 }
 

@@ -90,6 +90,27 @@ multiple child pages. A heading page should be useful to a human arriving from
 search or a machine-readable index: it needs visible intro content, natural
 title/H1/metadata, and links to the most important child pages.
 
+To author one, put `file` on the grouped manifest entry that also has
+`subsections`:
+
+```json
+{
+  "id": "guides",
+  "title": "Guides",
+  "summary": "Practical guides for operating the product.",
+  "file": "guides/index.md",
+  "subsections": [
+    { "id": "guides/install", "title": "Install", "file": "guides/install.md" }
+  ]
+}
+```
+
+The build publishes that group as its own route and static snapshot, appends a
+visible child-page link list, and includes it in `sitemap.xml`, `llms.txt`, and
+open-profile corpus artifacts only when the active SEO profile allows those
+artifacts. If `file` is omitted, the group stays a navigation container and
+continues to route to its first child.
+
 Do not use generated topic pages as hidden SEO copies, doorway pages, or
 keyword-loaded alternate versions of existing pages. Any future generated topic
 page feature must publish human-visible content, avoid one-page duplication,

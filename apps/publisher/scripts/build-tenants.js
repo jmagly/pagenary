@@ -2718,8 +2718,9 @@ async function pruneSectionsDirectory(sectionsDir, keepFiles) {
   }));
 }
 
-async function ensureHtmlModule(sourcePath, targetPath) {
-  const html = await fsp.readFile(sourcePath, 'utf8');
+async function ensureHtmlModule(sourcePath, targetPath, options = {}) {
+  const sourceHtml = await fsp.readFile(sourcePath, 'utf8');
+  const html = `${sourceHtml}${renderSectionChildLinks(options.childLinks)}`;
   const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
@@ -3151,10 +3152,36 @@ async function ensureMarkdownModule(sourcePath, targetPath, linkContext = null) 
   // full-bleed; a string `hero` stays the runtime post-image and is ignored here.
   const heroHtml = (data && typeof data.hero === 'object') ? renderHeroMarkup(data.hero) : '';
   const bannerHtml = (data && typeof data.banner === 'object') ? renderBannerMarkup(data.banner) : '';
-  const html = `${heroHtml}${narration.html}${section}${bannerHtml}`;
+  const childLinksHtml = renderSectionChildLinks(linkContext?.childLinks);
+  const html = `${heroHtml}${narration.html}${section}${childLinksHtml}${bannerHtml}`;
   const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
+}
+
+function renderSectionChildLinks(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return '';
+  const list = renderSectionChildLinkList(entries);
+  if (!list) return '';
+  return `<nav class="section-child-links" aria-label="Child pages"><h2>In this section</h2>${list}</nav>`;
+}
+
+function renderSectionChildLinkList(entries) {
+  const items = [];
+  for (const entry of entries || []) {
+    if (!entry || typeof entry !== 'object') continue;
+    const href = entry.url ? entry.url : (entry.module && entry.id ? `#${entry.id}` : '');
+    const nested = Array.isArray(entry.subsections) ? renderSectionChildLinkList(entry.subsections) : '';
+    if (!href && !nested) continue;
+    const title = escapeHtml(entry.title || entry.id || entry.url || 'Untitled');
+    const summary = entry.summary ? `<p>${escapeHtml(entry.summary)}</p>` : '';
+    const linkAttrs = entry.url ? ' target="_blank" rel="noopener noreferrer"' : '';
+    const label = href
+      ? `<a href="${escapeAttribute(href)}"${linkAttrs}>${title}</a>`
+      : `<span>${title}</span>`;
+    items.push(`<li>${label}${summary}${nested}</li>`);
+  }
+  return items.length ? `<ul>${items.join('')}</ul>` : '';
 }
 
 async function ensureJavascriptModule(sourcePath, targetPath) {
@@ -4261,12 +4288,13 @@ async function materializeScannedSections(sections, context) {
             mediaConfig: context.mediaConfig,
             narrationConfig: context.narrationConfig,
             distDir: context.distDir,
-            route: id
+            route: id,
+            childLinks: processedSubsections
           };
           await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         } else if (ext === '.html' || ext === '.htm') {
           await lintContentSourceForAccessibility(sourcePath, context.accessibility, id);
-          await ensureHtmlModule(sourcePath, targetPath);
+          await ensureHtmlModule(sourcePath, targetPath, { childLinks: processedSubsections });
         } else if (ext === '.js' || ext === '.mjs') {
           await ensureJavascriptModule(sourcePath, targetPath);
         } else {
@@ -4604,9 +4632,17 @@ async function processManifestEntries(entries, context) {
     if (Array.isArray(entry.sections) && entry.sections.length) {
       const subsections = await processManifestEntries(entry.sections, context);
       const groupEntry = { id, title, summary, subsections };
+      if (entry.file) {
+        const modulePath = await materializeSectionModule(entry, context, { childLinks: subsections });
+        if (modulePath) {
+          context.leafOrder.push(id);
+          groupEntry.module = modulePath;
+        }
+      }
       if (type) groupEntry.type = type;
       if (layout) groupEntry.layout = layout;
       if (template) groupEntry.template = template;
+      if (collection) groupEntry.collection = collection;
       processed.push(groupEntry);
       continue;
     }
@@ -4643,7 +4679,7 @@ async function processManifestEntries(entries, context) {
   return processed;
 }
 
-async function materializeSectionModule(entry, context) {
+async function materializeSectionModule(entry, context, options = {}) {
   const id = entry.id;
   const relPath = entry.file || `${id}.md`;
   const sourcePath = path.join(context.contentDir, relPath);
@@ -4672,12 +4708,13 @@ async function materializeSectionModule(entry, context) {
         mediaConfig: context.mediaConfig,
         narrationConfig: context.narrationConfig,
         distDir: context.distDir,
-        route: id
+        route: id,
+        childLinks: options.childLinks
       } : null;
       await ensureMarkdownModule(sourcePath, targetPath, linkContext);
     } else if (ext === '.html' || ext === '.htm') {
       await lintContentSourceForAccessibility(sourcePath, context.accessibility, id);
-      await ensureHtmlModule(sourcePath, targetPath);
+      await ensureHtmlModule(sourcePath, targetPath, { childLinks: options.childLinks });
     } else if (ext === '.js' || ext === '.mjs') {
       await ensureJavascriptModule(sourcePath, targetPath);
     } else {
@@ -4759,13 +4796,13 @@ export function findSection(id) {
 // Build flat list of navigable sections for prev/next navigation
 function buildFlatNav() {
   const flat = [];
-  MANIFEST.forEach((entry) => {
-    if (entry.subsections && entry.subsections.length) {
-      entry.subsections.forEach((sub) => flat.push(sub));
-    } else {
-      flat.push(entry);
+  const walk = (entries) => {
+    for (const entry of entries || []) {
+      if (entry.module) flat.push(entry);
+      if (entry.subsections && entry.subsections.length) walk(entry.subsections);
     }
-  });
+  };
+  walk(MANIFEST);
   return flat;
 }
 

@@ -833,6 +833,141 @@ describe('build-tenants.js', () => {
       expect(manifestContent).toMatch(/child-b/);
     });
 
+    test('materializes authored group sections as navigable heading pages', async () => {
+      const manifest = {
+        default: 'guides',
+        sections: [
+          {
+            id: 'guides',
+            title: 'Guides',
+            summary: 'Practical guides for operating the product.',
+            file: 'guides/index.md',
+            sections: [
+              { id: 'guides/install', title: 'Install', summary: 'Install the product.', file: 'guides/install.md' },
+              { id: 'guides/deploy', title: 'Deploy', summary: 'Deploy the product.', file: 'guides/deploy.md' }
+            ]
+          }
+        ]
+      };
+      const content = {
+        'guides/index.md': '# Guides\n\nChoose the right guide for your task.',
+        'guides/install.md': '# Install\n\nInstall content.',
+        'guides/deploy.md': '# Deploy\n\nDeploy content.'
+      };
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {
+        title: 'Docs Site',
+        domain: 'https://docs.example.com'
+      }, manifest, content);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const runtime = await readRuntimeManifest(distDir);
+      const generatedManifest = extractManifestArray(runtime.manifestJs);
+      const guides = generatedManifest[0];
+      expect(guides.id).toBe('guides');
+      expect(guides.module).toMatch(/^\.\/sections\/guides(?:\.[a-f0-9]{12})?\.js$/);
+      expect(guides.subsections.map((entry) => entry.id)).toEqual(['guides/install', 'guides/deploy']);
+
+      const guidesModule = await fsp.readFile(path.join(distDir, guides.module), 'utf8');
+      expect(guidesModule).toContain('Choose the right guide for your task.');
+      expect(guidesModule).toContain('In this section');
+      expect(guidesModule).toContain('href=\\"#guides/install\\"');
+      expect(guidesModule).toContain('href=\\"#guides/deploy\\"');
+
+      const pageHtml = await fsp.readFile(path.join(distDir, 'pages', 'guides.html'), 'utf8');
+      expect(pageHtml).toContain('<link rel="canonical" href="https://docs.example.com/pages/guides.html" />');
+      expect(pageHtml).toContain('<meta property="og:url" content="https://docs.example.com/pages/guides.html" />');
+      expect(pageHtml).toContain('<meta name="twitter:title" content="Guides" />');
+      expect(pageHtml).toContain('Choose the right guide for your task.');
+      expect(pageHtml).toContain('href="#guides/install"');
+      expect(pageHtml).toContain('href="#guides/deploy"');
+
+      const sitemap = await fsp.readFile(path.join(distDir, 'sitemap.xml'), 'utf8');
+      expect(sitemap).toContain('https://docs.example.com/pages/guides.html');
+      const llms = await fsp.readFile(path.join(distDir, 'llms.txt'), 'utf8');
+      expect(llms).toContain('[Guides](https://docs.example.com/pages/guides.html)');
+    });
+
+    test('honors SEO profiles for authored group heading pages', async () => {
+      const manifest = {
+        default: 'guides',
+        sections: [
+          {
+            id: 'guides',
+            title: 'Guides',
+            summary: 'Practical guides for operating the product.',
+            file: 'guides/index.md',
+            sections: [
+              { id: 'guides/install', title: 'Install', file: 'guides/install.md' }
+            ]
+          }
+        ]
+      };
+      const content = {
+        'guides/index.md': '# Guides\n\nHuman-authored section introduction.',
+        'guides/install.md': '# Install\n\nInstall content.'
+      };
+      const cases = [
+        { profile: 'standard', page: true, sitemap: true, llms: true, corpus: false, noindex: false },
+        { profile: 'open', page: true, sitemap: true, llms: true, corpus: true, noindex: false },
+        { profile: 'limited', page: true, sitemap: false, llms: false, corpus: false, noindex: true },
+        { profile: 'locked', page: false, sitemap: false, llms: false, corpus: false, noindex: false }
+      ];
+
+      for (const profileCase of cases) {
+        const tenantId = `${TEST_TENANT_ID}-${profileCase.profile}`;
+        await createTestTenant(tenantId, {
+          title: 'Docs Site',
+          domain: `https://${profileCase.profile}.example.com`,
+          seo: { discoverabilityProfile: profileCase.profile }
+        }, manifest, content);
+      }
+
+      try {
+        const result = await runBuildTenantsWithRegistry(cases.map((profileCase) => ({
+          id: `${TEST_TENANT_ID}-${profileCase.profile}`
+        })));
+        expect(result.code).toBe(0);
+
+        for (const profileCase of cases) {
+          const tenantId = `${TEST_TENANT_ID}-${profileCase.profile}`;
+          const distDir = path.join(PUBLISHER_ROOT, 'dist', tenantId);
+          const pagePath = path.join(distDir, 'pages', 'guides.html');
+          expect(fs.existsSync(pagePath)).toBe(profileCase.page);
+          expect(fs.existsSync(path.join(distDir, 'sitemap.xml'))).toBe(profileCase.sitemap);
+          expect(fs.existsSync(path.join(distDir, 'llms.txt'))).toBe(profileCase.llms);
+          expect(fs.existsSync(path.join(distDir, 'content-index.json'))).toBe(profileCase.corpus);
+          expect(fs.existsSync(path.join(distDir, 'documents.jsonl'))).toBe(profileCase.corpus);
+
+          if (profileCase.page) {
+            const pageHtml = await fsp.readFile(pagePath, 'utf8');
+            expect(pageHtml).toContain('Human-authored section introduction.');
+            expect(pageHtml).toContain('href="#guides/install"');
+            if (profileCase.noindex) {
+              expect(pageHtml).toContain('<meta name="robots" content="noindex, nofollow" />');
+            } else {
+              expect(pageHtml).not.toContain('<meta name="robots" content="noindex, nofollow" />');
+            }
+          }
+
+          if (profileCase.corpus) {
+            const contentIndex = JSON.parse(await fsp.readFile(path.join(distDir, 'content-index.json'), 'utf8'));
+            expect(contentIndex.pages.some((page) => page.id === 'guides')).toBe(true);
+            const documents = await fsp.readFile(path.join(distDir, 'documents.jsonl'), 'utf8');
+            expect(documents).toContain('"id":"guides"');
+          }
+        }
+      } finally {
+        for (const profileCase of cases) {
+          const tenantId = `${TEST_TENANT_ID}-${profileCase.profile}`;
+          await cleanup(path.join(PUBLISHER_ROOT, 'tenants', tenantId));
+          await cleanup(path.join(PUBLISHER_ROOT, 'dist', tenantId));
+        }
+      }
+    });
+
     test('sets default section from manifest', async () => {
       const manifest = {
         default: 'section-b',
