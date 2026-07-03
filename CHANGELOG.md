@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.9] - 2026-07-03
+
+### Fixed
+
+- Removed the no-JS meta refresh from generated `/pages/*.html` snapshots so
+  root fallback navigation stays on the selected static page instead of
+  snapping back to the SPA root/default page.
+
 ## [2026.7.8] - 2026-07-03
 
 ### Fixed

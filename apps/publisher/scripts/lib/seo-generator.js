@@ -324,7 +324,8 @@ export function buildStaticPage(options) {
   } = options;
 
   // Canonical = the crawlable static snapshot (#17). The SPA hash route is for
-  // humans (JS redirect / noscript / "interactive version" link).
+  // JavaScript-enabled browsers and the "interactive version" link. Do not add
+  // a no-JS refresh: HTML-only users need to stay on the static snapshot.
   const canonicalUrl = `${baseUrl}/pages/${encodePathForFilename(sectionId)}.html`;
   const spaUrl = `${baseUrl}/#${sectionId}`;
   const jsonLd = buildPageJsonLd({
@@ -380,9 +381,6 @@ ${jsonLd}
       window.location.replace('${spaUrl}');
     }
   </script>
-  <noscript>
-    <meta http-equiv="refresh" content="0; url=${spaUrl}" />
-  </noscript>
 
   <link rel="stylesheet" href="../styles.css" />
   <style>

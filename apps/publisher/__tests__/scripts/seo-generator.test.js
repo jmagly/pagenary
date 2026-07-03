@@ -94,6 +94,12 @@ describe('buildStaticPage (#17 + #16)', () => {
     expect(html).toContain('href="https://docs.pagenary.com/#welcome"'); // "interactive version"
   });
 
+  test('does not redirect no-JS readers away from the static snapshot', () => {
+    const html = buildStaticPage(baseOpts);
+    expect(html).not.toContain('http-equiv="refresh"');
+    expect(html).not.toContain('<noscript>');
+  });
+
   test('og:image + twitter:image emitted and card upgraded when image present (#16)', () => {
     const html = buildStaticPage({ ...baseOpts, ogImage: 'https://docs.pagenary.com/og.png' });
     expect(html).toContain('<meta property="og:image" content="https://docs.pagenary.com/og.png" />');
