@@ -330,11 +330,19 @@ describe('build-tenants.js', () => {
       const manifest = {
         default: 'fallback-page',
         sections: [
-          { id: 'fallback-page', title: 'Fallback Page', file: 'fallback.md' }
+          {
+            id: 'guides',
+            title: 'Guides',
+            sections: [
+              { id: 'fallback-page', title: 'Fallback Page', file: 'fallback.md' },
+              { id: 'nested/deep-page', title: 'Deep Page', file: 'nested/deep-page.md' }
+            ]
+          }
         ]
       };
       const content = {
-        'fallback.md': '# Fallback Page\n\nRoot HTML fallback body.'
+        'fallback.md': '# Fallback Page\n\nRoot HTML fallback body.',
+        'nested/deep-page.md': '# Deep Page\n\nNested static page.'
       };
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
 
@@ -345,6 +353,11 @@ describe('build-tenants.js', () => {
       expect(index).toMatch(/<main id="app" class="canvas" tabindex="-1" aria-live="polite"><section class="section doc markdown">/);
       expect(index).toContain('Fallback Page');
       expect(index).toContain('Root HTML fallback body.');
+      expect(index).toContain('<nav id="nav" class="nav nav-static-fallback" aria-label="Primary">');
+      expect(index).toMatch(/<div class="nav-group expanded">/);
+      expect(index).toContain('href="./pages/fallback-page.html"');
+      expect(index).toContain('href="./pages/nested--deep-page.html"');
+      expect(index).toMatch(/<script type="module" src="\.\/app\.[a-f0-9]+\.js"><\/script>/);
     });
 
     test('can disable the root shell HTML fallback per tenant', async () => {
@@ -369,6 +382,8 @@ describe('build-tenants.js', () => {
 
       const index = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
       expect(index).toMatch(/<main id="app" class="canvas" tabindex="-1" aria-live="polite"><\/main>/);
+      expect(index).toMatch(/<nav id="nav" class="nav" aria-label="Primary"><\/nav>/);
+      expect(index).not.toContain('nav-static-fallback');
       expect(index).not.toContain('Root HTML fallback body.');
     });
 

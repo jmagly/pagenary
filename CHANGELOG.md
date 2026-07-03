@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.7] - 2026-07-03
+
+### Fixed
+
+- Added an all-open static sidebar navigation to the root no-JS HTML fallback so
+  HTML-only readers can navigate generated `/pages/` snapshots without running
+  the JavaScript app.
+
 ## [2026.7.6] - 2026-07-02
 
 ### Added

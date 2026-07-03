@@ -55,6 +55,15 @@ describe('styles.css', () => {
     expect(appJs).not.toContain("const section = app.querySelector('section') || app;");
   });
 
+  test('no-JS root fallback keeps static navigation visible and open', async () => {
+    const css = await fsp.readFile(path.join(PUBLISHER_ROOT, 'src', 'styles.css'), 'utf8');
+
+    expect(css).toMatch(/\.has-js \.nav-static-fallback\s*{[^}]*display: none;/s);
+    expect(css).toMatch(/html:not\(\.has-js\) \.mobile-menu-toggle\s*{[^}]*display: none;/s);
+    expect(css).toMatch(/html:not\(\.has-js\) \.sidebar\s*{[^}]*display: block;[^}]*position: relative;[^}]*left: auto;[^}]*top: auto;[^}]*height: auto;[^}]*transform: none;/s);
+    expect(css).toMatch(/html:not\(\.has-js\) \.nav-sublist,\s*html:not\(\.has-js\) \.nav-sublist-nested,\s*html:not\(\.has-js\) \.nav-sublist-deep,\s*html:not\(\.has-js\) \.nav-sublist-ultra\s*{[^}]*display: grid;/s);
+  });
+
   test('runtime collapses right-side page TOC on portrait widths', async () => {
     const pageEffects = await fsp.readFile(path.join(PUBLISHER_ROOT, 'src', 'lib', 'page-effects.js'), 'utf8');
 

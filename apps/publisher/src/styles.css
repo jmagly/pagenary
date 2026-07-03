@@ -605,6 +605,45 @@ a:focus {
   display: grid;
 }
 
+.has-js .nav-static-fallback {
+  display: none;
+}
+
+.nav-static-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+html:not(.has-js) .mobile-menu-toggle {
+  display: none;
+}
+
+html:not(.has-js) .layout {
+  overflow: visible;
+}
+
+html:not(.has-js) .sidebar {
+  display: block;
+  position: relative;
+  left: auto;
+  top: auto;
+  height: auto;
+  min-height: 100%;
+  transform: none;
+}
+
+html:not(.has-js) .sidebar-inner {
+  height: auto;
+  max-height: none;
+}
+
+html:not(.has-js) .nav-sublist,
+html:not(.has-js) .nav-sublist-nested,
+html:not(.has-js) .nav-sublist-deep,
+html:not(.has-js) .nav-sublist-ultra {
+  display: grid;
+}
+
 /* Nested nav groups (3-level hierarchy) */
 .nav-group-nested {
   margin-left: 0.5rem;
@@ -1514,6 +1553,26 @@ mark.hl {
   body[data-nav-collapse="instant"]:not([data-nav-position]).nav-collapsed .sidebar {
     display: none;
   }
+
+  html:not(.has-js) body[data-nav-collapse="overlay"]:not([data-nav-position]) .layout,
+  html:not(.has-js) body[data-nav-collapse="push"]:not([data-nav-position]) .layout,
+  html:not(.has-js) body[data-nav-collapse="instant"]:not([data-nav-position]) .layout {
+    grid-template-columns: minmax(14rem, 0.28fr) minmax(0, 1fr);
+  }
+
+  html:not(.has-js) body[data-nav-collapse="overlay"]:not([data-nav-position]) .sidebar,
+  html:not(.has-js) body[data-nav-collapse="push"]:not([data-nav-position]) .sidebar,
+  html:not(.has-js) body[data-nav-collapse="instant"]:not([data-nav-position]) .sidebar {
+    position: relative;
+    width: auto;
+    height: auto;
+    transform: none;
+    box-shadow: none;
+  }
+
+  html:not(.has-js) body[data-nav-collapse="push"]:not([data-nav-position]) .canvas {
+    padding-left: clamp(2rem, 5vw, 5.5rem);
+  }
 }
 
 .mobile-menu-toggle:hover {
@@ -1620,6 +1679,23 @@ mark.hl {
 
   .sidebar.mobile-open {
     left: 0;
+  }
+
+  html:not(.has-js) .layout {
+    grid-template-columns: 1fr;
+  }
+
+  html:not(.has-js) .sidebar {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: auto;
+    max-width: none;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--grid-line);
+    transform: none;
+    z-index: auto;
   }
 
   .sidebar-inner {

@@ -1142,6 +1142,55 @@ async function applyDefaultPageTitle(distDir, config) {
   }
 }
 
+function staticNavHref(entry) {
+  if (entry?.url) return entry.url;
+  if (entry?.module) return `./pages/${String(entry.id).replace(/\//g, '--')}.html`;
+  return '';
+}
+
+function renderStaticNavSummary(entry) {
+  return entry?.summary ? `<span class="nav-summary">${escapeHtml(entry.summary)}</span>` : '';
+}
+
+function renderStaticNavTitle(entry) {
+  return `${escapeHtml(entry.title || entry.id || '')}${entry?.type === 'press-release' ? '<span class="nav-type-icon" aria-label="Press Release"></span>' : ''}`;
+}
+
+function renderStaticNavEntry(entry, level = 0) {
+  if (!entry || typeof entry !== 'object') return '';
+  const children = Array.isArray(entry.subsections) ? entry.subsections : [];
+  const hasChildren = children.length > 0;
+  const classSuffix = entry.type ? ` nav-type-${escapeAttribute(entry.type)}` : '';
+  const href = staticNavHref(entry);
+  const linkAttrs = entry.url ? ' target="_blank" rel="noopener noreferrer"' : '';
+  const childHtml = children.map((child) => renderStaticNavEntry(child, level + 1)).join('');
+  const titleHtml = renderStaticNavTitle(entry);
+  const summaryHtml = renderStaticNavSummary(entry);
+
+  if (hasChildren) {
+    const depthClass = level >= 3 ? ' nav-group-ultra' : level === 2 ? ' nav-group-deep' : level === 1 ? ' nav-group-nested' : '';
+    const parentDepthClass = level >= 3 ? ' nav-parent-ultra' : level === 2 ? ' nav-parent-deep' : level === 1 ? ' nav-parent-nested' : '';
+    const listDepthClass = level >= 3 ? ' nav-sublist-ultra' : level === 2 ? ' nav-sublist-deep' : level === 1 ? ' nav-sublist-nested' : '';
+    const parentBody = href
+      ? `<a class="nav-parent nav-parent-with-content nav-static-link${parentDepthClass}${classSuffix}" href="${escapeAttribute(href)}"${linkAttrs}><span class="nav-title-link">${titleHtml}</span>${summaryHtml}</a>`
+      : `<div class="nav-parent${parentDepthClass}${classSuffix}"><span class="nav-title">${titleHtml}</span>${summaryHtml}</div>`;
+    return `<div class="nav-group expanded${depthClass}">${parentBody}<div class="nav-sublist${listDepthClass}">${childHtml}</div></div>`;
+  }
+
+  const itemClass = level === 0
+    ? 'nav-leaf'
+    : `nav-item${level >= 3 ? ' nav-item-ultra' : level === 2 ? ' nav-item-deep' : level === 1 ? ' nav-item-nested' : ''}`;
+  if (href) {
+    return `<a class="${itemClass} nav-static-link${classSuffix}" href="${escapeAttribute(href)}"${linkAttrs}><span class="nav-title">${titleHtml}</span>${summaryHtml}</a>`;
+  }
+  return `<div class="${itemClass}${classSuffix}"><span class="nav-title">${titleHtml}</span>${summaryHtml}</div>`;
+}
+
+function renderStaticNavFallback(manifest) {
+  if (!Array.isArray(manifest) || !manifest.length) return '';
+  return manifest.map((entry) => renderStaticNavEntry(entry)).join('');
+}
+
 /**
  * Embed the default section HTML in the SPA shell so the root URL has useful
  * content before JavaScript runs. The runtime replaces #app after loading, but
@@ -1157,9 +1206,11 @@ async function applyRootHtmlFallback(distDir, config = {}) {
   if (!(await pathExists(indexPath)) || !(await pathExists(manifestPath))) return;
 
   let entry = null;
+  let manifest = [];
   try {
     const mod = await import(`${pathToFileURL(manifestPath).href}?t=${Date.now()}`);
     const id = mod.DEFAULT_SECTION;
+    manifest = Array.isArray(mod.MANIFEST) ? mod.MANIFEST : [];
     entry = id && typeof mod.findSection === 'function' ? mod.findSection(id) : null;
   } catch {
     return;
@@ -1173,7 +1224,14 @@ async function applyRootHtmlFallback(distDir, config = {}) {
   const fallbackHtml = extractHtmlFromModule(moduleContent);
   if (!fallbackHtml) return;
 
-  const html = await fsp.readFile(indexPath, 'utf8');
+  let html = await fsp.readFile(indexPath, 'utf8');
+  const staticNav = renderStaticNavFallback(manifest);
+  if (staticNav) {
+    html = html.replace(
+      /<nav id="nav" class="nav" aria-label="Primary"><\/nav>/,
+      `<nav id="nav" class="nav nav-static-fallback" aria-label="Primary">${staticNav}</nav>`
+    );
+  }
   const next = html.replace(
     /<main id="app" class="canvas" tabindex="-1" aria-live="polite"><\/main>/,
     `<main id="app" class="canvas" tabindex="-1" aria-live="polite">${fallbackHtml}</main>`
