@@ -2,13 +2,35 @@
   "name": "@pagenary/publisher",
   "version": "2026.7.12",
   "type": "module",
-  "description": "Multi-tenant static publishing component for Pagenary platform.",
+  "description": "Multi-tenant documentation static site generator with Markdown, search, SEO snapshots, and docs-as-code publishing.",
   "license": "AGPL-3.0-or-later",
-  "homepage": "https://git.integrolabs.net/roctinam/pagenary",
+  "homepage": "https://docs.pagenary.com",
+  "keywords": [
+    "pagenary",
+    "documentation",
+    "docs",
+    "developer-docs",
+    "technical-documentation",
+    "docs-as-code",
+    "static-site-generator",
+    "site-generator",
+    "ssg",
+    "markdown",
+    "multi-tenant",
+    "static-publishing",
+    "search",
+    "seo",
+    "llms-txt",
+    "accessibility",
+    "cli"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://git.integrolabs.net/roctinam/pagenary.git",
     "directory": "apps/publisher"
+  },
+  "bugs": {
+    "url": "https://git.integrolabs.net/roctinam/pagenary/issues"
   },
   "publishConfig": {
     "access": "public"
