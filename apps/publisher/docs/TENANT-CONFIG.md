@@ -790,6 +790,73 @@ every page:
   `script-src` and `frame-src` (its embed script and form iframe). No tokens or
   secrets are emitted.
 
+## Share Control (`share`)
+
+The optional `share` block adds a topbar Share control. It loads no third-party
+SDKs, trackers, or background network calls. Desktop targets are plain outbound
+URLs opened only after user action; touch devices can use the browser-native Web
+Share sheet when available.
+
+```json
+{
+  "share": {
+    "enabled": true,
+    "native": "auto",
+    "services": ["copy", "email", "linkedin", "x", "reddit", "mastodon"],
+    "mastodon": {
+      "mode": "configured-instance",
+      "instance": "https://fosstodon.org"
+    }
+  }
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | Shows or removes the Share control. |
+| `native` | `auto` | `auto` uses `navigator.share()` on touch/coarse-pointer devices when available; `always` uses it wherever available; `never` always opens the Pagenary menu. |
+| `services` | `["copy", "email"]` | Desktop fallback menu targets. Copy Link and Email are always added as a safe baseline. |
+| `mastodon.instance`, `misskey.instance`, `lemmy.instance` | built-in public defaults | Optional instance origin for federated/decentralized targets. |
+
+Built-in service ids: `copy`, `email`, `x`, `linkedin`, `facebook`, `threads`,
+`bluesky`, `reddit`, `hackernews`, `lobsters`, `producthunt`, `slashdot`, `sms`,
+`whatsapp`, `telegram`, `signal`, `messenger`, `mastodon`, `misskey`, `lemmy`,
+`pocket`, `instapaper`, `pinboard`, `raindrop`, `teams`, `notion`, `trello`,
+`pinterest`, and `tumblr`.
+
+Some platforms have limited web share/deep-link surfaces. Slack and Discord do
+not provide stable generic share URLs suitable for a built-in catalog entry; add
+them as custom targets only when your tenant has a workspace-specific route.
+Teams links may depend on the user's Microsoft 365 state, and federated services
+work best with a configured instance. For anything tenant-specific, add a custom
+target:
+
+```json
+{
+  "share": {
+    "enabled": true,
+    "services": [
+      "copy",
+      "email",
+      {
+        "id": "internal-community",
+        "label": "Community",
+        "urlTemplate": "https://community.example/share?url={url}&title={title}"
+      }
+    ]
+  }
+}
+```
+
+Custom templates support `{url}`, `{title}`, `{text}`, and `{description}`. Values
+are URL-encoded automatically. Templates must use `https:`, `http:`, `mailto:`,
+`sms:`, `sgnl://`, or `fb-messenger://`.
+
+Static snapshots include a visible canonical URL and basic share links when
+sharing is enabled, so no-JS users still have a usable share path. Share payloads
+use the current page title, section summary, and the canonical `/pages/*.html`
+URL when `seo.siteUrl` or `domain` is configured.
+
 ## Navigation Manifest (manifest.json)
 
 ### Root Manifest

@@ -284,6 +284,10 @@
           "$ref": "#/definitions/exportConfig",
           "description": "Print/PDF export controls"
         },
+        "share": {
+          "$ref": "#/definitions/shareConfig",
+          "description": "Optional page sharing control"
+        },
         "welcome": {
           "$ref": "#/definitions/welcomeConfig",
           "description": "Welcome section customization"
@@ -345,6 +349,84 @@
         }
       },
       "additionalProperties": true
+    },
+    "shareConfig": {
+      "type": "object",
+      "description": "Optional page sharing controls. Built-in targets use plain outbound URLs only after user action.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Set true to show the Share control"
+        },
+        "native": {
+          "type": "string",
+          "enum": ["auto", "always", "never"],
+          "default": "auto",
+          "description": "Use browser-native Web Share on touch devices when available, always when available, or never"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "copy", "email", "x", "linkedin", "facebook", "threads", "bluesky",
+                  "reddit", "hackernews", "lobsters", "producthunt", "slashdot",
+                  "sms", "whatsapp", "telegram", "signal", "messenger",
+                  "mastodon", "misskey", "lemmy", "pocket", "instapaper",
+                  "pinboard", "raindrop", "teams", "notion",
+                  "trello", "pinterest", "tumblr"
+                ]
+              },
+              { "$ref": "#/definitions/customShareService" }
+            ]
+          },
+          "default": ["copy", "email"],
+          "description": "Desktop fallback menu services. Copy Link and Email are always added as safe baseline targets."
+        },
+        "mastodon": { "$ref": "#/definitions/federatedShareInstance" },
+        "misskey": { "$ref": "#/definitions/federatedShareInstance" },
+        "lemmy": { "$ref": "#/definitions/federatedShareInstance" }
+      },
+      "additionalProperties": false
+    },
+    "customShareService": {
+      "type": "object",
+      "description": "Custom tenant-provided share target. Supported template tokens: {url}, {title}, {text}, {description}.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "urlTemplate": {
+          "type": "string",
+          "pattern": "^(https?:\\/\\/|mailto:|sms:|sgnl:\\/\\/|fb-messenger:\\/\\/).+"
+        }
+      },
+      "required": ["id", "label", "urlTemplate"],
+      "additionalProperties": false
+    },
+    "federatedShareInstance": {
+      "type": "object",
+      "description": "Optional configured instance for federated/decentralized share targets",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["default", "configured-instance"],
+          "default": "default"
+        },
+        "instance": {
+          "type": "string",
+          "description": "Instance host or absolute origin, such as mastodon.social or https://fosstodon.org"
+        }
+      },
+      "additionalProperties": false
     },
     "exportConfig": {
       "type": "object",

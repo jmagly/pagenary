@@ -31,6 +31,7 @@ import { aiwgFortemiIndexToCommunityGraph } from '../src/vendor/fortemi-aiwg-ind
 import { buildSectionLayoutMap, normalizeLayout } from '../src/lib/layout.js';
 import { validateFrontmatter } from '../src/lib/templates.js';
 import { isFormProvider, parseFormFenceConfig, renderFormEmbed } from '../src/lib/form-providers.js';
+import { normalizeShareConfig } from '../src/lib/share.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = process.cwd();
@@ -4535,6 +4536,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     siteTitle: config.title || '',
     siteUrl: resolveBaseUrl(config),
     ogImage: resolveOgImage(config, resolveBaseUrl(config)),
+    share: normalizeShareConfig(config.share),
     // Post navigation (#55). `postNav` is opt-out: false disables it, or an
     // object toggles individual affordances {prev,next,index,label}. Defaults
     // to all-on for collection posts. `blogIndex` names the synthetic index
@@ -5032,6 +5034,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     siteTitle: config.title || manifestData.title || '',
     siteUrl: resolveBaseUrl(config),
     ogImage: resolveOgImage(config, resolveBaseUrl(config)),
+    share: normalizeShareConfig(config.share),
     // Post-nav back-to-index target. The blog index section id is always "blog";
     // set it whenever the blog shell is used (tenant layout or a blog collection),
     // so post pages get a "back to the Blog" link — parity with the nested path.

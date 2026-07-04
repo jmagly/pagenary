@@ -805,6 +805,67 @@ describe('export configuration', () => {
   });
 });
 
+describe('share configuration', () => {
+  const TEST_ID = '__test-share-cfg-' + Date.now();
+  let tenantDir;
+
+  afterEach(async () => {
+    if (tenantDir) await cleanup(tenantDir);
+    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+  });
+
+  async function buildWithShare(shareCfg) {
+    tenantDir = await createNestedTenant(TEST_ID, {
+      config: {
+        title: 'Share Docs',
+        description: 'Docs for sharing.',
+        seo: { siteUrl: 'https://docs.example' },
+        share: shareCfg
+      },
+      directories: { docs: { files: { 'index.md': '# Docs\n\nBody.' } } }
+    });
+    const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
+    expect(result.code).toBe(0);
+    const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID);
+    const manifestFile = (await fsp.readdir(distDir)).find((f) => /^manifest.*\.js$/.test(f));
+    const manifestText = await fsp.readFile(path.join(distDir, manifestFile), 'utf8');
+    const siteMatch = manifestText.match(/SITE_CONFIG\s*=\s*(\{[\s\S]*?\});\n\n\/\/ Export/);
+    if (!siteMatch) throw new Error('SITE_CONFIG not found in generated manifest');
+    return {
+      distDir,
+      siteConfig: JSON.parse(siteMatch[1])
+    };
+  }
+
+  test('normalizes share config into SITE_CONFIG', async () => {
+    const { siteConfig } = await buildWithShare({
+      enabled: true,
+      native: 'never',
+      services: ['copy', 'email', 'linkedin', { id: 'community', label: 'Community', urlTemplate: 'https://community.example/share?url={url}' }]
+    });
+    expect(siteConfig.share.enabled).toBe(true);
+    expect(siteConfig.share.native).toBe('never');
+    expect(siteConfig.share.services).toEqual([
+      'copy',
+      'email',
+      'linkedin',
+      { id: 'community', label: 'Community', urlTemplate: 'https://community.example/share?url={url}' }
+    ]);
+  });
+
+  test('static snapshots include no-JS share links when enabled', async () => {
+    const { distDir } = await buildWithShare({
+      enabled: true,
+      services: ['copy', 'email', 'reddit']
+    });
+    const html = await fsp.readFile(path.join(distDir, 'pages', 'docs.html'), 'utf8');
+    expect(html).toContain('aria-label="Share this page"');
+    expect(html).toContain('Canonical URL: <a href="https://docs.example/pages/docs.html">');
+    expect(html).toContain('mailto:?subject=Docs%20%C2%B7%20Share%20Docs');
+    expect(html).toContain('https://www.reddit.com/submit?url=https%3A%2F%2Fdocs.example%2Fpages%2Fdocs.html');
+  });
+});
+
 describe('living scroll (any layout)', () => {
   const TEST_ID = '__test-living-scroll-' + Date.now();
   let tenantDir;

@@ -5,6 +5,7 @@
 
 import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
+import { buildShareHref, buildShareTargets, resolveSharePayload } from '../../src/lib/share.js';
 
 const DISCOVERABILITY_PROFILES = new Set(['standard', 'open', 'limited', 'locked']);
 
@@ -532,6 +533,14 @@ export function buildStaticPage(options) {
   const heroHtml = safeHero
     ? `\n      <figure class="post-hero"><img src="${safeHero}" alt="${safeHeroAlt}" loading="eager" /></figure>`
     : '';
+  const shareHtml = buildStaticShareHtml({
+    sectionId,
+    sectionTitle,
+    sectionSummary,
+    siteTitle,
+    canonicalUrl,
+    config: resolvedConfig
+  });
 
   // Social share image (#16): summary_large_image when present, else summary.
   const safeImage = ogImage ? escapeHtml(ogImage) : '';
@@ -601,14 +610,49 @@ ${jsonLd}
       <div class="section-body">
 ${contentHtml}
       </div>
+      ${shareHtml}
     </article>
     <footer class="static-footer">
+      <p>Canonical URL: <a href="${canonicalUrl}">${canonicalUrl}</a></p>
       <p>View interactive version: <a href="${spaUrl}">${safeTitle}</a></p>
     </footer>
   </main>
 </body>
 </html>
 `;
+}
+
+function buildStaticShareHtml({ sectionId, sectionTitle, sectionSummary, siteTitle, canonicalUrl, config }) {
+  const targets = buildShareTargets(config.share);
+  if (!targets.length) return '';
+  const payload = resolveSharePayload({
+    entry: {
+      id: sectionId,
+      title: sectionTitle,
+      summary: sectionSummary,
+      staticUrl: canonicalUrl
+    },
+    siteConfig: {
+      siteTitle,
+      siteUrl: resolveBaseUrl(config),
+      description: config.description || ''
+    }
+  });
+  const links = targets
+    .filter((target) => target.kind !== 'action')
+    .map((target) => {
+      const href = buildShareHref(target, payload);
+      if (!href) return '';
+      const rel = /^(mailto:|sms:|sgnl:|fb-messenger:)/i.test(href) ? '' : ' rel="noopener noreferrer"';
+      return `<li><a href="${escapeHtml(href)}"${rel}>${escapeHtml(target.label)}</a></li>`;
+    })
+    .filter(Boolean);
+  links.unshift(`<li><a href="${escapeHtml(canonicalUrl)}">Copy link</a></li>`);
+  return `
+      <nav class="static-share" aria-label="Share this page">
+        <h2>Share</h2>
+        <ul>${links.join('')}</ul>
+      </nav>`;
 }
 
 /**

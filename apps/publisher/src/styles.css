@@ -121,6 +121,117 @@ a:focus {
   color: var(--muted);
 }
 
+.share-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: start end;
+  padding: 5.25rem clamp(1rem, 4vw, 4rem) 1rem;
+  background: rgba(var(--ink-rgb), 0.18);
+}
+
+.share-menu-modal {
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: min(70vh, 34rem);
+  overflow: auto;
+  border: 1px solid var(--grid-line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 18px 60px rgba(var(--ink-rgb), 0.18);
+}
+
+.share-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--grid-line);
+}
+
+.share-menu-title {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.share-menu-close {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--grid-line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.share-menu-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.45rem;
+  padding: 0.85rem;
+}
+
+.share-menu-item {
+  display: flex;
+  align-items: center;
+  min-height: 2.4rem;
+  border: 1px solid var(--grid-line);
+  border-radius: 6px;
+  padding: 0.55rem 0.65rem;
+  background: rgba(var(--ink-rgb), 0.02);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.share-menu-item:hover,
+.share-menu-item:focus-visible,
+.share-menu-close:hover,
+.share-menu-close:focus-visible {
+  border-color: rgba(var(--ink-rgb), 0.35);
+  background: rgba(var(--ink-rgb), 0.07);
+  outline: none;
+  text-decoration: none;
+}
+
+.share-menu-url {
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--grid-line);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.static-share {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.static-share h2 {
+  font-size: 0.95rem;
+}
+
+.static-share ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* Docs Map (#33) — framework-free relationship view. */
 .docs-map {
   margin-top: 1.5rem;

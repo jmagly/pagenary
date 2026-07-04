@@ -3,6 +3,7 @@ import { updateMetaTags } from './seo.js';
 import { escapeRegExp, searchContentPage, flattenManifest, findPreferredIndex, resolveSectionMetadata } from './lib/search.js';
 import { resolveTarget as resolveTargetFn, resolveEntry as resolveEntryFn } from './lib/router.js';
 import { composeExportDocument, collectExportableSections } from './lib/export.js';
+import { buildShareHref, buildShareTargets, resolveSharePayload, shouldUseNativeShare } from './lib/share.js';
 import { renderMermaidBlocks } from './mermaid-init.js';
 import { initMediaEmbeds } from './media-init.js';
 import { highlightCodeBlocks } from './syntax-highlight.js';
@@ -13,6 +14,7 @@ const app = document.getElementById('app');
 const nav = document.getElementById('nav');
 const yearMarker = document.getElementById('year');
 const exportBtn = document.getElementById('exportBtn');
+const shareBtn = document.getElementById('shareBtn');
 const commandToggle = document.getElementById('commandToggle');
 const commandPalette = document.getElementById('commandPalette');
 const commandInput = document.getElementById('commandInput');
@@ -33,6 +35,7 @@ let commandIndex = 0;
 let paletteOpen = false;
 let highlightQuery = (localStorage.getItem(COMMAND_QUERY_KEY) || '').trim();
 let pendingHighlightScroll = false;
+let currentEntry = null;
 
 function createExternalLink(item, className) {
   const link = document.createElement('a');
@@ -393,6 +396,7 @@ function applyShell(id) {
 
 async function loadSection(entry) {
   if (!entry) return;
+  currentEntry = entry;
   applyShell(entry.id);
   const module = await import(entry.module);
   const loader = module.load || module.default;
@@ -1200,6 +1204,135 @@ function reflectCommandSelection() {
       li.scrollIntoView({ block: 'nearest' });
     }
   });
+}
+
+const SHARE_CONFIG = SITE_CONFIG.share || {};
+const SHARE_TARGETS = buildShareTargets(SHARE_CONFIG);
+if (shareBtn) {
+  if (SHARE_TARGETS.length) {
+    shareBtn.addEventListener('click', handleShare);
+  } else {
+    shareBtn.remove();
+  }
+}
+
+async function handleShare() {
+  const entry = currentEntry || resolveEntry(currentSectionId()) || findSection(DEFAULT_SECTION);
+  const payload = resolveSharePayload({
+    entry,
+    siteConfig: SITE_CONFIG,
+    locationHref: window.location.href
+  });
+  if (shouldUseNativeShare({
+    config: SHARE_CONFIG,
+    navigatorRef: navigator,
+    matchMediaRef: window.matchMedia?.bind(window),
+    maxTouchPoints: navigator.maxTouchPoints || 0
+  })) {
+    try {
+      await navigator.share({
+        title: payload.title,
+        text: payload.text,
+        url: payload.url
+      });
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+  showShareMenu(payload);
+}
+
+function showShareMenu(payload) {
+  const overlay = document.createElement('div');
+  overlay.className = 'share-menu-overlay';
+  overlay.innerHTML = `
+    <div class="share-menu-modal" role="dialog" aria-modal="true" aria-labelledby="shareMenuTitle">
+      <div class="share-menu-header">
+        <div id="shareMenuTitle" class="share-menu-title">Share page</div>
+        <button type="button" class="share-menu-close" aria-label="Close share menu">×</button>
+      </div>
+      <div class="share-menu-list"></div>
+      <p class="share-menu-url"><a href="${escapeAttribute(payload.url)}">${escapeHtml(payload.url)}</a></p>
+    </div>
+  `;
+  const list = overlay.querySelector('.share-menu-list');
+  SHARE_TARGETS.forEach((target) => {
+    if (target.kind === 'action') {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'share-menu-item';
+      button.textContent = target.label;
+      button.addEventListener('click', async () => {
+        await copyShareUrl(payload.url, button);
+      });
+      list.appendChild(button);
+      return;
+    }
+    const href = buildShareHref(target, payload);
+    if (!href) return;
+    const link = document.createElement('a');
+    link.className = 'share-menu-item';
+    link.href = href;
+    if (!/^(mailto:|sms:|sgnl:|fb-messenger:)/i.test(href)) {
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+    }
+    link.textContent = target.label;
+    list.appendChild(link);
+  });
+
+  const close = () => {
+    document.removeEventListener('keydown', onKeydown);
+    overlay.remove();
+    shareBtn?.focus();
+  };
+  const onKeydown = (event) => {
+    if (event.key === 'Escape') close();
+  };
+  overlay.querySelector('.share-menu-close').addEventListener('click', close);
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) close();
+  });
+  document.addEventListener('keydown', onKeydown);
+  document.body.appendChild(overlay);
+  const firstItem = overlay.querySelector('.share-menu-item, .share-menu-close');
+  if (firstItem) firstItem.focus();
+}
+
+async function copyShareUrl(url, button) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      const input = document.createElement('input');
+      input.value = url;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.left = '-9999px';
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+    }
+    button.textContent = 'Copied';
+    setTimeout(() => { button.textContent = 'Copy Link'; }, 1400);
+  } catch {
+    window.prompt('Copy this link', url);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value);
 }
 
 // Export handler. Publishers can disable export entirely (EXPORT_CONFIG.enabled
