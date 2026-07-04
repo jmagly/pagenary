@@ -174,6 +174,74 @@ export function collectAllSections(manifest, parentTitle = null) {
 }
 
 /**
+ * Build the static HTML href map for manifest-backed sections.
+ * @param {Array} sections - Flat sections from collectAllSections()
+ * @param {string} pagePrefix - Relative prefix from the current document
+ * @returns {Map<string, string>}
+ */
+export function buildStaticSectionHrefMap(sections, pagePrefix = './') {
+  const prefix = String(pagePrefix || '');
+  return new Map(
+    (sections || [])
+      .filter((section) => section?.id)
+      .map((section) => [
+        String(section.id),
+        `${prefix}${encodePathForFilename(String(section.id))}.html`
+      ])
+  );
+}
+
+function decodeHashFragment(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function resolveStaticSectionHref(rawHref, { currentId, sectionHrefMap }) {
+  if (!rawHref || !sectionHrefMap?.size) return rawHref;
+  const href = String(rawHref).trim();
+  if (!href || href.startsWith('//') || /^[a-z][a-z\d+.-]*:/i.test(href)) return rawHref;
+  if (/\.(?:html?|css|js|mjs|json|txt|xml|png|jpe?g|gif|svg|webp|avif|ico|pdf|zip)(?:[?#].*)?$/i.test(href)) return rawHref;
+
+  let fragment = '';
+  if (href.startsWith('#')) {
+    fragment = href.slice(1);
+  } else if (href.startsWith('./#') || href.startsWith('/#')) {
+    fragment = href.slice(href.indexOf('#') + 1);
+  } else {
+    return rawHref;
+  }
+
+  if (!fragment) return rawHref;
+  const targetId = decodeHashFragment(fragment);
+  if (targetId === currentId) return rawHref;
+
+  return sectionHrefMap.get(targetId) || rawHref;
+}
+
+/**
+ * Rewrite static-only intra-docbase links to generated HTML snapshots.
+ * Runtime section modules keep their SPA hash links; this is applied only to
+ * exported HTML fallback documents.
+ * @param {string} contentHtml - HTML body from a compiled section module
+ * @param {object} options
+ * @param {string} options.currentId - Current manifest section id
+ * @param {Map<string, string>} options.sectionHrefMap - Static section hrefs
+ * @returns {string}
+ */
+export function rewriteStaticHtmlLinks(contentHtml, { currentId = '', sectionHrefMap = new Map() } = {}) {
+  return String(contentHtml || '').replace(
+    /\bhref\s*=\s*(["'])([^"']*)\1/gi,
+    (match, quote, rawHref) => {
+      const rewritten = resolveStaticSectionHref(rawHref, { currentId, sectionHrefMap });
+      return rewritten === rawHref ? match : `href=${quote}${rewritten}${quote}`;
+    }
+  );
+}
+
+/**
  * Generate XML sitemap content
  * @param {Array} urls - Array of URL objects with loc, priority, changefreq
  * @returns {string} XML sitemap content
@@ -605,6 +673,7 @@ export async function generateStaticSnapshots(distDir, manifest, config) {
   const baseUrl = resolveBaseUrl(config);
   const siteOgImage = resolveOgImage(config, baseUrl);
   const sections = collectAllSections(manifest);
+  const sectionHrefMap = buildStaticSectionHrefMap(sections, './');
   let generated = 0;
 
   for (const section of sections) {
@@ -619,6 +688,10 @@ export async function generateStaticSnapshots(distDir, manifest, config) {
         console.warn(`  ⚠ Could not extract HTML from ${section.id}`);
         continue;
       }
+      const staticContentHtml = rewriteStaticHtmlLinks(contentHtml, {
+        currentId: section.id,
+        sectionHrefMap
+      });
 
       // Per-section og:image override (frontmatter) falls back to the site image
       const pageOgImage = section.ogImage
@@ -632,7 +705,7 @@ export async function generateStaticSnapshots(distDir, manifest, config) {
         sectionSummary: section.summary,
         sectionParent: section.parent,
         section,
-        contentHtml,
+        contentHtml: staticContentHtml,
         siteTitle: config.title || 'Documentation',
         baseUrl,
         ogImage: pageOgImage,

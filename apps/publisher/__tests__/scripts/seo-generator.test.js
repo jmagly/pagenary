@@ -13,6 +13,7 @@ import {
   resolveOgImage,
   buildPageJsonLd,
   buildStaticPage,
+  generateStaticSnapshots,
   generateCorpusArtifacts,
   generateLlmsTxt,
   generateSeoArtifacts,
@@ -191,6 +192,38 @@ describe('generateSitemap (#15)', () => {
       expect(xml).toContain('<loc>https://docs.pagenary.com/</loc>');
       expect(xml).toContain('<loc>https://docs.pagenary.com/pages/welcome.html</loc>');
       expect(xml).not.toContain('<loc>/</loc>');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('generateStaticSnapshots (#120)', () => {
+  test('rewrites docbase hash links to generated static page counterparts', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-static-links-'));
+    try {
+      await fsp.mkdir(path.join(dir, 'sections'), { recursive: true });
+      const manifest = [
+        { id: 'intro', title: 'Intro', summary: 'Start here', module: './sections/intro.js' },
+        { id: 'guides/install', title: 'Install', summary: 'Install docs', module: './sections/install.js' }
+      ];
+      await fsp.writeFile(
+        path.join(dir, 'sections', 'intro.js'),
+        'export default { html: `<p><a href="#guides/install">Install</a> <a href="#local-anchor">Local</a> <a href="https://example.com">External</a> <a href="mailto:help@example.com">Mail</a></p>` };\n',
+        'utf8'
+      );
+      await fsp.writeFile(
+        path.join(dir, 'sections', 'install.js'),
+        'export default { html: "<h1>Install</h1>" };\n',
+        'utf8'
+      );
+
+      await generateStaticSnapshots(dir, manifest, { title: 'Docs', domain: 'docs.example' });
+      const html = await fsp.readFile(path.join(dir, 'pages', 'intro.html'), 'utf8');
+      expect(html).toContain('href="./guides--install.html"');
+      expect(html).toContain('href="#local-anchor"');
+      expect(html).toContain('href="https://example.com"');
+      expect(html).toContain('href="mailto:help@example.com"');
     } finally {
       await fsp.rm(dir, { recursive: true, force: true });
     }

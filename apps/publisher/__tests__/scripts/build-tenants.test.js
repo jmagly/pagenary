@@ -341,7 +341,7 @@ describe('build-tenants.js', () => {
         ]
       };
       const content = {
-        'fallback.md': '# Fallback Page\n\nRoot HTML fallback body.',
+        'fallback.md': '# Fallback Page\n\nRoot HTML fallback body. [Deep](#nested/deep-page) [Local](#local-anchor) [External](https://example.com).',
         'nested/deep-page.md': '# Deep Page\n\nNested static page.'
       };
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
@@ -353,6 +353,9 @@ describe('build-tenants.js', () => {
       expect(index).toMatch(/<main id="app" class="canvas" tabindex="-1" aria-live="polite"><section class="section doc markdown">/);
       expect(index).toContain('Fallback Page');
       expect(index).toContain('Root HTML fallback body.');
+      expect(index).toContain('href="./pages/nested--deep-page.html"');
+      expect(index).toContain('href="#local-anchor"');
+      expect(index).toContain('href="https://example.com"');
       expect(index).toContain('<nav id="nav" class="nav nav-static-fallback" aria-label="Primary">');
       expect(index).toMatch(/<div class="nav-group expanded">/);
       expect(index).toContain('href="./pages/fallback-page.html"');
@@ -881,8 +884,8 @@ describe('build-tenants.js', () => {
       expect(pageHtml).toContain('<meta property="og:url" content="https://docs.example.com/pages/guides.html" />');
       expect(pageHtml).toContain('<meta name="twitter:title" content="Guides" />');
       expect(pageHtml).toContain('Choose the right guide for your task.');
-      expect(pageHtml).toContain('href="#guides/install"');
-      expect(pageHtml).toContain('href="#guides/deploy"');
+      expect(pageHtml).toContain('href="./guides--install.html"');
+      expect(pageHtml).toContain('href="./guides--deploy.html"');
 
       const sitemap = await fsp.readFile(path.join(distDir, 'sitemap.xml'), 'utf8');
       expect(sitemap).toContain('https://docs.example.com/pages/guides.html');
@@ -944,7 +947,7 @@ describe('build-tenants.js', () => {
           if (profileCase.page) {
             const pageHtml = await fsp.readFile(pagePath, 'utf8');
             expect(pageHtml).toContain('Human-authored section introduction.');
-            expect(pageHtml).toContain('href="#guides/install"');
+            expect(pageHtml).toContain('href="./guides--install.html"');
             if (profileCase.noindex) {
               expect(pageHtml).toContain('<meta name="robots" content="noindex, nofollow" />');
             } else {

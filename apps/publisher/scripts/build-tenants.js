@@ -6,7 +6,16 @@ import path from 'path';
 import { spawn, execSync } from 'child_process';
 import { createHash } from 'crypto';
 import os from 'os';
-import { extractHtmlFromModule, generateSeoArtifacts, resolveBaseUrl, resolveDiscoverabilityProfile, resolveOgImage } from './lib/seo-generator.js';
+import {
+  buildStaticSectionHrefMap,
+  collectAllSections,
+  extractHtmlFromModule,
+  generateSeoArtifacts,
+  resolveBaseUrl,
+  resolveDiscoverabilityProfile,
+  resolveOgImage,
+  rewriteStaticHtmlLinks
+} from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
 import { estimateReadingLength, parseFrontmatter } from './lib/frontmatter.js';
 import {
@@ -1323,6 +1332,11 @@ async function applyRootHtmlFallback(distDir, config = {}) {
   const moduleContent = await fsp.readFile(modulePath, 'utf8');
   const fallbackHtml = extractHtmlFromModule(moduleContent);
   if (!fallbackHtml) return;
+  const sectionHrefMap = buildStaticSectionHrefMap(collectAllSections(manifest), './pages/');
+  const staticFallbackHtml = rewriteStaticHtmlLinks(fallbackHtml, {
+    currentId: entry.id,
+    sectionHrefMap
+  });
 
   let html = await fsp.readFile(indexPath, 'utf8');
   const staticNav = renderStaticNavFallback(manifest);
@@ -1332,7 +1346,7 @@ async function applyRootHtmlFallback(distDir, config = {}) {
       `<nav id="nav" class="nav nav-static-fallback" aria-label="Primary">${staticNav}</nav>`
     );
   }
-  const next = injectRootFallbackIntoApp(upsertRootSeoMetadata(html, entry, config), fallbackHtml);
+  const next = injectRootFallbackIntoApp(upsertRootSeoMetadata(html, entry, config), staticFallbackHtml);
   if (next !== html) {
     await fsp.writeFile(indexPath, next, 'utf8');
     console.log(`  ↳ embedded root HTML fallback: ${entry.id}`);
