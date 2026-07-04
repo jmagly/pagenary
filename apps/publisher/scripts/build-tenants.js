@@ -2848,6 +2848,36 @@ function renderMediaCaption(def) {
   return `<figcaption>${caption ? escapeHtml(caption) : ''}${caption && meta ? ' ' : ''}${meta}</figcaption>`;
 }
 
+function firstMediaValue(def, keys) {
+  for (const key of keys) {
+    const value = def[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function renderImageSource(src, media) {
+  return src ? `<source media="${escapeAttribute(media)}" srcset="${escapeAttribute(src)}">` : '';
+}
+
+function renderImageMedia(def) {
+  const portrait = firstMediaValue(def, ['portrait', 'portraitSrc', 'mobile', 'mobileSrc']);
+  const landscape = firstMediaValue(def, ['landscape', 'landscapeSrc', 'desktop', 'desktopSrc']);
+  const fallbackSrc = firstMediaValue(def, ['src', 'url', 'default', 'defaultSrc']) || landscape || portrait;
+  if (!fallbackSrc) return mediaFallback('Image media is missing a src.');
+
+  const alt = def.alt || def.title || def.label || '';
+  const title = def.title ? ` title="${escapeAttribute(def.title)}"` : '';
+  const loading = def.loading === 'eager' ? 'eager' : 'lazy';
+  const sources = [
+    renderImageSource(portrait, '(orientation: portrait), (max-width: 700px)'),
+    renderImageSource(landscape, '(orientation: landscape) and (min-width: 701px)')
+  ].filter(Boolean).join('');
+  const img = `<img src="${escapeAttribute(fallbackSrc)}" alt="${escapeAttribute(alt)}"${title} loading="${loading}">`;
+  const media = sources ? `<picture>${sources}${img}</picture>` : img;
+  return `<figure class="media-block media-block--image">${media}${renderMediaCaption(def)}</figure>`;
+}
+
 function renderNativeMedia(def, kind) {
   const src = def.src || def.url;
   if (!src) return mediaFallback(`${kind} media is missing a src.`);
@@ -2916,6 +2946,7 @@ function renderMediaBlock(raw, config = {}) {
     return mediaFallback('Media rendering is disabled for this tenant or document.');
   }
   const type = String(def.type || def.kind || '').toLowerCase();
+  if (type === 'image' || type === 'picture' || type === 'img') return renderImageMedia(def);
   if (type === 'audio' || type === 'podcast' || type === 'narration') return renderNativeMedia(def, 'audio');
   if (type === 'video') return renderNativeMedia(def, 'video');
   if (type === 'embed' || type === 'youtube' || type === 'vimeo' || type === 'peertube') {

@@ -298,6 +298,47 @@ describe('build-tenants.js', () => {
       expect(sectionContent).toMatch(/h1 id=/);
     });
 
+    test('preserves responsive image media markup in static snapshots', async () => {
+      const manifest = {
+        sections: [
+          { id: 'gallery', title: 'Gallery', file: 'gallery.md' }
+        ]
+      };
+      const content = {
+        'gallery.md': [
+          '# Gallery',
+          '',
+          '```media',
+          'type: image',
+          'src: assets/default.jpg',
+          'portrait: assets/portrait.jpg',
+          'landscape: assets/landscape.jpg',
+          'alt: Product view',
+          '```'
+        ].join('\n')
+      };
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const sectionContent = await fsp.readFile(path.join(
+        PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'gallery.js'
+      ), 'utf8');
+      expect(sectionContent).toContain('<picture>');
+      expect(sectionContent).toContain('srcset=\\"assets/portrait.jpg\\"');
+      expect(sectionContent).toContain('srcset=\\"assets/landscape.jpg\\"');
+
+      const staticHtml = await fsp.readFile(path.join(
+        PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'pages', 'gallery.html'
+      ), 'utf8');
+      expect(staticHtml).toContain('<picture>');
+      expect(staticHtml).toContain('srcset="assets/portrait.jpg"');
+      expect(staticHtml).toContain('srcset="assets/landscape.jpg"');
+      expect(staticHtml).toContain('<img src="assets/default.jpg" alt="Product view" loading="lazy">');
+    });
+
     test('emits a Fortemi search index with full body text extracted', async () => {
       const manifest = {
         sections: [

@@ -38,6 +38,23 @@ transcript: transcripts/episode.md
 assert.equal(audio.includes('<audio controls preload="metadata" aria-label="Episode audio">'), true);
 assert.equal(audio.includes('<source src="audio/episode.mp3">'), true);
 
+const image = render(`
+# Image
+
+\`\`\`media
+type: image
+src: assets/default.jpg
+portrait: assets/portrait.jpg
+landscape: assets/landscape.jpg
+alt: Product screenshot
+caption: Responsive screenshot.
+\`\`\`
+`);
+
+assert.equal(image.includes('<picture><source media="(orientation: portrait), (max-width: 700px)" srcset="assets/portrait.jpg">'), true);
+assert.equal(image.includes('<source media="(orientation: landscape) and (min-width: 701px)" srcset="assets/landscape.jpg">'), true);
+assert.equal(image.includes('<img src="assets/default.jpg" alt="Product screenshot" loading="lazy">'), true);
+
 const hosted = render(`
 # Hosted
 

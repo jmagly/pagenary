@@ -120,3 +120,49 @@ describe('markdownToHtml HTML comment stripping', () => {
     expect(html).toContain('this is example code');
   });
 })
+
+describe('markdownToHtml responsive image media blocks (#121)', () => {
+  it('renders portrait and landscape image variants as native picture sources', () => {
+    const html = markdownToHtml([
+      '# Responsive image',
+      '',
+      '```media',
+      'type: image',
+      'src: assets/default.jpg',
+      'portrait: assets/portrait.jpg',
+      'landscape: assets/landscape.jpg',
+      'alt: Dashboard overview',
+      'caption: Choose the best composition for the viewport.',
+      '```'
+    ].join('\n'));
+
+    expect(html).toContain('<figure class="media-block media-block--image">');
+    expect(html).toContain('<picture>');
+    expect(html).toContain('<source media="(orientation: portrait), (max-width: 700px)" srcset="assets/portrait.jpg">');
+    expect(html).toContain('<source media="(orientation: landscape) and (min-width: 701px)" srcset="assets/landscape.jpg">');
+    expect(html).toContain('<img src="assets/default.jpg" alt="Dashboard overview" loading="lazy">');
+    expect(html).toContain('<figcaption>Choose the best composition for the viewport.</figcaption>');
+  });
+
+  it('falls back to the default image when responsive variants are omitted', () => {
+    const html = markdownToHtml([
+      '# Image',
+      '',
+      '```media',
+      'type: image',
+      'src: assets/default.jpg',
+      'alt: Default only',
+      '```'
+    ].join('\n'));
+
+    expect(html).toContain('<figure class="media-block media-block--image"><img src="assets/default.jpg" alt="Default only" loading="lazy"></figure>');
+    expect(html).not.toContain('<picture>');
+    expect(html).not.toContain('<source');
+  });
+
+  it('keeps legacy markdown images unchanged', () => {
+    const html = markdownToHtml('![Legacy alt](assets/legacy.jpg)');
+    expect(html).toContain('<img src="assets/legacy.jpg" alt="Legacy alt">');
+    expect(html).not.toContain('<picture>');
+  });
+});

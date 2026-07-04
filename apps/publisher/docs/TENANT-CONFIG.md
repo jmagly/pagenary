@@ -78,6 +78,17 @@ transcript: transcripts/episode.md
 
 ````markdown
 ```media
+type: image
+src: assets/screens/default.jpg
+portrait: assets/screens/portrait.jpg
+landscape: assets/screens/landscape.jpg
+alt: Product dashboard
+caption: The dashboard uses a tighter crop on portrait screens.
+```
+````
+
+````markdown
+```media
 type: embed
 provider: youtube
 id: abc123
@@ -85,10 +96,16 @@ title: Hosted walkthrough
 ```
 ````
 
-Native media renders semantic `<audio>` or `<video>` with controls, accessible
-labels, optional posters/captions/transcript links, and no autoplay. Hosted
-providers render as click-to-load buttons by default and swap to sandboxed,
-lazy iframes only after activation.
+Image media renders semantic `<picture>` markup when `portrait`/`portraitSrc` or
+`landscape`/`landscapeSrc` variants are provided, with `src` as the fallback
+image. `mobile`/`mobileSrc` and `desktop`/`desktopSrc` are accepted aliases.
+When no variants are provided, image media renders a plain `<img>` so existing
+single-image usage stays simple.
+
+Native audio/video media renders semantic `<audio>` or `<video>` with controls,
+accessible labels, optional posters/captions/transcript links, and no autoplay.
+Hosted providers render as click-to-load buttons by default and swap to
+sandboxed, lazy iframes only after activation.
 
 Tenant `media` config applies to every document. A document can override those
 settings with frontmatter `media` fields, for example `media: { load:
