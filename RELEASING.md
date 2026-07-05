@@ -51,11 +51,14 @@ Or run the gates manually:
    ```
 7. **Signed tag + push** — *maintainer action*. Sign with the **release key**,
    not the default commit key (a bare `git tag -s` signs with the wrong key).
-   Push **origin only** — `release.yml` pushes the tag to the GitHub mirror itself.
+   Push to `origin` first, then push the same commit and signed tag to `github`
+   so GitHub Actions receives the public npm trusted-publishing tag event.
    ```bash
    git tag -s -u 719AB63879E84CE8 v<version> -m "v<version> — <summary>"
    git push origin main
    git push origin v<version>
+   git push github main
+   git push github v<version>
    ```
    The tag push triggers `.gitea/workflows/release.yml` (Gitea + GitHub release
    records, pushes `main`), `npm-publish.yml` (publishes `@pagenary/blog-client`,
@@ -86,11 +89,15 @@ canonical [`docs/contributing/releasing.md`](docs/contributing/releasing.md).
 - **No AI attribution** in commit messages, tags, or release notes
   ([`.claude/rules/no-attribution.md`](.claude/rules/no-attribution.md)).
 - **Delivery mode is `direct`** — release commits land on `main` (no PR).
-- **Push the tag to `origin` only** — `release.yml` mirrors it to GitHub; pushing
-  the tag to the `github` remote yourself breaks the mirror release record.
+- **Push the tag to both remotes, in order** — `origin` drives the Gitea release
+  and internal package workflows; `github` drives public npm trusted publishing.
+  Push `origin` first, then `github`.
 - **GitHub mirror token scope** — when a release commit changes
   `.github/workflows/*`, the `GH_TOKEN` used by `release.yml` must include
   GitHub `workflow` scope or GitHub rejects the mirror push.
+- **GitHub npm `ENEEDAUTH`** — if the GitHub npm workflow starts but `npm
+  publish` says auth is required, npm trusted publishing is not configured or
+  does not exactly match `jmagly/pagenary` + `npm-publish.yml` for that package.
 - **Never force-push** (`force_push_policy: never`). Never delete a pushed tag;
   if a post-tag step fails, bump `PATCH` and re-cut.
 - **Never finalize on red CI** — wait for `release.yml` / `npm-publish.yml` green.

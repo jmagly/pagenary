@@ -50,10 +50,12 @@ git commit -am "release: v2026.5.2 — <one-line summary> (#refs)"
 #    Sign with the RELEASE key, not the default commit key — see note below.
 git tag -s -u 719AB63879E84CE8 v2026.5.2 -m "v2026.5.2 — <summary>"
 
-# 5. Push the commit, then the tag, to ORIGIN ONLY. The tag push is what
-#    triggers CI. Do NOT push the tag to the github mirror yourself (see pitfall).
+# 5. Push the commit, then the tag, to origin first. Then push the same commit
+#    and signed tag to github so GitHub Actions receives the public npm trigger.
 git push origin main
 git push origin v2026.5.2
+git push github main
+git push github v2026.5.2
 ```
 
 `origin` should be the Gitea SSH remote:
@@ -65,10 +67,11 @@ git@git.integrolabs.net:roctinam/pagenary.git
 HTTPS remotes require interactive credentials and can fail in automation with
 `could not read Username`.
 
-**A `v*` tag push triggers three workflows:** `npm-publish.yml` (publishes the
-public package set), `release.yml` (Gitea + GitHub release records), and
-`docsite-deploy.yml` (the tag matches its `v*` trigger, so docs.pagenary.com
-redeploys too).
+**A `v*` tag push to origin triggers Gitea workflows:** `npm-publish.yml`
+(publishes the internal package set), `release.yml` (Gitea + GitHub release
+records), and `docsite-deploy.yml` (the tag matches its `v*` trigger, so
+docs.pagenary.com redeploys too). **A `v*` tag push to github triggers the
+public npmjs.org workflow** in `.github/workflows/npm-publish.yml`.
 
 ### Signing key (important)
 
@@ -90,18 +93,20 @@ publish).
 
 ### Common pitfalls & recovery
 
-- **Don't push the tag to the `github` remote manually.** `release.yml` pushes
-  `main` + the tag to the GitHub mirror itself (via `GH_TOKEN`). If the tag is
-  already on the mirror, that step fails with *"Updates were rejected because the
-  tag already exists"* and the GitHub **release record** is not created (the
-  package + Gitea release are unaffected). Push only to `origin`.
-  - *Recovery:* create the GitHub release for the existing tag manually
-    (`gh release create v2026.5.2 …`), or delete the mirror tag and re-run
-    `release.yml` so it re-pushes and creates the record.
+- **Push both remotes.** `origin` drives Gitea release/internal package
+  workflows. The `github` tag push is what triggers
+  `.github/workflows/npm-publish.yml` for public npm trusted publishing. Push
+  `origin` first, then `github`; do not wait for the Gitea mirror leg as the
+  only GitHub trigger.
 - **`NPM_TOKEN` scope:** the publish needs a Gitea token with **both**
   `package:write` and `repository:write`. If `npm-publish.yml` fails on auth,
   fix the token scope and re-run it via `workflow_dispatch` (idempotent —
   re-publishing the same version is a no-op, dist-tag promotion is safe to repeat).
+- **GitHub npm `ENEEDAUTH`:** if the GitHub npm workflow starts but `npm publish`
+  says auth is required, npm did not accept the run as a trusted publisher.
+  Confirm every public package has npm Trusted Publisher settings for
+  `Provider: GitHub Actions`, `Owner: jmagly`, `Repository: pagenary`,
+  `Workflow: npm-publish.yml`, allowed action `npm publish`.
 
 ## What the workflow enforces
 
@@ -168,8 +173,8 @@ One-time operator setup:
    `repository.url` to the GitHub mirror for provenance matching, and runs
    `npm publish --access public` for each package. npm automatically generates
    provenance for trusted publishing from a public repository.
-3. Let `release.yml` mirror tags to GitHub. Do not push tags to the GitHub
-   mirror manually.
+3. Push the signed release tag to the `github` remote after pushing `origin`.
+   GitHub Actions needs the tag event to start the public npm workflow.
 
 No long-lived `NPMJS_TOKEN` is needed with OIDC. If `release.yml` fails while
 pushing to GitHub with a message about updating `.github/workflows/*`, replace
