@@ -68,6 +68,13 @@ describe('generateCollections (#18)', () => {
   test('emits index.json with posts sorted newest-first, skipping _ files', async () => {
     await generateCollections(dist, config, content);
     const manifest = JSON.parse(await fsp.readFile(path.join(dist, 'blog', 'index.json'), 'utf8'));
+    expect(manifest.schemaVersion).toBe('1.0.0');
+    expect(manifest.source).toEqual({
+      id: 'blog',
+      title: 'Blog',
+      url: 'https://docs.aiwg.io/blog',
+      baseUrl: 'https://docs.aiwg.io/blog'
+    });
     expect(manifest.count).toBe(2); // _draft.md skipped
     expect(manifest.posts.map((p) => p.slug)).toEqual(['newer', 'older']); // date desc
     const newer = manifest.posts[0];
@@ -75,7 +82,10 @@ describe('generateCollections (#18)', () => {
     expect(newer.summary).toBe('The newer one');
     expect(newer.hero).toBe('/img/n.png');
     expect(newer.path).toBe('/#blog/newer');
+    expect(newer.url).toBe('https://docs.aiwg.io/pages/blog--newer.html');
     expect(newer.canonical).toBe('https://docs.aiwg.io/pages/blog--newer.html'); // absolute via domain + static-page scheme
+    expect(newer.source).toEqual(manifest.source);
+    expect(newer.docbase).toEqual(manifest.source);
     expect(newer.reading_time).toBeGreaterThanOrEqual(1);
   });
 

@@ -1,0 +1,29 @@
+{
+  "name": "@pagenary/blog-client",
+  "version": "2026.7.13",
+  "type": "module",
+  "description": "Fetch, normalize, and aggregate Pagenary blog indexes from one or many docbases.",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://docs.pagenary.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://git.integrolabs.net/roctinam/pagenary.git",
+    "directory": "apps/blog-client"
+  },
+  "bugs": {
+    "url": "https://git.integrolabs.net/roctinam/pagenary/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=16"
+  }
+}

@@ -94,8 +94,9 @@ written. Each collection reads Markdown posts from its configured `path`, parses
 front matter with `scripts/lib/frontmatter.js`, sorts entries by the configured
 field/order, and writes machine-readable output under the collection route:
 
-- `index.json` with `slug`, `title`, `date`, `summary`, `hero`, `tags`,
-  `reading_time`, `canonical`, and `path`
+- `index.json` with `schemaVersion`, top-level `source`/`docbase` identity, and
+  post-level `id`, `slug`, `title`, `date`, `summary`, `hero`, `tags`,
+  `reading_time`, `source`, `docbase`, `url`, `canonical`, and `path`
 - optional `feed.xml` when `feed: true`
 
 ### Search Index Generation

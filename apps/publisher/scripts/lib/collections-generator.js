@@ -22,6 +22,7 @@ import { resolveBaseUrl, encodePathForFilename } from './seo-generator.js';
 import { parseFrontmatter, estimateReadingLength, firstHeading } from './frontmatter.js';
 
 const POST_EXTENSIONS = new Set(['.md', '.markdown']);
+const BLOG_INDEX_SCHEMA_VERSION = '1.0.0';
 
 function escapeXml(str) {
   return String(str == null ? '' : str)
@@ -38,11 +39,31 @@ function outputDir(collection) {
   return route;
 }
 
+function absoluteUrl(baseUrl, pathname) {
+  if (!baseUrl) return pathname;
+  const pathPart = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  return `${baseUrl}${pathPart}`;
+}
+
+function sourceIdentity(collection, config, baseUrl) {
+  const id = String(collection.sourceId || collection.docbaseId || config.id || collection.path || '').trim();
+  const title = collection.sourceTitle || collection.docbaseTitle || collection.title || config.title || id;
+  const route = collection.route || `/${outputDir(collection)}`;
+  const basePath = route.startsWith('/') ? route : `/${route}`;
+  const url = absoluteUrl(baseUrl, basePath);
+  return {
+    id,
+    title,
+    url,
+    baseUrl: url
+  };
+}
+
 /**
  * Build the entry list for one collection by reading its source posts.
  * @returns {Promise<Array>} sorted post entries
  */
-async function collectEntries(collection, contentBasePath, baseUrl) {
+async function collectEntries(collection, contentBasePath, baseUrl, source) {
   const srcDir = path.join(contentBasePath, collection.path);
   let files;
   try {
@@ -67,6 +88,7 @@ async function collectEntries(collection, contentBasePath, baseUrl) {
     const sectionId = `${collection.path.replace(/^\/+|\/+$/g, '')}/${slug}`;
     const staticPath = `/pages/${encodePathForFilename(sectionId)}.html`;
     const routePath = `/#${sectionId}`;
+    const canonical = absoluteUrl(baseUrl, staticPath);
 
     entries.push({
       id: sectionId,
@@ -84,7 +106,10 @@ async function collectEntries(collection, contentBasePath, baseUrl) {
       word_count: readingLength.words,
       checklist_progress: readingLength.checklist,
       progress: data.progress || data.readingProgress || null,
-      canonical: baseUrl ? `${baseUrl}${staticPath}` : staticPath,
+      source,
+      docbase: source,
+      url: canonical,
+      canonical,
       path: routePath
     });
   }
@@ -150,7 +175,8 @@ export async function generateCollections(distDir, config, contentBasePath) {
       console.warn('  ⚠ collection entry missing "path" — skipped');
       continue;
     }
-    const entries = await collectEntries(collection, contentBasePath, baseUrl);
+    const source = sourceIdentity(collection, config, baseUrl);
+    const entries = await collectEntries(collection, contentBasePath, baseUrl, source);
     if (entries === null) {
       console.warn(`  ⚠ collection source not found: ${collection.path}`);
       continue;
@@ -161,8 +187,11 @@ export async function generateCollections(distDir, config, contentBasePath) {
 
     if (collection.manifest !== false) {
       const manifest = {
+        schemaVersion: BLOG_INDEX_SCHEMA_VERSION,
         title: collection.title || config.title || '',
         route: collection.route || `/${outputDir(collection)}`,
+        source,
+        docbase: source,
         count: entries.length,
         generated: new Date().toISOString(),
         posts: entries

@@ -1,0 +1,32 @@
+{
+  "name": "@pagenary/embed",
+  "version": "2026.7.13",
+  "type": "module",
+  "description": "Framework-agnostic Pagenary blog embed web components.",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://docs.pagenary.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://git.integrolabs.net/roctinam/pagenary.git",
+    "directory": "apps/embed"
+  },
+  "bugs": {
+    "url": "https://git.integrolabs.net/roctinam/pagenary/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pagenary/blog-client": "2026.7.13"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=16"
+  }
+}

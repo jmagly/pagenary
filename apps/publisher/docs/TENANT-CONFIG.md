@@ -660,6 +660,8 @@ scraping rendered HTML. Configure collections in the tenant `config.json`:
 | `path` | string | required | Collection folder, relative to the content root (e.g. `blog` → `content/blog/`) |
 | `route` | string | `/<path>` | Public route; also the output subdirectory under `dist/` |
 | `title` | string | tenant `title` | Collection title (manifest + feed) |
+| `sourceId` / `docbaseId` | string | collection `path` | Stable source identity used by cross-site blog aggregators |
+| `sourceTitle` / `docbaseTitle` | string | collection `title` | Human-readable source label, for example `Server` or `React` |
 | `manifest` | boolean | `true` | Emit `index.json` |
 | `feed` | boolean | `false` | Emit RSS `feed.xml` |
 | `sortBy` | string | `"date"` | Front-matter field to sort by |
@@ -684,13 +686,43 @@ Post body…
 
 The build writes to `dist/<route>/`:
 
-- **`index.json`** — `{ title, route, count, generated, posts: [...] }`, where each
-  post is `{ slug, title, date, summary, hero, heroAlt, tags, reading_time, reading_label,
-  reading_length, word_count, checklist_progress, progress, canonical, path }`,
-  sorted per `sortBy`/`order`. `canonical` is the absolute static-page URL (uses
-  the same base URL as [SEO](#seo-seo)); `reading_time` is the rounded minute
-  value and `reading_length` contains the deterministic weighted model details.
+- **`index.json`** — a stable versioned contract:
+  `{ schemaVersion: "1.0.0", title, route, source, docbase, count, generated, posts: [...] }`.
+  Each post is `{ id, slug, title, date, summary, hero, heroAlt, tags,
+  reading_time, reading_label, reading_length, word_count, checklist_progress,
+  progress, source, docbase, url, canonical, path }`, sorted per
+  `sortBy`/`order`. `source`/`docbase` identify the publishing docbase so
+  multi-docbase aggregators can label entries without guessing. `url` and
+  `canonical` are absolute static-page URLs when `seo.siteUrl` or `domain` is
+  configured; otherwise they remain site-root paths.
 - **`feed.xml`** *(when `feed: true`)* — RSS 2.0 of the same set.
+
+Serve public `index.json` and `feed.xml` artifacts with permissive CORS for the
+consumer sites you support. The bundled Caddyfile uses
+`Access-Control-Allow-Origin: *` for these generated data artifacts. If a CDN or
+Cloudflare zone protects the docs site, add an edge rule that allows build-time
+fetches for `*/index.json` and `*/feed.xml`; consumers should not need a spoofed
+browser `User-Agent` or stale local seed.
+
+Consumers can aggregate one or more docbases with `@pagenary/blog-client`:
+
+```js
+import { aggregateBlogIndexes } from '@pagenary/blog-client';
+
+const { posts, errors } = await aggregateBlogIndexes([
+  'https://docs.fortemi.com/server/blog/index.json',
+  'https://docs.fortemi.com/react/blog/index.json'
+], { limit: 10 });
+```
+
+For a drop-in runtime embed, self-host `@pagenary/embed` and use:
+
+```html
+<pagenary-blog
+  sources="https://docs.fortemi.com/server/blog/index.json,https://docs.fortemi.com/react/blog/index.json"
+  limit="10"
+  show-source="true"></pagenary-blog>
+```
 
 > A collection's posts are still rendered as normal pages (each `.md` becomes a
 > section). The manifest/feed are additive, machine-readable indexes.

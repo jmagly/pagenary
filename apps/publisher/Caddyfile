@@ -6,8 +6,15 @@
   }
 }
 
+(blog_data_headers) {
+  @blog_data path */index.json */feed.xml
+  header @blog_data Access-Control-Allow-Origin "*"
+  header @blog_data Cache-Control "public, max-age=300"
+}
+
 http://tenant-default.local:5175, http://localhost:5175 {
   root * dist/tenant-default
+  import blog_data_headers
   encode gzip zstd
   try_files {path} {path}/ index.html
   file_server
@@ -15,6 +22,7 @@ http://tenant-default.local:5175, http://localhost:5175 {
 
 http://tenant-alpha.local:5175 {
   root * dist/tenant-alpha
+  import blog_data_headers
   encode gzip zstd
   try_files {path} {path}/ index.html
   file_server
@@ -22,6 +30,7 @@ http://tenant-alpha.local:5175 {
 
 http://tenant-beta.local:5175 {
   root * dist/tenant-beta
+  import blog_data_headers
   encode gzip zstd
   try_files {path} {path}/ index.html
   file_server
@@ -29,6 +38,7 @@ http://tenant-beta.local:5175 {
 
 http://tenant-roko.local:5175 {
   root * dist/roko-kb
+  import blog_data_headers
   encode gzip zstd
   try_files {path} {path}/ index.html
   file_server

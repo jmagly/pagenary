@@ -584,10 +584,36 @@ and emit artifacts under the configured route:
 - `<route>/index.json` when `manifest !== false`
 - `<route>/feed.xml` when `feed === true`
 
-The `index.json` entry shape is:
+`index.json` is a stable, versioned contract with top-level
+`schemaVersion: "1.0.0"`. It is designed for cross-site consumption and should
+be served with `Access-Control-Allow-Origin: *` (or an equivalent allow-list)
+from public doc sites. If a CDN or Cloudflare zone applies bot mitigation, add
+an allowance for `*/index.json` and `*/feed.xml` so build tools can fetch these
+artifacts without spoofing browser headers.
+
+The `index.json` shape is:
 
 ```typescript
+interface BlogSource {
+  id: string;
+  title: string;
+  url: string;
+  baseUrl: string;
+}
+
+interface CollectionManifest {
+  schemaVersion: "1.0.0";
+  title: string;
+  route: string;
+  source: BlogSource;
+  docbase: BlogSource;
+  count: number;
+  generated: string;
+  posts: CollectionEntry[];
+}
+
 interface CollectionEntry {
+  id: string;
   slug: string;
   title: string;
   date: string | null;
@@ -609,10 +635,28 @@ interface CollectionEntry {
   };
   checklist_progress: { completed: number; total: number; percent: number } | null;
   progress: boolean | { enabled?: boolean; mode?: string } | null;
+  source: BlogSource;
+  docbase: BlogSource;
+  url: string;
   canonical: string;
   path: string;
 }
 ```
+
+Use `@pagenary/blog-client` to consume one or more manifests without duplicating
+merge and normalization code:
+
+```javascript
+import { aggregateBlogIndexes } from '@pagenary/blog-client';
+
+const { posts, errors } = await aggregateBlogIndexes([
+  'https://docs.fortemi.com/server/blog/index.json',
+  'https://docs.fortemi.com/react/blog/index.json'
+], { limit: 10 });
+```
+
+`@pagenary/embed` builds on the same client and registers a
+`<pagenary-blog>` custom element for runtime embeds.
 
 Called from `scripts/build-tenants.js` after SEO artifacts are generated:
 

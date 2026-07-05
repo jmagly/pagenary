@@ -55,9 +55,9 @@ existing collections engine — only the *shape* changes.
    Your post body…
    ```
 
-3. Build. The collection emits `posts/index.json` (and `feed.xml`), each post
-   becomes a routable page, and a **blog index** section is wired as the landing
-   page. The example lives at `examples/blog-demo/` — build it with
+3. Build. The collection emits a versioned `posts/index.json` contract (and
+   `feed.xml`), each post becomes a routable page, and a **blog index** section
+   is wired as the landing page. The example lives at `examples/blog-demo/` — build it with
    `npm run build:examples` and open `dist/blog-demo/`.
 
 ### Mixed docs + blog site
@@ -89,6 +89,13 @@ and load the post. If you replace the blog index with custom JavaScript, prefer
 `entry.id` for in-app links (`#${entry.id}`). `entry.path` is also hash-routed
 for Pagenary-generated collection indexes; use route-style links only if your
 consumer adds and serves separate per-post route pages.
+
+For cross-site updates pages, use the generated `index.json` as the source of
+truth. It includes `schemaVersion`, top-level and per-post `source`/`docbase`
+identity, and absolute `url`/`canonical` fields so a site can blend several
+docbases without guessing labels or routes. `@pagenary/blog-client` handles
+fetching and newest-first aggregation, and `@pagenary/embed` registers the
+`<pagenary-blog>` custom element for one-line runtime embeds.
 
 Tenants with an explicit `manifest.json` do not need to hand-list every post.
 The manifest remains the curated docs navigation, and the build appends any
