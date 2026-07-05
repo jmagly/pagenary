@@ -4,7 +4,7 @@ const SHARE_ICON_IDS = new Set([
   'copy', 'email', 'x', 'linkedin', 'facebook', 'threads', 'bluesky',
   'reddit', 'hackernews', 'lobsters', 'producthunt', 'slashdot', 'sms',
   'whatsapp', 'telegram', 'signal', 'messenger', 'mastodon', 'misskey',
-  'lemmy', 'pocket', 'instapaper', 'pinboard', 'raindrop', 'teams',
+  'lemmy', 'instapaper', 'pinboard', 'raindrop', 'teams',
   'notion', 'trello', 'pinterest', 'tumblr'
 ]);
 
@@ -114,11 +114,6 @@ export const SHARE_SERVICE_CATALOG = {
     urlTemplate: 'https://lemmy.world/create_post?url={url}&title={title}',
     configKey: 'lemmy',
     configurableInstance: true
-  },
-  pocket: {
-    id: 'pocket',
-    label: 'Pocket',
-    urlTemplate: 'https://getpocket.com/save?url={url}&title={title}'
   },
   instapaper: {
     id: 'instapaper',

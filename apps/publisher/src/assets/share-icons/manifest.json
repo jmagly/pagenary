@@ -95,12 +95,6 @@
     "title": "Lemmy",
     "hex": "#000000"
   },
-  "pocket": {
-    "source": "simple-icons",
-    "slug": "pocket",
-    "title": "Pocket",
-    "hex": "#EF3F56"
-  },
   "instapaper": {
     "source": "simple-icons",
     "slug": "instapaper",

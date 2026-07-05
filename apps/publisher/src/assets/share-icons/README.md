@@ -23,7 +23,6 @@ Generated targets:
 - notion: simple-icons (notion)
 - pinboard: simple-icons (pinboard)
 - pinterest: simple-icons (pinterest)
-- pocket: simple-icons (pocket)
 - producthunt: simple-icons (producthunt)
 - raindrop: local-fallback
 - reddit: simple-icons (reddit)

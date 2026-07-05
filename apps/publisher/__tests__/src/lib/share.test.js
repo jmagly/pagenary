@@ -34,7 +34,7 @@ describe('share helpers', () => {
       'copy', 'email', 'x', 'linkedin', 'facebook', 'threads', 'bluesky',
       'reddit', 'hackernews', 'lobsters', 'producthunt', 'slashdot', 'sms',
       'whatsapp', 'telegram', 'signal', 'messenger', 'mastodon', 'misskey',
-      'lemmy', 'pocket', 'instapaper', 'pinboard', 'raindrop', 'teams',
+      'lemmy', 'instapaper', 'pinboard', 'raindrop', 'teams',
       'notion', 'trello', 'pinterest', 'tumblr'
     ];
     const targets = buildShareTargets({ enabled: true, services: ids });

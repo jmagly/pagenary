@@ -856,7 +856,7 @@ Share sheet when available.
 Built-in service ids: `copy`, `email`, `x`, `linkedin`, `facebook`, `threads`,
 `bluesky`, `reddit`, `hackernews`, `lobsters`, `producthunt`, `slashdot`, `sms`,
 `whatsapp`, `telegram`, `signal`, `messenger`, `mastodon`, `misskey`, `lemmy`,
-`pocket`, `instapaper`, `pinboard`, `raindrop`, `teams`, `notion`, `trello`,
+`instapaper`, `pinboard`, `raindrop`, `teams`, `notion`, `trello`,
 `pinterest`, and `tumblr`.
 
 Pagenary ships local default share icons for every built-in id. Full-color SVGs
