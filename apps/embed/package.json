@@ -23,6 +23,7 @@
     ".": "./src/index.js"
   },
   "files": [
+    "LICENSE",
     "src/",
     "README.md"
   ],

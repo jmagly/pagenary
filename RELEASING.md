@@ -9,8 +9,10 @@ human-readable runbook.
 
 - Format: `YYYY.M.PATCH` — e.g. `2026.6.1`. **No leading zeros** (`2026.6.1`,
   never `2026.06.1`). Enforced by [`.claude/rules/versioning.md`](.claude/rules/versioning.md).
-- Source of truth: **`apps/publisher/package.json`**. The Gitea release workflow
-  verifies the pushed tag equals this version.
+- Source of truth: **`apps/publisher/package.json`**. Public workspace packages
+  (`apps/blog-client`, `apps/embed`, and `apps/publisher`) must carry the same
+  version. The Gitea and GitHub publish workflows verify the pushed tag equals
+  this version and that internal `@pagenary/*` dependencies match it exactly.
 - Tag format: `v{version}` (e.g. `v2026.6.1`), **GPG-signed** with the maintainer
   release key.
 - Same month → bump `PATCH` (`2026.6.0` → `2026.6.1`). New month → reset
@@ -38,7 +40,10 @@ Or run the gates manually:
    [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format). Move items out of
    `## [Unreleased]`.
 4. **README freshness** — review root + `apps/publisher/README.md`.
-5. **Bump version** — set `apps/publisher/package.json` `version` to the target.
+5. **Bump versions** — set `apps/blog-client/package.json`,
+   `apps/embed/package.json`, and `apps/publisher/package.json` `version` to the
+   target. Keep `apps/embed`'s `@pagenary/blog-client` dependency pinned to the
+   same exact version.
 6. **Release commit** — stage *deliberately* (do not sweep unrelated working-tree
    changes), then:
    ```bash
@@ -53,8 +58,9 @@ Or run the gates manually:
    git push origin v<version>
    ```
    The tag push triggers `.gitea/workflows/release.yml` (Gitea + GitHub release
-   records, pushes `main`), `npm-publish.yml` (publishes `@pagenary/publisher` to
-   the Gitea npm registry), and `docsite-deploy.yml` (redeploys docs.pagenary.com).
+   records, pushes `main`), `npm-publish.yml` (publishes `@pagenary/blog-client`,
+   `@pagenary/embed`, and `@pagenary/publisher` to the Gitea npm registry), and
+   `docsite-deploy.yml` (redeploys docs.pagenary.com).
 8. **Post-release** — verify the Gitea release + npm publish, restore an empty
    `## [Unreleased]` in the changelog, and thank/close any imported reporter
    issues.

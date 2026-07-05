@@ -18,3 +18,7 @@ It is themeable with CSS custom properties and `part()` selectors, including
 
 For build-time or SSR rendering, use `@pagenary/blog-client` directly and render
 the returned `posts` in the host framework.
+
+Runtime embeds require the source docbase to allow browser fetches from the host
+site. For CORS headers, Cloudflare/CDN rules, CSP examples, and troubleshooting,
+see `apps/publisher/docs/BLOG-CONSUMPTION.md` in the Pagenary repository.

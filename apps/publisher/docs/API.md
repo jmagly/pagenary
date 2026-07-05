@@ -643,7 +643,9 @@ interface CollectionEntry {
 }
 ```
 
-Use `@pagenary/blog-client` to consume one or more manifests without duplicating
+See [Consuming and Embedding Blog Updates](BLOG-CONSUMPTION.md) for complete
+client, embed, CORS, CDN, Cloudflare, and CSP guidance. Use
+`@pagenary/blog-client` to consume one or more manifests without duplicating
 merge and normalization code:
 
 ```javascript

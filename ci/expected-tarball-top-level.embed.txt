@@ -1,0 +1,11 @@
+# @pagenary/embed tarball top-level allowlist
+#
+# The publish workflows diff `npm pack --dry-run --json` top-level entries
+# against this list and fail if an unexpected entry appears at the tarball root.
+#
+# To ADD an entry: confirm it is intentional (listed in package.json `files`),
+# append it below in alphabetical order, and commit with a rationale.
+LICENSE
+README.md
+package.json
+src

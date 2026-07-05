@@ -68,6 +68,12 @@
           "file": "BLOG-LAYOUT.md"
         },
         {
+          "id": "blog-consumption",
+          "title": "Consuming Blog Updates",
+          "summary": "Use blog index JSON, the aggregation client, embeds, CORS, CDN rules, and CSP safely.",
+          "file": "BLOG-CONSUMPTION.md"
+        },
+        {
           "id": "page-effects",
           "title": "Page Effects",
           "summary": "Rich heroes, reveal-on-scroll, parallax, sticky, and CTA bands — opt-in and accessible.",

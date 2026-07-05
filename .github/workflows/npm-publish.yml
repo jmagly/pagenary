@@ -5,8 +5,8 @@
 #   - THIS workflow (GitHub Actions)    -> PUBLIC npmjs.org
 #
 # The public package is published from GitHub — not internal Gitea CI — so it
-# can carry an npm provenance attestation (sigstore) linking
-# @pagenary/publisher to this source commit + build. That attestation is the
+# can carry npm provenance attestations (sigstore) linking the public
+# @pagenary packages to this source commit + build. That attestation is the
 # supply-chain reason the public publish lives here.
 #
 # Triggered by the version tag that .gitea/workflows/release.yml mirrors to
@@ -55,6 +55,9 @@ permissions:
   contents: read
   id-token: write   # GitHub OIDC, required for npm --provenance
 
+env:
+  PUBLISH_PACKAGES: apps/blog-client apps/embed apps/publisher
+
 jobs:
   publish:
     name: Publish to npmjs.org
@@ -77,7 +80,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify tag matches package version
+      - name: Verify tag matches package versions
         if: ${{ github.event_name == 'push' }}
         run: |
           set -o pipefail
@@ -86,18 +89,62 @@ jobs:
           if [ "$TAG" != "$VERSION" ]; then
             echo "Error: tag ($TAG) != apps/publisher/package.json ($VERSION)"; exit 1
           fi
-          echo "Publishing @pagenary/publisher@$VERSION to npmjs.org"
+          for pkg in $PUBLISH_PACKAGES; do
+            PKG_VERSION=$(node -p "require('./${pkg}/package.json').version")
+            if [ "$PKG_VERSION" != "$VERSION" ]; then
+              echo "Error: ${pkg}/package.json ($PKG_VERSION) does not match apps/publisher/package.json ($VERSION)"
+              exit 1
+            fi
+          done
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const version = require('./apps/publisher/package.json').version;
+          for (const pkg of process.env.PUBLISH_PACKAGES.split(/\s+/).filter(Boolean)) {
+            const json = JSON.parse(fs.readFileSync(`${pkg}/package.json`, 'utf8'));
+            for (const section of ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']) {
+              for (const [name, range] of Object.entries(json[section] || {})) {
+                if (name.startsWith('@pagenary/') && range !== version) {
+                  throw new Error(`${pkg} ${section}.${name} must equal ${version}, found ${range}`);
+                }
+              }
+            }
+          }
+          NODE
+          echo "Publishing @pagenary packages @$VERSION to npmjs.org"
 
-      - name: Verify .aiwg/ excluded from package
-        working-directory: apps/publisher
+      - name: Audit tarball top-level entries
         run: |
           set -o pipefail
-          npm pack --dry-run 2>&1 | tee pack-output.txt
-          if grep -qE '(^|/)\.aiwg/' pack-output.txt; then
-            echo "FATAL: .aiwg/ found in package contents — must never be published."
-            exit 1
-          fi
-          echo "✓ .aiwg/ excluded"
+          for pkg in $PUBLISH_PACKAGES; do
+            base=$(basename "$pkg")
+            allowlist="ci/expected-tarball-top-level.${base}.txt"
+            if [ "$base" = "publisher" ]; then
+              allowlist="ci/expected-tarball-top-level.txt"
+            fi
+            ACTUAL=$(cd "$pkg" && npm pack --dry-run --json 2>/dev/null \
+              | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);const t=[...new Set((j[0].files||[]).map(f=>f.path.split('/')[0]))].sort();console.log(t.join('\n'))})")
+            EXPECTED=$(grep -vE '^\s*(#|$)' "$allowlist" | sort)
+            UNEXPECTED=$(comm -23 <(echo "$ACTUAL") <(echo "$EXPECTED"))
+            if [ -n "$UNEXPECTED" ]; then
+              echo "FATAL: unexpected top-level entries in ${pkg} tarball:"
+              echo "$UNEXPECTED"
+              echo "If intentional, add them to ${allowlist} with a rationale."
+              exit 1
+            fi
+            echo "✓ ${pkg} tarball top-level matches ${allowlist}"
+          done
+
+      - name: Verify .aiwg/ excluded from packages
+        run: |
+          set -o pipefail
+          for pkg in $PUBLISH_PACKAGES; do
+            (cd "$pkg" && npm pack --dry-run 2>&1) | tee "pack-output-$(basename "$pkg").txt"
+            if grep -qE '(^|/)\.aiwg/' "pack-output-$(basename "$pkg").txt"; then
+              echo "FATAL: .aiwg/ found in ${pkg} package contents — must never be published."
+              exit 1
+            fi
+            echo "✓ ${pkg} excludes .aiwg/"
+          done
 
       - name: Route @pagenary scope to npmjs + write auth
         # In this workspace repo npm reads the repo-root .npmrc as project
@@ -115,17 +162,20 @@ jobs:
       - name: Point repository.url at this GitHub repo (provenance match)
         if: ${{ vars.NPM_PROVENANCE == 'true' }}
         run: |
-          node -e "
-            const f = 'apps/publisher/package.json';
-            const p = require('./' + f);
+          node - <<'NODE'
+          const fs = require('node:fs');
+          for (const dir of process.env.PUBLISH_PACKAGES.split(/\s+/).filter(Boolean)) {
+            const f = `${dir}/package.json`;
+            const p = JSON.parse(fs.readFileSync(f, 'utf8'));
             p.repository = {
               type: 'git',
-              url: 'git+' + process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '.git',
-              directory: 'apps/publisher'
+              url: `git+${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}.git`,
+              directory: dir
             };
-            require('fs').writeFileSync(f, JSON.stringify(p, null, 2) + '\n');
-            console.log('repository.url ->', p.repository.url);
-          "
+            fs.writeFileSync(f, JSON.stringify(p, null, 2) + '\n');
+            console.log(`${p.name} repository.url -> ${p.repository.url}`);
+          }
+          NODE
 
       - name: Publish skipped (not enabled)
         if: ${{ vars.NPMJS_PUBLISH_ENABLED != 'true' && github.event.inputs.dry_run != 'true' }}
@@ -135,7 +185,6 @@ jobs:
 
       - name: Publish to npmjs.org
         if: ${{ vars.NPMJS_PUBLISH_ENABLED == 'true' && github.event.inputs.dry_run != 'true' }}
-        working-directory: apps/publisher
         run: |
           set -o pipefail
           PROV=""
@@ -145,17 +194,24 @@ jobs:
           else
             echo "Provenance: disabled (set repo var NPM_PROVENANCE=true on a PUBLIC repo to enable)"
           fi
-          npm publish --registry=https://registry.npmjs.org/ --access public $PROV 2>&1 | tee publish-output.txt || {
-            if grep -qE "cannot publish over the previously published|EPUBLISHCONFLICT|previously published versions|403" publish-output.txt; then
-              echo "✓ Version already on npmjs.org — treating as success"
-            else
-              echo "✗ npmjs.org publish failed"; cat publish-output.txt; exit 1
-            fi
-          }
+          for pkg in $PUBLISH_PACKAGES; do
+            name=$(node -p "require('./${pkg}/package.json').name")
+            echo "Publishing ${name} to npmjs.org"
+            (cd "$pkg" && npm publish --registry=https://registry.npmjs.org/ --access public $PROV 2>&1) | tee "publish-output-$(basename "$pkg").txt" || {
+              if grep -qE "cannot publish over the previously published|EPUBLISHCONFLICT|previously published versions|403" "publish-output-$(basename "$pkg").txt"; then
+                echo "✓ ${name} version already on npmjs.org — treating as success"
+              else
+                echo "✗ ${name} npmjs.org publish failed"; cat "publish-output-$(basename "$pkg").txt"; exit 1
+              fi
+            }
+          done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPMJS_TOKEN }}
 
       - name: Dry run — pack only
         if: ${{ github.event.inputs.dry_run == 'true' }}
-        working-directory: apps/publisher
-        run: npm pack && ls -la *.tgz
+        run: |
+          for pkg in $PUBLISH_PACKAGES; do
+            (cd "$pkg" && npm pack --pack-destination "$GITHUB_WORKSPACE")
+          done
+          ls -la *.tgz

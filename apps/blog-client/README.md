@@ -14,3 +14,6 @@ const { posts, errors } = await aggregateBlogIndexes([
 `aggregateBlogIndexes()` normalizes old and new index shapes, attaches
 `source`/`docbase` identity to every post, keeps unreachable sources in
 `errors`, and sorts posts newest first.
+
+For source configuration, CORS headers, Cloudflare/CDN rules, and SSR examples,
+see `apps/publisher/docs/BLOG-CONSUMPTION.md` in the Pagenary repository.

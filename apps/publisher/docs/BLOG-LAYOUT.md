@@ -97,6 +97,10 @@ docbases without guessing labels or routes. `@pagenary/blog-client` handles
 fetching and newest-first aggregation, and `@pagenary/embed` registers the
 `<pagenary-blog>` custom element for one-line runtime embeds.
 
+See [Consuming and Embedding Blog Updates](BLOG-CONSUMPTION.md) for install
+examples, styling hooks, CORS headers, Cloudflare bot-protection rules, and CSP
+setup for embedded scenarios.
+
 Tenants with an explicit `manifest.json` do not need to hand-list every post.
 The manifest remains the curated docs navigation, and the build appends any
 configured collection posts under the collection route group, for example

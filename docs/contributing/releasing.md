@@ -1,9 +1,21 @@
-# Releasing `@pagenary/publisher`
+# Releasing Pagenary Packages
 
 Publishing is automated by `.gitea/workflows/npm-publish.yml`, triggered on a
 version tag push. Versioning is **CalVer** — `YYYY.M.PATCH`, no leading zeros
 (see `.claude/rules/versioning.md`). The setup mirrors `roctinam/aiwg`'s
 supply-chain hardening, adapted to this repo.
+
+The public npm package set is:
+
+| Package | Directory | Purpose |
+|---------|-----------|---------|
+| `@pagenary/blog-client` | `apps/blog-client` | Fetch, normalize, and merge one or many Pagenary blog indexes. |
+| `@pagenary/embed` | `apps/embed` | Framework-agnostic `<pagenary-blog>` web component. Depends on the same-version `@pagenary/blog-client`. |
+| `@pagenary/publisher` | `apps/publisher` | Static site generator and CLI. |
+
+All public packages release together on the same version tag. The workflows
+verify every package version equals `apps/publisher/package.json` and every
+internal `@pagenary/*` dependency is pinned to that exact version.
 
 ## Required variables / secrets
 
@@ -21,7 +33,10 @@ opt-in hardening.
 ## Release steps
 
 ```bash
-# 1. Bump the version in apps/publisher/package.json (CalVer).
+# 1. Bump the version in apps/blog-client/package.json,
+#    apps/embed/package.json, and apps/publisher/package.json (CalVer).
+#    Keep apps/embed's @pagenary/blog-client dependency pinned to the same
+#    exact version.
 #    e.g. 2026.5.1 -> 2026.5.2, or new month -> 2026.6.0.
 #    No leading zeros: June is 2026.6.0, not 2026.06.0. (See versioning rule.)
 
@@ -51,8 +66,9 @@ HTTPS remotes require interactive credentials and can fail in automation with
 `could not read Username`.
 
 **A `v*` tag push triggers three workflows:** `npm-publish.yml` (publishes the
-package), `release.yml` (Gitea + GitHub release records), and `docsite-deploy.yml`
-(the tag matches its `v*` trigger, so docs.pagenary.com redeploys too).
+public package set), `release.yml` (Gitea + GitHub release records), and
+`docsite-deploy.yml` (the tag matches its `v*` trigger, so docs.pagenary.com
+redeploys too).
 
 ### Signing key (important)
 
@@ -96,10 +112,15 @@ In order, on a `v*` tag push:
 3. **`npm ci`** — locked install
 4. **`npm audit signatures`** — verifies the dep graph against registry signing keys
 5. **Build + test** — `publisher:build`, `publisher:test`
-6. **Tag/version guard** — tag `vX` must equal `apps/publisher/package.json` version
-7. **Tarball top-level audit** — diff against `ci/expected-tarball-top-level.txt` (catches new-file-at-root injection)
-8. **`.aiwg/` exclusion** — fails if project artifacts leak into the tarball
-9. **Publish** to the Gitea npm registry, then idempotent `latest` dist-tag promotion
+6. **Tag/version guard** — tag `vX` must equal every public package version;
+   internal `@pagenary/*` dependencies must equal that exact version
+7. **Tarball top-level audit** — diff every package against its
+   `ci/expected-tarball-top-level*.txt` allowlist (catches new-file-at-root
+   injection)
+8. **`.aiwg/` exclusion** — fails if project artifacts leak into any tarball
+9. **Publish** `@pagenary/blog-client`, `@pagenary/embed`, and
+   `@pagenary/publisher` to the Gitea npm registry in dependency order, then
+   idempotently promote each `latest` dist-tag
 
 ## Release records & artifacts (Gitea + GitHub)
 
@@ -107,8 +128,10 @@ In order, on a `v*` tag push:
 tag. It builds the package once and then:
 
 - **Gitea** — creates (or reuses) a Gitea release for the tag and attaches the
-  built tarball (`pagenary-publisher-<version>.tgz`) plus `checksums.txt`
-  (SHA-256). Uses `NPM_TOKEN` (needs `repository:write`).
+  publisher tarball (`pagenary-publisher-<version>.tgz`), the compiled site
+  bundle, and `checksums.txt` (SHA-256). npm package publishing for all public
+  packages is handled by `npm-publish.yml`. Uses `NPM_TOKEN` (needs
+  `repository:write`).
 - **GitHub** *(stable tags only)* — pushes `main` + the tag to the mirror via a
   transient mode-600 credential file (no token in the URL), then creates a
   matching GitHub release with the same assets. Uses `GH_TOKEN`. Pre-release
@@ -130,16 +153,19 @@ re-running the workflow on an existing tag refreshes rather than duplicates.
 
 ## Public npm (npmjs.org) — optional second leg
 
-The Gitea registry is the default. To also publish to public npmjs.org, add a
-GitHub Actions leg using **OIDC trusted publishing + provenance** (mirrors
-aiwg's `.github/workflows/npm-publish.yml`). One-time operator setup:
+The Gitea registry is the default. Public npmjs.org publishing is handled by
+`.github/workflows/npm-publish.yml` after `release.yml` mirrors the tag to
+GitHub. One-time operator setup:
 
-1. npmjs.org → the package's Settings → Trusted Publishers → add:
-   `Provider: GitHub Actions`, `Owner: jmagly`, `Repository: pagenary`,
-   `Workflow: npm-publish.yml`.
+1. For each public package (`@pagenary/blog-client`, `@pagenary/embed`,
+   `@pagenary/publisher`), npmjs.org -> package Settings -> Trusted Publishers
+   -> add: `Provider: GitHub Actions`, `Owner: jmagly`,
+   `Repository: pagenary`, `Workflow: npm-publish.yml`.
 2. The GitHub workflow declares `permissions: id-token: write` and runs
-   `npm publish --provenance --access public` on a Node ≥ 22.14 runner.
-3. Push tags to the GitHub mirror too: `git push github main --tags`.
+   `npm publish --provenance --access public` for each package when
+   `NPM_PROVENANCE=true`.
+3. Let `release.yml` mirror tags to GitHub. Do not push tags to the GitHub
+   mirror manually.
 
 No long-lived `NPMJS_TOKEN` is needed with OIDC. (A token-based leg is the
 fallback if OIDC is unavailable, but it then becomes a secret to rotate.)

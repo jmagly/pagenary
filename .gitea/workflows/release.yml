@@ -37,6 +37,7 @@ concurrency:
 env:
   GITEA_NPM_REGISTRY: https://git.integrolabs.net/api/packages/pagenary/npm/
   GITHUB_MIRROR: github.com/jmagly/pagenary
+  PUBLISH_PACKAGES: apps/blog-client apps/embed apps/publisher
 
 jobs:
   release:
@@ -86,6 +87,27 @@ jobs:
           if [ "$TAG_VERSION" != "$VERSION" ]; then
             echo "Error: tag ($TAG_VERSION) != apps/publisher/package.json ($VERSION)"; exit 1
           fi
+          for pkg in $PUBLISH_PACKAGES; do
+            PKG_VERSION=$(node -p "require('./${pkg}/package.json').version")
+            if [ "$PKG_VERSION" != "$VERSION" ]; then
+              echo "Error: ${pkg}/package.json ($PKG_VERSION) does not match apps/publisher/package.json ($VERSION)"
+              exit 1
+            fi
+          done
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const version = require('./apps/publisher/package.json').version;
+          for (const pkg of process.env.PUBLISH_PACKAGES.split(/\s+/).filter(Boolean)) {
+            const json = JSON.parse(fs.readFileSync(`${pkg}/package.json`, 'utf8'));
+            for (const section of ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']) {
+              for (const [name, range] of Object.entries(json[section] || {})) {
+                if (name.startsWith('@pagenary/') && range !== version) {
+                  throw new Error(`${pkg} ${section}.${name} must equal ${version}, found ${range}`);
+                }
+              }
+            }
+          }
+          NODE
           BASE="${VERSION%%-*}"
           if [ "$VERSION" != "$BASE" ]; then PRERELEASE=true; else PRERELEASE=false; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"

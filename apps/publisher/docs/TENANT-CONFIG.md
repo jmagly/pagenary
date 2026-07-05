@@ -724,6 +724,9 @@ For a drop-in runtime embed, self-host `@pagenary/embed` and use:
   show-source="true"></pagenary-blog>
 ```
 
+See [Consuming and Embedding Blog Updates](BLOG-CONSUMPTION.md) for full
+client, embed, CORS, CDN, Cloudflare, CSP, and troubleshooting guidance.
+
 > A collection's posts are still rendered as normal pages (each `.md` becomes a
 > section). The manifest/feed are additive, machine-readable indexes.
 

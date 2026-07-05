@@ -343,6 +343,7 @@ The full documentation site is published at **[docs.pagenary.com](https://docs.p
 - [Publisher README](apps/publisher/README.md) — full feature documentation
 - [Quick Start Guide](apps/publisher/docs/QUICKSTART.md) — step-by-step tenant setup
 - [Publish with GitHub/Gitea Actions](apps/publisher/docs/PUBLISHING.md) — make any docs repo Pagenary-ready: copy-paste CI workflows + auto-discovery (no manifest required)
+- [Consuming and Embedding Blog Updates](apps/publisher/docs/BLOG-CONSUMPTION.md) — use `@pagenary/blog-client`, `<pagenary-blog>`, and CORS/CDN settings for cross-site updates pages
 - [Tenant Configuration](apps/publisher/docs/TENANT-CONFIG.md) — all config options
 - [Theming Recipes](apps/publisher/docs/THEMING-RECIPES.md) — copy-paste recipes for colors, fonts, and nav positions, with screenshots
 - [Architecture](apps/publisher/docs/ARCHITECTURE.md) — system design
