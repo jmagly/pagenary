@@ -6,6 +6,16 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.16] - 2026-07-05
+
+### Changed
+
+- Updated the Pagenary docsite to use the same SVG favicon as the main
+  `pagenary.com` site.
+- Removed Pocket from the built-in sharing catalog, tenant schema, docs,
+  Pagenary docsite share menu, tests, and bundled share icon assets because the
+  service has shut down.
+
 ## [2026.7.15] - 2026-07-05
 
 ### Changed
