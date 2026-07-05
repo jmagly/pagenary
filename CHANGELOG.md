@@ -6,6 +6,29 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.14] - 2026-07-05
+
+### Added
+
+- Added the public `@pagenary/blog-client` package for fetching, normalizing,
+  source-labeling, and newest-first aggregation of one or more Pagenary blog
+  indexes.
+- Added the public `@pagenary/embed` package with the framework-agnostic
+  `<pagenary-blog>` custom element for runtime blog/update embeds.
+- Documented cross-site blog consumption with install examples, source identity,
+  SSR/build-time aggregation, embed styling hooks, CORS headers, Cloudflare/CDN
+  allowances, CSP setup, and troubleshooting.
+
+### Changed
+
+- Versioned the generated blog index contract with `schemaVersion`, top-level
+  and post-level `source`/`docbase` identity, and explicit post `url` fields.
+- Updated the release workflows to publish `@pagenary/blog-client`,
+  `@pagenary/embed`, and `@pagenary/publisher` together with aligned CalVer
+  versions and tarball allowlist checks.
+- Added CORS/cache headers for generated blog `index.json` and `feed.xml`
+  artifacts in the bundled Caddyfile.
+
 ## [2026.7.13] - 2026-07-04
 
 ### Added

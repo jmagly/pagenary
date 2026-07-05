@@ -34,19 +34,40 @@ if ! [[ "$VERSION" =~ ^[0-9]{4}\.([1-9]|1[0-2])\.([0-9]|[1-9][0-9]+)$ ]]; then
 fi
 echo "  [1/8] CalVer shape OK"
 
-PKG_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('apps/publisher/package.json','utf8')).version)")
-if [ "$PKG_VERSION" != "$VERSION" ]; then
-  echo "FAIL: apps/publisher/package.json version is '$PKG_VERSION', expected '$VERSION'." >&2
-  exit 1
-fi
-echo "  [2/8] apps/publisher/package.json version OK"
+node - "$VERSION" <<'NODE'
+const fs = require('node:fs');
+const version = process.argv[2];
+const packages = ['apps/blog-client', 'apps/embed', 'apps/publisher'];
+for (const pkg of packages) {
+  const json = JSON.parse(fs.readFileSync(`${pkg}/package.json`, 'utf8'));
+  if (json.version !== version) {
+    console.error(`FAIL: ${pkg}/package.json version is '${json.version}', expected '${version}'.`);
+    process.exit(1);
+  }
+  for (const section of ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']) {
+    for (const [name, range] of Object.entries(json[section] || {})) {
+      if (name.startsWith('@pagenary/') && range !== version) {
+        console.error(`FAIL: ${pkg} ${section}.${name} is '${range}', expected '${version}'.`);
+        process.exit(1);
+      }
+    }
+  }
+}
+NODE
+echo "  [2/8] public package versions OK"
 
-LOCK_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('package-lock.json','utf8')).packages['apps/publisher'].version)")
-if [ "$LOCK_VERSION" != "$VERSION" ]; then
-  echo "FAIL: package-lock.json apps/publisher version is '$LOCK_VERSION', expected '$VERSION'." >&2
-  exit 1
-fi
-echo "  [3/8] package-lock.json workspace version OK"
+node - "$VERSION" <<'NODE'
+const fs = require('node:fs');
+const version = process.argv[2];
+const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8')).packages;
+for (const pkg of ['apps/blog-client', 'apps/embed', 'apps/publisher']) {
+  if (!lock[pkg] || lock[pkg].version !== version) {
+    console.error(`FAIL: package-lock.json ${pkg} version is '${lock[pkg] && lock[pkg].version}', expected '${version}'.`);
+    process.exit(1);
+  }
+}
+NODE
+echo "  [3/8] package-lock.json workspace versions OK"
 
 if ! grep -q "^## \\[${VERSION}\\]" CHANGELOG.md; then
   echo "FAIL: CHANGELOG.md does not contain '## [${VERSION}]'." >&2
