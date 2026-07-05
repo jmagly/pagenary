@@ -824,6 +824,14 @@ Built-in service ids: `copy`, `email`, `x`, `linkedin`, `facebook`, `threads`,
 `pocket`, `instapaper`, `pinboard`, `raindrop`, `teams`, `notion`, `trello`,
 `pinterest`, and `tumblr`.
 
+Pagenary ships local default share icons for every built-in id. Full-color SVGs
+live under `src/assets/share-icons/color/`; monochrome equivalents live under
+`src/assets/share-icons/mono/`. The runtime menu uses local full-color assets,
+so no icon CDN or third-party network request is made just to render the menu.
+Brand icons available from the acquired Simple Icons set are used as source
+marks; utility actions and services without an acquired redistributable icon use
+local fallback marks. Brand names and logos remain trademarks of their owners.
+
 Some platforms have limited web share/deep-link surfaces. Slack and Discord do
 not provide stable generic share URLs suitable for a built-in catalog entry; add
 them as custom targets only when your tenant has a workspace-specific route.
@@ -841,7 +849,11 @@ target:
       {
         "id": "internal-community",
         "label": "Community",
-        "urlTemplate": "https://community.example/share?url={url}&title={title}"
+        "urlTemplate": "https://community.example/share?url={url}&title={title}",
+        "icon": {
+          "color": "./assets/icons/community-color.svg",
+          "mono": "./assets/icons/community-mono.svg"
+        }
       }
     ]
   }
@@ -850,7 +862,8 @@ target:
 
 Custom templates support `{url}`, `{title}`, `{text}`, and `{description}`. Values
 are URL-encoded automatically. Templates must use `https:`, `http:`, `mailto:`,
-`sms:`, `sgnl://`, or `fb-messenger://`.
+`sms:`, `sgnl://`, or `fb-messenger://`. Custom icon paths must be local paths;
+remote icon URLs are intentionally rejected.
 
 Static snapshots include a visible canonical URL and basic share links when
 sharing is enabled, so no-JS users still have a usable share path. Share payloads

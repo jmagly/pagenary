@@ -180,6 +180,7 @@ a:focus {
 .share-menu-item {
   display: flex;
   align-items: center;
+  gap: 0.55rem;
   min-height: 2.4rem;
   border: 1px solid var(--grid-line);
   border-radius: 6px;
@@ -190,6 +191,18 @@ a:focus {
   font: inherit;
   font-size: 0.86rem;
   text-align: left;
+}
+
+.share-menu-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.share-menu-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .share-menu-item:hover,

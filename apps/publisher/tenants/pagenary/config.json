@@ -8,6 +8,23 @@
   "pageToc": { "placement": "right", "minHeadings": 4 },
   "readingProgress": true,
   "codeCopy": true,
+  "share": {
+    "enabled": true,
+    "native": "auto",
+    "services": [
+      "copy",
+      "email",
+      "x",
+      "linkedin",
+      "facebook",
+      "threads",
+      "bluesky",
+      "reddit",
+      "hackernews",
+      "mastodon",
+      "pocket"
+    ]
+  },
   "collections": [
     {
       "path": "posts",

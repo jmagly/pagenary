@@ -1262,7 +1262,7 @@ function showShareMenu(payload) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'share-menu-item';
-      button.textContent = target.label;
+      appendShareItemContent(button, target);
       button.addEventListener('click', async () => {
         await copyShareUrl(payload.url, button);
       });
@@ -1278,7 +1278,7 @@ function showShareMenu(payload) {
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
     }
-    link.textContent = target.label;
+    appendShareItemContent(link, target);
     list.appendChild(link);
   });
 
@@ -1300,6 +1300,26 @@ function showShareMenu(payload) {
   if (firstItem) firstItem.focus();
 }
 
+function appendShareItemContent(element, target) {
+  const icon = target.icon?.color || target.icon?.mono || '';
+  if (icon) {
+    const img = document.createElement('img');
+    img.className = 'share-menu-icon';
+    img.src = icon;
+    img.alt = '';
+    img.width = 18;
+    img.height = 18;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    element.appendChild(img);
+  }
+  const label = document.createElement('span');
+  label.className = 'share-menu-label';
+  label.textContent = target.label;
+  element.appendChild(label);
+  element.setAttribute('aria-label', target.label);
+}
+
 async function copyShareUrl(url, button) {
   try {
     if (navigator.clipboard?.writeText) {
@@ -1315,8 +1335,9 @@ async function copyShareUrl(url, button) {
       document.execCommand('copy');
       input.remove();
     }
-    button.textContent = 'Copied';
-    setTimeout(() => { button.textContent = 'Copy Link'; }, 1400);
+    const label = button.querySelector('.share-menu-label');
+    if (label) label.textContent = 'Copied';
+    setTimeout(() => { if (label) label.textContent = 'Copy Link'; }, 1400);
   } catch {
     window.prompt('Copy this link', url);
   }

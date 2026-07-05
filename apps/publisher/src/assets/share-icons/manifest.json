@@ -1,0 +1,170 @@
+{
+  "x": {
+    "source": "simple-icons",
+    "slug": "x",
+    "title": "X",
+    "hex": "#000000"
+  },
+  "facebook": {
+    "source": "simple-icons",
+    "slug": "facebook",
+    "title": "Facebook",
+    "hex": "#0866FF"
+  },
+  "threads": {
+    "source": "simple-icons",
+    "slug": "threads",
+    "title": "Threads",
+    "hex": "#000000"
+  },
+  "bluesky": {
+    "source": "simple-icons",
+    "slug": "bluesky",
+    "title": "Bluesky",
+    "hex": "#0285FF"
+  },
+  "reddit": {
+    "source": "simple-icons",
+    "slug": "reddit",
+    "title": "Reddit",
+    "hex": "#FF4500"
+  },
+  "hackernews": {
+    "source": "simple-icons",
+    "slug": "ycombinator",
+    "title": "Y Combinator",
+    "hex": "#F0652F"
+  },
+  "lobsters": {
+    "source": "simple-icons",
+    "slug": "lobsters",
+    "title": "Lobsters",
+    "hex": "#AC130D"
+  },
+  "producthunt": {
+    "source": "simple-icons",
+    "slug": "producthunt",
+    "title": "Product Hunt",
+    "hex": "#DA552F"
+  },
+  "slashdot": {
+    "source": "simple-icons",
+    "slug": "slashdot",
+    "title": "Slashdot",
+    "hex": "#026664"
+  },
+  "whatsapp": {
+    "source": "simple-icons",
+    "slug": "whatsapp",
+    "title": "WhatsApp",
+    "hex": "#25D366"
+  },
+  "telegram": {
+    "source": "simple-icons",
+    "slug": "telegram",
+    "title": "Telegram",
+    "hex": "#26A5E4"
+  },
+  "signal": {
+    "source": "simple-icons",
+    "slug": "signal",
+    "title": "Signal",
+    "hex": "#3B45FD"
+  },
+  "messenger": {
+    "source": "simple-icons",
+    "slug": "messenger",
+    "title": "Messenger",
+    "hex": "#0866FF"
+  },
+  "mastodon": {
+    "source": "simple-icons",
+    "slug": "mastodon",
+    "title": "Mastodon",
+    "hex": "#6364FF"
+  },
+  "misskey": {
+    "source": "simple-icons",
+    "slug": "misskey",
+    "title": "Misskey",
+    "hex": "#A1CA03"
+  },
+  "lemmy": {
+    "source": "simple-icons",
+    "slug": "lemmy",
+    "title": "Lemmy",
+    "hex": "#000000"
+  },
+  "pocket": {
+    "source": "simple-icons",
+    "slug": "pocket",
+    "title": "Pocket",
+    "hex": "#EF3F56"
+  },
+  "instapaper": {
+    "source": "simple-icons",
+    "slug": "instapaper",
+    "title": "Instapaper",
+    "hex": "#1F1F1F"
+  },
+  "pinboard": {
+    "source": "simple-icons",
+    "slug": "pinboard",
+    "title": "Pinboard",
+    "hex": "#0000FF"
+  },
+  "notion": {
+    "source": "simple-icons",
+    "slug": "notion",
+    "title": "Notion",
+    "hex": "#000000"
+  },
+  "trello": {
+    "source": "simple-icons",
+    "slug": "trello",
+    "title": "Trello",
+    "hex": "#0052CC"
+  },
+  "pinterest": {
+    "source": "simple-icons",
+    "slug": "pinterest",
+    "title": "Pinterest",
+    "hex": "#BD081C"
+  },
+  "tumblr": {
+    "source": "simple-icons",
+    "slug": "tumblr",
+    "title": "Tumblr",
+    "hex": "#36465D"
+  },
+  "copy": {
+    "source": "local-fallback",
+    "title": "Copy",
+    "hex": "#5A5A5A"
+  },
+  "email": {
+    "source": "local-fallback",
+    "title": "Email",
+    "hex": "#5A5A5A"
+  },
+  "sms": {
+    "source": "local-fallback",
+    "title": "SMS",
+    "hex": "#5A5A5A"
+  },
+  "linkedin": {
+    "source": "local-fallback",
+    "title": "in",
+    "hex": "#0A66C2"
+  },
+  "raindrop": {
+    "source": "local-fallback",
+    "title": "R",
+    "hex": "#0B8EF3"
+  },
+  "teams": {
+    "source": "local-fallback",
+    "title": "T",
+    "hex": "#6264A7"
+  }
+}

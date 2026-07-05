@@ -1,5 +1,12 @@
 const DEFAULT_SERVICES = ['copy', 'email'];
 const NATIVE_MODES = new Set(['auto', 'always', 'never']);
+const SHARE_ICON_IDS = new Set([
+  'copy', 'email', 'x', 'linkedin', 'facebook', 'threads', 'bluesky',
+  'reddit', 'hackernews', 'lobsters', 'producthunt', 'slashdot', 'sms',
+  'whatsapp', 'telegram', 'signal', 'messenger', 'mastodon', 'misskey',
+  'lemmy', 'pocket', 'instapaper', 'pinboard', 'raindrop', 'teams',
+  'notion', 'trello', 'pinterest', 'tumblr'
+]);
 
 export const SHARE_SERVICE_CATALOG = {
   copy: {
@@ -179,7 +186,7 @@ export function buildShareTargets(config = {}) {
   }
   if (!targets.some((target) => target.id === 'copy')) targets.unshift(SHARE_SERVICE_CATALOG.copy);
   if (!targets.some((target) => target.id === 'email')) targets.push(SHARE_SERVICE_CATALOG.email);
-  return targets;
+  return targets.map(withShareIcon);
 }
 
 export function resolveSharePayload({ entry = {}, siteConfig = {}, locationHref = '' } = {}) {
@@ -224,7 +231,34 @@ function normalizeService(item, config) {
   const label = typeof item.label === 'string' ? item.label.trim() : '';
   const urlTemplate = typeof item.urlTemplate === 'string' ? item.urlTemplate.trim() : '';
   if (!id || !label || !isSafeTemplate(urlTemplate)) return null;
-  return { id, label, urlTemplate };
+  return { id, label, urlTemplate, icon: normalizeCustomIcon(item.icon) };
+}
+
+function withShareIcon(target) {
+  if (!target || target.icon || !SHARE_ICON_IDS.has(target.id)) return target;
+  return {
+    ...target,
+    icon: {
+      color: `./assets/share-icons/color/${target.id}.svg`,
+      mono: `./assets/share-icons/mono/${target.id}.svg`
+    }
+  };
+}
+
+function normalizeCustomIcon(icon) {
+  if (!icon || typeof icon !== 'object') return null;
+  const color = normalizeIconPath(icon.color);
+  const mono = normalizeIconPath(icon.mono);
+  if (!color && !mono) return null;
+  return { ...(color ? { color } : {}), ...(mono ? { mono } : {}) };
+}
+
+function normalizeIconPath(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('//')) return '';
+  if (/[\r\n<>]/.test(raw)) return '';
+  return raw;
 }
 
 function applyServiceConfig(service, config) {

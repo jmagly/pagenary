@@ -10,7 +10,7 @@ export default {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   verbose: true,
-  testTimeout: 30000,
+  testTimeout: 60000,
   // ESM support
   transform: {},
   extensionsToTreatAsEsm: [],

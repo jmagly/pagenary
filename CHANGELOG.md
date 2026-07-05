@@ -6,6 +6,22 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.13] - 2026-07-04
+
+### Added
+
+- Added local full-color and monochrome share icon assets for every built-in
+  share target, and rendered those icons in the desktop share menu without
+  loading any third-party icon CDN or script.
+- Enabled the optional Share control on the Pagenary docs tenant, with native
+  mobile sharing and a docs-friendly desktop service set across all content
+  pages.
+
+### Changed
+
+- Documented the built-in share target list, local icon assets, custom service
+  icons, and trademark/source notes for tenant configuration.
+
 ## [2026.7.12] - 2026-07-03
 
 ### Added

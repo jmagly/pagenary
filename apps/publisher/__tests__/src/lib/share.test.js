@@ -29,6 +29,38 @@ describe('share helpers', () => {
     expect(href).toBe('https://community.example/share?url=https%3A%2F%2Fdocs.example%2Fpages%2Fa%20b.html&title=A%26B&desc=One%20%26%20two');
   });
 
+  test('built-in services expose local color and monochrome icons', () => {
+    const ids = [
+      'copy', 'email', 'x', 'linkedin', 'facebook', 'threads', 'bluesky',
+      'reddit', 'hackernews', 'lobsters', 'producthunt', 'slashdot', 'sms',
+      'whatsapp', 'telegram', 'signal', 'messenger', 'mastodon', 'misskey',
+      'lemmy', 'pocket', 'instapaper', 'pinboard', 'raindrop', 'teams',
+      'notion', 'trello', 'pinterest', 'tumblr'
+    ];
+    const targets = buildShareTargets({ enabled: true, services: ids });
+    for (const id of ids) {
+      const target = targets.find((item) => item.id === id);
+      expect(target?.icon?.color).toBe(`./assets/share-icons/color/${id}.svg`);
+      expect(target?.icon?.mono).toBe(`./assets/share-icons/mono/${id}.svg`);
+    }
+  });
+
+  test('custom service icons must be local paths', () => {
+    const [target] = buildShareTargets({
+      enabled: true,
+      services: [{
+        id: 'community',
+        label: 'Community',
+        urlTemplate: 'https://community.example/share?url={url}',
+        icon: {
+          color: 'https://cdn.example/icon.svg',
+          mono: './assets/icons/community-mono.svg'
+        }
+      }]
+    }).filter((item) => item.id === 'community');
+    expect(target.icon).toEqual({ mono: './assets/icons/community-mono.svg' });
+  });
+
   test('payload prefers static canonical URL when available', () => {
     const payload = resolveSharePayload({
       entry: { id: 'guide/install', title: 'Install', summary: 'Start here', staticUrl: 'https://docs.example/pages/guide--install.html' },

@@ -407,6 +407,21 @@
         "urlTemplate": {
           "type": "string",
           "pattern": "^(https?:\\/\\/|mailto:|sms:|sgnl:\\/\\/|fb-messenger:\\/\\/).+"
+        },
+        "icon": {
+          "type": "object",
+          "description": "Optional local icon paths for custom share services. Remote icon URLs are not accepted.",
+          "properties": {
+            "color": {
+              "type": "string",
+              "pattern": "^(?!https?:\\/\\/|\\/\\/)[^<>\\r\\n]+$"
+            },
+            "mono": {
+              "type": "string",
+              "pattern": "^(?!https?:\\/\\/|\\/\\/)[^<>\\r\\n]+$"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": ["id", "label", "urlTemplate"],
