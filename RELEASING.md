@@ -88,6 +88,9 @@ canonical [`docs/contributing/releasing.md`](docs/contributing/releasing.md).
 - **Delivery mode is `direct`** — release commits land on `main` (no PR).
 - **Push the tag to `origin` only** — `release.yml` mirrors it to GitHub; pushing
   the tag to the `github` remote yourself breaks the mirror release record.
+- **GitHub mirror token scope** — when a release commit changes
+  `.github/workflows/*`, the `GH_TOKEN` used by `release.yml` must include
+  GitHub `workflow` scope or GitHub rejects the mirror push.
 - **Never force-push** (`force_push_policy: never`). Never delete a pushed tag;
   if a post-tag step fails, bump `PATCH` and re-cut.
 - **Never finalize on red CI** — wait for `release.yml` / `npm-publish.yml` green.

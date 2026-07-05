@@ -22,10 +22,10 @@ internal `@pagenary/*` dependency is pinned to that exact version.
 | Name | Type | Where | Purpose |
 |------|------|-------|---------|
 | `NPM_TOKEN` | **secret** | Gitea repo → Settings → Actions → Secrets | Gitea API token (`gta_…`) with `package:write` **and** `repository:write`. Authenticates the Gitea-registry publish *and* the Gitea release-creation API. **Not** an npmjs.org token. |
-| `GH_TOKEN` | **secret** | Gitea repo → Settings → Actions → Secrets | GitHub PAT with `repo` (or `public_repo`) scope. Used by `release.yml` to push the mirror and create the GitHub release with assets. The GitHub leg skips gracefully if absent. |
+| `GH_TOKEN` | **secret** | Gitea repo → Settings → Actions → Secrets | GitHub PAT with `repo` (or `public_repo`) scope, plus `workflow` scope when commits may update `.github/workflows/*`. Used by `release.yml` to push the mirror and create the GitHub release with assets. The GitHub leg skips gracefully if absent. |
 | `REQUIRE_SIGNED_TAGS` | variable (optional) | Gitea repo → Settings → Actions → Variables | Set to `true` to turn the signed-tag gate from dormant into a hard requirement. Needs a committed maintainer key (below). |
 | Maintainer signing key | committed file | `.gitea/keys/maintainers.asc` (GPG) **or** `.gitea/allowed_signers` (SSH) | Public key the signed-tag gate verifies against. Only the public key is committed; you sign tags locally with the private key. |
-| `NPMJS_TOKEN` *or* npm trusted publisher | secret *or* npm config | npmjs.org | Only for the **public npm** leg (below). Prefer OIDC trusted publishing (no secret). |
+| npm trusted publisher | package settings | npmjs.org | Required for the **public npm** leg. Configure each public package for GitHub Actions trusted publishing; no long-lived `NPMJS_TOKEN` is required for publishing. |
 
 The Gitea-registry release path needs only `NPM_TOKEN`. Everything else is
 opt-in hardening.
@@ -155,20 +155,26 @@ re-running the workflow on an existing tag refreshes rather than duplicates.
 
 The Gitea registry is the default. Public npmjs.org publishing is handled by
 `.github/workflows/npm-publish.yml` after `release.yml` mirrors the tag to
-GitHub. One-time operator setup:
+GitHub. It uses npm trusted publishing/OIDC and automatic provenance.
+One-time operator setup:
 
 1. For each public package (`@pagenary/blog-client`, `@pagenary/embed`,
    `@pagenary/publisher`), npmjs.org -> package Settings -> Trusted Publishers
    -> add: `Provider: GitHub Actions`, `Owner: jmagly`,
-   `Repository: pagenary`, `Workflow: npm-publish.yml`.
-2. The GitHub workflow declares `permissions: id-token: write` and runs
-   `npm publish --provenance --access public` for each package when
-   `NPM_PROVENANCE=true`.
+   `Repository: pagenary`, `Workflow: npm-publish.yml`, allowed action
+   `npm publish`.
+2. The GitHub workflow declares `permissions: id-token: write`, runs on a
+   GitHub-hosted runner with pinned Node 24, rewrites each package's
+   `repository.url` to the GitHub mirror for provenance matching, and runs
+   `npm publish --access public` for each package. npm automatically generates
+   provenance for trusted publishing from a public repository.
 3. Let `release.yml` mirror tags to GitHub. Do not push tags to the GitHub
    mirror manually.
 
-No long-lived `NPMJS_TOKEN` is needed with OIDC. (A token-based leg is the
-fallback if OIDC is unavailable, but it then becomes a secret to rotate.)
+No long-lived `NPMJS_TOKEN` is needed with OIDC. If `release.yml` fails while
+pushing to GitHub with a message about updating `.github/workflows/*`, replace
+`GH_TOKEN` with a PAT that includes `workflow` scope and rerun the release job
+or cut the next patch release.
 
 ## When `npm audit signatures` fails
 

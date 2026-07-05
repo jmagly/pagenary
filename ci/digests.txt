@@ -7,4 +7,5 @@
 #
 # kind       name              pin                                                                resolved-version  date-pinned  rationale
 container    node:20           sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  20.20.2  2026-05-25  initial pin (matches roctinam/aiwg)
+container    node:24           sha256:c35698d36238c69451c7e7a5951dd5c9b11c3e45884c918059c94c4a8be969b1  24.18.0  2026-07-05  npm trusted publishing requires Node >=22.14.0 and npm >=11.5.1
 action       actions/checkout  34e114876b0b11c390a56381ad16ebd13914f8d5                           v4.3.1            2026-05-25  initial pin (matches roctinam/aiwg)

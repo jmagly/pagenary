@@ -6,6 +6,21 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.15] - 2026-07-05
+
+### Changed
+
+- Updated the GitHub npm publish workflow for npm trusted publishing: Node 24,
+  npm 11.16, OIDC-based publishes without a long-lived npm token, automatic
+  provenance from npm trusted publishers, and runtime GitHub repository metadata
+  rewrites for provenance matching.
+- Documented the npm trusted-publisher setup for all public Pagenary packages
+  and the required GitHub `workflow` scope for mirror pushes that update
+  `.github/workflows/*`.
+- Expanded the new `@pagenary/blog-client` and `@pagenary/embed` npm READMEs to
+  match the main Pagenary package format and added npm search keywords for both
+  packages.
+
 ## [2026.7.14] - 2026-07-05
 
 ### Added
