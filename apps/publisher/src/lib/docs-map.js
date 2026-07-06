@@ -12,8 +12,9 @@ import { buildCommunityGraph, flattenManifest } from './search.js';
 import { MANIFEST } from '../manifest.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-const WIDTH = 1000;
-const HEIGHT = 700;
+const BASE_WIDTH = 1000;
+const BASE_HEIGHT = 700;
+const MAX_LAYOUT_SCALE = 2.6;
 const SIMULATION_TICKS = 220;
 const NODE_MIN_RADIUS = 7;
 const NODE_MAX_RADIUS = 18;
@@ -36,6 +37,7 @@ function buildLabelMap(manifest) {
  * remain legible, then run a deterministic force pass before emitting SVG.
  */
 export function layout(graph) {
+  const { width, height } = layoutSize(graph);
   const positions = new Map();
   const communities = graph.communities && graph.communities.length
     ? graph.communities
@@ -43,10 +45,11 @@ export function layout(graph) {
   const degrees = buildDegreeMap(graph.edges);
   const radii = new Map();
 
-  const cx = WIDTH / 2;
-  const cy = HEIGHT / 2;
-  const ringR = Math.min(WIDTH, HEIGHT) * 0.34;
-  const clusterR = Math.min(WIDTH, HEIGHT) * 0.12;
+  const cx = width / 2;
+  const cy = height / 2;
+  const shortestSide = Math.min(width, height);
+  const ringR = shortestSide * 0.34;
+  const clusterR = shortestSide * 0.12;
   const anchors = [];
 
   communities.forEach((community, ci) => {
@@ -167,8 +170,8 @@ export function layout(graph) {
       node.vy += (cy - node.y) * 0.0008 * alpha;
       node.vx *= 0.82;
       node.vy *= 0.82;
-      node.x = Math.max(node.radius + 8, Math.min(WIDTH - node.radius - 8, node.x + node.vx));
-      node.y = Math.max(node.radius + 8, Math.min(HEIGHT - node.radius - 8, node.y + node.vy));
+      node.x = Math.max(node.radius + 8, Math.min(width - node.radius - 8, node.x + node.vx));
+      node.y = Math.max(node.radius + 8, Math.min(height - node.radius - 8, node.y + node.vy));
     }
   }
 
@@ -181,7 +184,28 @@ export function layout(graph) {
     radii.set(node.id, Number(node.radius.toFixed(2)));
   }
 
-  return { positions, radii, anchors, communityCount: communities.length };
+  return { positions, radii, anchors, communityCount: communities.length, width, height };
+}
+
+export function layoutSize(graph) {
+  const nodes = Array.isArray(graph?.nodes) ? graph.nodes.length : 0;
+  const edges = Array.isArray(graph?.edges) ? graph.edges.length : 0;
+  const communities = Array.isArray(graph?.communities) && graph.communities.length
+    ? graph.communities.length
+    : 1;
+  const scale = Math.min(
+    MAX_LAYOUT_SCALE,
+    Math.max(
+      1,
+      Math.sqrt(Math.max(1, nodes) / 120),
+      Math.sqrt(Math.max(1, edges) / 320),
+      Math.sqrt(Math.max(1, communities) / 14)
+    )
+  );
+  return {
+    width: Math.round(BASE_WIDTH * scale),
+    height: Math.round(BASE_HEIGHT * scale)
+  };
 }
 
 export function edgeEnds(edge) {
@@ -370,7 +394,7 @@ export function renderDocsMap(container, graph, opts = {}) {
   const onNavigate = opts.onNavigate || (() => {});
   const nodeMetadata = normalizeMap(opts.metadata?.nodes);
   const edgeMetadata = normalizeMap(opts.metadata?.edges);
-  const { positions, radii, anchors, communityCount } = layout(graph);
+  const { positions, radii, anchors, communityCount, width, height } = layout(graph);
   const hue = (ci) => (ci < 0 ? 0 : Math.round((360 * ci) / Math.max(1, communityCount)));
   const adjacency = new Map();
   for (const edge of (graph.edges || [])) {
@@ -399,7 +423,7 @@ export function renderDocsMap(container, graph, opts = {}) {
 
   const svg = document.createElementNS(SVGNS, 'svg');
   svg.setAttribute('class', 'docs-map-svg');
-  svg.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', `Relationship map of ${nodes.length} documentation pages`);
   const win = svg.ownerDocument.defaultView;
@@ -435,8 +459,8 @@ export function renderDocsMap(container, graph, opts = {}) {
     const pos = positions.get(nodeId);
     if (!pos) return false;
     zoom = Math.max(1.25, zoom);
-    pan.x = (WIDTH / 2) - (pos.x * zoom);
-    pan.y = (HEIGHT / 2) - (pos.y * zoom);
+    pan.x = (width / 2) - (pos.x * zoom);
+    pan.y = (height / 2) - (pos.y * zoom);
     updateTransform();
     return true;
   };
@@ -525,7 +549,7 @@ export function renderDocsMap(container, graph, opts = {}) {
     if (anchor.id === 'all') return;
     const label = document.createElementNS(SVGNS, 'text');
     label.setAttribute('x', anchor.x);
-    label.setAttribute('y', anchor.y - (Math.min(WIDTH, HEIGHT) * 0.12) - 10);
+    label.setAttribute('y', anchor.y - (Math.min(width, height) * 0.12) - 10);
     label.setAttribute('text-anchor', 'middle');
     label.setAttribute('class', 'docs-map-community');
     label.setAttribute('fill', `hsl(${hue(anchor.index)} 60% 55%)`);
