@@ -4,6 +4,8 @@ template: post
 date: 2026-05-28
 author: Pagenary Team
 summary: "The dbbuilder-era project became Pagenary: a public static docs publisher with its first npm releases, docs site, SEO snapshots, collection feeds, CI, and documentation foundations."
+hero: /assets/images/pagenary-2026-05-hero.png
+heroAlt: "An abstract database and build pipeline transforming into clean static documentation pages."
 tags: [report, origin, publishing]
 ---
 
@@ -18,6 +20,9 @@ It was a short month, but it set the foundation. Pagenary became an installable
 npm package, got its first docs site, learned to publish tenant builds from CI,
 and started treating SEO and cross-site feeds as core parts of the product
 rather than add-ons.
+
+*Hero image: AI-generated with ChatGPT from a brand-specified prompt; no text or
+logos are AI-rendered.*
 
 ## TL;DR
 
