@@ -3,16 +3,16 @@ title: "Pagenary - May 2026"
 template: post
 date: 2026-05-28
 author: Pagenary Team
-summary: "The reachable Pagenary history begins: the dbbuilder-era idea became a public static docs publisher, shipped its first npm releases, and gained the SEO, feed, CI, and documentation foundations needed for real sites."
+summary: "The dbbuilder-era project became Pagenary: a public static docs publisher with its first npm releases, docs site, SEO snapshots, collection feeds, CI, and documentation foundations."
 tags: [report, origin, publishing]
 ---
 
 # Pagenary - May 2026
 
-May is where the reachable Pagenary repository history begins. The project had
-been known in Gitea as `dbbuilder`, but this first public stretch is where the
-work took its Pagenary shape: a multi-tenant documentation publisher that turns
-plain repo content into fast static sites.
+May is where the dbbuilder-era project became Pagenary. The Gitea repository was
+once named `dbbuilder`; this first public stretch is where the work took its
+Pagenary shape: a multi-tenant documentation publisher that turns plain repo
+content into fast static sites.
 
 It was a short month, but it set the foundation. Pagenary became an installable
 npm package, got its first docs site, learned to publish tenant builds from CI,
@@ -100,4 +100,4 @@ search, docs-map, richer theming, blog publishing, accessibility artifacts,
 page effects, and the first version of the monthly update flow this post now
 belongs to.
 
-<!-- Backfilled from reachable git history, May 25-28 2026. User-provided context: the canonical Gitea repo was previously named dbbuilder. No earlier dbbuilder refs are reachable from the current local/origin history. -->
+<!-- Backfilled from git history, May 25-28 2026. The canonical Gitea repo was previously named dbbuilder; the dbbuilder remote now resolves to the same root commit and refs as Pagenary. -->
