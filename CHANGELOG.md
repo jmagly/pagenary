@@ -6,6 +6,19 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.17] - 2026-07-06
+
+### Fixed
+
+- Scaled the built-in docs-map SVG layout for dense documentation graphs so
+  large corpora, including the AIWG docs map, no longer collapse into heavy
+  border clamping.
+
+### Changed
+
+- Backfilled and refined Pagenary update posts for the public release
+  announcement and monthly project history.
+
 ## [2026.7.16] - 2026-07-05
 
 ### Changed
