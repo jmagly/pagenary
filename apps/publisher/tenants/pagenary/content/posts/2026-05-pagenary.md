@@ -3,7 +3,7 @@ title: "Pagenary - May 2026"
 template: post
 date: 2026-05-28
 author: Pagenary Team
-summary: "The dbbuilder-era project became Pagenary: a public static docs publisher with its first npm releases, docs site, SEO snapshots, collection feeds, CI, and documentation foundations."
+summary: "Pagenary made its first public package line: a static docs publisher with npm releases, a dogfooded docs site, SEO snapshots, collection feeds, CI, and documentation foundations."
 hero: /assets/images/pagenary-2026-05-hero.png
 heroAlt: "An abstract database and build pipeline transforming into clean static documentation pages."
 tags: [report, origin, publishing]
@@ -11,31 +11,29 @@ tags: [report, origin, publishing]
 
 # Pagenary - May 2026
 
-May is where the dbbuilder-era project became Pagenary. The Gitea repository was
-once named `dbbuilder`; this first public stretch is where the work took its
-Pagenary shape: a multi-tenant documentation publisher that turns plain repo
-content into fast static sites.
+May was Pagenary's first public release window. In four fast days, the project
+went from a new multi-tenant publisher to an installable npm package with a
+dogfooded docs site, SEO-friendly static snapshots, collection feeds, and a
+repeatable release process.
 
-It was a short month, but it set the foundation. Pagenary became an installable
-npm package, got its first docs site, learned to publish tenant builds from CI,
-and started treating SEO and cross-site feeds as core parts of the product
-rather than add-ons.
+This was the foundation release: the month when Pagenary became something other
+projects could install, configure, and ship.
 
 *Hero image: AI-generated with ChatGPT from a brand-specified prompt; no text or
 logos are AI-rendered.*
 
-## TL;DR
+## Release highlights
 
-Pagenary started as a practical answer to a common problem: teams had Markdown
+Pagenary launched as a practical answer to a common problem: teams had Markdown
 and project notes in git, but turning that into polished docs sites still meant
-hand-built templates, one-off deployment scripts, and a lot of repeated glue.
-The first Pagenary line made the shape clear. One publisher. Many tenants. Static
-output. Git-aware builds. Docs that can live with the code and deploy anywhere.
+hand-built templates, one-off deployment scripts, and repeated glue. The first
+release line made the product shape clear: one publisher, many tenants, static
+output, Git-aware builds, and docs that can live with the code.
 
-By the end of May, the package had moved through the `2026.5.x` release line,
-published docs at `docs.pagenary.com`, added SEO-safe snapshots, generated
-collection manifests and feeds, and tightened the build path enough for external
-repos to use it.
+By the end of May, Pagenary had moved through the `2026.5.x` release line,
+published its own docs at `docs.pagenary.com`, added crawler-safe static pages,
+generated collection manifests and feeds, and tightened the build path enough
+for external repos to use it.
 
 ## What shipped
 
@@ -50,7 +48,7 @@ early docs started leading with `@pagenary/publisher` and the install workflow.
 That mattered because it changed Pagenary from a local build script into a tool
 other projects could adopt.
 
-**First public docs site.** The repo added automated publishing for the Pagenary
+**Dogfooded docs site.** The repo added automated publishing for the Pagenary
 tenant to `docs.pagenary.com`. The docs site was not just a marketing page; it
 was the first dogfood loop. Pagenary began publishing its own documentation with
 Pagenary.
@@ -89,9 +87,9 @@ process was written down from verified commands.
 ## Why it mattered
 
 May did not have the big feature spread that June would bring. It was more
-important than that: it made Pagenary real. The project went from an internal
-publishing idea, with dbbuilder-era roots, into a named package with a public
-docs site and a repeatable release process.
+important than that: it made Pagenary real. The project became a named package
+with a public docs site, tested tenant builds, SEO output, collection feeds, and
+a repeatable release process.
 
 That foundation let the June work move fast. Search, blogs, page effects,
 accessibility reports, and mixed docs/blog layouts all depended on the May
@@ -105,4 +103,4 @@ search, docs-map, richer theming, blog publishing, accessibility artifacts,
 page effects, and the first version of the monthly update flow this post now
 belongs to.
 
-<!-- Backfilled from git history, May 25-28 2026. The canonical Gitea repo was previously named dbbuilder; the dbbuilder remote now resolves to the same root commit and refs as Pagenary. -->
+<!-- Backfilled from git history, May 25-28 2026. Public release-announcement voice; internal repository naming history intentionally omitted. -->
