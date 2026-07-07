@@ -26,6 +26,11 @@ import {
   DEFAULT_PART_SIZE
 } from '../../src/lib/fortemi-corpus.js';
 import {
+  encodePathForFilename,
+  resolveBaseUrl,
+  resolveDiscoverabilityProfile
+} from './seo-generator.js';
+import {
   assertAiwgFortemiChunkManifest,
   assertAiwgFortemiChunkPart
 } from '../../src/vendor/fortemi-aiwg-index.js';
@@ -66,6 +71,72 @@ async function extractSectionText(section, distDir) {
   }
 }
 
+function resolveArtifactUrl(baseUrl, pathname) {
+  return baseUrl ? `${baseUrl}${pathname}` : pathname;
+}
+
+function normalizeModulePath(modulePath) {
+  return String(modulePath || '').replace(/^\.?\//, '');
+}
+
+function buildSectionDeliveryAssets(section, options = {}) {
+  const modulePath = normalizeModulePath(section.module);
+  const assets = [];
+  if (modulePath) {
+    assets.push({ type: 'js_module', label: 'js module', path: modulePath });
+  }
+
+  const baseUrl = resolveBaseUrl(options.config || {});
+  const spaRoute = `#/${section.id}`;
+  assets.push({
+    type: 'spa_route',
+    label: 'spa route',
+    path: spaRoute,
+    url: baseUrl ? `${baseUrl}/${spaRoute}` : spaRoute
+  });
+
+  const resolved = resolveDiscoverabilityProfile(options.config || {});
+  const seoConfig = resolved.seo || {};
+  const seoArtifactsEnabled = seoConfig.enabled !== false;
+  const filename = encodePathForFilename(section.id);
+
+  if (seoArtifactsEnabled && seoConfig.generateStaticPages !== false) {
+    const staticPath = `/pages/${filename}.html`;
+    assets.push({
+      type: 'static_html',
+      label: 'static html',
+      path: staticPath,
+      url: resolveArtifactUrl(baseUrl, staticPath)
+    });
+  }
+
+  if (seoConfig.rootHtmlFallback !== false && section.id === options.defaultSection) {
+    assets.push({
+      type: 'root_html_fallback',
+      label: 'root html fallback',
+      path: '/index.html',
+      url: resolveArtifactUrl(baseUrl, '/index.html')
+    });
+  }
+
+  if (seoArtifactsEnabled && seoConfig.generateCorpusArtifacts === true && !seoConfig.noIndex) {
+    for (const [type, ext, label] of [
+      ['json_extract', 'json', 'json extract'],
+      ['text_extract', 'txt', 'text extract']
+    ]) {
+      const extractPath = `/pages/${filename}.${ext}`;
+      assets.push({
+        type,
+        label,
+        path: extractPath,
+        url: resolveArtifactUrl(baseUrl, extractPath)
+      });
+    }
+  }
+
+  return assets;
+}
+
 /**
  * Generate and write the chunked Fortemi index for one tenant bundle. The
  * static search artifact is also the page-metadata source, so it opts into
@@ -89,7 +160,13 @@ export async function generateSearchIndex(distDir, processedManifest, options = 
     if (!section || !section.id) continue;
     const content = await extractSectionText(section, distDir);
     const text = `${section.title || ''} ${section.summary || ''} ${section.group || ''} ${content}`.trim();
-    entries.push({ section, text });
+    entries.push({
+      section: {
+        ...section,
+        delivery_assets: buildSectionDeliveryAssets(section, options)
+      },
+      text
+    });
   }
 
   const { index, buildHash } = buildFortemiIndexExport(entries, {

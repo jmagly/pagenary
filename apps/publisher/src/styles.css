@@ -1317,6 +1317,15 @@ mark.hl {
   text-transform: uppercase;
 }
 
+.doc-fortemi-subheading {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .doc-fortemi-row {
   display: grid;
   grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr);

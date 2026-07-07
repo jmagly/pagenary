@@ -548,6 +548,8 @@ function hasFortemiMetadata(metadata) {
     (metadata.relationships && metadata.relationships.length) ||
     (metadata.provenance && metadata.provenance.length) ||
     (metadata.provenance_events && metadata.provenance_events.length) ||
+    (metadata.delivery_assets && metadata.delivery_assets.length) ||
+    (metadata.artifact_urls && metadata.artifact_urls.length) ||
     metadata.source ||
     metadata.privacy
   );
@@ -588,6 +590,13 @@ function addMetadataRow(parent, key, value) {
   parent.appendChild(row);
 }
 
+function addMetadataSubheading(parent, text) {
+  const heading = document.createElement('h3');
+  heading.className = 'doc-fortemi-subheading';
+  heading.textContent = text;
+  parent.appendChild(heading);
+}
+
 function addMetadataChips(parent, values) {
   const list = document.createElement('div');
   list.className = 'doc-fortemi-chips';
@@ -601,6 +610,22 @@ function addMetadataChips(parent, values) {
     list.appendChild(chip);
   });
   parent.appendChild(list);
+}
+
+function normalizeDeliveryAssets(metadata) {
+  const assets = Array.isArray(metadata.delivery_assets)
+    ? metadata.delivery_assets
+    : (Array.isArray(metadata.artifact_urls) ? metadata.artifact_urls : []);
+  return assets
+    .map((asset) => {
+      if (typeof asset === 'string') return { label: 'asset', value: asset };
+      if (!asset || typeof asset !== 'object') return null;
+      return {
+        label: asset.label || asset.type || 'asset',
+        value: asset.url || asset.path || asset.href
+      };
+    })
+    .filter((asset) => asset && asset.value);
 }
 
 function addMetadataSection(panel, title, render) {
@@ -632,6 +657,11 @@ function renderFortemiPanel(panel, metadata) {
   addMetadataSection(panel, 'Source and Provenance', (section) => {
     addMetadataRow(section, 'source', metadata.source?.repo_relative_path || metadata.source?.path);
     addMetadataRow(section, 'locator', metadata.source?.locator);
+    const deliveryAssets = normalizeDeliveryAssets(metadata);
+    if (deliveryAssets.length) {
+      addMetadataSubheading(section, 'Generated assets');
+      deliveryAssets.forEach((asset) => addMetadataRow(section, asset.label, asset.value));
+    }
     addMetadataRow(section, 'updated', metadata.updated_at);
     addMetadataRow(section, 'privacy', metadata.privacy?.classification);
     (metadata.provenance || []).forEach((entry) => {

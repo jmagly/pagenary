@@ -107,6 +107,10 @@ describe('fortemi-corpus', () => {
     test('projects compact page metadata without duplicating record text', () => {
       const { index } = buildFortemiIndexExport(entries());
       const developers = index.items.find((item) => item.id === 'docs:page:developers');
+      developers.delivery_assets = [
+        { type: 'js_module', label: 'js module', path: 'sections/developers.js' },
+        { type: 'static_html', label: 'static html', url: '/pages/developers.html' }
+      ];
       developers.skos_concepts = [{ id: 'c:api', prefLabel: 'API', definition: 'Application interface' }];
       developers.skos_relations = [{ source_id: 'c:api', type: 'related', target_id: 'c:sdk' }];
       developers.provenance_events = [{ activity: 'built', agent: 'pagenary', attributes: { source: 'test' } }];
@@ -115,6 +119,10 @@ describe('fortemi-corpus', () => {
       expect(metadata.section_id).toBe('developers');
       expect(metadata.record_id).toBe('docs:page:developers');
       expect(metadata.source.path).toBe('developers.md');
+      expect(metadata.delivery_assets).toEqual([
+        { type: 'js_module', label: 'js module', path: 'sections/developers.js' },
+        { type: 'static_html', label: 'static html', url: '/pages/developers.html' }
+      ]);
       expect(metadata.facets.group).toEqual(['build']);
       expect(metadata.tags).toEqual(['guide']);
       expect(metadata.provenance[0].confidence).toBe('source');

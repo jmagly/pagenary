@@ -4646,7 +4646,11 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
   // Emit the static Fortemi chunked search index. Failure here never breaks the
   // bundle — the runtime search adapter degrades to its legacy in-browser index.
   try {
-    await generateSearchIndex(distDir, processedManifest, { tenantId });
+    await generateSearchIndex(distDir, processedManifest, {
+      tenantId,
+      defaultSection,
+      config: resolveDiscoverabilityProfile(config)
+    });
   } catch (err) {
     console.warn(`  ↳ search index generation skipped for ${tenantId}: ${err.message}`);
   }
@@ -5107,7 +5111,11 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
 
   // Emit the static Fortemi chunked search index (legacy manifest path).
   try {
-    await generateSearchIndex(distDir, processedManifest, { tenantId });
+    await generateSearchIndex(distDir, processedManifest, {
+      tenantId,
+      defaultSection,
+      config: resolveDiscoverabilityProfile(config)
+    });
   } catch (err) {
     console.warn(`  ↳ search index generation skipped for ${tenantId}: ${err.message}`);
   }

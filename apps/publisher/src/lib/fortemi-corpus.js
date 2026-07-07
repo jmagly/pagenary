@@ -264,6 +264,7 @@ export function fortemiRecordToPageMetadata(record) {
     type: record.type,
     title: record.title || sectionId,
     source: cloneJson(record.source, null),
+    delivery_assets: cloneJson(record.delivery_assets || record.deliveryAssets || record.artifact_urls || [], []),
     facets: cloneJson(record.facets || {}, {}),
     tags: cloneJson(record.tags || [], []),
     concepts: cloneJson(record.concepts || [], []),
@@ -353,6 +354,7 @@ export function sectionToFortemiRecord(section, text, updatedAt) {
       repo_relative_path: sourcePath,
       locator: `#${section.id}`
     },
+    delivery_assets: cloneJson(section.delivery_assets || [], []),
     title: section.title || section.id,
     text: body,
     facets: {

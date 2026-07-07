@@ -56,7 +56,15 @@ describe('search-index-generator', () => {
 
   test('emits a valid chunked index from materialized sections', async () => {
     dir = await makeFixture();
-    const summary = await generateSearchIndex(dir, MANIFEST, { tenantId: 'fixture', partSize: 2 });
+    const summary = await generateSearchIndex(dir, MANIFEST, {
+      tenantId: 'fixture',
+      partSize: 2,
+      defaultSection: 'welcome',
+      config: {
+        domain: 'docs.example',
+        seo: { discoverabilityProfile: 'open' }
+      }
+    });
     expect(summary.total).toBe(3); // welcome, developers, broken
 
     const indexDir = path.join(dir, 'search-index');
@@ -67,6 +75,19 @@ describe('search-index-generator', () => {
     expect(metadata.schema_version).toBe('pagenary.fortemi.metadata.v1');
     expect(metadata.pages.map((page) => page.section_id)).toEqual(['broken', 'developers', 'welcome']);
     expect(metadata.pages.find((page) => page.section_id === 'developers').text).toBeUndefined();
+    const developerAssets = metadata.pages.find((page) => page.section_id === 'developers').delivery_assets;
+    expect(developerAssets).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'js_module', path: 'sections/developers.js' }),
+      expect.objectContaining({ type: 'spa_route', url: 'https://docs.example/#/developers' }),
+      expect.objectContaining({ type: 'static_html', url: 'https://docs.example/pages/developers.html' }),
+      expect.objectContaining({ type: 'json_extract', url: 'https://docs.example/pages/developers.json' }),
+      expect.objectContaining({ type: 'text_extract', url: 'https://docs.example/pages/developers.txt' })
+    ]));
+    const welcomeAssets = metadata.pages.find((page) => page.section_id === 'welcome').delivery_assets;
+    expect(welcomeAssets).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'root_html_fallback', url: 'https://docs.example/index.html' }),
+      expect.objectContaining({ type: 'static_html', url: 'https://docs.example/pages/welcome.html' })
+    ]));
 
     let items = [];
     for (const ref of manifest.parts) {
@@ -106,6 +127,19 @@ describe('search-index-generator', () => {
     await generateSearchIndex(dir, MANIFEST, { tenantId: 'fixture', partSize: 2 });
     const second = fs.readFileSync(path.join(dir, 'search-index', 'manifest.json'), 'utf8');
     expect(second).toBe(first);
+  });
+
+  test('does not advertise disabled discoverability artifacts', async () => {
+    dir = await makeFixture();
+    await generateSearchIndex(dir, [MANIFEST[0]], {
+      tenantId: 'fixture',
+      partSize: 2,
+      defaultSection: 'welcome',
+      config: { seo: { discoverabilityProfile: 'locked' } }
+    });
+    const metadata = JSON.parse(fs.readFileSync(path.join(dir, 'search-index', 'metadata.json'), 'utf8'));
+    const assetTypes = metadata.pages[0].delivery_assets.map((asset) => asset.type);
+    expect(assetTypes).toEqual(['js_module', 'spa_route']);
   });
 
   test('removes stale parts when the corpus shrinks', async () => {

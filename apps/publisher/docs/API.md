@@ -667,6 +667,25 @@ const collectionRoot = await findContentRoot(sourceDir);
 await generateCollections(distDir, config, collectionRoot.basePath);
 ```
 
+### Fortemi Page Metadata Delivery Assets
+
+The static Fortemi metadata export at `search-index/metadata.json` includes a
+per-page `delivery_assets` list for the detail-pane Source and Provenance view.
+Each entry has a stable `type`, human-readable `label`, and either a site-root
+`path` or absolute `url` when `domain` or `seo.siteUrl` is configured.
+
+Generated asset types include:
+
+- `js_module` for the protected runtime section module.
+- `spa_route` for the hash route.
+- `static_html` when static snapshots are enabled.
+- `root_html_fallback` for the default page when root fallback is enabled.
+- `json_extract` and `text_extract` when corpus artifacts are enabled.
+
+Locked or otherwise non-discoverable profiles omit asset paths that are not
+generated, so consumers should render the list as authoritative rather than
+constructing paths from section ids.
+
 ### scripts/lib/frontmatter.js
 
 Parses the Markdown front-matter subset used by collection posts and tenant
