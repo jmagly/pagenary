@@ -6,6 +6,13 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.21] - 2026-07-07
+
+### Fixed
+
+- Re-cut the release with the signed annotated tag preserved on the GitHub
+  mirror while retaining the idempotent mirror-tag release workflow.
+
 ## [2026.7.20] - 2026-07-07
 
 ### Fixed
