@@ -700,6 +700,16 @@ export function extractHtmlFromModule(moduleContent) {
   return null;
 }
 
+function buildDynamicSectionFallbackHtml(section) {
+  if (section?.id !== 'docs-map') return null;
+  const safeTitle = escapeHtml(section.title || 'Docs Map');
+  const safeSummary = escapeHtml(section.summary || 'How these pages cluster and relate.');
+  return `
+        <p>${safeSummary}</p>
+        <p>The interactive ${safeTitle} renders in the JavaScript app. It uses the generated docs-map data artifact to show page clusters, relationship edges, search, zoom, and page-detail popups.</p>
+        <p>If this static snapshot does not redirect automatically, use the interactive version link below.</p>`;
+}
+
 /**
  * Generate static HTML snapshots for all sections
  * @param {string} distDir - Tenant dist directory
@@ -727,7 +737,7 @@ export async function generateStaticSnapshots(distDir, manifest, config) {
       const moduleContent = await fsp.readFile(modulePath, 'utf8');
 
       // Extract HTML content
-      const contentHtml = extractHtmlFromModule(moduleContent);
+      const contentHtml = extractHtmlFromModule(moduleContent) || buildDynamicSectionFallbackHtml(section);
       if (!contentHtml) {
         console.warn(`  ⚠ Could not extract HTML from ${section.id}`);
         continue;

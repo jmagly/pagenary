@@ -6,6 +6,19 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.18] - 2026-07-07
+
+### Added
+
+- Enabled the built-in Docs Map in Pagenary's own dogfooded docs tenant so the
+  public documentation exercises the relationship-map feature by default.
+
+### Fixed
+
+- Generated crawler/static fallback pages for dynamic Docs Map sections so
+  static navigation, sitemap URLs, and no-JS readers do not land on a missing
+  `/pages/docs-map.html` snapshot.
+
 ### Changed
 
 - Documented the monthly-updates docbase pattern for bespoke SPAs that consume

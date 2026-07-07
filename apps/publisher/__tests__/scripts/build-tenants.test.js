@@ -1465,16 +1465,22 @@ describe('build-tenants.js', () => {
       const dist = path.join(PUBLISHER_ROOT, 'dist', DM_ID);
       return {
         has: (f) => fs.existsSync(path.join(dist, f)),
-        manifest: await fsp.readFile(path.join(dist, 'manifest.js'), 'utf8')
+        manifest: await fsp.readFile(path.join(dist, 'manifest.js'), 'utf8'),
+        dist
       };
     }
 
     test('enabled: emits section module + injects MANIFEST entry', async () => {
-      const { has, manifest } = await buildDocsMap({ title: 'DM', docsMap: { enabled: true } });
+      const { has, manifest, dist } = await buildDocsMap({ title: 'DM', docsMap: { enabled: true } });
       expect(has('sections/docs-map.js')).toBe(true);
       expect(has('lib/docs-map.js')).toBe(true); // copied from src/lib by the base build
+      expect(has('pages/docs-map.html')).toBe(true);
       expect(manifest).toMatch(/"id":\s*"docs-map"/);
       expect(manifest).toMatch(/"module":\s*"\.\/sections\/docs-map\.[a-f0-9]{12}\.js"/);
+      const html = await fsp.readFile(path.join(dist, 'pages', 'docs-map.html'), 'utf8');
+      expect(html).toContain('<title>Docs Map | DM</title>');
+      expect(html).toContain("window.location.replace('/#docs-map')");
+      expect(html).toContain('The interactive Docs Map renders in the JavaScript app.');
     });
 
     test('custom title is used for the MANIFEST entry', async () => {

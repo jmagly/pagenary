@@ -85,6 +85,10 @@ crawler-facing files into the tenant output directory:
 
 The generator resolves absolute URLs from `seo.siteUrl` or `domain`. Tenants can
 disable the whole stage with `seo.enabled: false` or individual artifact switches.
+Dynamic module sections that do not contain extractable Markdown HTML can supply
+bounded static fallback content; the built-in Docs Map uses that path so
+`/pages/docs-map.html` exists for static navigation, sitemaps, and no-JS readers
+while the full graph still renders in the SPA.
 
 ### Collection Manifests
 

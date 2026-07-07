@@ -563,7 +563,10 @@ Write `robots.txt`, including a sitemap pointer when a base URL is configured.
 **`generateStaticSnapshots(distDir: string, manifest: SectionEntry[], config: object): Promise<void>`**
 
 Write static HTML snapshots for each navigable section so crawlers can consume
-content without executing the SPA.
+content without executing the SPA. Markdown-backed modules provide their
+rendered HTML directly; dynamic modules such as `docs-map` can provide a bounded
+static fallback so manifest links and sitemap entries never point at a missing
+snapshot.
 
 **`generateLlmsTxt(distDir: string, manifest: SectionEntry[], config: object): Promise<void>`**
 

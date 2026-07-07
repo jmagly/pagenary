@@ -474,6 +474,13 @@ Tenants with too little content fall back to a lightweight manifest-derived
 graph, and small or empty corpora render a friendly placeholder. When disabled,
 nothing is emitted.
 
+When static snapshots are enabled, the build also writes
+`/pages/docs-map.html`. JavaScript-enabled browsers redirect from that snapshot
+to the interactive `#docs-map` route, while no-JS readers get a short fallback
+description and a link to the interactive version. This keeps static nav,
+sitemap entries, and crawler-facing artifacts valid even though the graph itself
+is a dynamic section module.
+
 > See `examples/docs-map-corpus/` (the **docs-map** recipe) for a fully
 > cross-linked sample corpus — 14 interconnected pages that produce a graph of
 > 5 clusters and dozens of concept edges.

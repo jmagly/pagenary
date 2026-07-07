@@ -8,6 +8,11 @@
   "pageToc": { "placement": "right", "minHeadings": 4 },
   "readingProgress": true,
   "codeCopy": true,
+  "docsMap": {
+    "enabled": true,
+    "renderer": "svg",
+    "title": "Docs Map"
+  },
   "share": {
     "enabled": true,
     "native": "auto",
