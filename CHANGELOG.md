@@ -11,6 +11,9 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 - Documented the monthly-updates docbase pattern for bespoke SPAs that consume
   Pagenary collection manifests, RSS feeds, `@pagenary/blog-client`, or the
   `<pagenary-blog>` embed.
+- Added an Agentic SEO and AI discoverability docs page that ties GEO/AEO,
+  `llms.txt`, static snapshots, corpus artifacts, and PR-gated maintenance
+  workflows to shipped Pagenary features.
 
 ## [2026.7.17] - 2026-07-06
 

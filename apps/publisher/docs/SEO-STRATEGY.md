@@ -5,6 +5,9 @@ static artifacts** alongside the SPA. These are produced automatically at build
 time by `scripts/lib/seo-generator.js` and configured via the tenant
 [`seo` block](TENANT-CONFIG.md#seo-seo).
 
+For the higher-level positioning around agentic SEO, GEO, AEO, `llms.txt`, and
+AI discoverability, see [Agentic SEO & AI Discoverability](AGENTIC-SEO.md).
+
 ## What the build generates
 
 | Artifact | Purpose |

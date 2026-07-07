@@ -170,6 +170,12 @@
           "title": "SEO Strategy",
           "summary": "Metadata, hash-routing considerations, and discoverability.",
           "file": "SEO-STRATEGY.md"
+        },
+        {
+          "id": "agentic-seo",
+          "title": "Agentic SEO & AI Discoverability",
+          "summary": "Agent-consumable output, GEO/AEO positioning, llms.txt, and PR-gated AI maintenance loops.",
+          "file": "AGENTIC-SEO.md"
         }
       ]
     }
