@@ -6,6 +6,12 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+### Changed
+
+- Documented the monthly-updates docbase pattern for bespoke SPAs that consume
+  Pagenary collection manifests, RSS feeds, `@pagenary/blog-client`, or the
+  `<pagenary-blog>` embed.
+
 ## [2026.7.17] - 2026-07-06
 
 ### Fixed

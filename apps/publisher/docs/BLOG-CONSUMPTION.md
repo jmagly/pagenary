@@ -79,6 +79,48 @@ Set `domain` or `seo.siteUrl` when external sites will consume the feed. Without
 one, generated `url` and `canonical` values are site-root paths instead of
 absolute URLs.
 
+## Monthly Updates Docbase
+
+For a monthly updates flow consumed by bespoke SPAs such as `magly.net` and
+`integrolabs.io`, publish the update once in a Pagenary tenant and expose the
+collection manifest plus optional RSS feed:
+
+```json
+{
+  "title": "Monthly Updates",
+  "domain": "updates.example.com",
+  "layout": "blog",
+  "blog": { "sidebar": "hidden", "indexTitle": "Monthly updates" },
+  "collections": [
+    {
+      "path": "updates",
+      "route": "/updates",
+      "title": "Monthly updates",
+      "sourceId": "monthly-updates",
+      "sourceTitle": "Monthly Updates",
+      "manifest": true,
+      "feed": true,
+      "sortBy": "date",
+      "order": "desc"
+    }
+  ]
+}
+```
+
+Place each update in `updates/*.md` with at least `title`, `date`, and
+`summary` front matter. Consumers should use:
+
+- `https://updates.example.com/updates/index.json` as the stable data contract.
+- `https://updates.example.com/updates/feed.xml` for RSS readers or simple link
+  discovery.
+- `@pagenary/blog-client` at build time when the host SPA wants to render cards
+  in its own design system.
+- `<pagenary-blog>` when the host SPA wants a runtime embed with partial-failure
+  handling already built in.
+
+External sites should link post cards to each entry's `url` or `canonical`
+field. They should not construct `/pages/*.html` paths themselves.
+
 ## Build-Time Aggregation
 
 Install the client in the consuming site:
