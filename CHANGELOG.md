@@ -6,6 +6,13 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.19] - 2026-07-07
+
+### Fixed
+
+- Made the release workflow's GitHub mirror tag push idempotent when the same
+  signed tag object already exists on the mirror.
+
 ## [2026.7.18] - 2026-07-07
 
 ### Added

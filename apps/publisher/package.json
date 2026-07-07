@@ -1,6 +1,6 @@
 {
   "name": "@pagenary/publisher",
-  "version": "2026.7.18",
+  "version": "2026.7.19",
   "type": "module",
   "description": "Multi-tenant documentation static site generator with Markdown, search, SEO snapshots, and docs-as-code publishing.",
   "license": "AGPL-3.0-or-later",

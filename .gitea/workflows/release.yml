@@ -231,7 +231,16 @@ jobs:
           CRED=$(mktemp); chmod 600 "$CRED"; trap 'rm -f "$CRED"' EXIT
           printf 'https://x-access-token:%s@github.com\n' "$GH_TOKEN" > "$CRED"
           git -c credential.helper="store --file=$CRED" push "https://${GITHUB_MIRROR}.git" "HEAD:refs/heads/main"
-          git -c credential.helper="store --file=$CRED" push "https://${GITHUB_MIRROR}.git" "$TAG"
+          if ! git -c credential.helper="store --file=$CRED" push "https://${GITHUB_MIRROR}.git" "$TAG"; then
+            LOCAL_TAG=$(git rev-parse "$TAG^{tag}")
+            REMOTE_TAG=$(git ls-remote --tags "https://${GITHUB_MIRROR}.git" "refs/tags/${TAG}" | awk '{print $1}')
+            if [ "$REMOTE_TAG" = "$LOCAL_TAG" ]; then
+              echo "GitHub tag ${TAG} already exists at the expected signed tag object; continuing."
+            else
+              echo "GitHub tag push failed and remote tag does not match local ${TAG}." >&2
+              exit 1
+            fi
+          fi
 
           # Create the GitHub release via REST API (token via env header).
           GH_API="https://api.github.com/repos/jmagly/pagenary/releases"
