@@ -80,6 +80,12 @@
           "file": "PAGE-EFFECTS.md"
         },
         {
+          "id": "react-spa-publishing",
+          "title": "React/SPA Publishing",
+          "summary": "Assessment and phased plan for optional React-backed app routes and richer tenant experiences.",
+          "file": "REACT-SPA-PUBLISHING.md"
+        },
+        {
           "id": "search-and-data",
           "title": "Search & Data",
           "summary": "Ranked hybrid search, a knowledge graph, and faceted metadata — powered by Fortémi.",

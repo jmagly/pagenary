@@ -1,0 +1,1 @@
+../../../docs/REACT-SPA-PUBLISHING.md

@@ -6,6 +6,12 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+### Added
+
+- Added a React/SPA publishing assessment that plans optional React-backed app
+  routes while preserving Pagenary's static docs runtime and generated SEO/data
+  artifacts.
+
 ## [2026.7.21] - 2026-07-07
 
 ### Fixed
