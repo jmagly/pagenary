@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   colorForCommunity,
+  communityRanks,
   computeDegrees,
   filterCommunityGraph,
+  GREYSCALE_COMMUNITY_RAMP,
   neighborhoodSubgraph,
 } from '@fortemi/graph';
 import { GraphView } from '@fortemi/react/graph';
@@ -79,6 +81,55 @@ async function loadDocsMapData(dataPath = DEFAULT_DATA_PATH) {
   };
 }
 
+/**
+ * Lazy-load the opted-in interactive renderer tier (#135). The subpath modules
+ * are only bundled when the tenant selected that tier at build time — for any
+ * other tenant the specifier is external and the import fails fast, which is
+ * fine because this hook only runs when view is '2d'/'3d'. A failed load
+ * (missing peers at runtime, blocked chunk) falls back to the GraphView tier.
+ */
+function useDocsMapTier(view) {
+  const wantsTier = view === '2d' || view === '3d';
+  const [tier, setTier] = useState({ status: wantsTier ? 'loading' : 'none', Component: null });
+  useEffect(() => {
+    if (!wantsTier) {
+      setTier({ status: 'none', Component: null });
+      return undefined;
+    }
+    let cancelled = false;
+    setTier({ status: 'loading', Component: null });
+    const importer = view === '2d'
+      ? import('@fortemi/react/graph-2d').then((mod) => mod.SigmaGraphView)
+      : import('@fortemi/react/graph-3d').then((mod) => mod.ForceGraph3DView);
+    importer
+      .then((Component) => {
+        if (!cancelled) setTier({ status: Component ? 'ready' : 'failed', Component: Component || null });
+      })
+      .catch(() => {
+        if (!cancelled) setTier({ status: 'failed', Component: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, wantsTier]);
+  return tier;
+}
+
+/**
+ * Community color resolver for the legend. Mirrors upstream mapCommunityGraph
+ * palette semantics: 'community' hashes the id (matches GraphView); greyscale/
+ * custom ramps index by community rank (largest cluster first, unassigned last).
+ */
+function communityColorResolver(graph, palette) {
+  if (!palette || palette === 'community') return (id) => colorForCommunity(id);
+  const ranks = communityRanks(graph);
+  const ramp = palette === 'greyscale' ? GREYSCALE_COMMUNITY_RAMP : palette;
+  return (id) => {
+    const rank = ranks.get(id) ?? -1;
+    return rank < 0 ? ramp[ramp.length - 1] : ramp[rank % ramp.length];
+  };
+}
+
 function useDocsMapData(dataPath) {
   const [state, setState] = useState({ status: 'loading', data: null, error: null });
   useEffect(() => {
@@ -101,11 +152,24 @@ function useDocsMapData(dataPath) {
 const VIEW_W = 960;
 const VIEW_H = 540;
 
-function FortemiDocsMap({ dataPath = DEFAULT_DATA_PATH }) {
+function FortemiDocsMap({
+  dataPath = DEFAULT_DATA_PATH,
+  view = 'graph',
+  palette,
+  draggable = false,
+  snapshot,
+}) {
   const { status, data, error } = useDocsMapData(dataPath);
+  const tier = useDocsMapTier(view);
   const baseGraph = data?.graph || { nodes: [], edges: [], communities: [] };
   const labels = data?.labels || {};
   const metadata = data?.metadata || {};
+  // Interactive tier is active unless it failed to load (then GraphView takes over).
+  const interactive = (view === '2d' || view === '3d') && tier.status !== 'failed';
+  const snapshotUrl = useMemo(
+    () => (snapshot ? new URL(snapshot, document.baseURI).href : undefined),
+    [snapshot],
+  );
 
   const [algorithm, setAlgorithm] = useState('community');
   const [hiddenCommunities, setHiddenCommunities] = useState(() => new Set());
@@ -177,6 +241,12 @@ function FortemiDocsMap({ dataPath = DEFAULT_DATA_PATH }) {
 
   const selectedLabel = selectedNodeId ? labelFor(selectedNodeId, labels) : null;
   const selectedConcepts = selectedNodeId ? conceptsFor(selectedNodeId, metadata) : [];
+  // Legend swatches match the active tier's node colors: interactive tiers
+  // honor the configured palette (rank-based), GraphView hashes community ids.
+  const communityColor = useMemo(
+    () => communityColorResolver(baseGraph, interactive ? palette : undefined),
+    [baseGraph, interactive, palette],
+  );
 
   function toggleCommunity(id) {
     setHiddenCommunities((prev) => {
@@ -205,14 +275,16 @@ function FortemiDocsMap({ dataPath = DEFAULT_DATA_PATH }) {
       <style>{styles}</style>
 
       <div className="pagenary-docs-map__controls">
-        <label style={LABEL_STYLE}>
-          Layout
-          <select value={algorithm} onChange={(event) => setAlgorithm(event.target.value)} style={SELECT_STYLE}>
-            {LAYOUTS.map((layout) => (
-              <option key={layout.id} value={layout.id}>{layout.label}</option>
-            ))}
-          </select>
-        </label>
+        {!interactive ? (
+          <label style={LABEL_STYLE}>
+            Layout
+            <select value={algorithm} onChange={(event) => setAlgorithm(event.target.value)} style={SELECT_STYLE}>
+              {LAYOUTS.map((layout) => (
+                <option key={layout.id} value={layout.id}>{layout.label}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
 
         <label style={LABEL_STYLE}>
           Focus
@@ -285,7 +357,7 @@ function FortemiDocsMap({ dataPath = DEFAULT_DATA_PATH }) {
                 title={hidden ? 'Show this cluster' : 'Hide this cluster'}
                 aria-pressed={!hidden}
               >
-                <span className="pagenary-docs-map__swatch" style={{ background: colorForCommunity(community.id) }} />
+                <span className="pagenary-docs-map__swatch" style={{ background: communityColor(community.id) }} />
                 {community.label}
                 <span className="pagenary-docs-map__count">{community.count}</span>
               </button>
@@ -299,18 +371,38 @@ function FortemiDocsMap({ dataPath = DEFAULT_DATA_PATH }) {
         {status === 'error' ? (
           <div className="pagenary-docs-map__overlay">Graph data unavailable: {error?.message || 'unknown error'}</div>
         ) : null}
-        {status === 'ready' ? (
-          <GraphView
-            graph={displayGraph}
-            layout={{ algorithm }}
-            selectedNodeId={selectedNodeId}
-            onSelectNode={setSelectedNodeId}
-            onNavigate={(id) => { window.location.hash = routeFromNode(id); }}
-            labelFor={(id) => labelFor(id, labels)}
-            width={VIEW_W}
-            height={VIEW_H}
-          />
-        ) : null}
+        {status === 'ready' ? (() => {
+          if (interactive) {
+            const TierView = tier.Component;
+            if (tier.status === 'ready' && TierView) {
+              return (
+                <TierView
+                  graph={displayGraph}
+                  snapshot={snapshotUrl}
+                  palette={palette || 'community'}
+                  labelFor={(id) => labelFor(id, labels)}
+                  onSelectNode={setSelectedNodeId}
+                  onOpenNode={(id) => { window.location.hash = routeFromNode(id); }}
+                  height="60vh"
+                />
+              );
+            }
+            return <div className="pagenary-docs-map__overlay">Loading interactive view…</div>;
+          }
+          return (
+            <GraphView
+              graph={displayGraph}
+              layout={{ algorithm }}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={setSelectedNodeId}
+              onNavigate={(id) => { window.location.hash = routeFromNode(id); }}
+              labelFor={(id) => labelFor(id, labels)}
+              draggableNodes={draggable}
+              width={VIEW_W}
+              height={VIEW_H}
+            />
+          );
+        })() : null}
       </div>
 
       <div className="pagenary-docs-map__status" aria-live="polite">
@@ -341,20 +433,61 @@ function FortemiDocsMap({ dataPath = DEFAULT_DATA_PATH }) {
   );
 }
 
+/**
+ * Renderer options for a mount root: explicit call options win; otherwise fall
+ * back to the data attributes the publisher's docs-map loader stamps on the
+ * root (#135). The DOM path is what serves tenant entries that self-mount
+ * `mountFortemiDocsMap()` with no arguments (the documented hybrid pattern).
+ */
+function resolveMountOptions(root, options) {
+  const ds = root.dataset || {};
+  let palette = options.palette ?? ds.docsMapPalette;
+  if (typeof palette === 'string' && palette.startsWith('[')) {
+    try { palette = JSON.parse(palette); } catch { palette = undefined; }
+  }
+  return {
+    dataPath: options.dataPath || DEFAULT_DATA_PATH,
+    view: options.view ?? ds.docsMapView,
+    palette,
+    draggable: options.draggable === true || (options.draggable === undefined && ds.docsMapDraggable === 'true'),
+    snapshot: options.snapshot ?? ds.docsMapSnapshot,
+  };
+}
+
 function mountInto(root, options) {
   if (!root || roots.has(root)) return;
-  root.dataset.docsMapRenderer = 'fortemi-react';
+  const resolved = resolveMountOptions(root, options);
+  const view = resolved.view === '2d' || resolved.view === '3d' ? resolved.view : 'graph';
+  root.dataset.docsMapRenderer = view === 'graph' ? 'fortemi-react' : `fortemi-react-${view}`;
+  // Claim the root: the publisher's bridge checks this before painting its SVG
+  // fallback, so a tenant entry that self-mounts isn't stomped by the fallback.
+  root.dataset.docsMapMounted = 'true';
+  delete root.dataset.docsMapFallback;
   root.replaceChildren();
   const reactRoot = createRoot(root);
   roots.set(root, reactRoot);
-  reactRoot.render(<FortemiDocsMap dataPath={options.dataPath} />);
+  reactRoot.render(
+    <FortemiDocsMap
+      dataPath={resolved.dataPath}
+      view={view}
+      palette={resolved.palette}
+      draggable={resolved.draggable}
+      snapshot={resolved.snapshot}
+    />,
+  );
 }
 
 export function mountFortemiDocsMap(options = {}) {
   const selector = options.selector || '#docsMapRoot';
   const mountCurrent = () => {
     for (const root of document.querySelectorAll(selector)) {
-      mountInto(root, { dataPath: options.dataPath || DEFAULT_DATA_PATH });
+      mountInto(root, {
+        dataPath: options.dataPath,
+        view: options.view,
+        palette: options.palette,
+        draggable: options.draggable,
+        snapshot: options.snapshot,
+      });
     }
   };
 

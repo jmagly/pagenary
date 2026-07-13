@@ -725,7 +725,11 @@ async function mountFortemiReactDocsMap(root, options = {}) {
     if (typeof mountFortemiDocsMap !== 'function') return false;
     mountFortemiDocsMap({
       selector: '#docsMapRoot',
-      dataPath: mountPath
+      dataPath: mountPath,
+      view: docsMapViewForRenderer(normalizeRenderer(options.renderer)),
+      palette: options.palette,
+      draggable: options.draggable === true,
+      snapshot: options.snapshot
     });
     return true;
   } catch (_error) {
@@ -748,18 +752,42 @@ function normalizeRenderer(value) {
     renderer === 'auto' ||
     renderer === 'cytoscape' ||
     renderer === 'svg' ||
-    renderer === 'fortemi-react'
+    renderer === 'fortemi-react' ||
+    renderer === 'fortemi-react-2d' ||
+    renderer === 'fortemi-react-3d'
   ) ? renderer : 'svg';
+}
+
+/** Map a fortemi-react* renderer to the React control's view tier (#135). */
+function docsMapViewForRenderer(renderer) {
+  if (renderer === 'fortemi-react-2d') return '2d';
+  if (renderer === 'fortemi-react-3d') return '3d';
+  return 'graph';
 }
 
 function renderDocsMapWithRenderer(root, graph, opts = {}) {
   const renderer = normalizeRenderer(opts.renderer);
-  const usesFortemiReact = renderer === 'fortemi-react' || renderer === 'auto';
-  root.dataset.docsMapRenderer = usesFortemiReact ? 'fortemi-react' : renderer;
+  const usesFortemiReact = renderer === 'auto' || renderer.startsWith('fortemi-react');
+  root.dataset.docsMapRenderer = usesFortemiReact ? (renderer === 'auto' ? 'fortemi-react' : renderer) : renderer;
   delete root.dataset.docsMapFallback;
+  if (usesFortemiReact) {
+    // Publish renderer options on the mount root (#135). Tenant entries that
+    // self-mount mountFortemiDocsMap() without options (the documented hybrid
+    // pattern) pick these up as defaults, so config reaches the control on
+    // both mount paths — explicit call and DOM-discovered.
+    root.dataset.docsMapView = docsMapViewForRenderer(renderer);
+    if (opts.palette) root.dataset.docsMapPalette = typeof opts.palette === 'string' ? opts.palette : JSON.stringify(opts.palette);
+    if (opts.draggable === true) root.dataset.docsMapDraggable = 'true';
+    if (opts.snapshot) root.dataset.docsMapSnapshot = opts.snapshot;
+  }
   if (usesFortemiReact && opts.dataPath && (graph.nodes || []).length > 1) {
     void mountFortemiReactDocsMap(root, opts).then((isMounted) => {
       if (isMounted) return;
+      // The documented hybrid pattern has the tenant entry self-mount the
+      // control (no export for the bridge to call). If the control already
+      // claimed this root, leave it alone instead of painting the fallback
+      // over a live React tree.
+      if (root.dataset.docsMapMounted === 'true') return;
       root.dataset.docsMapRenderer = 'svg';
       root.dataset.docsMapFallback = 'true';
       renderDocsMap(root, graph, opts);
@@ -780,6 +808,9 @@ export function loadDocsMap(graph, labels, options = {}) {
       if (!root) return;
       renderDocsMapWithRenderer(root, graph || { nodes: [], edges: [], communities: [] }, {
         renderer: options.renderer,
+        palette: options.palette,
+        draggable: options.draggable,
+        snapshot: options.snapshot,
         dataPath: 'docs-map-data.js',
         metadata: options.metadata,
         labelFor: (nodeId) => labelMap.get(sectionIdFromNode(nodeId)) || sectionIdFromNode(nodeId),

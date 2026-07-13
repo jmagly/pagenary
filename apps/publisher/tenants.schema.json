@@ -758,9 +758,21 @@
         },
         "renderer": {
           "type": "string",
-          "enum": ["svg", "cytoscape", "fortemi-react"],
+          "enum": ["svg", "cytoscape", "fortemi-react", "fortemi-react-2d", "fortemi-react-3d"],
           "default": "svg",
-          "description": "Graph renderer. svg is the default and fallback; fortemi-react enables the optional React/Sigma graph control when the React adapter is mounted."
+          "description": "Graph renderer. svg is the default and fallback; fortemi-react mounts the React GraphView control when the React runtime is enabled; fortemi-react-2d (Sigma live explorer) and fortemi-react-3d (Three.js force graph) are heavier interactive tiers that additionally require their optional peer dependencies at build time (2d: sigma, graphology, graphology-layout-forceatlas2; 3d: react-force-graph-3d, three). Without the React runtime these fall back to svg."
+        },
+        "palette": {
+          "description": "Community color palette for the interactive React tiers: 'community' (default hashing, matches the SVG/GraphView tiers), 'greyscale' (rank-based warm greys, largest cluster darkest), or a custom array of CSS colors indexed by community rank.",
+          "oneOf": [
+            { "type": "string", "enum": ["community", "greyscale"] },
+            { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          ]
+        },
+        "draggable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable opt-in node dragging on the fortemi-react GraphView tier: dragging pins a node and re-settles the layout around it; shift-click releases the pin."
         },
         "snapshot": {
           "type": "boolean",

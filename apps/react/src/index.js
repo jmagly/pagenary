@@ -1,10 +1,54 @@
 import fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build as viteBuild } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const packageRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+// Optional peer dependencies per interactive docs-map tier (#135). The tiers
+// are lazy-loaded upstream, but Vite still needs the packages resolvable to
+// bundle the opted-in tier's async chunks.
+const DOCS_MAP_TIER_PEERS = {
+  '2d': ['sigma', 'graphology', 'graphology-layout-forceatlas2'],
+  '3d': ['react-force-graph-3d', 'three']
+};
+
+function docsMapViewFromConfig(config) {
+  const renderer = String(config?.docsMap?.renderer || '').trim().toLowerCase();
+  if (renderer === 'fortemi-react-2d') return '2d';
+  if (renderer === 'fortemi-react-3d') return '3d';
+  return 'graph';
+}
+
+function assertDocsMapTierPeers(view, tenantId, sourceDir) {
+  const peers = DOCS_MAP_TIER_PEERS[view];
+  if (!peers) return;
+  const probe = createRequire(path.join(sourceDir, '_peer-probe.js'));
+  const missing = peers.filter((pkg) => {
+    try {
+      probe.resolve(`${pkg}/package.json`);
+      return false;
+    } catch {
+      try {
+        // Packages whose exports map hides package.json still resolve by name.
+        probe.resolve(pkg);
+        return false;
+      } catch {
+        return true;
+      }
+    }
+  });
+  if (missing.length) {
+    throw new Error(
+      `docsMap.renderer "fortemi-react-${view}" for tenant "${tenantId}" needs optional peer ` +
+      `dependencies that are not installed: ${missing.join(', ')}. ` +
+      `Install them (npm install ${peers.join(' ')}) or switch docsMap.renderer ` +
+      `back to "fortemi-react" / "svg".`
+    );
+  }
+}
 
 function assertInside(parent, child, label) {
   const rel = path.relative(parent, child);
@@ -31,7 +75,10 @@ async function listEmittedAssets(outDir) {
         const file = path.relative(outDir, abs).split(path.sep).join('/');
         emitted.push({
           file: `assets/react/${file}`,
-          isEntry: /(?:^|\/)index\.[\w-]+\.js$/.test(file) || file === 'index.js'
+          // Only a root-level index.*.js is the entry — code-split chunks can
+          // also be named index (e.g. docs-map/index.jsx) but land under
+          // assets/, and injecting a chunk as the entry script mounts nothing.
+          isEntry: /^index\.[\w-]+\.js$/.test(file) || file === 'index.js'
         });
       }
     }
@@ -46,6 +93,7 @@ export async function buildReactTenant(options = {}) {
     sourceDir,
     distDir,
     basePath = '',
+    config = {},
     runtime = {}
   } = options;
   if (!tenantId) throw new Error('tenantId is required');
@@ -56,6 +104,12 @@ export async function buildReactTenant(options = {}) {
   const entry = path.resolve(sourceDir, runtime.entry);
   assertInside(sourceDir, entry, 'runtime.react.entry');
   await fs.access(entry);
+
+  // Interactive docs-map tier selection (#135): only the opted-in tier is
+  // bundled; the other stays external so its bytes never ship. Peer deps for
+  // the selected tier must be installed — fail with an actionable message.
+  const docsMapView = docsMapViewFromConfig(config);
+  assertDocsMapTierPeers(docsMapView, tenantId, sourceDir);
 
   const outDir = path.join(distDir, 'assets', 'react');
   await viteBuild({
@@ -86,7 +140,14 @@ export async function buildReactTenant(options = {}) {
         // @fortemi/graph's barrel statically imports core's GraphController.
         // Externalize the optional engine so no PGlite bytes ship; a Tier-2
         // (full-database) tenant build must NOT externalize this.
-        external: (id) => id === '@electric-sql/pglite' || id.startsWith('@electric-sql/pglite/'),
+        // Unselected interactive docs-map tiers (#135) are externalized the
+        // same way: their runtime dynamic import fails fast in the browser and
+        // the control falls back to the default GraphView tier.
+        external: (id) =>
+          id === '@electric-sql/pglite' ||
+          id.startsWith('@electric-sql/pglite/') ||
+          (docsMapView !== '2d' && id === '@fortemi/react/graph-2d') ||
+          (docsMapView !== '3d' && id === '@fortemi/react/graph-3d'),
         output: {
           entryFileNames: 'index.[hash].js',
           chunkFileNames: 'assets/[name].[hash].js',

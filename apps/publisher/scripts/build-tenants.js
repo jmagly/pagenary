@@ -1829,13 +1829,6 @@ async function applyDocsMap(distDir, config, tenantId, runtimeResult) {
       `export const DOCS_MAP_METADATA = ${JSON.stringify(graphArtifact.metadata)};\n`,
       'utf8'
     );
-    await fsp.writeFile(
-      path.join(sectionsDir, 'docs-map.js'),
-      "import * as DOCS_MAP_DATA from '../docs-map-data.js';\n" +
-      "import { loadDocsMap } from '../lib/docs-map.js';\n" +
-      `export const load = () => loadDocsMap(DOCS_MAP_DATA.DOCS_MAP_GRAPH, DOCS_MAP_DATA.DOCS_MAP_LABELS, { renderer: ${JSON.stringify(renderer)}, metadata: DOCS_MAP_DATA.DOCS_MAP_METADATA });\n`,
-      'utf8'
-    );
     // Baked render snapshot (#133): run the deterministic layout once at build
     // time and persist render-ready positions. Renderer tiers that support
     // warm-starting (the Sigma 2D explorer) load this and skip live settling;
@@ -1843,6 +1836,7 @@ async function applyDocsMap(distDir, config, tenantId, runtimeResult) {
     // this is a pure enhancement. Baking lives in the optional React adapter
     // (which owns the @fortemi/graph dependency) — when the adapter is not
     // installed the publisher stays dependency-free and simply skips it.
+    let snapshotFile = null;
     if (docsMap.snapshot !== false) {
       try {
         const { bakeDocsMapSnapshot } = await import('@pagenary/react/bake');
@@ -1850,6 +1844,7 @@ async function applyDocsMap(distDir, config, tenantId, runtimeResult) {
         if (snapshot) {
           await fsp.mkdir(path.join(distDir, 'docs-map'), { recursive: true });
           await fsp.writeFile(path.join(distDir, 'docs-map', 'render-graph.json'), `${snapshot}\n`, 'utf8');
+          snapshotFile = 'docs-map/render-graph.json';
           console.log(`  ↳ baked docs-map render snapshot for ${tenantId}`);
         }
       } catch (err) {
@@ -1860,6 +1855,23 @@ async function applyDocsMap(distDir, config, tenantId, runtimeResult) {
         }
       }
     }
+
+    // Renderer options (#135): palette / draggable / snapshot ride along with
+    // the renderer choice so the runtime control needs no extra fetches.
+    const optionParts = [`renderer: ${JSON.stringify(renderer)}`];
+    const palette = normalizeDocsMapPalette(docsMap.palette);
+    if (palette && palette !== 'community') optionParts.push(`palette: ${JSON.stringify(palette)}`);
+    if (docsMap.draggable === true) optionParts.push('draggable: true');
+    if (snapshotFile) optionParts.push(`snapshot: ${JSON.stringify(snapshotFile)}`);
+    optionParts.push('metadata: DOCS_MAP_DATA.DOCS_MAP_METADATA');
+
+    await fsp.writeFile(
+      path.join(sectionsDir, 'docs-map.js'),
+      "import * as DOCS_MAP_DATA from '../docs-map-data.js';\n" +
+      "import { loadDocsMap } from '../lib/docs-map.js';\n" +
+      `export const load = () => loadDocsMap(DOCS_MAP_DATA.DOCS_MAP_GRAPH, DOCS_MAP_DATA.DOCS_MAP_LABELS, { ${optionParts.join(', ')} });\n`,
+      'utf8'
+    );
   } else {
     // No content to analyze — fall back to the runtime (MANIFEST-derived) graph.
     await fsp.writeFile(
@@ -1896,10 +1908,29 @@ async function applyDocsMap(distDir, config, tenantId, runtimeResult) {
 function normalizeDocsMapRenderer(value, reactAvailable = false) {
   const renderer = String(value || 'auto').trim().toLowerCase();
   if (renderer === 'auto') return reactAvailable ? 'fortemi-react' : 'svg';
+  // Interactive React tiers (#135) require the tenant React runtime — without
+  // it there is no bundle to mount them from, so fall back to the SVG view.
+  if (renderer === 'fortemi-react-2d' || renderer === 'fortemi-react-3d') {
+    return reactAvailable ? renderer : 'svg';
+  }
   if (renderer === 'cytoscape' || renderer === 'fortemi-react' || renderer === 'svg') {
     return renderer;
   }
   return 'svg';
+}
+
+/**
+ * Sanitize the docsMap palette option (#135): 'community' (default upstream
+ * hashing), 'greyscale', or a custom array of CSS color strings. Anything else
+ * is dropped so the renderer uses its default.
+ */
+function normalizeDocsMapPalette(value) {
+  if (value === 'greyscale' || value === 'community') return value;
+  if (Array.isArray(value)) {
+    const colors = value.filter((c) => typeof c === 'string' && c.trim());
+    return colors.length ? colors : undefined;
+  }
+  return undefined;
 }
 
 /**

@@ -13,6 +13,7 @@ import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
 
@@ -658,6 +659,58 @@ describe('build-tenants.js', () => {
       expect(result.code).toBe(1);
       expect(result.stderr).toContain('requires @pagenary/missing-react-adapter');
       expect(result.stderr).toContain('Install the optional React adapter package');
+    });
+
+    test('fails actionably when an interactive docs-map tier is selected without its peers (#135)', async () => {
+      const manifest = {
+        sections: [
+          { id: 'diagnostics', title: 'Diagnostics', file: 'diagnostics.md' }
+        ]
+      };
+      const content = {
+        'diagnostics.md': '# Diagnostics\n\n<div id="react-root">Fallback</div>'
+      };
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {
+        docsMap: { enabled: true, renderer: 'fortemi-react-2d' },
+        runtime: {
+          mode: 'hybrid',
+          react: {
+            enabled: true,
+            entry: 'app/main.jsx',
+            mount: '#react-root',
+            routes: [
+              { id: 'diagnostics', title: 'Diagnostics', path: '/diagnostics', fallback: 'content/diagnostics.md' }
+            ]
+          }
+        }
+      }, manifest, content);
+      await fsp.mkdir(path.join(testTenantDir, 'app'), { recursive: true });
+      await fsp.writeFile(path.join(testTenantDir, 'app', 'main.jsx'), 'export default null;\n');
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      // The 2d tier's peers are optional and normally absent from this repo
+      // (DEPENDENCY-POSTURE: tenants opting in install them). If a developer
+      // has installed them locally the build legitimately succeeds — assert
+      // the correct behavior for whichever state this environment is in.
+      let sigmaInstalled = false;
+      try {
+        createRequire(path.join(PUBLISHER_ROOT, 'noop.js')).resolve('sigma');
+        sigmaInstalled = true;
+      } catch {}
+      if (sigmaInstalled) {
+        // Peers available → the tier is legitimately buildable.
+        expect(result.code).toBe(0);
+        const reactDir = await fsp.readdir(
+          path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'assets', 'react')
+        );
+        expect(reactDir.some((file) => /^index\.[\w-]+\.js$/.test(file))).toBe(true);
+      } else {
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain('fortemi-react-2d');
+        expect(result.stderr).toContain('sigma');
+        expect(result.stderr).toContain('not installed');
+      }
     });
 
     test('explicit basePath decouples public mount from tenant id (#61)', async () => {
@@ -1591,6 +1644,24 @@ describe('build-tenants.js', () => {
       await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'unknown' } });
       const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
       expect(sect).toMatch(/renderer:\s*"svg"/);
+    });
+
+    test('interactive tiers fall back to svg without the React runtime (#135)', async () => {
+      await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'fortemi-react-2d' } });
+      const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
+      expect(sect).toMatch(/renderer:\s*"svg"/);
+    });
+
+    test('palette, draggable, and snapshot options are emitted for the runtime control (#135)', async () => {
+      await buildDocsMap({
+        title: 'DM',
+        docsMap: { enabled: true, renderer: 'fortemi-react', palette: 'greyscale', draggable: true }
+      });
+      const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
+      expect(sect).toMatch(/renderer:\s*"fortemi-react"/);
+      expect(sect).toMatch(/palette:\s*"greyscale"/);
+      expect(sect).toMatch(/draggable:\s*true/);
+      expect(sect).toMatch(/snapshot:\s*"docs-map\/render-graph\.json"/);
     });
 
     test('bakes docs-map/render-graph.json with positioned nodes, deterministic across rebuilds (#133)', async () => {
