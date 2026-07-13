@@ -1,0 +1,31 @@
+{
+  "default": "overview",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "summary": "A normal Pagenary docs route published beside a React app route.",
+      "file": "overview.md"
+    },
+    {
+      "id": "diagnostics",
+      "title": "Diagnostics",
+      "summary": "A React-mounted route with an authored fallback.",
+      "file": "diagnostics.html"
+    },
+    {
+      "id": "updates",
+      "title": "Updates",
+      "summary": "Collection output proves feeds and JSON artifacts still emit.",
+      "sections": [
+        {
+          "id": "updates/react-hybrid-uat",
+          "title": "React Hybrid UAT",
+          "summary": "UAT notes for hybrid React artifact preservation.",
+          "file": "updates/react-hybrid-uat.md",
+          "collection": "/updates"
+        }
+      ]
+    }
+  ]
+}

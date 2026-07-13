@@ -165,6 +165,70 @@ Unconfigured hosted providers produce a non-breaking note and preview artifact;
 hosted TTS credentials, rate limits, queueing, provider timeouts, and stale audio
 reuse belong in a hosted/server-side layer, not the static publisher.
 
+### Runtime And React Routes
+
+Pagenary's default runtime is static. Missing `runtime` is equivalent to:
+
+```json
+{
+  "runtime": {
+    "mode": "static"
+  }
+}
+```
+
+Supported draft modes:
+
+| Mode | Status | Behavior |
+|------|--------|----------|
+| `static` | Default | Existing vanilla Pagenary runtime. `runtime.react` is ignored. |
+| `hybrid` | Prototype | Builds normal Pagenary docs plus selected React app routes through the optional `@pagenary/react` adapter. |
+| `react-spa` | Planned | Reserved for a future full React shell that still consumes Pagenary artifacts. |
+
+Hybrid React routes require an authored Markdown or HTML fallback. The fallback
+is published as a normal Pagenary page, so sitemap, static snapshots,
+`llms.txt`, search, Docs Map data, and collection artifacts still see the route
+without needing the React app to run.
+
+```json
+{
+  "runtime": {
+    "mode": "hybrid",
+    "react": {
+      "enabled": true,
+      "entry": "app/main.jsx",
+      "mount": "#react-diagnostics-root",
+      "routes": [
+        {
+          "id": "diagnostics",
+          "title": "Diagnostics",
+          "path": "/diagnostics",
+          "fallback": "content/diagnostics.md"
+        }
+      ],
+      "ssg": {
+        "staticFallbacks": true,
+        "snapshotRoutes": true
+      }
+    }
+  }
+}
+```
+
+Compatibility notes:
+
+- `@pagenary/publisher` remains installable without React, React DOM, Vite, or
+  `@vitejs/plugin-react`.
+- React publishing fails clearly if `runtime.mode` is `hybrid` or `react-spa`
+  and the configured adapter package is not installed.
+- `runtime.react.entry` and route fallbacks must stay inside the tenant source
+  directory.
+- `runtime.react.ssg.staticFallbacks` must remain `true` for the hybrid
+  prototype.
+- The optional `@pagenary/react` adapter follows Vite's Node requirement:
+  Node `20.19+` or `22.12+`. The static publisher keeps its Node `>=16`
+  compatibility floor.
+
 ### Source Types
 
 **Local Path:**
@@ -455,10 +519,10 @@ readers can see how the docs relate. It appears in the nav and at `#docs-map`.
 |----------|------|---------|-------------|
 | `docsMap.enabled` | boolean | `false` | Add the Docs Map page + nav entry |
 | `docsMap.title` | string | `"Docs Map"` | Nav/heading label |
-| `docsMap.renderer` | `"svg"` or `"cytoscape"` | `"svg"` | Graph renderer. `svg` is the current renderer and fallback; `cytoscape` reserves the opt-in richer JS renderer path. |
+| `docsMap.renderer` | `"svg"`, `"cytoscape"`, or `"fortemi-react"` | `"svg"` | Graph renderer. `svg` is the framework-free fallback; `fortemi-react` is the optional React/Sigma graph control mounted by `@pagenary/react/docs-map`. |
 
 ```json
-{ "docsMap": { "enabled": true, "renderer": "svg" } }
+{ "docsMap": { "enabled": true, "renderer": "fortemi-react" } }
 ```
 
 The graph is computed **at build time** from your actual page content using the
@@ -469,7 +533,8 @@ embeds the Fortemi graph plus compact node/relationship metadata as
 `docs-map-data.js`; the SVG renderer uses that metadata for subtle hover titles,
 edge weight, confidence, shared-concept details, zoom/pan controls, neighbor
 highlighting, and pinned node popups. The default renderer is the framework-free
-SVG view; optional renderers must fall back to SVG if they cannot initialize.
+SVG view; the React Fortemi renderer replaces the same `#docsMapRoot` only after
+the tenant React bundle loads, so the SVG output remains the final fallback.
 Tenants with too little content fall back to a lightweight manifest-derived
 graph, and small or empty corpora render a friendly placeholder. When disabled,
 nothing is emitted.

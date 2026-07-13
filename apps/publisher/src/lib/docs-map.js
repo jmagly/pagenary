@@ -669,6 +669,70 @@ const DOCS_MAP_HTML = [
   '</section>'
 ].join('\n');
 
+const REACT_MANIFEST_PATHS = [
+  '../assets/react/.vite/manifest.json',
+  '../assets/react/.vite/manifest.js',
+  '../assets/react/.vite/manifest'
+];
+
+let fortemiReactControlPromise = null;
+
+async function loadFortemiReactDocsMapControl() {
+  if (typeof window === 'undefined') return null;
+  if (fortemiReactControlPromise) return fortemiReactControlPromise;
+
+  const candidateScripts = Array.from(document.querySelectorAll('script[type="module"][src]'));
+  const scripts = candidateScripts
+    .map((element) => String(element.getAttribute('src') || ''))
+    .filter(Boolean)
+    .map((src) => new URL(src, document.baseURI).href);
+  const reactScript = scripts.find((src) => src.includes('/assets/react/'));
+  if (reactScript) {
+    fortemiReactControlPromise = import(reactScript);
+    return fortemiReactControlPromise;
+  }
+
+  fortemiReactControlPromise = (async () => {
+    for (const manifestPath of REACT_MANIFEST_PATHS) {
+      try {
+        const manifestUrl = new URL(manifestPath, import.meta.url);
+        const response = await fetch(manifestUrl);
+        if (!response.ok) continue;
+        const manifest = await response.json();
+        const entry = Object.values(manifest || {}).find((value) => value && value.file && value.isEntry);
+        if (!entry?.file) continue;
+        const entryUrl = new URL(`../assets/react/${entry.file}`, import.meta.url);
+        return import(entryUrl);
+      } catch (_error) {
+        // Ignore missing/invalid manifest and continue probing.
+      }
+    }
+    return null;
+  })();
+  return fortemiReactControlPromise;
+}
+
+async function mountFortemiReactDocsMap(root, options = {}) {
+  if (!root || !root.isConnected || typeof window === 'undefined') return false;
+  const mountPath = options.dataPath;
+  if (!mountPath) return false;
+
+  try {
+    const control = await loadFortemiReactDocsMapControl();
+    if (!control) return false;
+    const mountFortemiDocsMap = control.mountFortemiDocsMap
+      || control.default?.mountFortemiDocsMap;
+    if (typeof mountFortemiDocsMap !== 'function') return false;
+    mountFortemiDocsMap({
+      selector: '#docsMapRoot',
+      dataPath: mountPath
+    });
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
 /**
  * Render a pre-built graph embedded at build time. The build extracts concepts
  * from full page text (which the runtime, seeing only title+summary, cannot),
@@ -679,13 +743,29 @@ const DOCS_MAP_HTML = [
  * @returns {{ html: string, afterRender: (app: Element) => void }}
  */
 function normalizeRenderer(value) {
-  return String(value || 'svg').trim().toLowerCase() === 'cytoscape' ? 'cytoscape' : 'svg';
+  const renderer = String(value || 'auto').trim().toLowerCase();
+  return (
+    renderer === 'auto' ||
+    renderer === 'cytoscape' ||
+    renderer === 'svg' ||
+    renderer === 'fortemi-react'
+  ) ? renderer : 'svg';
 }
 
 function renderDocsMapWithRenderer(root, graph, opts = {}) {
   const renderer = normalizeRenderer(opts.renderer);
-  root.dataset.docsMapRenderer = renderer;
+  const usesFortemiReact = renderer === 'fortemi-react' || renderer === 'auto';
+  root.dataset.docsMapRenderer = usesFortemiReact ? 'fortemi-react' : renderer;
   delete root.dataset.docsMapFallback;
+  if (usesFortemiReact && opts.dataPath && (graph.nodes || []).length > 1) {
+    void mountFortemiReactDocsMap(root, opts).then((isMounted) => {
+      if (isMounted) return;
+      root.dataset.docsMapRenderer = 'svg';
+      root.dataset.docsMapFallback = 'true';
+      renderDocsMap(root, graph, opts);
+    });
+    return;
+  }
   renderDocsMap(root, graph, opts);
 }
 
@@ -700,6 +780,7 @@ export function loadDocsMap(graph, labels, options = {}) {
       if (!root) return;
       renderDocsMapWithRenderer(root, graph || { nodes: [], edges: [], communities: [] }, {
         renderer: options.renderer,
+        dataPath: 'docs-map-data.js',
         metadata: options.metadata,
         labelFor: (nodeId) => labelMap.get(sectionIdFromNode(nodeId)) || sectionIdFromNode(nodeId),
         onNavigate: (sectionId) => { location.hash = `#${sectionId}`; }
@@ -724,6 +805,7 @@ export async function loadManifestDocsMap(options = {}) {
       const labels = buildLabelMap(MANIFEST);
       renderDocsMapWithRenderer(root, graph, {
         renderer: options.renderer,
+        dataPath: null,
         labelFor: (nodeId) => labels.get(sectionIdFromNode(nodeId)) || sectionIdFromNode(nodeId),
         onNavigate: (sectionId) => { location.hash = `#${sectionId}`; }
       });

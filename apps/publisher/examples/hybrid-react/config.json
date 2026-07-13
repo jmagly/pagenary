@@ -1,0 +1,41 @@
+{
+  "title": "Hybrid React Example",
+  "brandMark": "Hybrid",
+  "brandSub": "React",
+  "domain": "https://example.com/hybrid-react",
+  "language": "en-US",
+  "docsMap": { "enabled": true },
+  "collections": [
+    {
+      "path": "updates",
+      "route": "/updates",
+      "title": "Updates",
+      "manifest": true,
+      "feed": true,
+      "sortBy": "date",
+      "order": "desc",
+      "showDate": true,
+      "showSummary": true
+    }
+  ],
+  "runtime": {
+    "mode": "hybrid",
+    "react": {
+      "enabled": true,
+      "entry": "app/main.jsx",
+      "mount": "#react-diagnostics-root",
+      "routes": [
+        {
+          "id": "diagnostics",
+          "title": "Diagnostics",
+          "path": "/diagnostics",
+          "fallback": "content/diagnostics.html"
+        }
+      ],
+      "ssg": {
+        "staticFallbacks": true,
+        "snapshotRoutes": true
+      }
+    }
+  }
+}

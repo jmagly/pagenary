@@ -841,6 +841,198 @@ function normalizeCacheStrategy(value) {
   return 'contentHash';
 }
 
+const RUNTIME_MODES = new Set(['static', 'hybrid', 'react-spa']);
+
+function normalizeRuntimeMode(config = {}) {
+  return String(config.runtime?.mode || 'static').trim().toLowerCase();
+}
+
+function wantsReactRuntime(config = {}) {
+  const mode = normalizeRuntimeMode(config);
+  return mode === 'hybrid' || mode === 'react-spa';
+}
+
+function normalizeReactRoutePath(value, fallbackId) {
+  const raw = String(value || fallbackId || '').trim();
+  if (!raw) return '';
+  const cleaned = raw.replace(/\\/g, '/').replace(/\/+/g, '/');
+  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+}
+
+function validateTenantRuntimeConfig(config = {}, sourceDir, tenantId) {
+  const runtime = config.runtime;
+  if (runtime == null) return { success: true, mode: 'static', react: null };
+  if (!runtime || typeof runtime !== 'object' || Array.isArray(runtime)) {
+    return { success: false, errors: ['runtime must be an object'] };
+  }
+
+  const mode = normalizeRuntimeMode(config);
+  const errors = [];
+  if (!RUNTIME_MODES.has(mode)) {
+    errors.push(`runtime.mode must be one of static, hybrid, react-spa; received "${runtime.mode}"`);
+  }
+  if (mode === 'static') {
+    return errors.length ? { success: false, errors } : { success: true, mode, react: null };
+  }
+
+  const react = runtime.react;
+  if (!react || typeof react !== 'object' || Array.isArray(react)) {
+    errors.push('runtime.react is required when runtime.mode is hybrid or react-spa');
+    return { success: false, errors };
+  }
+  if (react.enabled === false) {
+    errors.push(`runtime.react.enabled must not be false when runtime.mode is ${mode}`);
+  }
+  if (typeof react.entry !== 'string' || !react.entry.trim()) {
+    errors.push('runtime.react.entry is required and must point to a tenant-local file');
+  }
+  if (typeof react.mount !== 'string' || !/^#[A-Za-z][\w:.-]*$/.test(react.mount.trim())) {
+    errors.push('runtime.react.mount is required and must be an id selector such as "#app"');
+  }
+  if (!Array.isArray(react.routes) || react.routes.length === 0) {
+    errors.push('runtime.react.routes must include at least one route');
+  }
+
+  const normalizedRoutes = [];
+  const routes = Array.isArray(react.routes) ? react.routes : [];
+  for (const [index, route] of routes.entries()) {
+    const prefix = `runtime.react.routes[${index}]`;
+    if (!route || typeof route !== 'object' || Array.isArray(route)) {
+      errors.push(`${prefix} must be an object`);
+      continue;
+    }
+    const id = typeof route.id === 'string' ? route.id.trim() : '';
+    if (!id) errors.push(`${prefix}.id is required`);
+    const fallback = typeof route.fallback === 'string' ? route.fallback.trim() : '';
+    if (!fallback) {
+      errors.push(`${prefix}.fallback is required so no-JS/static hosts have an authored page`);
+    } else {
+      const fallbackPath = path.resolve(sourceDir, fallback);
+      const rel = path.relative(sourceDir, fallbackPath);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        errors.push(`${prefix}.fallback must stay inside the tenant source directory`);
+      } else if (!fs.existsSync(fallbackPath)) {
+        errors.push(`${prefix}.fallback not found: ${fallback}`);
+      }
+    }
+    normalizedRoutes.push({
+      id,
+      title: route.title || id,
+      path: normalizeReactRoutePath(route.path, id),
+      fallback
+    });
+  }
+
+  if (react.entry) {
+    const entryPath = path.resolve(sourceDir, react.entry);
+    const rel = path.relative(sourceDir, entryPath);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      errors.push('runtime.react.entry must stay inside the tenant source directory');
+    } else if (!fs.existsSync(entryPath)) {
+      errors.push(`runtime.react.entry not found: ${react.entry}`);
+    }
+  }
+
+  const ssg = react.ssg && typeof react.ssg === 'object' ? react.ssg : {};
+  if (ssg.staticFallbacks === false) {
+    errors.push('runtime.react.ssg.staticFallbacks must remain true for the hybrid prototype');
+  }
+
+  if (errors.length) return { success: false, errors };
+  return {
+    success: true,
+    mode,
+    react: {
+      adapter: react.adapter || '@pagenary/react',
+      entry: react.entry.trim(),
+      mount: react.mount.trim(),
+      routes: normalizedRoutes,
+      ssg: {
+        staticFallbacks: ssg.staticFallbacks !== false,
+        snapshotRoutes: ssg.snapshotRoutes !== false
+      }
+    }
+  };
+}
+
+function reactRouteMap(config = {}) {
+  if (!wantsReactRuntime(config)) return new Map();
+  const routes = Array.isArray(config.runtime?.react?.routes) ? config.runtime.react.routes : [];
+  return new Map(routes
+    .filter((route) => route && typeof route.id === 'string')
+    .map((route) => [route.id, {
+      kind: 'react-route',
+      path: normalizeReactRoutePath(route.path, route.id),
+      mount: config.runtime.react.mount,
+      fallback: route.fallback || null
+    }]));
+}
+
+function decorateReactManifestEntries(entries, config = {}) {
+  const routes = reactRouteMap(config);
+  if (!routes.size || !Array.isArray(entries)) return;
+  function walk(list) {
+    for (const entry of list || []) {
+      const route = routes.get(entry.id);
+      if (route) {
+        entry.runtime = route;
+      }
+      if (Array.isArray(entry.subsections)) walk(entry.subsections);
+      if (Array.isArray(entry.sections)) walk(entry.sections);
+    }
+  }
+  walk(entries);
+}
+
+async function injectReactAdapterScript(distDir, emittedAssets) {
+  const entry = emittedAssets.find((asset) => asset.isEntry && asset.file);
+  if (!entry) return;
+  const indexPath = path.join(distDir, 'index.html');
+  const html = await readTextIfExists(indexPath);
+  if (!html || html.includes(`src="./${entry.file}"`)) return;
+  const tag = `<script type="module" src="./${entry.file}"></script>`;
+  const next = html.includes('</body>')
+    ? html.replace('</body>', `    ${tag}\n  </body>`)
+    : `${html}\n${tag}\n`;
+  await fsp.writeFile(indexPath, next, 'utf8');
+}
+
+async function buildReactRuntime({ tenantId, sourceDir, distDir, config, runtime }) {
+  if (!wantsReactRuntime(config)) return { success: true, emittedAssets: [] };
+  let adapter;
+  try {
+    adapter = await import(runtime.react.adapter);
+  } catch (err) {
+    return {
+      success: false,
+      error: `${tenantId}: runtime.mode "${runtime.mode}" requires ${runtime.react.adapter}. Install the optional React adapter package or set runtime.mode to "static".`
+    };
+  }
+  if (!adapter || typeof adapter.buildReactTenant !== 'function') {
+    return {
+      success: false,
+      error: `${tenantId}: ${runtime.react.adapter} does not export buildReactTenant(options)`
+    };
+  }
+
+  try {
+    const result = await adapter.buildReactTenant({
+      tenantId,
+      sourceDir,
+      distDir,
+      basePath: config.basePath || '',
+      config,
+      runtime: runtime.react
+    });
+    const emittedAssets = Array.isArray(result?.emittedAssets) ? result.emittedAssets : [];
+    await injectReactAdapterScript(distDir, emittedAssets);
+    console.log(`  ↳ built React runtime for ${tenantId} (${emittedAssets.length} asset(s))`);
+    return { success: true, emittedAssets };
+  } catch (err) {
+    return { success: false, error: `${tenantId}: React runtime build failed: ${err.message}` };
+  }
+}
+
 async function runBuild(buildOutput) {
   return new Promise((resolve, reject) => {
     // Resolve build.js and run it from the package dir so it reads the package's
@@ -1613,10 +1805,11 @@ async function applyThemePicker(distDir, config, tenantId) {
  * standard router/nav/command-palette drive it — no app.js changes. Disabled =>
  * zero output.
  */
-async function applyDocsMap(distDir, config, tenantId) {
+async function applyDocsMap(distDir, config, tenantId, runtimeResult) {
   const docsMap = config.docsMap;
   if (!docsMap || !docsMap.enabled) return;
-  const renderer = normalizeDocsMapRenderer(docsMap.renderer);
+  const reactAvailable = runtimeResult?.mode === 'hybrid' || runtimeResult?.mode === 'react-spa';
+  const renderer = normalizeDocsMapRenderer(docsMap.renderer, reactAvailable);
 
   const manifestPath = path.join(distDir, 'manifest.js');
   if (!(await pathExists(manifestPath))) return;
@@ -1676,9 +1869,13 @@ async function applyDocsMap(distDir, config, tenantId) {
   console.log(`  ↳ wired docs-map view for ${tenantId} (${renderer} renderer)`);
 }
 
-function normalizeDocsMapRenderer(value) {
-  const renderer = String(value || 'svg').trim().toLowerCase();
-  return renderer === 'cytoscape' ? 'cytoscape' : 'svg';
+function normalizeDocsMapRenderer(value, reactAvailable = false) {
+  const renderer = String(value || 'auto').trim().toLowerCase();
+  if (renderer === 'auto') return reactAvailable ? 'fortemi-react' : 'svg';
+  if (renderer === 'cytoscape' || renderer === 'fortemi-react' || renderer === 'svg') {
+    return renderer;
+  }
+  return 'svg';
 }
 
 /**
@@ -4634,6 +4831,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
 
   // Determine default section
   const defaultSection = context.leafOrder[0];
+  decorateReactManifestEntries(processedManifest, config);
 
   // Generate manifest.js with site configuration and export branding
   const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig, exportConfig, {
@@ -5102,6 +5300,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
   }
 
   const defaultSection = manifestData.default || manifestData.defaultSection || context.leafOrder[0];
+  decorateReactManifestEntries(processedManifest, config);
   const manifestModule = buildManifestModuleSource(processedManifest, defaultSection, context.siteConfig, {}, {
     collections: config.collections,
     tenantLayout: config.layout
@@ -5567,6 +5766,14 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     console.error(`  ↳ ${tenantId}: ${err.message}`);
     return { success: false, changes };
   }
+  const runtimeResult = validateTenantRuntimeConfig(config, sourceDir, tenantId);
+  if (!runtimeResult.success) {
+    console.error(`  ↳ [ERROR] ${tenantId}: invalid runtime configuration:`);
+    for (const error of runtimeResult.errors) {
+      console.error(`      - ${error}`);
+    }
+    return { success: false, changes };
+  }
 
   // Build to a temporary location in dist/ first, then copy to target
   const buildOutput = path.join('dist', tenantId);
@@ -5659,7 +5866,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     await applyNavCollapseConfig(distDir, config, tenantId);
     await applyCodeCopyConfig(distDir, config, tenantId);
     await applySiteFormConfig(distDir, config, tenantId);
-    await applyDocsMap(distDir, config, tenantId);
+    await applyDocsMap(distDir, config, tenantId, runtimeResult);
     await applyWelcome(distDir, config, tenantId);
   }
 
@@ -5686,6 +5893,18 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     if (collectionRoot.basePath) {
       await generateCollections(distDir, config, collectionRoot.basePath);
     }
+  }
+
+  const reactResult = await buildReactRuntime({
+    tenantId,
+    sourceDir,
+    distDir,
+    config,
+    runtime: runtimeResult
+  });
+  if (reactResult.success === false) {
+    console.error(`  ↳ [ERROR] ${reactResult.error}`);
+    return { success: false, changes };
   }
 
   await finalizeContentAddressedBundle(distDir, tenantId, config);

@@ -276,6 +276,10 @@
           "pattern": "^/?[^\\s?#]*$",
           "description": "Optional deploy mount path for the generated <base href>, such as /react/. Registry-level basePath overrides this value."
         },
+        "runtime": {
+          "$ref": "#/definitions/runtimeConfig",
+          "description": "Optional publishing runtime. Missing runtime preserves the default static Pagenary shell."
+        },
         "seo": {
           "$ref": "#/definitions/seoConfig",
           "description": "SEO, crawl, and search visibility controls"
@@ -349,6 +353,100 @@
         }
       },
       "additionalProperties": true
+    },
+    "runtimeConfig": {
+      "type": "object",
+      "description": "Static, hybrid, or React-backed tenant runtime configuration.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["static", "hybrid", "react-spa"],
+          "default": "static",
+          "description": "static keeps the current vanilla runtime. hybrid adds selected React app routes with authored fallbacks. react-spa is reserved for a full React shell."
+        },
+        "react": {
+          "$ref": "#/definitions/reactRuntimeConfig",
+          "description": "React adapter settings used when mode is hybrid or react-spa. Ignored in static mode."
+        }
+      },
+      "additionalProperties": false
+    },
+    "reactRuntimeConfig": {
+      "type": "object",
+      "description": "Tenant-local React adapter configuration.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Set true with runtime.mode hybrid or react-spa."
+        },
+        "adapter": {
+          "type": "string",
+          "default": "@pagenary/react",
+          "description": "Optional adapter package name. Defaults to @pagenary/react."
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^(?!\\.\\.|/|[A-Za-z]:|.*(?:^|/)\\.\\.(?:/|$)).+\\.(jsx|tsx|js|mjs|ts)$",
+          "description": "Tenant-local React/Vite entry point, such as app/main.jsx."
+        },
+        "mount": {
+          "type": "string",
+          "pattern": "^#[A-Za-z][\\w:.-]*$",
+          "description": "CSS id selector that the React entry mounts into."
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "description": "React app routes that also have Pagenary fallbacks for static hosts, crawlers, and no-JS readers.",
+          "items": { "$ref": "#/definitions/reactRuntimeRoute" }
+        },
+        "ssg": {
+          "type": "object",
+          "properties": {
+            "staticFallbacks": {
+              "type": "boolean",
+              "default": true,
+              "description": "Must remain true for the hybrid prototype."
+            },
+            "snapshotRoutes": {
+              "type": "boolean",
+              "default": true,
+              "description": "Emit Pagenary static snapshots for React route fallbacks."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["entry", "mount", "routes"],
+      "additionalProperties": false
+    },
+    "reactRuntimeRoute": {
+      "type": "object",
+      "description": "A React route with an authored Pagenary fallback.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Pagenary section id that represents the route."
+        },
+        "title": {
+          "type": "string",
+          "description": "Display title for docs, smoke reports, and UAT docs."
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/[^\\s?#]*$",
+          "description": "Public path reserved for future React router integration, such as /dashboard."
+        },
+        "fallback": {
+          "type": "string",
+          "pattern": "^(?!\\.\\.|/|[A-Za-z]:|.*(?:^|/)\\.\\.(?:/|$)).+\\.(md|markdown|html|htm)$",
+          "description": "Tenant-local Markdown or HTML fallback file that Pagenary publishes as a normal static page."
+        }
+      },
+      "required": ["id", "path", "fallback"],
+      "additionalProperties": false
     },
     "shareConfig": {
       "type": "object",
@@ -660,9 +758,9 @@
         },
         "renderer": {
           "type": "string",
-          "enum": ["svg", "cytoscape"],
+          "enum": ["svg", "cytoscape", "fortemi-react"],
           "default": "svg",
-          "description": "Graph renderer. svg is the default and fallback; cytoscape is reserved for the richer optional renderer."
+          "description": "Graph renderer. svg is the default and fallback; fortemi-react enables the optional React/Sigma graph control when the React adapter is mounted."
         }
       }
     },

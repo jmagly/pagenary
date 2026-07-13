@@ -119,6 +119,11 @@
       "source": { "type": "local", "path": "./examples/showcase" }
     },
     {
+      "$comment": "Hybrid React route dogfood: normal docs route plus one React app route with authored fallback and artifact-preservation UAT checks.",
+      "id": "hybrid-react",
+      "source": { "type": "local", "path": "./examples/hybrid-react" }
+    },
+    {
       "id": "blog-demo",
       "source": { "type": "local", "path": "./examples/blog-demo" }
     },

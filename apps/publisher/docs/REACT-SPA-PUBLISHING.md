@@ -2,6 +2,13 @@
 
 Issue: [#128](https://git.integrolabs.net/roctinam/pagenary/issues/128)
 
+> **Choosing a tier?** React is one of three operational tiers. See
+> [Dependency Posture & Operational Tiers](DEPENDENCY-POSTURE.md) for what each
+> adds, and [Minimizing Supply-Chain Exposure](SUPPLY-CHAIN.md) if you want to
+> keep the dependency-free static posture or harden a React deployment. The
+> static default ships **zero external runtime dependencies** — only escalate
+> when a specific interactive surface requires it.
+
 Pagenary should support richer React-backed application sites as an opt-in
 publishing mode, not as a replacement for the current static documentation
 runtime. The current runtime is still the right default for fast documentation,
@@ -241,6 +248,38 @@ semantics. Pagenary should continue to own the published site graph.
 - Allow a tenant to render the whole interactive shell through React while
   still consuming Pagenary's generated artifacts.
 - Consider optional prerendering after the hybrid mode is stable.
+
+## Hybrid Example And UAT Matrix
+
+The construction prototype includes a dogfoodable tenant at
+`apps/publisher/examples/hybrid-react` and registers it in
+`examples/recipes.tenants.json` as `hybrid-react`.
+
+The example has:
+
+- `overview`: an ordinary Pagenary docs route.
+- `diagnostics`: a React app route with `content/diagnostics.md` as the
+  authored fallback and `#react-diagnostics-root` as the mount point.
+- `updates/react-hybrid-uat`: a collection post so collection JSON/feed
+  artifacts are exercised in the same build.
+- `app/main.jsx`: tenant-local React code built by the optional
+  `@pagenary/react` adapter into `assets/react/`.
+
+UAT expectations for the example:
+
+| Artifact or behavior | Expected evidence |
+|----------------------|-------------------|
+| Static host output | `node scripts/build-tenants.js hybrid-react --registry examples/recipes.tenants.json` completes with only files under `dist/hybrid-react/`. |
+| Docs route | `#/overview` renders ordinary Pagenary content in browser smoke. |
+| React route | `#/diagnostics` renders the fallback first and the React diagnostics panel after the adapter bundle loads. |
+| Static snapshot | `dist/hybrid-react/pages/diagnostics.html` contains the authored fallback. |
+| Sitemap | `dist/hybrid-react/sitemap.xml` includes `pages/overview.html` and `pages/diagnostics.html`. |
+| `llms.txt` | `dist/hybrid-react/llms.txt` includes Overview and Diagnostics links. |
+| Search index | `dist/hybrid-react/search-index/manifest.json` and its parts include both routes. |
+| Docs Map | `dist/hybrid-react/docs-map-data.js` emits graph data when `docsMap.enabled` is true. |
+| Collections | `dist/hybrid-react/updates/index.json` and `dist/hybrid-react/updates/feed.xml` emit from the collection post. |
+| Base paths | A build with `basePath` or `--base` still injects the configured base into the shell before the React bundle is loaded. |
+| Content-addressing | The React adapter entry in `index.html` points at `assets/react/index.<vite-hash>.<content-hash>.js`; generated React assets are hashed during finalization. |
 
 ## Test Matrix
 

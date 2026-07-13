@@ -567,6 +567,99 @@ describe('build-tenants.js', () => {
       expect(runtime.manifestJs).toContain('"module": "./sections/home.js"');
     });
 
+    test('static runtime ignores draft React config and builds unchanged', async () => {
+      const manifest = {
+        sections: [
+          { id: 'home', title: 'Home', file: 'home.md' }
+        ]
+      };
+      const content = { 'home.md': '# Home\n\nStatic runtime remains default.' };
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {
+        runtime: {
+          mode: 'static',
+          react: {
+            entry: 'missing/main.jsx',
+            mount: '#missing',
+            routes: [
+              { id: 'app', path: '/app', fallback: 'content/missing.md' }
+            ]
+          }
+        }
+      }, manifest, content);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+
+      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const runtime = await readRuntimeManifest(distDir);
+      expect(runtime.manifestJs).toContain('"id": "home"');
+      expect(fs.existsSync(path.join(distDir, 'assets', 'react'))).toBe(false);
+    });
+
+    test('fails React routes without authored fallbacks with actionable errors', async () => {
+      const manifest = {
+        sections: [
+          { id: 'home', title: 'Home', file: 'home.md' }
+        ]
+      };
+      const content = { 'home.md': '# Home\n\nInvalid React route.' };
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {
+        runtime: {
+          mode: 'hybrid',
+          react: {
+            enabled: true,
+            entry: 'app/main.jsx',
+            mount: '#react-root',
+            routes: [
+              { id: 'dashboard', title: 'Dashboard', path: '/dashboard' }
+            ]
+          }
+        }
+      }, manifest, content);
+      await fsp.mkdir(path.join(testTenantDir, 'app'), { recursive: true });
+      await fsp.writeFile(path.join(testTenantDir, 'app', 'main.jsx'), 'export default null;\n');
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('invalid runtime configuration');
+      expect(result.stderr).toContain('runtime.react.routes[0].fallback is required');
+    });
+
+    test('fails clearly when React runtime requests a missing adapter', async () => {
+      const manifest = {
+        sections: [
+          { id: 'diagnostics', title: 'Diagnostics', file: 'diagnostics.md' }
+        ]
+      };
+      const content = {
+        'diagnostics.md': '# Diagnostics\n\n<div id="react-root">Fallback</div>'
+      };
+
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {
+        runtime: {
+          mode: 'hybrid',
+          react: {
+            enabled: true,
+            adapter: '@pagenary/missing-react-adapter',
+            entry: 'app/main.jsx',
+            mount: '#react-root',
+            routes: [
+              { id: 'diagnostics', title: 'Diagnostics', path: '/diagnostics', fallback: 'content/diagnostics.md' }
+            ]
+          }
+        }
+      }, manifest, content);
+      await fsp.mkdir(path.join(testTenantDir, 'app'), { recursive: true });
+      await fsp.writeFile(path.join(testTenantDir, 'app', 'main.jsx'), 'export default null;\n');
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('requires @pagenary/missing-react-adapter');
+      expect(result.stderr).toContain('Install the optional React adapter package');
+    });
+
     test('explicit basePath decouples public mount from tenant id (#61)', async () => {
       const manifest = {
         sections: [
@@ -1489,9 +1582,9 @@ describe('build-tenants.js', () => {
     });
 
     test('renderer option is emitted for optional renderer selection', async () => {
-      await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'cytoscape' } });
+      await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'fortemi-react' } });
       const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
-      expect(sect).toMatch(/renderer:\s*"cytoscape"/);
+      expect(sect).toMatch(/renderer:\s*"fortemi-react"/);
     });
 
     test('unknown renderer values normalize to svg fallback', async () => {
@@ -1584,6 +1677,68 @@ describe('build-tenants.js', () => {
         await cleanup(tenantDir);
         await cleanup(path.join(PUBLISHER_ROOT, 'dist', testTenantId));
       }
+    });
+  });
+
+  describe('hybrid React example', () => {
+    const REGISTRY = path.join(PUBLISHER_ROOT, 'examples', 'recipes.tenants.json');
+    const TENANT = 'hybrid-react';
+    const distDir = path.join(PUBLISHER_ROOT, 'dist', TENANT);
+
+    afterEach(async () => {
+      await cleanup(distDir);
+    });
+
+    test('builds React route and preserves Pagenary artifact matrix', async () => {
+      const result = await runBuildTenants(['-r', REGISTRY, TENANT]);
+      expect(result.code).toBe(0);
+
+      const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
+      expect(index).toMatch(/assets\/react\/index\.[A-Za-z0-9_-]+\.[a-f0-9]{12}\.js/);
+      const runtime = await readRuntimeManifest(distDir);
+      const diagnostics = flattenModules(extractManifestArray(runtime.manifestJs)).get('diagnostics');
+      expect(diagnostics).toMatch(/^\.\/sections\/diagnostics\.[a-f0-9]{12}\.js$/);
+      expect(runtime.manifestJs).toContain('"kind": "react-route"');
+      expect(runtime.manifestJs).toContain('"path": "/diagnostics"');
+      expect(runtime.manifestJs).toContain('"mount": "#react-diagnostics-root"');
+
+      const reactAssets = [];
+      function walk(dir) {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const abs = path.join(dir, entry.name);
+          if (entry.isDirectory()) walk(abs);
+          else reactAssets.push(path.relative(distDir, abs).split(path.sep).join('/'));
+        }
+      }
+      walk(path.join(distDir, 'assets', 'react'));
+      expect(reactAssets.some((file) => /^assets\/react\/index\.[A-Za-z0-9_-]+\.[a-f0-9]{12}\.js$/.test(file))).toBe(true);
+
+      const diagnosticsPage = await fsp.readFile(path.join(distDir, 'pages', 'diagnostics.html'), 'utf8');
+      expect(diagnosticsPage).toContain('Fallback status');
+      expect(diagnosticsPage).toContain('react-diagnostics-root');
+
+      const sitemap = await fsp.readFile(path.join(distDir, 'sitemap.xml'), 'utf8');
+      expect(sitemap).toContain('pages/overview.html');
+      expect(sitemap).toContain('pages/diagnostics.html');
+
+      const llms = await fsp.readFile(path.join(distDir, 'llms.txt'), 'utf8');
+      expect(llms).toContain('[Overview]');
+      expect(llms).toContain('[Diagnostics]');
+
+      const searchManifest = JSON.parse(await fsp.readFile(path.join(distDir, 'search-index', 'manifest.json'), 'utf8'));
+      const searchPart = JSON.parse(await fsp.readFile(path.join(distDir, 'search-index', searchManifest.parts[0].href), 'utf8'));
+      const searchIds = searchPart.items.map((item) => item.id);
+      expect(searchIds).toContain('docs:page:overview');
+      expect(searchIds).toContain('docs:page:diagnostics');
+
+      const docsMap = await fsp.readFile(path.join(distDir, 'docs-map-data.js'), 'utf8');
+      expect(docsMap).toContain('diagnostics');
+      const docsMapSection = await fsp.readFile(path.join(distDir, 'sections', 'docs-map.js'), 'utf8');
+      expect(docsMapSection).toMatch(/renderer:\s*"fortemi-react"/);
+
+      const collection = JSON.parse(await fsp.readFile(path.join(distDir, 'updates', 'index.json'), 'utf8'));
+      expect(collection.posts.some((item) => item.id === 'updates/react-hybrid-uat')).toBe(true);
+      expect(fs.existsSync(path.join(distDir, 'updates', 'feed.xml'))).toBe(true);
     });
   });
 });

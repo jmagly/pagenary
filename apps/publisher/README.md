@@ -394,6 +394,10 @@ The full documentation site is published at **[docs.pagenary.com](https://docs.p
 - [API Reference](docs/API.md) — module documentation
 - [Deployment](docs/DEPLOYMENT.md) — hosting patterns
 - [Extending](docs/EXTENDING.md) — customization guide
+- [Dependency Posture & Operational Tiers](docs/DEPENDENCY-POSTURE.md) — static (zero-dependency) vs hybrid React vs full Fortémi runtime, and how to choose
+- [Minimizing Supply-Chain Exposure](docs/SUPPLY-CHAIN.md) — hardening playbook for low-trust / air-gapped deployments
+- [React/SPA Publishing](docs/REACT-SPA-PUBLISHING.md) — the opt-in React adapter and hybrid routes
+- [Vendoring](docs/VENDORING.md) — how the static tier stays dependency-free
 
 ---
 

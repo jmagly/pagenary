@@ -211,6 +211,25 @@ async function main() {
       check('docs map not enabled for smoke tenant', true, TENANT);
     }
 
+    // Hybrid React tenant smoke (#131): one ordinary docs route and one React
+    // app route must both load from the same static host output.
+    if (TENANT === 'hybrid-react') {
+      await page.goto(`${BASE}#overview`, { waitUntil: 'networkidle' });
+      const docsText = await page.evaluate(
+        () => (document.getElementById('app')?.innerText || '').trim()
+      );
+      check('hybrid docs route loads', /ordinary Pagenary documentation route/i.test(docsText));
+
+      await page.goto(`${BASE}#diagnostics`, { waitUntil: 'networkidle' });
+      await page.waitForSelector('[data-testid="react-diagnostics-panel"]', { timeout: 8000 }).catch(() => {});
+      const reactState = await page.evaluate(() => ({
+        fallback: /Fallback status/i.test(document.getElementById('app')?.innerText || ''),
+        panel: document.querySelector('[data-testid="react-diagnostics-panel"]')?.textContent || ''
+      }));
+      check('hybrid React route has static fallback route', reactState.fallback || /React diagnostics online/i.test(reactState.panel));
+      check('hybrid React route mounts panel', /React diagnostics online/i.test(reactState.panel));
+    }
+
     // 8) Screenshot for visual review.
     await page.screenshot({ path: SHOT, fullPage: false });
     check('screenshot captured', fs.existsSync(SHOT), path.relative(PKG_DIR, SHOT));
