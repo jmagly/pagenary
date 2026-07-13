@@ -172,6 +172,24 @@
           "file": "DEPLOYMENT.md"
         },
         {
+          "id": "dependency-posture",
+          "title": "Dependency Posture",
+          "summary": "Operational tiers and what each tier ships — from zero-dependency static to full React.",
+          "file": "DEPENDENCY-POSTURE.md"
+        },
+        {
+          "id": "supply-chain",
+          "title": "Supply Chain",
+          "summary": "Release-age gates, provenance verification, pinning, and vendoring as layered supply-chain controls.",
+          "file": "SUPPLY-CHAIN.md"
+        },
+        {
+          "id": "vendoring",
+          "title": "Vendoring",
+          "summary": "How third-party code is vendored with provenance banners, hash verification, and update policy.",
+          "file": "VENDORING.md"
+        },
+        {
           "id": "seo-strategy",
           "title": "SEO Strategy",
           "summary": "Metadata, hash-routing considerations, and discoverability.",
