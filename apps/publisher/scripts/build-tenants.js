@@ -2648,17 +2648,30 @@ function parseInlineMarkdown(input, linkContext = null) {
   output = output.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
   // Italic: _text_ (only at word boundaries, not inside HTML attributes like target="_blank")
   output = output.replace(/(?<!["\w])_([^_]+)_(?!["\w])/g, '<em>$1</em>');
+  // Restore an attribute value that went through escapeAttribute and then the
+  // final escapeHtml pass: the second pass doubled every entity's ampersand
+  // (&#39; → &amp;#39;). Undoing exactly that yields the correctly
+  // single-escaped attribute value again. Values are matched lazily up to the
+  // real &quot; delimiter — safe because a literal quote inside a value is
+  // &amp;quot; after the double escape and cannot terminate the match. (#138:
+  // the previous [^&]* value patterns failed on any alt/src/href/title
+  // containing an entity — apostrophes, ampersand querystrings — leaving the
+  // whole tag escaped and shipped as visible text.)
+  const restoreAttr = (value) => value.replace(/&amp;/g, '&');
   return escapeHtml(output)
     .replace(/&lt;strong&gt;([^]*?)&lt;\/strong&gt;/g, '<strong>$1</strong>')
     .replace(/&lt;em&gt;([^]*?)&lt;\/em&gt;/g, '<em>$1</em>')
-    .replace(/&lt;img src=&quot;([^&]*)&quot; alt=&quot;([^&]*)&quot;&gt;/g, '<img src="$1" alt="$2">')
-    .replace(/&lt;a href=&quot;([^&]*)&quot;(?: target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;)?&gt;([^]*?)&lt;\/a&gt;/g, (_, href, text) => {
-      const isExternal = /^https?:\/\//i.test(href);
+    .replace(/&lt;img src=&quot;([^]*?)&quot; alt=&quot;([^]*?)&quot;&gt;/g,
+      (_, src, alt) => `<img src="${restoreAttr(src)}" alt="${restoreAttr(alt)}">`)
+    .replace(/&lt;a href=&quot;([^]*?)&quot;(?: target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;)?&gt;([^]*?)&lt;\/a&gt;/g, (_, href, text) => {
+      const restoredHref = restoreAttr(href);
+      const isExternal = /^https?:\/\//i.test(restoredHref);
       const attrs = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
-      return `<a href="${href}"${attrs}>${text}</a>`;
+      return `<a href="${restoredHref}"${attrs}>${text}</a>`;
     })
     // Inline span with title attribute for tooltips: <span title="...">text</span>
-    .replace(/&lt;span title=&quot;([^&]*)&quot;&gt;([^]*?)&lt;\/span&gt;/g, '<span title="$1">$2</span>');
+    .replace(/&lt;span title=&quot;([^]*?)&quot;&gt;([^]*?)&lt;\/span&gt;/g,
+      (_, title, text) => `<span title="${restoreAttr(title)}">${text}</span>`);
 }
 
 /**

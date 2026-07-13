@@ -166,3 +166,39 @@ describe('markdownToHtml responsive image media blocks (#121)', () => {
     expect(html).not.toContain('<picture>');
   });
 });
+
+describe('inline images/links with entities in attributes (#138)', () => {
+  it('renders an image whose alt contains an apostrophe (docs.aiwg.io regression)', () => {
+    const html = markdownToHtml(
+      "![An operator's control console for AI coding agents: glowing dashboard panels and orchestration nodes wired to a central hub with a clear stop/approve control.](/assets/blog/2026-6-aiwg-june-2026-report.png)"
+    );
+    expect(html).toContain('<img src="/assets/blog/2026-6-aiwg-june-2026-report.png"');
+    expect(html).toContain('alt="An operator&#39;s control console');
+    // The failure mode: the whole tag left escaped and shipped as visible text.
+    expect(html).not.toContain('&lt;img');
+  });
+
+  it('renders an image whose src contains a querystring ampersand', () => {
+    const html = markdownToHtml('![Chart](/assets/chart.png?w=800&fmt=webp)');
+    expect(html).toContain('<img src="/assets/chart.png?w=800&amp;fmt=webp" alt="Chart">');
+    expect(html).not.toContain('&lt;img');
+  });
+
+  it('renders a link whose href contains a querystring ampersand', () => {
+    const html = markdownToHtml('See [the dashboard](https://example.com/board?a=1&b=2) for details.');
+    expect(html).toContain('<a href="https://example.com/board?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">the dashboard</a>');
+    expect(html).not.toContain('&lt;a href');
+  });
+
+  it('leaves entity-free images and links unchanged', () => {
+    const html = markdownToHtml('![Plain](/img/plain.png) and [docs](#overview)');
+    expect(html).toContain('<img src="/img/plain.png" alt="Plain">');
+    expect(html).toContain('<a href="#overview">docs</a>');
+  });
+
+  it('renders an image whose alt contains an ampersand and quotes', () => {
+    const html = markdownToHtml('![Q&A "quoted"](/img/qa.png)');
+    expect(html).toContain('<img src="/img/qa.png" alt="Q&amp;A &quot;quoted&quot;">');
+    expect(html).not.toContain('&lt;img');
+  });
+});
