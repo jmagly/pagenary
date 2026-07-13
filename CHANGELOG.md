@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.23] - 2026-07-13
+
+### Fixed
+
+- Re-cut the 2026.7.22 release: its tag failed the publish version guard
+  because `apps/embed`'s internal `@pagenary/blog-client` dependency pin was
+  not bumped alongside the package versions. 2026.7.22 was never published.
+
 ## [2026.7.22] - 2026-07-13
 
 ### Added

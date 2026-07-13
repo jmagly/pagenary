@@ -1,6 +1,6 @@
 {
   "name": "@pagenary/react",
-  "version": "2026.7.22",
+  "version": "2026.7.23",
   "type": "module",
   "description": "Optional React/Vite adapter for Pagenary hybrid tenant routes.",
   "license": "AGPL-3.0-or-later",
