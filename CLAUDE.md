@@ -557,6 +557,7 @@ ls .claude/commands/flow-*.md
 # AIWG
 
 @AIWG.md
+@.aiwg/aiwg.config
 
 <!--
   This block is managed by `aiwg regenerate` and `aiwg use`.
