@@ -1,29 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   colorForCommunity,
   computeDegrees,
   filterCommunityGraph,
-  layoutCommunityGraph,
   neighborhoodSubgraph,
 } from '@fortemi/graph';
+import { GraphView } from '@fortemi/react/graph';
 
-// Phase 1 of the fortemi/react docs-map integration (#128). This control drives
-// the canonical fortemi engine — @fortemi/graph for layout/color/filter/
-// neighborhood — over Pagenary's prebuilt, compute-based docs-map graph, and
-// renders a thin SVG view (the JS-only renderer proposed upstream in fortemi-react
-// #259). No PGlite, no embeddings, no model downloads: the graph ships pre-computed
-// from the build, so a semantic (embedding) mode is surfaced as an opt-in affordance
-// but intentionally gated — matching the magly.net default of compute-based search
-// with inference enabled only by user choice.
-//
-// NOTE: we deliberately do NOT import @fortemi/react's <GraphView> yet. Its barrel
-// pulls @fortemi/core → @electric-sql/pglite (WASM + worker), which both breaks the
-// static tenant's code-split Vite build and would bundle an unused browser DB into
-// every docs site. Tracked upstream in fortemi-react #261 (make PGlite optional);
-// once GraphView is reachable without PGlite we can swap this SVG view for it.
-// @fortemi/graph is PGlite-free (its lone unused GraphController core import
-// tree-shakes away), so the engine here stays canonical and light.
+// Docs-map control over the canonical fortemi engine (#128, #132): @fortemi/graph
+// owns filtering/degree/neighborhood; rendering is upstream <GraphView> from the
+// PGlite-free @fortemi/react/graph subpath (fortemi-react #261, shipped 2026.7.4)
+// — no @electric-sql/pglite WASM, no DB worker, no embeddings in the bundle.
+// The graph ships pre-computed from the build, so a semantic (embedding) mode is
+// surfaced as an opt-in affordance but intentionally gated — matching the
+// magly.net default of compute-based search with inference enabled only by
+// user choice.
 
 const roots = new WeakMap();
 const DEFAULT_DATA_PATH = 'docs-map-data.js';
@@ -150,123 +142,6 @@ function useDocsMapData(dataPath) {
 
 const VIEW_W = 960;
 const VIEW_H = 540;
-const EDGE_COLOR = '#9aa0a6';
-
-/**
- * Thin SVG view over a positioned @fortemi/graph layout. Mirrors the fortemi
- * <GraphView> visual system (light canvas, community-colored circles, gray edges,
- * selection highlight, zoom/pan toolbar) without importing @fortemi/react — see
- * the file header re: PGlite. This is the JS-only renderer proposed in #259.
- */
-function GraphCanvas({ graph, algorithm, labels, selectedNodeId, onSelect, onOpen }) {
-  const svgRef = useRef(null);
-  const dragRef = useRef(null);
-  const [scale, setScale] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-
-  const positioned = useMemo(
-    () => layoutCommunityGraph(graph, { algorithm, width: VIEW_W, height: VIEW_H }),
-    [graph, algorithm],
-  );
-
-  const setZoom = (factor) => setScale((s) => Math.max(0.4, Math.min(3, s * factor)));
-  const pan = (dx, dy) => setOffset((o) => ({ x: o.x + dx, y: o.y + dy }));
-  const fit = () => {
-    setScale(1);
-    setOffset({ x: 0, y: 0 });
-  };
-
-  const onPointerDown = (event) => {
-    if (event.target.closest?.('[data-node]')) return;
-    dragRef.current = { x: event.clientX, y: event.clientY, ox: offset.x, oy: offset.y };
-    svgRef.current?.setPointerCapture?.(event.pointerId);
-  };
-  const onPointerMove = (event) => {
-    const drag = dragRef.current;
-    if (!drag) return;
-    setOffset({ x: drag.ox + (event.clientX - drag.x), y: drag.oy + (event.clientY - drag.y) });
-  };
-  const endDrag = () => {
-    dragRef.current = null;
-  };
-
-  return (
-    <>
-      <div className="pagenary-docs-map__toolbar">
-        <button type="button" aria-label="Zoom out" onClick={() => setZoom(0.9)}>−</button>
-        <button type="button" aria-label="Zoom in" onClick={() => setZoom(1.12)}>+</button>
-        <button type="button" aria-label="Pan left" onClick={() => pan(40, 0)}>←</button>
-        <button type="button" aria-label="Pan right" onClick={() => pan(-40, 0)}>→</button>
-        <button type="button" aria-label="Pan up" onClick={() => pan(0, 40)}>↑</button>
-        <button type="button" aria-label="Pan down" onClick={() => pan(0, -40)}>↓</button>
-        <button type="button" onClick={fit}>Fit</button>
-        <span className="pagenary-docs-map__toolbar-count">
-          {positioned.nodes.length} nodes · {positioned.edges.length} edges
-        </span>
-      </div>
-      <svg
-        ref={svgRef}
-        role="img"
-        aria-label={`Relationship map of ${positioned.nodes.length} documentation pages`}
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        width="100%"
-        style={{ display: 'block', aspectRatio: `${VIEW_W} / ${VIEW_H}`, background: '#fafafa', touchAction: 'none', cursor: 'grab' }}
-        onWheel={(event) => { event.preventDefault(); setZoom(event.deltaY < 0 ? 1.12 : 0.9); }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onPointerLeave={endDrag}
-      >
-        <g transform={`translate(${offset.x} ${offset.y}) scale(${scale})`}>
-          {positioned.edges.map((edge) => {
-            const source = positioned.nodeIndex.get(edge.source);
-            const target = positioned.nodeIndex.get(edge.target);
-            if (!source || !target) return null;
-            return (
-              <line
-                key={`${edge.source}:${edge.target}:${edge.kind ?? 'e'}`}
-                x1={source.x}
-                y1={source.y}
-                x2={target.x}
-                y2={target.y}
-                stroke={EDGE_COLOR}
-                strokeWidth={Math.max(1, Math.min(5, edge.weight || 1))}
-                opacity={0.55}
-              />
-            );
-          })}
-          {positioned.nodes.map((node) => {
-            const selected = node.id === selectedNodeId;
-            return (
-              <g key={node.id} data-node transform={`translate(${node.x} ${node.y})`}>
-                <circle
-                  r={selected ? node.r + 3 : node.r}
-                  fill={colorForCommunity(node.communityId)}
-                  stroke={selected ? '#111' : '#fff'}
-                  strokeWidth={selected ? 3 : 1.5}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={labelFor(node.id, labels)}
-                  onClick={() => onSelect(node.id)}
-                  onDoubleClick={() => onOpen(node.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      onSelect(node.id);
-                    }
-                  }}
-                  style={{ cursor: 'pointer', outline: 'none' }}
-                />
-                <title>{labelFor(node.id, labels)}</title>
-              </g>
-            );
-          })}
-        </g>
-      </svg>
-    </>
-  );
-}
 
 function FortemiDocsMap({ dataPath = DEFAULT_DATA_PATH }) {
   const { status, data, error } = useDocsMapData(dataPath);
@@ -467,13 +342,15 @@ function FortemiDocsMap({ dataPath = DEFAULT_DATA_PATH }) {
           <div className="pagenary-docs-map__overlay">Graph data unavailable: {error?.message || 'unknown error'}</div>
         ) : null}
         {status === 'ready' ? (
-          <GraphCanvas
+          <GraphView
             graph={displayGraph}
-            algorithm={algorithm}
-            labels={labels}
+            layout={{ algorithm }}
             selectedNodeId={selectedNodeId}
-            onSelect={setSelectedNodeId}
-            onOpen={(id) => { window.location.hash = routeFromNode(id); }}
+            onSelectNode={setSelectedNodeId}
+            onNavigate={(id) => { window.location.hash = routeFromNode(id); }}
+            labelFor={(id) => labelFor(id, labels)}
+            width={VIEW_W}
+            height={VIEW_H}
           />
         ) : null}
       </div>
@@ -637,28 +514,6 @@ const styles = `
   border-radius: 6px;
   overflow: hidden;
   background: ${SURFACE};
-}
-.pagenary-docs-map__toolbar {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  padding: 8px;
-  border-bottom: 1px solid ${RULE};
-}
-.pagenary-docs-map__toolbar button {
-  min-width: 30px;
-  min-height: 30px;
-  border: 1px solid ${RULE};
-  border-radius: 6px;
-  background: ${SURFACE};
-  color: ${MUTED};
-  font: 600 13px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  cursor: pointer;
-}
-.pagenary-docs-map__toolbar-count {
-  margin-left: auto;
-  color: ${MUTED};
-  font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .pagenary-docs-map__overlay {
   position: absolute;

@@ -66,14 +66,12 @@ export async function buildReactTenant(options = {}) {
     configFile: false,
     publicDir: false,
     resolve: {
-      dedupe: ['react', 'react-dom'],
-      alias: {
-        // Keep @electric-sql/pglite (~16MB WASM/data) out of the tenant bundle:
-        // @fortemi/graph's barrel statically imports @fortemi/core for a
-        // GraphController the docs-map never uses. Stub it until fortemi-react
-        // #261 makes PGlite optional. See src/fortemi-core-stub.js.
-        '@fortemi/core': fileURLToPath(new URL('./fortemi-core-stub.js', import.meta.url))
-      }
+      // PGlite stays out of the tenant bundle without an alias/stub since
+      // fortemi-react 2026.7.4 (#261): @fortemi/core lazy-loads
+      // @electric-sql/pglite and the docs-map imports GraphView from the
+      // PGlite-free @fortemi/react/graph subpath. The build-time WASM/data
+      // absence check in CI guards this staying true.
+      dedupe: ['react', 'react-dom']
     },
     build: {
       emptyOutDir: false,
@@ -82,6 +80,13 @@ export async function buildReactTenant(options = {}) {
       assetsDir: 'assets',
       rollupOptions: {
         input: entry,
+        // @fortemi/core lazy-loads @electric-sql/pglite behind a dynamic
+        // import that the Tier-1 docs-map path never executes, but Vite still
+        // emits it (and its ~16MB WASM/data) as async chunks because
+        // @fortemi/graph's barrel statically imports core's GraphController.
+        // Externalize the optional engine so no PGlite bytes ship; a Tier-2
+        // (full-database) tenant build must NOT externalize this.
+        external: (id) => id === '@electric-sql/pglite' || id.startsWith('@electric-sql/pglite/'),
         output: {
           entryFileNames: 'index.[hash].js',
           chunkFileNames: 'assets/[name].[hash].js',
