@@ -1593,6 +1593,33 @@ describe('build-tenants.js', () => {
       expect(sect).toMatch(/renderer:\s*"svg"/);
     });
 
+    test('bakes docs-map/render-graph.json with positioned nodes, deterministic across rebuilds (#133)', async () => {
+      const { has, dist } = await buildDocsMap({ title: 'DM', docsMap: { enabled: true } });
+      expect(has('docs-map/render-graph.json')).toBe(true);
+      const first = await fsp.readFile(path.join(dist, 'docs-map', 'render-graph.json'), 'utf8');
+      const snapshot = JSON.parse(first);
+      expect(Array.isArray(snapshot.nodes)).toBe(true);
+      expect(snapshot.nodes.length).toBeGreaterThan(0);
+      expect(Array.isArray(snapshot.links)).toBe(true);
+      expect(typeof snapshot.clusters).toBe('number');
+      for (const node of snapshot.nodes) {
+        expect(Number.isFinite(node.x)).toBe(true);
+        expect(Number.isFinite(node.y)).toBe(true);
+        expect(typeof node.color).toBe('string');
+        expect(typeof node.label).toBe('string');
+      }
+      // Same content in, identical bytes out — the snapshot is diff-stable.
+      const res = await runBuildTenantsWithRegistry([{ id: DM_ID }]);
+      expect(res.code).toBe(0);
+      const second = await fsp.readFile(path.join(dist, 'docs-map', 'render-graph.json'), 'utf8');
+      expect(second).toBe(first);
+    });
+
+    test('docsMap.snapshot: false suppresses the baked render graph (#133)', async () => {
+      const { has } = await buildDocsMap({ title: 'DM', docsMap: { enabled: true, snapshot: false } });
+      expect(has('docs-map/render-graph.json')).toBe(false);
+    });
+
     test('disabled/absent: no docs-map output or entry', async () => {
       const { has, manifest } = await buildDocsMap({ title: 'DM' });
       expect(has('sections/docs-map.js')).toBe(false);

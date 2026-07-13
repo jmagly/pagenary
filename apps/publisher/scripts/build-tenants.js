@@ -1836,6 +1836,30 @@ async function applyDocsMap(distDir, config, tenantId, runtimeResult) {
       `export const load = () => loadDocsMap(DOCS_MAP_DATA.DOCS_MAP_GRAPH, DOCS_MAP_DATA.DOCS_MAP_LABELS, { renderer: ${JSON.stringify(renderer)}, metadata: DOCS_MAP_DATA.DOCS_MAP_METADATA });\n`,
       'utf8'
     );
+    // Baked render snapshot (#133): run the deterministic layout once at build
+    // time and persist render-ready positions. Renderer tiers that support
+    // warm-starting (the Sigma 2D explorer) load this and skip live settling;
+    // loaders fall back to a live layout when it is absent or malformed, so
+    // this is a pure enhancement. Baking lives in the optional React adapter
+    // (which owns the @fortemi/graph dependency) — when the adapter is not
+    // installed the publisher stays dependency-free and simply skips it.
+    if (docsMap.snapshot !== false) {
+      try {
+        const { bakeDocsMapSnapshot } = await import('@pagenary/react/bake');
+        const snapshot = bakeDocsMapSnapshot(graphArtifact.graph, { labels: graphArtifact.labels });
+        if (snapshot) {
+          await fsp.mkdir(path.join(distDir, 'docs-map'), { recursive: true });
+          await fsp.writeFile(path.join(distDir, 'docs-map', 'render-graph.json'), `${snapshot}\n`, 'utf8');
+          console.log(`  ↳ baked docs-map render snapshot for ${tenantId}`);
+        }
+      } catch (err) {
+        if (err?.code === 'ERR_MODULE_NOT_FOUND' || err?.code === 'MODULE_NOT_FOUND') {
+          // Optional React adapter absent — snapshot baking silently unavailable.
+        } else {
+          console.warn(`  ↳ ${tenantId}: docs-map snapshot bake failed — ${err.message}`);
+        }
+      }
+    }
   } else {
     // No content to analyze — fall back to the runtime (MANIFEST-derived) graph.
     await fsp.writeFile(

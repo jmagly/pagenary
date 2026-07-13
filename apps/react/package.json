@@ -7,6 +7,7 @@
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
+    "./bake": "./src/bake.js",
     "./docs-map": "./src/docs-map/index.jsx"
   },
   "files": [

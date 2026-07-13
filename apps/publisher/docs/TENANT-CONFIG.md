@@ -520,6 +520,7 @@ readers can see how the docs relate. It appears in the nav and at `#docs-map`.
 | `docsMap.enabled` | boolean | `false` | Add the Docs Map page + nav entry |
 | `docsMap.title` | string | `"Docs Map"` | Nav/heading label |
 | `docsMap.renderer` | `"svg"`, `"cytoscape"`, or `"fortemi-react"` | `"svg"` | Graph renderer. `svg` is the framework-free fallback; `fortemi-react` is the optional React/Sigma graph control mounted by `@pagenary/react/docs-map`. |
+| `docsMap.snapshot` | boolean | `true` | Emit `docs-map/render-graph.json` — a deterministic baked-position graph snapshot (sorted nodes/links, byte-stable across rebuilds) that warm-start-capable renderer tiers load to skip live layout settling. Baking runs inside the optional `@pagenary/react` adapter; when the adapter is not installed the artifact is silently skipped. Set `false` to suppress. |
 
 ```json
 { "docsMap": { "enabled": true, "renderer": "fortemi-react" } }

@@ -761,6 +761,11 @@
           "enum": ["svg", "cytoscape", "fortemi-react"],
           "default": "svg",
           "description": "Graph renderer. svg is the default and fallback; fortemi-react enables the optional React/Sigma graph control when the React adapter is mounted."
+        },
+        "snapshot": {
+          "type": "boolean",
+          "default": true,
+          "description": "Emit docs-map/render-graph.json — a deterministic baked-position RenderGraph snapshot that renderer tiers can warm-start from. Requires the optional @pagenary/react adapter at build time; silently skipped when absent. Set false to suppress."
         }
       }
     },
