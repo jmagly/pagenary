@@ -1,6 +1,6 @@
 {
   "name": "@pagenary/embed",
-  "version": "2026.7.21",
+  "version": "2026.7.22",
   "type": "module",
   "description": "Framework-agnostic Pagenary blog embed web components.",
   "license": "AGPL-3.0-or-later",

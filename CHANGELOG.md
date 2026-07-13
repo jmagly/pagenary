@@ -6,11 +6,44 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.22] - 2026-07-13
+
 ### Added
 
 - Added a React/SPA publishing assessment that plans optional React-backed app
   routes while preserving Pagenary's static docs runtime and generated SEO/data
   artifacts.
+- Landed the hybrid React runtime: tenant `runtime` schema and validation, the
+  optional `@pagenary/react` Vite adapter (workspace package, not yet published
+  to the registry), authored-fallback React routes, and the `hybrid-react`
+  example tenant with unit and browser smoke coverage.
+- Adopted `@fortemi/react@2026.7.4`: the docs map's React control now renders
+  through upstream `GraphView` from the PGlite-free `/graph` subpath — the
+  `@fortemi/core` stub alias and hand-rolled SVG renderer are retired, and the
+  adapter externalizes `@electric-sql/pglite` so no WASM bytes ship (33 MB →
+  440 KB react assets on the hybrid example).
+- Baked docs-map render snapshots: builds emit a deterministic
+  `docs-map/render-graph.json` (sorted nodes/links with baked positions) that
+  warm-start-capable renderer tiers load; `docsMap.snapshot: false` suppresses.
+- Interactive docs-map tiers: `docsMap.renderer` gains `fortemi-react-2d`
+  (Sigma live explorer) and `fortemi-react-3d` (Three.js force graph) with
+  per-tier optional peer preflight and actionable errors; new `docsMap.palette`
+  (community/greyscale/custom) and `docsMap.draggable` (pin-drag re-layout)
+  options. Unselected tiers are externalized so static tenants ship zero
+  Sigma/Three bytes.
+
+### Fixed
+
+- Inline markdown images, links, and tooltip spans whose attributes contain
+  entities (apostrophes in alt text, querystring ampersands in URLs) rendered
+  as escaped literal text instead of real tags (#138, seen live on
+  docs.aiwg.io). The escape/restore pass now matches attribute values to the
+  real quote delimiter and un-doubles the second escape pass.
+- Registered the supply-chain documentation pages (dependency posture, supply
+  chain, vendoring) in the dogfooded docs tenant so `strictLinks` no longer
+  fails the docsite deploy.
+- The React adapter no longer mis-injects a code-split chunk named `index` as
+  the tenant entry script — entry detection is root-level only.
 
 ## [2026.7.21] - 2026-07-07
 
