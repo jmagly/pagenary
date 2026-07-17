@@ -11,21 +11,21 @@ exactly what each tier costs and how to choose the minimum that meets your need.
 If minimizing supply-chain exposure is your priority, read this alongside
 [Minimizing Supply-Chain Exposure](SUPPLY-CHAIN.md).
 
-## The three tiers
+## The tiers
 
-| | **Tier 0 — Static** | **Tier 1 — Hybrid React** | **Tier 2 — Full Fortémi runtime** |
-|---|---|---|---|
-| Status | Default, shipping | Opt-in, shipping | Planned (see [#261](https://git.integrolabs.net/Fortemi/fortemi-react/issues/261)) |
-| Runtime framework in output | None | React + React DOM | React + React DOM |
-| npm runtime deps shipped | **None** (vendored artifacts only) | `react`, `react-dom`, `@fortemi/graph` | + `@fortemi/core` (PGlite) |
-| Build toolchain | No bundler (`scripts/build.js` copies `src/`) | Vite (`@pagenary/react` adapter) | Vite |
-| Node floor | `>=16` | `>=20.19 \|\| >=22.12` | `>=20.19 \|\| >=22.12` |
-| Approx. added bundle | 0 KB | ~200 KB JS | ~16 MB WASM/data (PGlite) + optional model downloads |
-| Optional model downloads | None | None | Embeddings (~30 MB) and/or WebLLM (GB-scale) — **reader-opt-in only** |
-| Docs Map renderer | JS-only SVG (`src/lib/docs-map.js`) | Fortémi-engine graph control (`@fortemi/graph`) | Fortémi-engine (+ semantic graph opt-in) |
-| No-JS fallback | Full (static snapshots) | Preserved (authored fallbacks) | Preserved (authored fallbacks) |
-| External network at runtime | None required | None required (self-hosted assets) | None required by default; opt-in model fetch |
-| Static-host compatible | Yes | Yes | Yes |
+| | **Tier 0 — Static** | **Tier 1 — Hybrid React** | **Tier 2 — Fortémi record tier** | **Tier 3 — Fortémi PGlite projection** |
+|---|---|---|---|---|
+| Status | Default, shipping | Opt-in, shipping | Planned | Planned |
+| Runtime framework in output | None | React + React DOM | React + React DOM | React + React DOM |
+| npm runtime deps shipped | **None** (vendored artifacts only) | `react`, `react-dom`, `@fortemi/graph` | + `@fortemi/core` record/shard APIs | + `@fortemi/core` PGlite projection and `@electric-sql/pglite` |
+| Build toolchain | No bundler (`scripts/build.js` copies `src/`) | Vite (`@pagenary/react` adapter) | Vite | Vite |
+| Node floor | `>=16` | `>=20.19 \|\| >=22.12` | `>=20.19 \|\| >=22.12` | `>=20.19 \|\| >=22.12` |
+| Approx. added bundle | 0 KB | ~200 KB JS | TBD; no PGlite WASM/data | ~16 MB WASM/data (PGlite) + optional model downloads |
+| Optional model downloads | None | None | None | Embeddings (~30 MB) and/or WebLLM (GB-scale) — **reader-opt-in only** |
+| Docs Map renderer | JS-only SVG (`src/lib/docs-map.js`) | Fortémi-engine graph control (`@fortemi/graph`) | Fortémi-engine + writable records/shards | Fortémi-engine + semantic graph opt-in |
+| No-JS fallback | Full (static snapshots) | Preserved (authored fallbacks) | Preserved (authored fallbacks) | Preserved (authored fallbacks) |
+| External network at runtime | None required | None required (self-hosted assets) | None required by default | None required by default; opt-in model fetch |
+| Static-host compatible | Yes | Yes | Yes | Yes |
 
 Tiers are selected **per tenant** (and, for React, effectively per route via
 `runtime.react.routes`). One repo can publish a dependency-free Tier-0 site for
@@ -75,11 +75,11 @@ What changes:
   lockfile and the release-age gate.
 - The **Docs Map** upgrades to the Fortémi-engine graph control (community
   layout algorithms, community legend/filter, focus/neighborhood, selection).
-- **PGlite is intentionally excluded.** `@fortemi/graph`'s barrel statically
-  imports `@fortemi/core`, which would pull ~16 MB of PGlite WASM/data the
-  docs-map never uses; the adapter aliases `@fortemi/core` to a stub so it
-  stays out of the bundle (see `apps/react/src/fortemi-core-stub.js`; tracked
-  upstream as [#261](https://git.integrolabs.net/Fortemi/fortemi-react/issues/261)).
+- **PGlite is intentionally excluded.** The adapter imports the docs-map
+  `GraphView` from the PGlite-free `@fortemi/react/graph` subpath and
+  externalizes `@electric-sql/pglite` as a Tier-1 guard. Upstream #261 shipped
+  the lazy optional PGlite path; the build-time WASM/data check below confirms
+  that no database bytes leaked into a docs-map-only tenant.
   Verify with: `find dist/<tenant>/assets/react -iname '*.wasm' -o -iname '*.data'`
   (should be empty).
 - All artifacts from Tier 0 (snapshots, sitemap, `llms.txt`, search, feeds)
@@ -90,7 +90,78 @@ Cost: a Vite build step, the newer Node floor, and ~200 KB of self-hosted JS on
 the routes that mount React. No external network is required at runtime — assets
 are hashed and served from your own host.
 
-## Tier 2 — Full Fortémi runtime (planned)
+## Tier 2 — Fortémi Record Tier (planned)
+
+Fortémi `2026.7.8` adds a writable canonical record tier that does not boot
+PGlite: `createRecordBackend`, `exportShardFromRecords`,
+`importShardToRecords`, and `projectRecords`. This is the next runtime posture
+to evaluate for Pagenary tenants that want writable notes, DB-free shard
+import/export, or local review workflows without semantic search.
+
+Use it for living-docs annotations, local review notes, imported Knowledge
+Shards, author-side curation, brochureware content review, and docs-map
+annotations. Do not use it for semantic search, embedding generation, FTS, or
+PGlite-compatible APIs; those are Tier 3 responsibilities.
+
+Config should remain tenant opt-in and static-host compatible. The current
+design sketch is:
+
+```json
+{
+  "runtime": {
+    "mode": "hybrid",
+    "fortemi": {
+      "tier": "records",
+      "records": {
+        "enabled": true,
+        "storage": "idb",
+        "seed": {
+          "from": ["search-index", "docs-map", "knowledge-shard"],
+          "knowledgeShardPath": "fortemi/tenant.knowledge-shard.tar.gz"
+        },
+        "features": {
+          "localNotes": true,
+          "reviewDecisions": true,
+          "shardImport": true,
+          "shardExport": true,
+          "docsMapAnnotations": true
+        }
+      }
+    }
+  }
+}
+```
+
+The runtime adapter should declare `@fortemi/core` record/shard use explicitly
+and must not declare or import `@electric-sql/pglite`. If Fortemi exposes
+record-specific subpaths, Pagenary should use those. Otherwise, bundle checks
+must prove PGlite stays behind Fortemi's optional dynamic path.
+
+Generated seed data can come from existing static Pagenary artifacts
+(`search-index/*`, docs-map graph/snapshots), the docsite Knowledge Shard from
+#136, or both. The first construction path should prefer the #136
+AIWG-index-to-shard bridge when it preserves page and graph metadata; direct
+projection from Pagenary corpus records remains the fallback.
+
+Verification gates for a representative Tier-2 tenant:
+
+```bash
+find dist/<tenant>/assets/react \
+  \( -iname '*pglite*' -o -iname '*.wasm' -o -iname '*.data' \) -print
+rg -n "@electric-sql/pglite|pglite|PGlite" dist/<tenant>/assets/react
+node scripts/smoke-record-tier-shard-roundtrip.mjs dist/<tenant>
+```
+
+The `find` and `rg` commands should produce no output. The smoke should import
+seed records or a generated shard, export a shard, import that export into a
+fresh backend, and compare stable record identifiers, counts, notes, and core
+metadata. Optional semantic, provenance, and SKOS capabilities should be
+feature-detected so Tier 2 degrades gracefully when Tier 3 APIs are absent.
+
+See the detailed spike:
+`../../../.aiwg/planning/fortemi-record-tier-tenant-posture-spike.md`.
+
+## Tier 3 — Full Fortémi PGlite Projection (planned)
 
 The heaviest tier turns a tenant into a **browser-only Fortémi instance**:
 `<FortemiProvider persistence="idb">` boots PGlite (Postgres-in-WASM) in the
@@ -103,11 +174,12 @@ magly.net deployment:
   when the reader enables semantic search.
 - **LLM** — WebLLM/WebGPU (GB-scale model) downloaded only on explicit opt-in.
 
-This tier is gated on upstream work to make PGlite optional
-([#261](https://git.integrolabs.net/Fortemi/fortemi-react/issues/261)) so it
-stays a deliberate choice, not an accident of importing a graph component. Until
-then, Pagenary docs-map stays at Tier 1 (compute-based, PGlite-free) and surfaces
-semantic mode as a gated affordance only.
+This tier is no longer blocked on upstream optional-PGlite work, but it should
+remain a deliberate choice for tenants that need full-text/semantic projection,
+embeddings, or PGlite-compatible APIs. Pagenary docs-map stays at Tier 1
+(compute-based, PGlite-free), and record/shard workflows should start at Tier 2.
+Tier 3 should project over Tier 2 canonical records when possible rather than
+making PGlite the canonical source.
 
 ## Choosing a tier
 
@@ -116,8 +188,11 @@ semantic mode as a gated affordance only.
 2. **Escalate to Tier 1 only for a specific interactive surface** (a dashboard,
    calculator, editor, or the richer graph control) — and scope React to just
    the routes that need it, keeping the rest of the site Tier 0.
-3. **Reserve Tier 2** for sites that genuinely want an in-browser knowledge
-   engine (client-side search over a seeded corpus, opt-in semantic/LLM).
+3. **Use Tier 2** for sites that need writable local records or DB-free shard
+   import/export.
+4. **Reserve Tier 3** for sites that genuinely need a PGlite-backed in-browser
+   knowledge engine (client-side FTS/semantic search over a seeded corpus,
+   opt-in semantic/LLM).
 
 Each step up adds packages to trust, bytes to ship, and a heavier Node
 toolchain. None of it is required to publish an excellent, fast, fully static

@@ -98,9 +98,68 @@ PGlite: `createRecordBackend`, `exportShardFromRecords`,
 to evaluate for Pagenary tenants that want writable notes, DB-free shard
 import/export, or local review workflows without semantic search.
 
-This tier is still planned for Pagenary. It should be designed before any
-PGlite-heavy tenant mode so Pagenary can keep the dependency and byte footprint
-proportional to the feature being enabled.
+Use it for living-docs annotations, local review notes, imported Knowledge
+Shards, author-side curation, brochureware content review, and docs-map
+annotations. Do not use it for semantic search, embedding generation, FTS, or
+PGlite-compatible APIs; those are Tier 3 responsibilities.
+
+Config should remain tenant opt-in and static-host compatible. The current
+design sketch is:
+
+```json
+{
+  "runtime": {
+    "mode": "hybrid",
+    "fortemi": {
+      "tier": "records",
+      "records": {
+        "enabled": true,
+        "storage": "idb",
+        "seed": {
+          "from": ["search-index", "docs-map", "knowledge-shard"],
+          "knowledgeShardPath": "fortemi/tenant.knowledge-shard.tar.gz"
+        },
+        "features": {
+          "localNotes": true,
+          "reviewDecisions": true,
+          "shardImport": true,
+          "shardExport": true,
+          "docsMapAnnotations": true
+        }
+      }
+    }
+  }
+}
+```
+
+The runtime adapter should declare `@fortemi/core` record/shard use explicitly
+and must not declare or import `@electric-sql/pglite`. If Fortemi exposes
+record-specific subpaths, Pagenary should use those. Otherwise, bundle checks
+must prove PGlite stays behind Fortemi's optional dynamic path.
+
+Generated seed data can come from existing static Pagenary artifacts
+(`search-index/*`, docs-map graph/snapshots), the docsite Knowledge Shard from
+#136, or both. The first construction path should prefer the #136
+AIWG-index-to-shard bridge when it preserves page and graph metadata; direct
+projection from Pagenary corpus records remains the fallback.
+
+Verification gates for a representative Tier-2 tenant:
+
+```bash
+find dist/<tenant>/assets/react \
+  \( -iname '*pglite*' -o -iname '*.wasm' -o -iname '*.data' \) -print
+rg -n "@electric-sql/pglite|pglite|PGlite" dist/<tenant>/assets/react
+node scripts/smoke-record-tier-shard-roundtrip.mjs dist/<tenant>
+```
+
+The `find` and `rg` commands should produce no output. The smoke should import
+seed records or a generated shard, export a shard, import that export into a
+fresh backend, and compare stable record identifiers, counts, notes, and core
+metadata. Optional semantic, provenance, and SKOS capabilities should be
+feature-detected so Tier 2 degrades gracefully when Tier 3 APIs are absent.
+
+See the detailed spike:
+`../../../.aiwg/planning/fortemi-record-tier-tenant-posture-spike.md`.
 
 ## Tier 3 — Full Fortémi PGlite Projection (planned)
 
@@ -119,6 +178,8 @@ This tier is no longer blocked on upstream optional-PGlite work, but it should
 remain a deliberate choice for tenants that need full-text/semantic projection,
 embeddings, or PGlite-compatible APIs. Pagenary docs-map stays at Tier 1
 (compute-based, PGlite-free), and record/shard workflows should start at Tier 2.
+Tier 3 should project over Tier 2 canonical records when possible rather than
+making PGlite the canonical source.
 
 ## Choosing a tier
 
