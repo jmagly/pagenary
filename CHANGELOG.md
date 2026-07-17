@@ -6,6 +6,17 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.24] - 2026-07-17
+
+### Changed
+
+- Added the brochureware/marketing-site planning track for UX-owned React
+  tenants, including ADR-017 for the content/UX boundary, the #140 spike
+  findings, and the #139 construction breakdown for magly.net tenant-zero work.
+- Retargeted the Fortémi integration plan to `@fortemi/core@2026.7.8`,
+  distinguishing the DB-free record tier from the later PGlite projection tier
+  and updating the dependency-posture and supply-chain guidance accordingly.
+
 ## [2026.7.23] - 2026-07-13
 
 ### Fixed

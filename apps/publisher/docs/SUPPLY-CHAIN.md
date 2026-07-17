@@ -99,7 +99,9 @@ a lint that rejects floating tags.
 
 Building React does not mean trusting what you think you built — check the
 bytes. The adapter deliberately keeps PGlite (~16 MB WASM/data) out of the
-docs-map bundle via a core stub; confirm it, and confirm nothing else snuck in:
+docs-map bundle by importing the PGlite-free `@fortemi/react/graph` subpath and
+externalizing the optional database engine for Tier-1 builds; confirm it, and
+confirm nothing else snuck in:
 
 ```bash
 # No PGlite / WASM / data blobs in a Tier-1 docs bundle:

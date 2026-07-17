@@ -1,6 +1,6 @@
 {
   "name": "@pagenary/blog-client",
-  "version": "2026.7.23",
+  "version": "2026.7.24",
   "type": "module",
   "description": "Fetch, normalize, and aggregate Pagenary blog indexes from one or many docbases.",
   "license": "AGPL-3.0-or-later",
