@@ -87,6 +87,35 @@ async function listEmittedAssets(outDir) {
   return emitted.sort((a, b) => a.file.localeCompare(b.file));
 }
 
+const TIER_ONE_DB_MARKERS = [
+  '@electric-sql/pglite',
+  '@fortemi/core',
+  'pglite.wasm',
+  'pglite.data',
+  'pglite-worker'
+];
+
+export async function assertTierOneGraphOnly(outDir, emittedAssets) {
+  const forbiddenFiles = emittedAssets
+    .map((asset) => asset.file)
+    .filter((file) => /(?:pglite|\.wasm(?:$|\?))/i.test(file));
+  const forbiddenImports = [];
+  for (const asset of emittedAssets) {
+    if (!asset.file.endsWith('.js')) continue;
+    const relative = asset.file.replace(/^assets\/react\//, '');
+    const source = await fs.readFile(path.join(outDir, relative), 'utf8');
+    for (const marker of TIER_ONE_DB_MARKERS) {
+      if (source.includes(marker)) forbiddenImports.push(`${asset.file}: ${marker}`);
+    }
+  }
+  if (forbiddenFiles.length || forbiddenImports.length) {
+    throw new Error(
+      'Tier-1 React graph bundle contains database artifacts/imports:\n' +
+      [...forbiddenFiles, ...forbiddenImports].map((item) => `- ${item}`).join('\n')
+    );
+  }
+}
+
 export async function buildReactTenant(options = {}) {
   const {
     tenantId,
@@ -120,11 +149,10 @@ export async function buildReactTenant(options = {}) {
     configFile: false,
     publicDir: false,
     resolve: {
-      // PGlite stays out of the tenant bundle without an alias/stub since
-      // fortemi-react 2026.7.4 (#261): @fortemi/core lazy-loads
-      // @electric-sql/pglite and the docs-map imports GraphView from the
-      // PGlite-free @fortemi/react/graph subpath. The build-time WASM/data
-      // absence check in CI guards this staying true.
+      // PGlite stays out of the tenant bundle because the docs-map imports
+      // GraphView from @fortemi/react/graph and the @fortemi/graph root is
+      // graph-only as of 2026.7.11. Database orchestration is isolated behind
+      // @fortemi/graph/controller. The artifact audit below guards this seam.
       dedupe: ['react', 'react-dom']
     },
     build: {
@@ -134,18 +162,11 @@ export async function buildReactTenant(options = {}) {
       assetsDir: 'assets',
       rollupOptions: {
         input: entry,
-        // @fortemi/core lazy-loads @electric-sql/pglite behind a dynamic
-        // import that the Tier-1 docs-map path never executes, but Vite still
-        // emits it (and its ~16MB WASM/data) as async chunks because
-        // @fortemi/graph's barrel statically imports core's GraphController.
-        // Externalize the optional engine so no PGlite bytes ship; a Tier-2
-        // (full-database) tenant build must NOT externalize this.
-        // Unselected interactive docs-map tiers (#135) are externalized the
-        // same way: their runtime dynamic import fails fast in the browser and
-        // the control falls back to the default GraphView tier.
+        // Unselected interactive docs-map tiers (#135) remain external so
+        // their optional peer trees are not emitted. PGlite is deliberately
+        // not externalized: if it re-enters this Tier-1 graph, the artifact
+        // audit must fail rather than leaving a masked unresolved import.
         external: (id) =>
-          id === '@electric-sql/pglite' ||
-          id.startsWith('@electric-sql/pglite/') ||
           (docsMapView !== '2d' && id === '@fortemi/react/graph-2d') ||
           (docsMapView !== '3d' && id === '@fortemi/react/graph-3d'),
         output: {
@@ -158,6 +179,7 @@ export async function buildReactTenant(options = {}) {
   });
 
   const emittedAssets = await listEmittedAssets(outDir);
+  await assertTierOneGraphOnly(outDir, emittedAssets);
   const manifestFile = emittedAssets.find((asset) => asset.file.endsWith('.vite/manifest.json'));
   return {
     adapter: '@pagenary/react',

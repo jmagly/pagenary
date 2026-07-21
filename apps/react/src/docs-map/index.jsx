@@ -9,11 +9,12 @@ import {
   neighborhoodSubgraph,
 } from '@fortemi/graph';
 import { GraphView } from '@fortemi/react/graph';
-import { humanize, labelFor, sectionIdFromNode, toCommunityGraph } from './graph-data.js';
+import { humanize, labelFor, toCommunityGraph } from './graph-data.js';
+import { routeFromNode, useRendererBindings } from './renderer-bindings.js';
 
 // Docs-map control over the canonical fortemi engine (#128, #132): @fortemi/graph
 // owns filtering/degree/neighborhood; rendering is upstream <GraphView> from the
-// PGlite-free @fortemi/react/graph subpath (fortemi-react #261, shipped 2026.7.4)
+// PGlite-free @fortemi/react/graph subpath (fortemi-react 2026.7.11)
 // — no @electric-sql/pglite WASM, no DB worker, no embeddings in the bundle.
 // The graph ships pre-computed from the build, so a semantic (embedding) mode is
 // surfaced as an opt-in affordance but intentionally gated — matching the
@@ -51,11 +52,6 @@ const LAYOUTS = [
   { id: 'force', label: 'Force' },
   { id: 'radial', label: 'Radial' },
 ];
-
-function routeFromNode(nodeId) {
-  const sectionId = sectionIdFromNode(nodeId);
-  return sectionId === 'index' ? '#overview' : `#${sectionId}`;
-}
 
 function normalizeMap(value) {
   if (value instanceof Map) return value;
@@ -241,6 +237,10 @@ function FortemiDocsMap({
 
   const selectedLabel = selectedNodeId ? labelFor(selectedNodeId, labels) : null;
   const selectedConcepts = selectedNodeId ? conceptsFor(selectedNodeId, metadata) : [];
+  // Fortemi's interactive renderers memoize their RenderGraph on labelFor.
+  // Keep host callbacks stable across unrelated UI state changes so Sigma/3D
+  // retain their settled layout, camera, and renderer instance (#151).
+  const { graphLabelFor, openNode } = useRendererBindings(labels);
   // Legend swatches match the active tier's node colors: interactive tiers
   // honor the configured palette (rank-based), GraphView hashes community ids.
   const communityColor = useMemo(
@@ -380,9 +380,9 @@ function FortemiDocsMap({
                   graph={displayGraph}
                   snapshot={snapshotUrl}
                   palette={palette || 'community'}
-                  labelFor={(id) => labelFor(id, labels)}
+                  labelFor={graphLabelFor}
                   onSelectNode={setSelectedNodeId}
-                  onOpenNode={(id) => { window.location.hash = routeFromNode(id); }}
+                  onOpenNode={openNode}
                   height="60vh"
                 />
               );
@@ -395,8 +395,8 @@ function FortemiDocsMap({
               layout={{ algorithm }}
               selectedNodeId={selectedNodeId}
               onSelectNode={setSelectedNodeId}
-              onNavigate={(id) => { window.location.hash = routeFromNode(id); }}
-              labelFor={(id) => labelFor(id, labels)}
+              onNavigate={openNode}
+              labelFor={graphLabelFor}
               draggableNodes={draggable}
               width={VIEW_W}
               height={VIEW_H}

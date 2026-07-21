@@ -85,7 +85,8 @@
     "caddy:logs": "docker compose logs -f caddy",
     "caddy:reload": "docker compose exec caddy caddy reload --config /srv/app/Caddyfile",
     "test:browser": "node scripts/smoke-browser.mjs",
-    "test:accessibility:browser": "node scripts/smoke-accessibility.mjs"
+    "test:accessibility:browser": "node scripts/smoke-accessibility.mjs",
+    "prototype:fortemi-shard": "node scripts/prototype-fortemi-shard.mjs"
   },
   "engines": {
     "node": ">=16"
@@ -94,7 +95,7 @@
     "terser": "^5.48.0"
   },
   "devDependencies": {
-    "@fortemi/core": "2026.6.8",
+    "@fortemi/core": "2026.7.11",
     "jest": "^30.4.2"
   }
 }

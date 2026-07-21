@@ -6,6 +6,19 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+### Added
+
+- Added a reproducible Fortémi Knowledge Shard export prototype for Pagenary's
+  deterministic index plus the accepted DB-free record/PGlite projection-tier
+  architecture and hierarchy/failure gates (#136, #137).
+- Added direct `@pagenary/react` contract and callback-lifecycle tests.
+
+### Changed
+
+- Aligned `@fortemi/graph` and `@fortemi/react` at 2026.7.11, stabilized
+  renderer-driving callbacks, and replaced the obsolete PGlite externalization
+  with a fail-closed Tier-1 artifact audit (#150–#152, #154).
+
 ## [2026.7.24] - 2026-07-17
 
 ### Changed

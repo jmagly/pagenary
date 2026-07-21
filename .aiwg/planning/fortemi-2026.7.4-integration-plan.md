@@ -1,11 +1,27 @@
-# Fortémi 2026.7.8 Integration Plan — Pagenary
+# Fortémi 2026.7.11 Integration Plan — Pagenary
 
 **Date**: 2026-07-13
-**Updated**: 2026-07-17
-**Upstream**: fortemi-react v2026.7.0 → v2026.7.8 (latest verified on npm and Gitea)
+**Updated**: 2026-07-21
+**Upstream**: fortemi-react v2026.7.0 → v2026.7.11 (reviewed npm/Gitea baseline)
 **Consumers audited**: `apps/react` (`@pagenary/react`, untracked), `apps/publisher` (docs-map, vendored aiwg-index), hybrid-react publishing plan (#128–#131)
 
-## 2026-07-17 update — v2026.7.8 supersedes the v2026.7.4 target
+## 2026-07-21 update — v2026.7.11 baseline and verified package boundary
+
+- `@fortemi/graph` and `@fortemi/react` are locked at 2026.7.11. The graph
+  root no longer imports core; `GraphController` is isolated at
+  `@fortemi/graph/controller`, so Pagenary can remove its PGlite external.
+- Renderer callbacks must be referentially stable because Sigma/3D map their
+  RenderGraph with `labelFor` as a memo dependency. Direct package tests pin
+  that host contract.
+- The published `@fortemi/core@2026.7.11/dist/aiwg-index.js` is **not** a
+  self-contained browser artifact: it imports Ajv, fflate, and uuid. The exact
+  devDependency can support Node build-time shard work, but #134 cannot replace
+  the Tier-0 vendored browser file until upstream restores a dependency-free
+  static-index build or Pagenary explicitly changes its payload architecture.
+- The v2 AIWG bridge is viable as a Node build step and produces deterministic
+  schema 1.2.0 core-v1 archives. See the #136 spike report and ADR-018.
+
+## 2026-07-17 update — v2026.7.8 superseded the v2026.7.4 target
 
 The graph/React work from v2026.7.4 has already landed in Pagenary through
 #132, #133, and #135. The remaining open Fortémi work should now target
@@ -24,11 +40,8 @@ New upstream deltas since this plan was first written:
 
 Pagenary implications:
 
-- #134 should re-vendor the static `aiwg-index` from `2026.7.8` and refresh the
-  exact devDependency pin to `2026.7.8`. The built `dist/aiwg-index.js` remains
-  self-contained for the publisher path; the Ajv-backed schema validator lives
-  in the separate `dist/aiwg-index-schema.js` subpath and should be treated as a
-  separate vendoring decision if Pagenary adopts schema-authority validation.
+- #134 remains the Tier-0 re-vendor tracker. The 2026.7.11 package inspection
+  above supersedes this section's earlier self-containment assumption.
 - #136 should evaluate the new AIWG-index-to-shard helpers before building a
   PGlite-backed export prototype. They may make a static docs-site Knowledge
   Shard export much smaller and simpler.
@@ -73,7 +86,7 @@ Only soft caveat: `GraphViewFilters` is now an alias of `GraphControlFilters` �
 | Hand-rolled `GraphCanvas` SVG renderer in `docs-map/index.jsx` | Closed by #132: React docs-map uses upstream `GraphView`; Tier-0 SVG remains publisher-owned. |
 | Layout recomputed on every page load | Closed by #133: Pagenary emits baked render snapshots. |
 | Interactive 2D/3D docs-map tiers missing | Closed by #135: tenant config supports `fortemi-react-2d`, `fortemi-react-3d`, palettes, and dragging. |
-| Vendored aiwg-index at **2026.6.8** | Still open in #134; retarget to `@fortemi/core@2026.7.8`. |
+| Vendored aiwg-index at **2026.6.8** | Still open in #134; 2026.7.11 Node devDependency is aligned, but the browser file is blocked on a self-contained upstream build. |
 | Tier-2 framed only as "PGlite tenant" | Superseded by v2026.7.8 canonical record tier; file/design a DB-free record-tier posture before PGlite projection. |
 
 ---
@@ -82,8 +95,7 @@ Only soft caveat: `GraphViewFilters` is now an alias of `GraphControlFilters` �
 
 ### Phase A — dependency bump + workaround retirement (`apps/react`)
 
-1. **Bump `@fortemi/graph` / `@fortemi/react` to `^2026.7.4`** and refresh the lockfile (currently resolved at 2026.7.0).
-   ⚠️ **Release-age gate**: `.npmrc min-release-age=7` — v2026.7.4 published 2026-07-12, so the public-registry path is gated until ~2026-07-19. Options: wait, or use the documented first-party Gitea one-time lock-only override (SUPPLY-CHAIN.md allows this for `Fortemi/fortemi-react`).
+1. **Lock `@fortemi/graph` / `@fortemi/react` to `2026.7.11`** and refresh the lockfile under the documented first-party one-time age override; never weaken `.npmrc`.
 2. **Replace the core stub** — delete `fortemi-core-stub.js` and the `resolve.alias` in `apps/react/src/index.js`; import `GraphView` from `@fortemi/react/graph`. Keep the WASM-absence check (`find dist/<tenant>/assets/react -iname '*.wasm'`) in CI as the regression guard.
 3. **Replace `GraphCanvas` with `GraphView`** in `src/docs-map/index.jsx`. Direct mappings: filters → `GraphControlFilters` (gains `minDegree` for free), hash navigation → `onNavigate(id)` + existing `routeFromNode`, labels → `labelFor`, selection → `selectedNodeId`/`onSelectNode`. Keep `neighborhoodSubgraph`/`filterCommunityGraph` usage as-is.
 4. Confirm optional-peer behavior under npm (peers for sigma/three are `optional: true`; npm won't install or warn — nothing to do unless a tenant opts into 2D/3D tiers).
@@ -94,10 +106,10 @@ Only soft caveat: `GraphViewFilters` is now an alias of `GraphControlFilters` �
    - In `build-tenants.js`'s docs-map step: after producing the CommunityGraph, run `bakeRenderGraph(graph, { layout, labelFor, palette })` + `stringifyRenderGraph` and emit `dist/<tenant>/docs-map/render-graph.json` alongside `docs-map-data.js`.
    - Deterministic sorted output → stable diffs, cacheable, CI-verifiable.
    - React docs-map passes it as `snapshot` (Sigma warm-start) or as `positions` to `mapCommunityGraph`; `loadRenderSnapshot` returns `null` on any problem so live layout remains the fallback. Tier-0 SVG map can also read baked positions later to skip its own layout pass.
-2. **Re-vendor the aiwg-index from 2026.7.8** (security-motivated regardless of features):
+2. **Re-vendor the aiwg-index after a self-contained post-2026.7.11 build exists** (security-motivated regardless of features):
    - Gains: SEC1 prototype-pollution completion, SEC2 SSRF scheme allowlist, SEC5 DoS cap, privacy-fails-closed, total validators, v2 exports (`source.graph`, `compatibility`), `searchProfile: 'aiwg-discovery'`, searchProfile-keyed match cache.
    - **Decision needed**: upstream validation now routes through Ajv + a pinned JSON schema on the separate `./aiwg-index-schema` subpath. Keep the publisher runtime vendoring to the self-contained `dist/aiwg-index.js` unless Pagenary explicitly decides to vendor the schema subpath and its dependencies.
-   - Update the exact devDep pin `@fortemi/core` `2026.6.8` → `2026.7.8`; refresh the `.d.ts`.
+   - The exact Node build-time devDep is now `@fortemi/core@2026.7.11`; refresh the vendored `.d.ts` only when the browser JS can move atomically.
    - Validator contract change to absorb: `validate*` no longer throws on hostile input, and `title`/`text` are no longer hard-required record fields (fallback to `search.title/name`, `search.body/summary`) — check `search-index-generator.js` assertions still align.
 3. **Search-index schema**: consider emitting v2 chunk manifests (`source_export_schema_version`) so the docs-map graph can eventually come straight from the search index (`source.graph`), collapsing two data paths into one.
 
@@ -143,8 +155,11 @@ Ranked by value/effort:
 ## 4. Risks / sequencing notes
 
 - **Release-age gate**: 7-day `.npmrc` gate blocks the 2026.7.8 bump from the public registry until ~2026-07-24; first-party Gitea override is the documented escape hatch if #134 needs to land earlier.
-- **Vendoring vs Ajv**: `dist/aiwg-index.js` is still self-contained, while `dist/aiwg-index-schema.js` imports Ajv. Keep those as separate vendoring decisions.
-- **Version skew until B.2 lands**: `@pagenary/react` at 2026.7.4 while the vendored index stays 2026.6.8 is tolerable (different surfaces) but the v1-only vendored validators will reject v2 exports.
+- **Vendoring vs Ajv**: the published 2026.7.11 `dist/aiwg-index.js` imports Ajv,
+  fflate, and uuid. Do not copy it into Tier 0 under the old verbatim policy.
+- **Version skew until B.2 lands**: React/graph and the build-time core package
+  are 2026.7.11 while the browser-vendored index stays 2026.6.8. The surfaces
+  are isolated, but Tier-0 validators remain v1-only until #134 unblocks.
 - **Runtime-tier framing changed**: PGlite is now optional even for writable Fortémi flows. Pagenary should decide between static shard, canonical record tier, and PGlite projection explicitly instead of treating Tier 2 as synonymous with PGlite.
 - **`apps/react` is still untracked** — commit the workspace before layering these changes so diffs stay reviewable.
 

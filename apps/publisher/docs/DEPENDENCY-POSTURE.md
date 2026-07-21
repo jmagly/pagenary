@@ -77,9 +77,10 @@ What changes:
   layout algorithms, community legend/filter, focus/neighborhood, selection).
 - **PGlite is intentionally excluded.** The adapter imports the docs-map
   `GraphView` from the PGlite-free `@fortemi/react/graph` subpath and
-  externalizes `@electric-sql/pglite` as a Tier-1 guard. Upstream #261 shipped
-  the lazy optional PGlite path; the build-time WASM/data check below confirms
-  that no database bytes leaked into a docs-map-only tenant.
+  uses the graph-only `@fortemi/graph` root. Database-backed `GraphController`
+  moved to `@fortemi/graph/controller` in 2026.7.11. Tier-1 deliberately does
+  not externalize PGlite: the adapter audits emitted filenames and JS and fails
+  if a database import or artifact leaks into a docs-map-only tenant.
   Verify with: `find dist/<tenant>/assets/react -iname '*.wasm' -o -iname '*.data'`
   (should be empty).
 - All artifacts from Tier 0 (snapshots, sitemap, `llms.txt`, search, feeds)
@@ -92,7 +93,7 @@ are hashed and served from your own host.
 
 ## Tier 2 — Fortémi Record Tier (planned)
 
-Fortémi `2026.7.8` adds a writable canonical record tier that does not boot
+Fortémi `2026.7.11` provides a writable canonical record tier that does not boot
 PGlite: `createRecordBackend`, `exportShardFromRecords`,
 `importShardToRecords`, and `projectRecords`. This is the next runtime posture
 to evaluate for Pagenary tenants that want writable notes, DB-free shard
@@ -102,6 +103,10 @@ Use it for living-docs annotations, local review notes, imported Knowledge
 Shards, author-side curation, brochureware content review, and docs-map
 annotations. Do not use it for semantic search, embedding generation, FTS, or
 PGlite-compatible APIs; those are Tier 3 responsibilities.
+
+The accepted lifecycle, hierarchy guarantees, and Tier-3 projection boundary
+are defined in
+[`ADR-018`](../../../.aiwg/architecture/adr/ADR-018-fortemi-runtime-tier-projection.md).
 
 Config should remain tenant opt-in and static-host compatible. The current
 design sketch is:

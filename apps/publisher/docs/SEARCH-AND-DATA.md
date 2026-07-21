@@ -21,7 +21,7 @@ The browser side is three composable packages:
 |---------|--------------|--------|
 | **`@fortemi/core`** | Browser-only data layer: PGlite (PostgreSQL compiled to WASM), a single-writer worker, MCP tools, a job queue, and **hybrid lexical + semantic search**. | [packages/core](https://docs.fortemi.com/react/#packages/core) |
 | **`@fortemi/graph`** | Framework-agnostic community-graph tooling: layout, filtering, neighborhood expansion, and snapshot serialization. | [packages/graph](https://docs.fortemi.com/react/#packages/graph) |
-| **`@fortemi/react`** | React 19 hooks and `FortemiProvider` (31 hooks) over `@fortemi/core`. | [packages/react](https://docs.fortemi.com/react/#packages/react) |
+| **`@fortemi/react`** | React 19 hooks and `FortemiProvider` (30 hooks) over `@fortemi/core`. | [packages/react](https://docs.fortemi.com/react/#packages/react) |
 
 Pagenary vendors **`@fortemi/core`** directly (see [Architecture](#architecture)
 and `ADR-015`). The same engine that runs in a full Fortémi app runs your docs
@@ -54,7 +54,7 @@ The capability you see in Pagenary is the floor, not the ceiling. Because
 Pagenary builds on the standard Fortémi packages, the same data is portable to a
 far richer interactive experience:
 
-- **Drop into React.** `@fortemi/react`'s `FortemiProvider` + 31 hooks give you
+- **Drop into React.** `@fortemi/react`'s `FortemiProvider` + 30 hooks give you
   notes, hybrid search, tags, collections, and SKOS concepts as first-class React
   state. → [Getting Started](https://docs.fortemi.com/react/#getting-started) ·
   [Integration guide](https://docs.fortemi.com/react/#integration)
