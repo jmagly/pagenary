@@ -1,7 +1,7 @@
 /**
  * Fortemi corpus builder — shared, pure, deterministic.
  *
- * Maps Pagenary sections to the `aiwg.fortemi.index.export.v1` record contract
+ * Maps Pagenary sections to the `aiwg.fortemi.index.export.v2` record contract
  * and produces a deterministic, chunked static index. No DOM and no Date.now(),
  * so it runs identically at build time (Node, in scripts/build-tenants.js) and
  * in the browser (runtime fallback in lib/search.js). The query/controller/graph
@@ -13,8 +13,8 @@
  *   - chunk part offsets contiguous from 0, counts sum to total
  */
 
-export const FORTEMI_INDEX_SCHEMA = 'aiwg.fortemi.index.export.v1';
-export const FORTEMI_RECORD_SCHEMA = 'aiwg.fortemi.index.record.v1';
+export const FORTEMI_INDEX_SCHEMA = 'aiwg.fortemi.index.export.v2';
+export const FORTEMI_RECORD_SCHEMA = 'aiwg.fortemi.index.record.v2';
 export const FORTEMI_CHUNK_MANIFEST_SCHEMA = 'aiwg.fortemi.index.chunk-manifest.v1';
 export const FORTEMI_CHUNK_PART_SCHEMA = 'aiwg.fortemi.index.chunk.v1';
 export const FORTEMI_METADATA_SCHEMA = 'pagenary.fortemi.metadata.v1';
@@ -441,7 +441,12 @@ export function buildFortemiIndexExport(entries, options = {}) {
     source: {
       repo,
       privacy: 'public',
+      graph: `${repo}:docs-map`,
       build_hash: buildHash
+    },
+    compatibility: {
+      previous_schema_version: 'aiwg.fortemi.index.export.v1',
+      strategy: 'supported'
     },
     items
   };
@@ -510,6 +515,7 @@ export function chunkFortemiIndex(index, options = {}) {
     schema_version: FORTEMI_CHUNK_MANIFEST_SCHEMA,
     generated_at: index.generated_at,
     source: index.source,
+    source_export_schema_version: index.schema_version,
     total: items.length,
     part_size: partSize,
     facets: computeFacetCounts(items),

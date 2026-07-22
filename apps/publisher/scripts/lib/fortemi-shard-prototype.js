@@ -1,8 +1,8 @@
 import {
   aiwgFortemiIndexFromKnowledgeShard,
   aiwgFortemiIndexToKnowledgeShard,
-  validateAiwgFortemiIndexExport,
-} from '@fortemi/core/aiwg-index';
+} from '@fortemi/core/aiwg-index-shard';
+import { validateAiwgFortemiIndexExport } from '@fortemi/core/aiwg-index';
 import { isDeepStrictEqual } from 'node:util';
 
 export function promotePagenaryIndexToV2(index) {

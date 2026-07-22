@@ -93,7 +93,7 @@ are hashed and served from your own host.
 
 ## Tier 2 — Fortémi Record Tier (planned)
 
-Fortémi `2026.7.11` provides a writable canonical record tier that does not boot
+Fortémi `2026.7.12` provides a writable canonical record tier that does not boot
 PGlite: `createRecordBackend`, `exportShardFromRecords`,
 `importShardToRecords`, and `projectRecords`. This is the next runtime posture
 to evaluate for Pagenary tenants that want writable notes, DB-free shard

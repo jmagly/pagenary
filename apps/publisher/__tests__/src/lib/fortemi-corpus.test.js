@@ -20,7 +20,11 @@ import {
   validateAiwgFortemiIndexExport,
   validateAiwgFortemiChunkManifest,
   validateAiwgFortemiChunkPart,
-  aiwgFortemiIndexToCommunityGraph
+  aiwgFortemiIndexToCommunityGraph,
+  createAiwgIndexController,
+  filterAiwgRecordsByPrivacy,
+  queryAiwgFortemiIndex,
+  resolveAiwgFetchUrl
 } from '../../../src/vendor/fortemi-aiwg-index.js';
 
 const SECTIONS = [
@@ -64,6 +68,67 @@ describe('fortemi-corpus', () => {
       expect(result.valid).toBe(true);
       expect(result.errors).toEqual([]);
       expect(result.counts['docs.page']).toBe(3);
+    });
+
+    test('emits the canonical v2 envelope and graph source', () => {
+      const { index } = buildFortemiIndexExport(entries(), { repo: 'fixture' });
+      expect(index.schema_version).toBe('aiwg.fortemi.index.export.v2');
+      expect(index.source.graph).toBe('fixture:docs-map');
+      expect(index.compatibility).toEqual({
+        previous_schema_version: 'aiwg.fortemi.index.export.v1',
+        strategy: 'supported'
+      });
+      expect(index.items.every((item) => item.schema_version === 'aiwg.fortemi.index.record.v2')).toBe(true);
+    });
+
+    test('validator is total and prototype-safe on hostile input', () => {
+      expect(() => validateAiwgFortemiIndexExport(null)).not.toThrow();
+      expect(validateAiwgFortemiIndexExport(null)).toMatchObject({ valid: false });
+      const { index } = buildFortemiIndexExport(entries([SECTIONS[0]]));
+      index.items[0].type = '__proto__';
+      const result = validateAiwgFortemiIndexExport(index);
+      expect(result.valid).toBe(true);
+      expect(Object.getPrototypeOf(result.counts)).toBeNull();
+      expect(result.counts.__proto__).toBe(1);
+      expect({}.polluted).toBeUndefined();
+    });
+
+    test('v2 search projection can supply title and text fallbacks', () => {
+      const { index } = buildFortemiIndexExport(entries([SECTIONS[0]]));
+      const record = index.items[0];
+      delete record.title;
+      delete record.text;
+      record.search = { title: 'Projected title', summary: 'Projected summary' };
+      expect(validateAiwgFortemiIndexExport(index)).toMatchObject({ valid: true, errors: [] });
+    });
+
+    test('fetch URL resolution rejects hostile schemes and origins', () => {
+      const base = 'https://docs.example.test/search-index/';
+      expect(() => resolveAiwgFetchUrl('javascript:alert(1)', base)).toThrow(/disallowed scheme/);
+      expect(() => resolveAiwgFetchUrl('https://evil.example.test/part.json', base)).toThrow(/cross-origin/);
+      expect(resolveAiwgFetchUrl('part-0000.json', base)).toBe(
+        'https://docs.example.test/search-index/part-0000.json'
+      );
+    });
+
+    test('privacy filtering fails closed', () => {
+      const { index } = buildFortemiIndexExport(entries());
+      index.items[0].privacy = { classification: 'private', pii: false };
+      index.items[1].privacy = { classification: 'public', pii: true };
+      expect(filterAiwgRecordsByPrivacy(index.items).map((item) => item.id)).toEqual([
+        index.items[2].id
+      ]);
+    });
+
+    test('aiwg-discovery ranking tolerates a one-edit query', () => {
+      const { index } = buildFortemiIndexExport(entries([
+        { id: 'authentication', title: 'Authentication', summary: 'Secure access', group: 'Security' }
+      ]));
+      const result = queryAiwgFortemiIndex(index, 'authentcation', {
+        searchProfile: 'aiwg-discovery',
+        rank: true
+      });
+      expect(result.items.map((item) => item.id)).toEqual(['docs:page:authentication']);
     });
 
     test('sorts records by id (validator requires it)', () => {
@@ -174,6 +239,22 @@ describe('fortemi-corpus', () => {
       parts.forEach((part, i) => {
         expect(validateAiwgFortemiChunkPart(part, manifest.parts[i], manifest).valid).toBe(true);
       });
+    });
+
+    test('loads v2 chunks with source.graph through the real controller', async () => {
+      const { index } = buildFortemiIndexExport(entries(), { repo: 'fixture' });
+      const { manifest, parts } = chunkFortemiIndex(index, { partSize: 2 });
+      expect(manifest.source_export_schema_version).toBe('aiwg.fortemi.index.export.v2');
+      expect(manifest.source.graph).toBe('fixture:docs-map');
+      const controller = createAiwgIndexController();
+      controller.loadChunkedIndex(manifest, async (partRef) => parts.find(
+        (part) => part.offset === partRef.offset
+      ));
+      const result = await controller.queryChunked('security', {
+        searchProfile: 'aiwg-discovery',
+        rank: true
+      });
+      expect(result.items.map((item) => item.id)).toContain('docs:page:security');
     });
 
     test('part offsets are contiguous from 0 and counts sum to total', () => {

@@ -15,6 +15,10 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ### Changed
 
+- Re-vendored the dependency-free `@fortemi/core@2026.7.12` static index,
+  moved Pagenary search artifacts to the canonical v2 envelope with
+  `source.graph`, enabled `aiwg-discovery` ranking, and migrated Knowledge
+  Shard conversion to the dedicated build-only subpath (#134).
 - Aligned `@fortemi/graph` and `@fortemi/react` at 2026.7.11, stabilized
   renderer-driving callbacks, and replaced the obsolete PGlite externalization
   with a fail-closed Tier-1 artifact audit (#150–#152, #154).

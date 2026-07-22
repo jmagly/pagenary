@@ -18,7 +18,7 @@ describe('Fortemi Knowledge Shard export prototype (#136)', () => {
     ]).index;
   }
 
-  test('promotes the deterministic v1 corpus to a compatibility-declared v2 envelope', () => {
+  test('keeps the deterministic corpus in a compatibility-declared v2 envelope', () => {
     const promoted = promotePagenaryIndexToV2(fixture());
     expect(promoted.schema_version).toBe('aiwg.fortemi.index.export.v2');
     expect(promoted.items.every((item) => item.schema_version === 'aiwg.fortemi.index.record.v2')).toBe(true);

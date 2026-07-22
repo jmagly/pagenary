@@ -313,6 +313,7 @@ export async function searchContentPage(manifest, query, options = {}) {
     rank: true,
     snippets: true,
     includeMatches: true,
+    searchProfile: 'aiwg-discovery',
     snippetLength: DEFAULT_SNIPPET_LENGTH,
     limit,
     offset
