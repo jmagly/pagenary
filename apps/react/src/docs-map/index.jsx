@@ -11,6 +11,7 @@ import {
 import { GraphView } from '@fortemi/react/graph';
 import { humanize, labelFor, toCommunityGraph } from './graph-data.js';
 import { routeFromNode, useRendererBindings } from './renderer-bindings.js';
+import { themeForRenderer, useDocsMapTheme } from './theme.js';
 
 // Docs-map control over the canonical fortemi engine (#128, #132): @fortemi/graph
 // owns filtering/degree/neighborhood; rendering is upstream <GraphView> from the
@@ -24,17 +25,12 @@ import { routeFromNode, useRendererBindings } from './renderer-bindings.js';
 const roots = new WeakMap();
 const DEFAULT_DATA_PATH = 'docs-map-data.js';
 
-const INK = '#172033';
-const MUTED = '#5c667a';
-const SURFACE = '#ffffff';
-const RULE = '#d7dde6';
-
 const SELECT_STYLE = {
   padding: '6px 8px',
-  border: `1px solid ${RULE}`,
+  border: '1px solid var(--pagenary-graph-rule)',
   borderRadius: 6,
-  background: SURFACE,
-  color: INK,
+  background: 'var(--pagenary-graph-surface)',
+  color: 'var(--pagenary-graph-ink)',
   fontSize: 13,
   width: '100%',
 };
@@ -44,7 +40,7 @@ const LABEL_STYLE = {
   flexDirection: 'column',
   gap: 4,
   fontSize: 12,
-  color: MUTED,
+  color: 'var(--pagenary-graph-muted)',
 };
 
 const LAYOUTS = [
@@ -155,6 +151,7 @@ function FortemiDocsMap({
   draggable = false,
   snapshot,
 }) {
+  const graphTheme = useDocsMapTheme();
   const { status, data, error } = useDocsMapData(dataPath);
   const tier = useDocsMapTier(view);
   const baseGraph = data?.graph || { nodes: [], edges: [], communities: [] };
@@ -271,7 +268,7 @@ function FortemiDocsMap({
   }
 
   return (
-    <div className="pagenary-docs-map" data-testid="pagenary-docs-map">
+    <div className="pagenary-docs-map" data-testid="pagenary-docs-map" style={graphTheme.css}>
       <style>{styles}</style>
 
       <div className="pagenary-docs-map__controls">
@@ -383,6 +380,7 @@ function FortemiDocsMap({
                   labelFor={graphLabelFor}
                   onSelectNode={setSelectedNodeId}
                   onOpenNode={openNode}
+                  theme={themeForRenderer(graphTheme, view)}
                   height="60vh"
                 />
               );
@@ -506,7 +504,7 @@ const styles = `
   display: flex;
   flex-direction: column;
   gap: 10px;
-  color: ${INK};
+  color: var(--pagenary-graph-ink);
 }
 .pagenary-docs-map__controls {
   display: grid;
@@ -521,10 +519,10 @@ const styles = `
 }
 .pagenary-docs-map__mode {
   display: inline-flex;
-  border: 1px solid ${RULE};
+  border: 1px solid var(--pagenary-graph-rule);
   border-radius: 6px;
   overflow: hidden;
-  background: ${SURFACE};
+  background: var(--pagenary-graph-surface);
 }
 .pagenary-docs-map__mode button,
 .pagenary-docs-map__button,
@@ -533,7 +531,7 @@ const styles = `
   min-height: 34px;
   border: 0;
   background: transparent;
-  color: ${MUTED};
+  color: var(--pagenary-graph-muted);
   font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   cursor: pointer;
 }
@@ -541,21 +539,21 @@ const styles = `
   padding: 0 12px;
 }
 .pagenary-docs-map__mode button + button {
-  border-left: 1px solid ${RULE};
+  border-left: 1px solid var(--pagenary-graph-rule);
 }
 .pagenary-docs-map__mode button.active {
-  background: ${INK};
-  color: ${SURFACE};
+  background: var(--pagenary-graph-ink);
+  color: var(--pagenary-graph-surface);
 }
 .pagenary-docs-map__mode button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .pagenary-docs-map__button {
-  border: 1px solid ${RULE};
+  border: 1px solid var(--pagenary-graph-rule);
   border-radius: 6px;
   padding: 0 12px;
-  background: ${SURFACE};
+  background: var(--pagenary-graph-surface);
 }
 .pagenary-docs-map__matches {
   display: flex;
@@ -563,14 +561,14 @@ const styles = `
   gap: 6px;
 }
 .pagenary-docs-map__matches button {
-  border: 1px solid ${RULE};
+  border: 1px solid var(--pagenary-graph-rule);
   border-radius: 999px;
   padding: 0 10px;
   max-width: min(100%, 320px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: ${SURFACE};
+  background: var(--pagenary-graph-surface);
 }
 .pagenary-docs-map__legend {
   display: flex;
@@ -581,10 +579,10 @@ const styles = `
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid ${RULE};
+  border: 1px solid var(--pagenary-graph-rule);
   border-radius: 999px;
   padding: 0 10px;
-  background: ${SURFACE};
+  background: var(--pagenary-graph-surface);
 }
 .pagenary-docs-map__chip.is-hidden {
   opacity: 0.45;
@@ -596,15 +594,15 @@ const styles = `
   display: inline-block;
 }
 .pagenary-docs-map__count {
-  color: ${MUTED};
+  color: var(--pagenary-graph-muted);
   font-weight: 500;
 }
 .pagenary-docs-map__canvas {
   position: relative;
-  border: 1px solid ${RULE};
+  border: 1px solid var(--pagenary-graph-rule);
   border-radius: 6px;
   overflow: hidden;
-  background: ${SURFACE};
+  background: var(--pagenary-graph-surface);
 }
 .pagenary-docs-map__overlay {
   position: absolute;
@@ -612,8 +610,8 @@ const styles = `
   display: flex;
   align-items: center;
   justify-content: center;
-  color: ${MUTED};
-  background: ${SURFACE};
+  color: var(--pagenary-graph-muted);
+  background: var(--pagenary-graph-surface);
   font: 600 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   z-index: 2;
 }
@@ -621,17 +619,17 @@ const styles = `
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
-  color: ${MUTED};
+  color: var(--pagenary-graph-muted);
   font: 600 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .pagenary-docs-map__status strong {
-  color: ${INK};
+  color: var(--pagenary-graph-ink);
 }
 .pagenary-docs-map__detail {
-  border: 1px solid ${RULE};
+  border: 1px solid var(--pagenary-graph-rule);
   border-radius: 6px;
   padding: 12px;
-  background: ${SURFACE};
+  background: var(--pagenary-graph-surface);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -640,7 +638,7 @@ const styles = `
 .pagenary-docs-map__detail h2 {
   margin: 0;
   font-size: 15px;
-  color: ${INK};
+  color: var(--pagenary-graph-ink);
 }
 .pagenary-docs-map__chips {
   display: flex;
@@ -648,11 +646,15 @@ const styles = `
   gap: 6px;
 }
 .pagenary-docs-map__chips span {
-  border: 1px solid ${RULE};
+  border: 1px solid var(--pagenary-graph-rule);
   border-radius: 999px;
   padding: 2px 8px;
   font-size: 11px;
-  color: ${MUTED};
+  color: var(--pagenary-graph-muted);
+}
+.pagenary-docs-map :is(button, input, select):focus-visible {
+  outline: 3px solid var(--pagenary-graph-accent);
+  outline-offset: 2px;
 }
 @media (max-width: 680px) {
   .pagenary-docs-map__controls {

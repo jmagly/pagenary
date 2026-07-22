@@ -18,6 +18,9 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 - Aligned `@fortemi/graph` and `@fortemi/react` at 2026.7.11, stabilized
   renderer-driving callbacks, and replaced the obsolete PGlite externalization
   with a fail-closed Tier-1 artifact audit (#150–#152, #154).
+- Mapped tenant surface, ink, muted, and accent tokens into Fortemi GraphView,
+  Sigma 2D, and ForceGraph 3D themes with live updates, stable renderer props,
+  and contrast-safe graph chrome while preserving node palettes (#153).
 
 ## [2026.7.24] - 2026-07-17
 

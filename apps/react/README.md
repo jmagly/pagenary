@@ -24,3 +24,10 @@ mountFortemiDocsMap();
 Set `docsMap.renderer` to `fortemi-react` in the tenant config. The publisher
 still emits the static SVG Docs Map first; the React helper mounts into
 `#docsMapRoot` when the bundle is present and loads `docs-map-data.js`.
+
+The docs map inherits the tenant's `--surface`, `--ink`, `--muted`, and
+`--accent` design tokens. The adapter maps them to Fortemi's GraphView CSS
+variables and concrete Sigma/3D themes, preserves community/greyscale/custom
+node palettes, and responds to `class`, `style`, or `data-theme` changes on the
+page root. Theme switchers that replace styles without changing those
+attributes can dispatch `pagenary:themechange` on `window` to request a refresh.
