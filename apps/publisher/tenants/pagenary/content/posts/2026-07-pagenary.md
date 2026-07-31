@@ -1,14 +1,16 @@
 ---
-title: "Pagenary - July 2026 Report"
+title: "Pagenary - July 2026"
+template: post
 date: "2026-07-31"
+author: Pagenary Team
 project: "pagenary"
 type: report
 tags: [report, "2026-07", "pagenary", "publishing"]
 summary: "Pagenary pushed deeper into product-grade publishing in July: interactive docs maps, React support, responsive media, SEO profiles, share controls, and sturdier Markdown."
+hero: /assets/images/pagenary-2026-07-hero.png
+heroAlt: "A Pagenary publishing workspace with Markdown pages, an interactive docs map, media cards, and deployment paths arranged as a clean static site system."
 status: published
 ---
-
-# Pagenary - July 2026
 
 Pagenary turns Markdown into fast docs and blog sites. You write content in plain files, and Pagenary builds the site around it. It also powers portfolio docs and monthly updates across the stack.
 

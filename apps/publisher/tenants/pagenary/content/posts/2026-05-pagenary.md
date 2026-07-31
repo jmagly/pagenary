@@ -9,8 +9,6 @@ heroAlt: "An abstract database and build pipeline transforming into clean static
 tags: [report, origin, publishing]
 ---
 
-# Pagenary - May 2026
-
 May was Pagenary's first public release window. In four fast days, an internal
 multi-site knowledgebase publisher became an installable npm package with a
 dogfooded docs site, SEO-friendly static snapshots, collection feeds, and a
@@ -18,9 +16,6 @@ repeatable release process.
 
 This was the foundation release: the month when Pagenary became something other
 projects could install, configure, and ship.
-
-*Hero image: AI-generated with ChatGPT from a brand-specified prompt; no text or
-logos are AI-rendered.*
 
 ## Release highlights
 
