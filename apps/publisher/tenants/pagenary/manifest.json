@@ -112,6 +112,14 @@
       "summary": "Monthly reports and updates — dogfooded through Pagenary's own blog layout.",
       "sections": [
         {
+          "id": "posts/2026-07-pagenary",
+          "title": "Pagenary - July 2026",
+          "summary": "Product-grade publishing work: interactive docs maps, hybrid React support, responsive media, SEO profiles, share controls, generated-asset details, and sturdier Markdown.",
+          "file": "posts/2026-07-pagenary.md",
+          "template": "post",
+          "collection": "/posts"
+        },
+        {
           "id": "posts/2026-06-pagenary",
           "title": "Pagenary — June 2026",
           "summary": "A flagship month: blogs, mixed docs/blog sites, page effects, meaning-based search, an auto page-map, git-source hardening, and the public CLI.",
