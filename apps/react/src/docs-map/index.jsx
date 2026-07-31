@@ -15,7 +15,7 @@ import { themeForRenderer, useDocsMapTheme } from './theme.js';
 
 // Docs-map control over the canonical fortemi engine (#128, #132): @fortemi/graph
 // owns filtering/degree/neighborhood; rendering is upstream <GraphView> from the
-// PGlite-free @fortemi/react/graph subpath (fortemi-react 2026.7.11)
+// PGlite-free @fortemi/react/graph subpath (verified through 2026.7.15)
 // — no @electric-sql/pglite WASM, no DB worker, no embeddings in the bundle.
 // The graph ships pre-computed from the build, so a semantic (embedding) mode is
 // surfaced as an opt-in affordance but intentionally gated — matching the

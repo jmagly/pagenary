@@ -151,7 +151,7 @@ export async function buildReactTenant(options = {}) {
     resolve: {
       // PGlite stays out of the tenant bundle because the docs-map imports
       // GraphView from @fortemi/react/graph and the @fortemi/graph root is
-      // graph-only as of 2026.7.11. Database orchestration is isolated behind
+      // graph-only through the reviewed 2026.7.15 release. Database orchestration is isolated behind
       // @fortemi/graph/controller. The artifact audit below guards this seam.
       dedupe: ['react', 'react-dom']
     },

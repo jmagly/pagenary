@@ -19,7 +19,7 @@ per-file banner is that manifest.
 
 | Vendored file | Upstream | Version | Notes |
 |---|---|---|---|
-| `src/vendor/fortemi-aiwg-index.js` (+ `.d.ts`) | `@fortemi/core` `./aiwg-index` | `2026.7.12` | Dependency-free static v2 search/index engine with hardened validation, privacy filtering, discovery ranking, graph loading, and rich metadata. Shard conversion remains outside Tier 0 in `./aiwg-index-shard`. See [ADR-015](../../../.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md). |
+| `src/vendor/fortemi-aiwg-index.js` (+ `.d.ts`) | `@fortemi/core` `./aiwg-index` | `2026.7.15` | Dependency-free static v2 search/index engine with hardened validation, privacy filtering, discovery ranking, graph loading, operational-state/state-transfer validation, and rich metadata. Shard conversion remains outside Tier 0 in `./aiwg-index-shard`. See [ADR-015](../../../.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md). |
 
 The runtime search (`src/lib/search.js`) and the build-time index emitter
 (`scripts/build-tenants.js`) both import this vendored module by relative path —
@@ -69,7 +69,7 @@ To **re-vendor** a newer release, repeat with the new version and refresh the
 ## Version tracking
 
 Each vendored package is also declared in `devDependencies`, pinned to the
-**exact** vendored version (e.g. `"@fortemi/core": "2026.7.12"`). The build never
+**exact** vendored version (e.g. `"@fortemi/core": "2026.7.15"`). The build never
 imports it — this entry exists purely so `npm outdated` / dependabot flag new
 upstream releases automatically, instead of relying on a human to notice.
 

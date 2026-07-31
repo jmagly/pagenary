@@ -78,7 +78,8 @@ What changes:
 - **PGlite is intentionally excluded.** The adapter imports the docs-map
   `GraphView` from the PGlite-free `@fortemi/react/graph` subpath and
   uses the graph-only `@fortemi/graph` root. Database-backed `GraphController`
-  moved to `@fortemi/graph/controller` in 2026.7.11. Tier-1 deliberately does
+  moved to `@fortemi/graph/controller` in 2026.7.11 and remains isolated in
+  2026.7.15. Tier-1 deliberately does
   not externalize PGlite: the adapter audits emitted filenames and JS and fails
   if a database import or artifact leaks into a docs-map-only tenant.
   Verify with: `find dist/<tenant>/assets/react -iname '*.wasm' -o -iname '*.data'`
@@ -93,7 +94,7 @@ are hashed and served from your own host.
 
 ## Tier 2 — Fortémi Record Tier (planned)
 
-Fortémi `2026.7.12` provides a writable canonical record tier that does not boot
+Fortémi `2026.7.15` provides a writable canonical record tier that does not boot
 PGlite: `createRecordBackend`, `exportShardFromRecords`,
 `importShardToRecords`, and `projectRecords`. This is the next runtime posture
 to evaluate for Pagenary tenants that want writable notes, DB-free shard
@@ -141,6 +142,21 @@ The runtime adapter should declare `@fortemi/core` record/shard use explicitly
 and must not declare or import `@electric-sql/pglite`. If Fortemi exposes
 record-specific subpaths, Pagenary should use those. Otherwise, bundle checks
 must prove PGlite stays behind Fortemi's optional dynamic path.
+
+Build-time shard output has two deliberately distinct contracts:
+
+- `1.2.0/core-v1` is the reversible compatibility adapter. Pagenary removes its
+  closed-schema static extensions (`source.build_hash` and `delivery_assets`)
+  before conversion and verifies the projected index round-trips exactly.
+- `2.0.0/full-v1` uses
+  `aiwgFortemiIndexToKnowledgeShardWithReport()`. An archive is publishable only
+  when `success`, `lossless`, and `receipt.contract_valid` are all true and
+  `losses` is empty. A result with defaults, omissions, or other typed losses
+  has `archive: null` and must not be labeled full-v1.
+
+Record-v2 `operational_state` describes observed external-system state and is
+provenance only. It never creates a tombstone. Portable deletion comes only
+from the explicit `state_transfer.deleted_at` field.
 
 Generated seed data can come from existing static Pagenary artifacts
 (`search-index/*`, docs-map graph/snapshots), the docsite Knowledge Shard from

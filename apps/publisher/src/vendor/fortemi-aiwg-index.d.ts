@@ -1,10 +1,12 @@
 type AiwgFortemiRecordType = string;
 type AiwgFortemiRecordSchemaVersion = 'aiwg.fortemi.index.record.v1' | 'aiwg.fortemi.index.record.v2';
 type AiwgFortemiIndexExportSchemaVersion = 'aiwg.fortemi.index.export.v1' | 'aiwg.fortemi.index.export.v2';
-type AiwgPrivacyClassification = 'private' | 'sanitized' | 'public';
-type AiwgProvenanceConfidence = 'source' | 'candidate' | 'reviewed' | 'rejected';
-type AiwgReviewAction = 'accept' | 'reject' | 'defer';
-type AiwgFortemiRelationshipDirection = 'upstream' | 'downstream' | 'related';
+type AiwgPrivacyClassification = 'private' | 'public' | 'sanitized';
+type AiwgProvenanceConfidence = 'candidate' | 'rejected' | 'reviewed' | 'source';
+type AiwgReviewAction = 'accept' | 'defer' | 'reject';
+type AiwgFortemiRelationshipDirection = 'downstream' | 'related' | 'upstream';
+type AiwgOperationalStateClassification = 'contradicted' | 'fresh' | 'historical' | 'needs-source' | 'superseded';
+type AiwgOperationalStateConfidence = 'candidate' | 'rejected' | 'reviewed' | 'source';
 interface AiwgFortemiRecordSource {
     path: string;
     repo_relative_path: string;
@@ -96,17 +98,37 @@ interface AiwgFortemiRecordEmbedding {
 interface AiwgFortemiAttachmentReference {
     id: string;
     path: string;
-    mime: string | null;
+    mime: null | string;
     checksum: string;
     bytes: number;
 }
 interface AiwgFortemiBinarySource {
-    extracted_text: string | null;
+    extracted_text: null | string;
     created_at?: string;
-    deleted_at?: string | null;
-    extraction_status?: 'extracted' | 'pending' | 'failed' | 'blocked' | 'deferred';
-    reason?: null | 'extraction_pending' | 'extractor_failed' | 'quarantined' | 'large_binary' | 'unsupported_mime' | 'no_extracted_text';
+    deleted_at?: null | string;
+    extraction_status?: 'blocked' | 'deferred' | 'extracted' | 'failed' | 'pending';
+    reason?: 'extraction_pending' | 'extractor_failed' | 'large_binary' | 'no_extracted_text' | 'quarantined' | 'unsupported_mime' | null;
     attachment: AiwgFortemiAttachmentReference;
+}
+interface AiwgOperationalState {
+    source_repo?: string;
+    source_kind?: string;
+    source_id?: string;
+    observed_state?: string;
+    observed_at?: string;
+    source_updated_at?: string;
+    evidence_url?: string;
+    evidence_path?: string;
+    observer?: string;
+    supersedes?: string[];
+    contradicts?: string[];
+    stale_after?: string;
+    classification: AiwgOperationalStateClassification;
+    confidence?: AiwgOperationalStateConfidence;
+    current_action_selector?: boolean;
+}
+interface AiwgStateTransfer {
+    deleted_at: null | string;
 }
 interface AiwgFortemiRecord {
     schema_version: AiwgFortemiRecordSchemaVersion;
@@ -131,10 +153,14 @@ interface AiwgFortemiRecord {
     skos_relations?: AiwgFortemiSkosRelation[];
     /** Optional W3C PROV-style activity chain for this record. */
     provenance_events?: AiwgFortemiProvenanceEvent[];
+    /** Observed external state provenance. This is not a persistence tombstone. */
+    operational_state?: AiwgOperationalState;
+    /** Source-authored state projected into portable persistence semantics. */
+    state_transfer?: AiwgStateTransfer;
     privacy: {
         classification: AiwgPrivacyClassification;
-        pii: boolean;
         locality?: string;
+        pii: boolean;
     };
     updated_at: string;
 }
@@ -142,9 +168,9 @@ interface AiwgFortemiIndexExport {
     schema_version: AiwgFortemiIndexExportSchemaVersion;
     generated_at: string;
     source: {
-        repo: string;
-        privacy: AiwgPrivacyClassification;
         graph?: string;
+        privacy: AiwgPrivacyClassification;
+        repo: string;
     };
     items: AiwgFortemiRecord[];
     compatibility?: {
@@ -158,8 +184,8 @@ interface AiwgFortemiChunkPartRef {
     count: number;
 }
 declare const AIWG_SCAN_REQUIRED_FIELDS: Array<keyof AiwgFortemiRecord>;
-type AiwgFortemiProjectedRecord = Pick<AiwgFortemiRecord, 'schema_version' | 'id' | 'type' | 'title' | 'text' | 'facets' | 'tags' | 'concepts' | 'privacy'> & Partial<AiwgFortemiRecord>;
-type AiwgDetailIdEncoding = 'uri' | 'base64url';
+type AiwgFortemiProjectedRecord = Pick<AiwgFortemiRecord, 'concepts' | 'facets' | 'id' | 'privacy' | 'schema_version' | 'tags' | 'text' | 'title' | 'type'> & Partial<AiwgFortemiRecord>;
+type AiwgDetailIdEncoding = 'base64url' | 'uri';
 interface AiwgFortemiChunkDetailRef {
     href: string;
     encoding?: AiwgDetailIdEncoding;
@@ -205,7 +231,7 @@ interface AiwgIndexQueryOptions {
     snippetLength?: number;
     weights?: Partial<AiwgIndexQueryWeights>;
     includeMatches?: boolean;
-    searchProfile?: 'default' | 'aiwg-discovery';
+    searchProfile?: 'aiwg-discovery' | 'default';
 }
 interface AiwgIndexQueryWeights {
     title: number;
@@ -217,7 +243,7 @@ interface AiwgIndexQueryWeights {
     source: number;
 }
 interface AiwgIndexQueryMatch {
-    field: 'title' | 'text' | 'tag' | 'concept' | 'facet' | 'id' | 'source';
+    field: 'concept' | 'facet' | 'id' | 'source' | 'tag' | 'text' | 'title';
     value: string;
     score?: number;
     reason?: string;
@@ -276,8 +302,8 @@ interface AiwgIndexGraphOptions {
     relationshipWeights?: Record<string, number>;
     includeDanglingRelationships?: boolean;
 }
-type AiwgRelationshipDirection = 'in' | 'out' | 'both';
-type AiwgRelationshipSetOperation = 'intersection' | 'union' | 'difference';
+type AiwgRelationshipDirection = 'both' | 'in' | 'out';
+type AiwgRelationshipSetOperation = 'difference' | 'intersection' | 'union';
 interface AiwgRelationshipTraversalOptions {
     direction?: AiwgRelationshipDirection;
     relationshipType?: string;
@@ -333,7 +359,7 @@ interface AiwgStaticEmbeddingSet {
     model: string;
     dimensions: number;
     generated_at: string;
-    granularity: 'title-summary' | 'body' | 'chunked-body' | string;
+    granularity: 'body' | 'chunked-body' | 'title-summary' | string;
     metric?: 'cosine' | 'dot' | 'euclidean';
     input_hash_algorithm?: string;
     embeddings: AiwgStaticEmbeddingRecord[];
@@ -355,7 +381,7 @@ interface BuildAiwgStaticEmbeddingSetOptions {
     id: string;
     backend: AiwgHeadlessEmbeddingBackend;
     records?: AiwgFortemiRecord[];
-    generatedAt?: string | Date;
+    generatedAt?: Date | string;
     granularity?: AiwgStaticEmbeddingSet['granularity'];
     metric?: AiwgStaticEmbeddingSet['metric'];
     textForRecord?: (record: AiwgFortemiRecord) => string;
@@ -389,8 +415,8 @@ interface AiwgReviewInput {
 interface AiwgIndexControllerSnapshot {
     index: AiwgFortemiIndexExport | null;
     chunked: {
-        manifest: AiwgFortemiChunkManifest;
         cachedParts: number;
+        manifest: AiwgFortemiChunkManifest;
         maxCachedParts: number;
     } | null;
     data: AiwgIndexQueryResult | null;
@@ -449,8 +475,8 @@ interface AiwgChunkedIndexBuildResult {
         part: AiwgFortemiChunkPart;
     }>;
     details: Array<{
-        id: string;
         href: string;
+        id: string;
         record: AiwgFortemiRecord;
     }>;
 }
@@ -467,19 +493,18 @@ declare function findAiwgStaticDuplicatePairs(index: AiwgFortemiIndexExport, emb
 declare function createAiwgReviewDecisionExport(source: Pick<AiwgFortemiIndexExport, 'schema_version'>, decisions: AiwgReviewDecision[], generatedAt?: string): AiwgReviewDecisionExport;
 declare function createAiwgIndexController(initialIndex?: AiwgFortemiIndexExport): AiwgIndexController;
 declare function aiwgFortemiIndexToCommunityGraph(index: AiwgFortemiIndexExport, options?: AiwgIndexGraphOptions): {
-    nodes: {
-        id: string;
-    }[];
-    edges: {
-        source: string;
-        target: string;
-        kind: string;
-        weight: number;
-    }[];
     communities: {
         id: string;
         nodes: string[];
     }[];
+    edges: {
+        kind: string;
+        source: string;
+        target: string;
+        weight: number;
+    }[];
+    nodes: {
+        id: string;
+    }[];
 };
-
-export { AIWG_SCAN_REQUIRED_FIELDS, type AiwgChunkedIndexBuildOptions, type AiwgChunkedIndexBuildResult, type AiwgChunkedIndexDetailLoader, type AiwgChunkedIndexLoadOptions, type AiwgChunkedIndexLoader, type AiwgChunkedIndexProgress, type AiwgChunkedIndexProgressPhase, type AiwgChunkedIndexQueryOptions, type AiwgChunkedIndexQueryResult, type AiwgChunkedIndexValidationResult, type AiwgDetailIdEncoding, type AiwgFortemiAttachmentReference, type AiwgFortemiBinarySource, type AiwgFortemiChunk, type AiwgFortemiChunkDetailRef, type AiwgFortemiChunkManifest, type AiwgFortemiChunkPart, type AiwgFortemiChunkPartRef, type AiwgFortemiIndexExport, type AiwgFortemiIndexExportSchemaVersion, type AiwgFortemiProjectedRecord, type AiwgFortemiProvenance, type AiwgFortemiProvenanceEvent, type AiwgFortemiRecord, type AiwgFortemiRecordEmbedding, type AiwgFortemiRecordSchemaVersion, type AiwgFortemiRecordSource, type AiwgFortemiRecordType, type AiwgFortemiRelationship, type AiwgFortemiRelationshipDirection, type AiwgFortemiSearchProjection, type AiwgFortemiSkosConcept, type AiwgFortemiSkosRelation, type AiwgFortemiSkosRelationType, type AiwgHeadlessEmbeddingBackend, type AiwgIndexController, type AiwgIndexControllerListener, type AiwgIndexControllerSnapshot, type AiwgIndexGraphOptions, type AiwgIndexQueryMatch, type AiwgIndexQueryOptions, type AiwgIndexQueryRankedItem, type AiwgIndexQueryResult, type AiwgIndexQueryWeights, type AiwgIndexValidationResult, type AiwgPrivacyClassification, type AiwgPrivacyFilterOptions, type AiwgProvenanceConfidence, type AiwgRelationshipDirection, type AiwgRelationshipEdgeSummary, type AiwgRelationshipNodeSummary, type AiwgRelationshipQueryOptions, type AiwgRelationshipSetOperation, type AiwgRelationshipSetOptions, type AiwgRelationshipSetResult, type AiwgRelationshipTraversalOptions, type AiwgRelationshipTraversalResult, type AiwgReviewAction, type AiwgReviewDecision, type AiwgReviewDecisionExport, type AiwgReviewInput, type AiwgStaticDuplicatePair, type AiwgStaticEmbeddingRecord, type AiwgStaticEmbeddingSet, type AiwgStaticHybridQueryOptions, type AiwgStaticSemanticQueryOptions, type AiwgStaticSemanticResult, type BuildAiwgStaticEmbeddingSetOptions, DEFAULT_AIWG_DUPLICATE_SCAN_MAX_EMBEDDINGS, aiwgDetailHrefForId, aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, assertAiwgStaticEmbeddingSet, buildAiwgChunkedIndex, buildAiwgStaticEmbeddingSet, createAiwgFetchChunkLoader, createAiwgFetchDetailLoader, createAiwgIndexController, createAiwgReviewDecisionExport, encodeAiwgDetailId, filterAiwgRecordsByPrivacy, findAiwgStaticDuplicatePairs, getAiwgFortemiFacets, queryAiwgFortemiIndex, queryAiwgHybridIndex, queryAiwgSemanticIndex, resolveAiwgFetchUrl, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport, validateAiwgStaticEmbeddingSet };
+export { AIWG_SCAN_REQUIRED_FIELDS, type AiwgChunkedIndexBuildOptions, type AiwgChunkedIndexBuildResult, type AiwgChunkedIndexDetailLoader, type AiwgChunkedIndexLoadOptions, type AiwgChunkedIndexLoader, type AiwgChunkedIndexProgress, type AiwgChunkedIndexProgressPhase, type AiwgChunkedIndexQueryOptions, type AiwgChunkedIndexQueryResult, type AiwgChunkedIndexValidationResult, type AiwgDetailIdEncoding, type AiwgFortemiAttachmentReference, type AiwgFortemiBinarySource, type AiwgFortemiChunk, type AiwgFortemiChunkDetailRef, type AiwgFortemiChunkManifest, type AiwgFortemiChunkPart, type AiwgFortemiChunkPartRef, type AiwgFortemiIndexExport, type AiwgFortemiIndexExportSchemaVersion, type AiwgFortemiProjectedRecord, type AiwgFortemiProvenance, type AiwgFortemiProvenanceEvent, type AiwgFortemiRecord, type AiwgFortemiRecordEmbedding, type AiwgFortemiRecordSchemaVersion, type AiwgFortemiRecordSource, type AiwgFortemiRecordType, type AiwgFortemiRelationship, type AiwgFortemiRelationshipDirection, type AiwgFortemiSearchProjection, type AiwgFortemiSkosConcept, type AiwgFortemiSkosRelation, type AiwgFortemiSkosRelationType, type AiwgHeadlessEmbeddingBackend, type AiwgIndexController, type AiwgIndexControllerListener, type AiwgIndexControllerSnapshot, type AiwgIndexGraphOptions, type AiwgIndexQueryMatch, type AiwgIndexQueryOptions, type AiwgIndexQueryRankedItem, type AiwgIndexQueryResult, type AiwgIndexQueryWeights, type AiwgIndexValidationResult, type AiwgOperationalState, type AiwgOperationalStateClassification, type AiwgOperationalStateConfidence, type AiwgPrivacyClassification, type AiwgPrivacyFilterOptions, type AiwgProvenanceConfidence, type AiwgRelationshipDirection, type AiwgRelationshipEdgeSummary, type AiwgRelationshipNodeSummary, type AiwgRelationshipQueryOptions, type AiwgRelationshipSetOperation, type AiwgRelationshipSetOptions, type AiwgRelationshipSetResult, type AiwgRelationshipTraversalOptions, type AiwgRelationshipTraversalResult, type AiwgReviewAction, type AiwgReviewDecision, type AiwgReviewDecisionExport, type AiwgReviewInput, type AiwgStateTransfer, type AiwgStaticDuplicatePair, type AiwgStaticEmbeddingRecord, type AiwgStaticEmbeddingSet, type AiwgStaticHybridQueryOptions, type AiwgStaticSemanticQueryOptions, type AiwgStaticSemanticResult, type BuildAiwgStaticEmbeddingSetOptions, DEFAULT_AIWG_DUPLICATE_SCAN_MAX_EMBEDDINGS, aiwgDetailHrefForId, aiwgFortemiIndexToCommunityGraph, assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart, assertAiwgFortemiIndexExport, assertAiwgStaticEmbeddingSet, buildAiwgChunkedIndex, buildAiwgStaticEmbeddingSet, createAiwgFetchChunkLoader, createAiwgFetchDetailLoader, createAiwgIndexController, createAiwgReviewDecisionExport, encodeAiwgDetailId, filterAiwgRecordsByPrivacy, findAiwgStaticDuplicatePairs, getAiwgFortemiFacets, queryAiwgFortemiIndex, queryAiwgHybridIndex, queryAiwgSemanticIndex, resolveAiwgFetchUrl, validateAiwgFortemiChunkManifest, validateAiwgFortemiChunkPart, validateAiwgFortemiIndexExport, validateAiwgStaticEmbeddingSet };

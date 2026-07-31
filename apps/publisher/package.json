@@ -95,7 +95,7 @@
     "terser": "^5.48.0"
   },
   "devDependencies": {
-    "@fortemi/core": "2026.7.12",
+    "@fortemi/core": "2026.7.15",
     "jest": "^30.4.2"
   }
 }

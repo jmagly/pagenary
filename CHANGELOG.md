@@ -15,6 +15,11 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ### Changed
 
+- Aligned `@fortemi/core`, `@fortemi/graph`, and `@fortemi/react` at
+  `2026.7.15`, re-vendored the dependency-free static index with record-v2
+  operational-state/state-transfer validation, and split the Knowledge Shard
+  prototype into explicit `1.2.0/core-v1` compatibility and report-bearing
+  `2.0.0/full-v1` conformance paths (#164).
 - Re-vendored the dependency-free `@fortemi/core@2026.7.12` static index,
   moved Pagenary search artifacts to the canonical v2 envelope with
   `source.graph`, enabled `aiwg-discovery` ranking, and migrated Knowledge

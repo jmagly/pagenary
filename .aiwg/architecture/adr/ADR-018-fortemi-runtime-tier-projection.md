@@ -6,6 +6,14 @@
 
 **Issues:** #137, #149; related #136
 
+**2026-07-30 conformance addendum (#164):** Fortémi `2026.7.15` preserves the
+tier boundary below and adds exact Knowledge Shard `2.0.0/full-v1` conversion.
+Pagenary retains `1.2.0/core-v1` as a reversible compatibility artifact.
+Full-v1 publication uses the report-bearing converter and requires
+`success: true`, `lossless: true`, an archive, no typed losses, and a valid
+receipt. This is narrow contract evidence, not a claim of complete backup,
+universal portability, Windows support, or suite-wide conformance.
+
 ## Context
 
 Pagenary already has a dependency-free static publisher (Tier 0) and an
@@ -38,6 +46,11 @@ Tier 2 may seed from the build-time `core-v1` artifact planned by #136, then
 write canonical records locally. Runtime writes never mutate the deployed
 static artifact. Export produces `record-v1` and reports every omitted/lossy
 component.
+
+An exact `2.0.0/full-v1` artifact is an additional build-time interchange
+option, not a replacement for Tier 2's canonical-record lifecycle. Observed
+`operational_state` is provenance and never implies deletion;
+`state_transfer.deleted_at` is the explicit portable tombstone signal.
 
 Tier 3 starts from canonical records (or an imported shard), validates the
 archive completely, then projects parent-first into PGlite. Projection is

@@ -7,6 +7,12 @@
 **Baseline:** `@fortemi/core@2026.7.11`, Knowledge Shard contract revision 19,
 schema 1.2.0 `core-v1`
 
+**2026-07-30 addendum (#164):** The historical measurements and decision below
+remain evidence for the `1.2.0/core-v1` compatibility adapter. The current
+implementation is aligned to `@fortemi/core@2026.7.15` and also exposes the
+report-bearing exact `2.0.0/full-v1` converter. The two profiles are not
+interchangeable.
+
 ## Decision
 
 Proceed with an optional build-time Knowledge Shard artifact. The first
@@ -17,7 +23,7 @@ toolchain and do not enter Tier-0 browser assets.
 
 ## Reproducible proof
 
-`scripts/prototype-fortemi-shard.mjs` accepts Pagenary's deterministic v1
+`scripts/prototype-fortemi-shard.mjs --profile=core-v1` accepts Pagenary's deterministic v1
 index export, promotes the envelope and records to v2 with an explicit v1
 compatibility declaration, validates it, converts it twice, requires the two
 archives to be byte-identical, restores the index, and requires an exact
@@ -31,11 +37,19 @@ npm run prototype:fortemi-shard --workspace @pagenary/publisher -- \
 The automated proof is
 `__tests__/scripts/fortemi-shard-prototype.test.js`.
 
+The `--profile=full-v1` path projects away Pagenary-only closed-schema fields
+before calling `aiwgFortemiIndexToKnowledgeShardWithReport()`. It writes an
+archive only when conversion is successful and lossless with a valid receipt.
+Ordinary Pagenary page records currently produce typed losses for authority
+data that cannot be derived without defaulting or omission; those results have
+`archive: null` and are reported rather than mislabeled as full-v1.
+
 ## Findings
 
-- The bridge requires an `aiwg.fortemi.index.export.v2` envelope. Pagenary's
-  current record shape validates after deterministic promotion to record-v2;
-  no content projection is needed.
+- The bridge requires an `aiwg.fortemi.index.export.v2` envelope. Since
+  `2026.7.15` the authority schema is closed, so Pagenary deterministically
+  removes `source.build_hash` and record `delivery_assets` from the submitted
+  projection while retaining them in the source static index.
 - Complete source records, SKOS metadata, provenance, privacy, delivery assets,
   and relationships survive because the converter preserves each source record
   in note metadata.
@@ -53,6 +67,9 @@ The automated proof is
 - Images/downloads are references in Pagenary records today. Native BLAKE3 blob
   sidecars require an explicit attachment projection and are construction work,
   not something the static AIWG bridge infers safely.
+- `operational_state` is observed-state provenance and must never be treated as
+  a persistence tombstone. Only `state_transfer.deleted_at` transfers deletion
+  semantics into a portable shard.
 
 ## Build-cost posture
 

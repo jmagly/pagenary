@@ -1,9 +1,22 @@
-# Fortémi 2026.7.12 Integration Plan — Pagenary
+# Fortémi Integration Plan — Pagenary
 
 **Date**: 2026-07-13
-**Updated**: 2026-07-21
-**Upstream**: fortemi-react v2026.7.0 → v2026.7.12 (reviewed npm/Gitea baseline)
+**Updated**: 2026-07-30
+**Upstream**: fortemi-react v2026.7.0 → v2026.7.15 (reviewed npm baseline)
 **Consumers audited**: `apps/react` (`@pagenary/react`, untracked), `apps/publisher` (docs-map, vendored aiwg-index), hybrid-react publishing plan (#128–#131)
+
+## 2026-07-30 update — v2026.7.15 conformance alignment
+
+- `@fortemi/core`, `@fortemi/graph`, and `@fortemi/react` align at exact
+  `2026.7.15`; graph/React host contracts used by Pagenary remain stable.
+- The dependency-free `aiwg-index` boundary adds record-v2
+  `operational_state` and `state_transfer` validation. Observed operational
+  state is provenance; only `state_transfer.deleted_at` carries deletion.
+- Knowledge Shard output now distinguishes reversible `1.2.0/core-v1`
+  compatibility from report-bearing exact `2.0.0/full-v1`. Full-v1 is emitted
+  only when the authority converter returns a lossless archive and valid
+  receipt. This does not prove complete backup, universal portability, Windows
+  support, or conformance beyond the declared contract.
 
 ## 2026-07-21 update — v2026.7.12 static boundary restored
 
