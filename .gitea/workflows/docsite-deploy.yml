@@ -124,10 +124,27 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" -o StrictHostKeyChecking=accept-new \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "mkdir -p '${DEPLOY_ROOT}'"
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o StrictHostKeyChecking=accept-new" \
-            "${{ gitea.workspace }}/apps/publisher/dist/pagenary/" \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_ROOT}"
+          # Gitea currently starts the main and tag deployments concurrently even
+          # though the workflow declares one concurrency group. A colliding build
+          # can briefly replace generated files and make rsync return code 24.
+          # Retry that transient outcome; all other rsync errors remain fatal.
+          for attempt in 1 2 3; do
+            set +e
+            rsync -avz --delete \
+              -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o StrictHostKeyChecking=accept-new" \
+              "${{ gitea.workspace }}/apps/publisher/dist/pagenary/" \
+              "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_ROOT}"
+            RSYNC_STATUS=$?
+            set -e
+            if [ "${RSYNC_STATUS}" -eq 0 ]; then
+              break
+            fi
+            if [ "${RSYNC_STATUS}" -ne 24 ] || [ "${attempt}" -eq 3 ]; then
+              exit "${RSYNC_STATUS}"
+            fi
+            echo "Rsync source changed during concurrent deployment; retrying (${attempt}/3)."
+            sleep 2
+          done
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" -o StrictHostKeyChecking=accept-new \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "set -e

@@ -2500,7 +2500,7 @@ mark.hl {
 }
 
 .pan-zoom-btn:focus-visible,
-.pan-zoom-viewport:focus-visible {
+.pan-zoom-viewport:focus {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
 }
@@ -2705,7 +2705,7 @@ pre:has(code.language-mermaid)::after {
   .pan-zoom-btn,
   .media-block--image[data-image-viewport] { border-color: CanvasText; }
   .pan-zoom-btn:focus-visible,
-  .pan-zoom-viewport:focus-visible { outline-color: Highlight; }
+  .pan-zoom-viewport:focus { outline-color: Highlight; }
 }
 
 .media-transcript {
