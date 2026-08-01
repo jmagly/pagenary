@@ -6,12 +6,19 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.7.25] - 2026-07-31
+
 ### Added
 
 - Added a reproducible Fortémi Knowledge Shard export prototype for Pagenary's
   deterministic index plus the accepted DB-free record/PGlite projection-tier
   architecture and hierarchy/failure gates (#136, #137).
 - Added direct `@pagenary/react` contract and callback-lifecycle tests.
+- Added opt-in Markdown representations with deterministic route artifacts,
+  quality-aware HTTP content negotiation in the preview server, and a
+  Cloudflare Worker reference adapter.
+- Added accessible bounded pan, zoom, reset, pointer, keyboard, and touch
+  controls shared by Mermaid diagrams and opt-in SVG/PNG/JPEG images.
 
 ### Changed
 
@@ -30,6 +37,16 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 - Mapped tenant surface, ink, muted, and accent tokens into Fortemi GraphView,
   Sigma 2D, and ForceGraph 3D themes with live updates, stable renderer props,
   and contrast-safe graph chrome while preserving node palettes (#153).
+
+### Fixed
+
+- Added a pure, idempotent Fortemi v1-to-v2 index migration and fail-closed
+  handling for unknown export or record schemas.
+- Corrected accessibility linting for nested CommonMark fences, inline code,
+  and raw-HTML URL checks; the Pagenary docsite now builds with zero authored
+  accessibility errors or warnings.
+- Stopped valid uppercase Markdown filenames from producing route-ID case
+  warnings, and added a static crawler fallback for the dynamic blog index.
 
 ## [2026.7.24] - 2026-07-17
 

@@ -14,6 +14,7 @@ import {
   stableHash,
   extractConcepts,
   addConceptRelationships,
+  migrateFortemiIndexExport,
   DEFAULT_PART_SIZE
 } from '../../../src/lib/fortemi-corpus.js';
 import {
@@ -36,6 +37,44 @@ const entries = (sections = SECTIONS) =>
   sections.map((section) => ({ section, text: `${section.title} ${section.summary}` }));
 
 describe('fortemi-corpus', () => {
+  describe('migrateFortemiIndexExport', () => {
+    test('upgrades v1 exports and records without mutating the legacy artifact', () => {
+      const current = buildFortemiIndexExport(entries()).index;
+      const legacy = {
+        ...current,
+        schema_version: 'aiwg.fortemi.index.export.v1',
+        source: { repo: current.source.repo, privacy: current.source.privacy },
+        items: current.items.map((item) => ({ ...item, schema_version: 'aiwg.fortemi.index.record.v1' }))
+      };
+      delete legacy.compatibility;
+      const before = JSON.stringify(legacy);
+      const migrated = migrateFortemiIndexExport(legacy);
+
+      expect(JSON.stringify(legacy)).toBe(before);
+      expect(migrated).not.toBe(legacy);
+      expect(migrated.schema_version).toBe('aiwg.fortemi.index.export.v2');
+      expect(migrated.items.every((item) => item.schema_version === 'aiwg.fortemi.index.record.v2')).toBe(true);
+      expect(migrated.compatibility).toEqual({
+        previous_schema_version: 'aiwg.fortemi.index.export.v1',
+        strategy: 'supported'
+      });
+      expect(validateAiwgFortemiIndexExport(migrated)).toMatchObject({ valid: true, errors: [] });
+    });
+
+    test('is idempotent for v2 and rejects unknown export or record schemas', () => {
+      const current = buildFortemiIndexExport(entries()).index;
+      expect(migrateFortemiIndexExport(current)).toBe(current);
+      expect(() => migrateFortemiIndexExport({ ...current, schema_version: 'aiwg.fortemi.index.export.v3' }))
+        .toThrow('Unsupported Fortemi index schema');
+      const legacy = {
+        ...current,
+        schema_version: 'aiwg.fortemi.index.export.v1',
+        items: [{ ...current.items[0], schema_version: 'aiwg.fortemi.index.record.v0' }]
+      };
+      expect(() => migrateFortemiIndexExport(legacy)).toThrow('Unsupported Fortemi record schema');
+    });
+  });
+
   describe('stableHash', () => {
     test('is deterministic and content-sensitive', () => {
       expect(stableHash('abc')).toBe(stableHash('abc'));

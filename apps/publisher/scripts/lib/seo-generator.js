@@ -701,6 +701,14 @@ export function extractHtmlFromModule(moduleContent) {
 }
 
 function buildDynamicSectionFallbackHtml(section) {
+  if (section?.id === 'blog') {
+    const safeTitle = escapeHtml(section.title || 'Blog');
+    const safeSummary = escapeHtml(section.summary || 'Latest posts and updates.');
+    return `
+        <h1>${safeTitle}</h1>
+        <p>${safeSummary}</p>
+        <p>The interactive blog index loads the current post collection in the JavaScript app.</p>`;
+  }
   if (section?.id !== 'docs-map') return null;
   const safeTitle = escapeHtml(section.title || 'Docs Map');
   const safeSummary = escapeHtml(section.summary || 'How these pages cluster and relate.');

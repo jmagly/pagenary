@@ -404,6 +404,75 @@ async function checkPageEffectsReducedMotion(page) {
   await page.emulateMedia({ reducedMotion: null });
 }
 
+async function checkImageViewport(page) {
+  const route = 'showcase#image-viewport';
+  await page.goto(`${ORIGIN}showcase/#guides/page-effects`, { waitUntil: 'networkidle' });
+  const rendered = await page.waitForSelector('[data-image-viewport][data-pan-zoom-enhanced="true"]', { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!rendered) {
+    addFinding({
+      route, selector: '[data-image-viewport]', rule: 'image-viewport-render',
+      message: 'The showcase image viewport was not progressively enhanced.',
+      remediation: 'Initialize opt-in image viewports after section rendering.'
+    });
+    return;
+  }
+
+  const initial = await page.evaluate(() => {
+    const figure = document.querySelector('[data-image-viewport]');
+    const viewport = figure?.querySelector('.pan-zoom-viewport');
+    const buttons = Array.from(figure?.querySelectorAll('.pan-zoom-btn') || []);
+    viewport?.focus();
+    const keyEvent = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+    viewport?.dispatchEvent(keyEvent);
+    return {
+      buttons: buttons.map((button) => button.getAttribute('aria-label')),
+      groupName: figure?.querySelector('.pan-zoom-controls')?.getAttribute('aria-label') || '',
+      regionName: viewport?.getAttribute('aria-label') || '',
+      focused: document.activeElement === viewport,
+      keyboardHandled: keyEvent.defaultPrevented,
+      descriptions: figure?.querySelectorAll('.media-description').length || 0,
+      describedBy: figure?.querySelector('img')?.getAttribute('aria-describedby') || ''
+    };
+  });
+  await page.click('[data-image-viewport] .pan-zoom-in');
+  const zoomed = await page.evaluate(() => ({
+    status: document.querySelector('[data-image-viewport] .pan-zoom-status')?.textContent,
+    transform: document.querySelector('[data-image-viewport] img')?.style.transform
+      || document.querySelector('[data-image-viewport] picture')?.style.transform
+  }));
+  await page.click('[data-image-viewport] .pan-zoom-reset');
+  const reset = await page.textContent('[data-image-viewport] .pan-zoom-status');
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 320, height: 720 });
+  const reflow = await page.evaluate(() => {
+    const figure = document.querySelector('[data-image-viewport]');
+    const controls = figure?.querySelector('.pan-zoom-controls');
+    const viewport = figure?.querySelector('.pan-zoom-viewport');
+    viewport?.focus();
+    const rect = controls?.getBoundingClientRect();
+    return {
+      documentOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      controlsWithinViewport: Boolean(rect && rect.left >= 0 && rect.right <= document.documentElement.clientWidth),
+      focusOutline: viewport ? getComputedStyle(viewport).outlineStyle !== 'none' : false
+    };
+  });
+  await page.emulateMedia({ forcedColors: null, reducedMotion: null });
+
+  const valid = initial.buttons.join('|') === 'Zoom out|Reset view|Zoom in'
+    && initial.groupName && initial.regionName && initial.focused && initial.keyboardHandled
+    && initial.descriptions === 1 && initial.describedBy
+    && zoomed.status === '125%' && zoomed.transform === 'scale(1.25)' && reset === '100%'
+    && !reflow.documentOverflow && reflow.controlsWithinViewport && reflow.focusOutline;
+  if (valid) pass(route, 'image-viewport-accessibility', 'keyboard, text association, zoom, and reset verified');
+  else addFinding({
+    route, selector: '[data-image-viewport]', rule: 'image-viewport-accessibility',
+    message: `Image viewport state ${JSON.stringify({ initial, zoomed, reset, reflow })}`,
+    remediation: 'Expose named controls/region, associated description, keyboard pan, deterministic zoom, and reset.'
+  });
+}
+
 async function main() {
   const pw = await loadPlaywright();
   if (!pw) {
@@ -442,6 +511,7 @@ async function main() {
     await checkDocsMap(page);
     await checkBlogPostNav(page);
     await checkPageEffectsReducedMotion(page);
+    await checkImageViewport(page);
   } finally {
     if (browser) await browser.close().catch(() => {});
     server.kill('SIGTERM');

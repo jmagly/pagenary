@@ -8,6 +8,7 @@ import { renderMermaidBlocks } from './mermaid-init.js';
 import { initMediaEmbeds } from './media-init.js';
 import { highlightCodeBlocks } from './syntax-highlight.js';
 import { initPageEffects } from './lib/page-effects.js';
+import { initImageViewports } from './lib/pan-zoom.js';
 import { initSiteForm } from './lib/form-embeds.js';
 
 const app = document.getElementById('app');
@@ -36,6 +37,7 @@ let paletteOpen = false;
 let highlightQuery = (localStorage.getItem(COMMAND_QUERY_KEY) || '').trim();
 let pendingHighlightScroll = false;
 let currentEntry = null;
+let cleanupViewports = () => {};
 
 function createExternalLink(item, className) {
   const link = document.createElement('a');
@@ -405,11 +407,20 @@ async function loadSection(entry) {
     return;
   }
   const payload = await loader();
+  cleanupViewports();
+  cleanupViewports = () => {};
   app.innerHTML = payload.html || '';
   renderEntryMetadata(entry);
 
   // Render any mermaid diagrams in the content
-  await renderMermaidBlocks(app);
+  const cleanupMermaid = await renderMermaidBlocks(app);
+
+  // Enhance explicitly zoomable images after their section markup is mounted.
+  const cleanupImages = initImageViewports(app);
+  cleanupViewports = () => {
+    cleanupMermaid();
+    cleanupImages();
+  };
 
   // Wire click-to-load media embeds after the section is in the DOM.
   initMediaEmbeds(app);

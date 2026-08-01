@@ -24,7 +24,7 @@ The dev command builds to `dist/` and serves the bundle with live reload. Open t
 
 ## Key Features
 
-1. **Mermaid Diagrams** - Use fenced code blocks with `mermaid` language. Renders with zoom/pan controls and pan-on-drag functionality.
+1. **Shared Visual Viewports** - Mermaid fences and opt-in SVG/PNG/JPEG images use one accessible zoom/pan/reset controller with keyboard, pointer, and touch support. Image authoring uses `zoom: true` in a media fence or `{zoom}` after a block-level Markdown image.
 
 2. **External Links** - Links to external URLs (http/https) automatically open in new tab with security attributes. Use `url` property in manifest for external nav links.
 

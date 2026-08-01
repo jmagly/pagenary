@@ -5,20 +5,10 @@ import {
 } from '@fortemi/core/aiwg-index-shard';
 import { validateAiwgFortemiIndexExport } from '@fortemi/core/aiwg-index';
 import { isDeepStrictEqual } from 'node:util';
+import { migrateFortemiIndexExport } from '../../src/lib/fortemi-corpus.js';
 
 export function promotePagenaryIndexToV2(index) {
-  return {
-    ...JSON.parse(JSON.stringify(index)),
-    schema_version: 'aiwg.fortemi.index.export.v2',
-    items: (index.items || []).map((item) => ({
-      ...item,
-      schema_version: 'aiwg.fortemi.index.record.v2',
-    })),
-    compatibility: {
-      previous_schema_version: 'aiwg.fortemi.index.export.v1',
-      strategy: 'supported',
-    },
-  };
+  return migrateFortemiIndexExport(index);
 }
 
 /**
@@ -28,7 +18,7 @@ export function promotePagenaryIndexToV2(index) {
  * extensions from the value submitted to the report-bearing converter.
  */
 export function projectPagenaryIndexForFullV1(index) {
-  const projected = promotePagenaryIndexToV2(index);
+  const projected = JSON.parse(JSON.stringify(promotePagenaryIndexToV2(index)));
   projected.source.graph ||= 'pagenary:docs-map';
   if (projected.source) delete projected.source.build_hash;
   for (const item of projected.items || []) delete item.delivery_assets;

@@ -3,6 +3,8 @@
  * Only loads mermaid when diagrams are detected on the page
  */
 
+import { enhancePanZoomViewport } from './lib/pan-zoom.js';
+
 let mermaidPromise = null;
 
 /**
@@ -51,9 +53,10 @@ function generateId() {
  */
 export async function renderMermaidBlocks(container) {
   const codeBlocks = container.querySelectorAll('code.language-mermaid');
-  if (codeBlocks.length === 0) return;
+  if (codeBlocks.length === 0) return () => {};
 
   const mermaid = await loadMermaid();
+  const cleanup = [];
 
   for (const codeBlock of codeBlocks) {
     const pre = codeBlock.parentElement;
@@ -65,132 +68,14 @@ export async function renderMermaidBlocks(container) {
       const wrapper = document.createElement('div');
       wrapper.className = 'mermaid-diagram';
 
-      // Create controls
-      const controls = document.createElement('div');
-      controls.className = 'mermaid-controls';
-      controls.innerHTML = `
-        <button type="button" class="mermaid-btn mermaid-zoom-out" aria-label="Zoom out">−</button>
-        <button type="button" class="mermaid-btn mermaid-zoom-reset" aria-label="Reset zoom">⊙</button>
-        <button type="button" class="mermaid-btn mermaid-zoom-in" aria-label="Zoom in">+</button>
-      `;
-
       // Create scrollable content area
       const content = document.createElement('div');
       content.className = 'mermaid-content';
       content.innerHTML = svg;
 
-      wrapper.appendChild(controls);
       wrapper.appendChild(content);
-
-      // Initialize zoom and pan state
-      let scale = 1;
       const svgEl = content.querySelector('svg');
-      let isDragging = false;
-      let startX, startY, scrollLeft, scrollTop;
-
-      const updateZoom = () => {
-        if (svgEl) {
-          svgEl.style.transform = `scale(${scale})`;
-          svgEl.style.transformOrigin = 'top left';
-        }
-      };
-
-      // Zoom controls
-      controls.querySelector('.mermaid-zoom-in').addEventListener('click', () => {
-        scale = Math.min(scale + 0.25, 3);
-        updateZoom();
-      });
-
-      controls.querySelector('.mermaid-zoom-out').addEventListener('click', () => {
-        scale = Math.max(scale - 0.25, 0.5);
-        updateZoom();
-      });
-
-      controls.querySelector('.mermaid-zoom-reset').addEventListener('click', () => {
-        scale = 1;
-        updateZoom();
-        content.scrollLeft = 0;
-        content.scrollTop = 0;
-      });
-
-      // Click and drag to pan
-      content.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        content.style.cursor = 'grabbing';
-        startX = e.pageX - content.offsetLeft;
-        startY = e.pageY - content.offsetTop;
-        scrollLeft = content.scrollLeft;
-        scrollTop = content.scrollTop;
-      });
-
-      content.addEventListener('mouseleave', () => {
-        isDragging = false;
-        content.style.cursor = 'grab';
-      });
-
-      content.addEventListener('mouseup', () => {
-        isDragging = false;
-        content.style.cursor = 'grab';
-      });
-
-      content.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        const x = e.pageX - content.offsetLeft;
-        const y = e.pageY - content.offsetTop;
-        content.scrollLeft = scrollLeft - (x - startX);
-        content.scrollTop = scrollTop - (y - startY);
-      });
-
-      // Touch gesture support
-      let lastTouchDistance = 0;
-
-      content.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) {
-          isDragging = true;
-          startX = e.touches[0].pageX - content.offsetLeft;
-          startY = e.touches[0].pageY - content.offsetTop;
-          scrollLeft = content.scrollLeft;
-          scrollTop = content.scrollTop;
-        } else if (e.touches.length === 2) {
-          // Pinch zoom start
-          lastTouchDistance = Math.hypot(
-            e.touches[0].pageX - e.touches[1].pageX,
-            e.touches[0].pageY - e.touches[1].pageY
-          );
-        }
-      }, { passive: true });
-
-      content.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 1 && isDragging) {
-          const x = e.touches[0].pageX - content.offsetLeft;
-          const y = e.touches[0].pageY - content.offsetTop;
-          content.scrollLeft = scrollLeft - (x - startX);
-          content.scrollTop = scrollTop - (y - startY);
-        } else if (e.touches.length === 2) {
-          // Pinch zoom
-          const distance = Math.hypot(
-            e.touches[0].pageX - e.touches[1].pageX,
-            e.touches[0].pageY - e.touches[1].pageY
-          );
-          if (lastTouchDistance > 0) {
-            const delta = distance - lastTouchDistance;
-            if (Math.abs(delta) > 10) {
-              scale = Math.max(0.5, Math.min(3, scale + (delta > 0 ? 0.1 : -0.1)));
-              updateZoom();
-              lastTouchDistance = distance;
-            }
-          }
-        }
-      }, { passive: true });
-
-      content.addEventListener('touchend', () => {
-        isDragging = false;
-        lastTouchDistance = 0;
-      }, { passive: true });
-
-      // Set initial cursor
-      content.style.cursor = 'grab';
+      if (svgEl) cleanup.push(enhancePanZoomViewport({ container: wrapper, viewport: content, target: svgEl, label: 'Diagram' }));
 
       pre.replaceWith(wrapper);
     } catch (err) {
@@ -204,4 +89,5 @@ export async function renderMermaidBlocks(container) {
       pre.insertAdjacentElement('beforebegin', errorMsg);
     }
   }
+  return () => cleanup.forEach((fn) => fn());
 }

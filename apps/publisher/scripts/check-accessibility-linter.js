@@ -99,6 +99,41 @@ transcript: page.md
 
 assert.equal(mediaPassing.length, 0);
 
+const imageViewportPassing = findingsFor(`# Image viewer
+
+\`\`\`media
+type: image
+src: diagrams/system.jpeg?rev=4
+alt: System architecture
+description: The browser connects to the API, which connects to storage.
+zoom: true
+\`\`\`
+`);
+assert.equal(imageViewportPassing.length, 0);
+
+const imageViewportFailing = findingsFor(`# Broken image viewer
+
+\`\`\`media
+type: image
+src: images/decorative.png
+alt: ""
+description: This conflicts with decorative semantics.
+zoom: true
+\`\`\`
+
+\`\`\`media
+type: image
+src: images/photo.webp
+alt: Product photo
+zoom: true
+\`\`\`
+`);
+assert.equal(imageViewportFailing.some((finding) => finding.rule === 'image-decoration-conflict'), true);
+assert.equal(imageViewportFailing.some((finding) => finding.rule === 'image-viewport-format'), true);
+
+const markdownViewportFailing = findingsFor('![Detailed chart](images/chart.webp){zoom}');
+assert.equal(markdownViewportFailing.some((finding) => finding.rule === 'image-viewport-format'), true);
+
 const mediaFailing = findingsFor(`# Broken media page
 
 \`\`\`media

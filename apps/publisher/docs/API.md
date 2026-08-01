@@ -134,7 +134,8 @@ updateMetaTags({
 Search runs on the **real, vendored `@fortemi/core` static-index engine**
 (`src/vendor/fortemi-aiwg-index.js`). At build time, `scripts/build-tenants.js`
 emits a deterministic **chunked** index per tenant under `dist/<tenant>/search-index/`
-(`manifest.json` + `part-NNNN.json`, the `aiwg.fortemi.index.*.v1` contract)
+(`manifest.json` + `part-NNNN.json`; chunk envelope v1 carrying the current
+`aiwg.fortemi.index.export.v2` / `record.v2` contract)
 plus compact `metadata.json` (`pagenary.fortemi.metadata.v1`) for page-addressable
 Fortemi metadata without duplicating full document text. At runtime the adapter
 loads that index through an index controller + fetch chunk-loader: parts are
@@ -240,6 +241,8 @@ Re-exported from the vendored engine for advanced use:
 Pure, DOM-free, `Date.now()`-free helpers shared by the build-time generator and
 the runtime fallback: `buildFortemiIndexExport(entries, { repo })` (records sorted
 by id, deduped, content-hashed `generated_at` + `source.build_hash`),
+`migrateFortemiIndexExport(index)` (pure, idempotent v1-to-v2 migration that
+fails closed on unknown schemas),
 `chunkFortemiIndex(index, { partSize })`, `sectionToFortemiRecord`, `stripHtml`,
 `recordToSectionId`, `fortemiRecordToPageMetadata`,
 `buildFortemiMetadataExport`, `stableHash`.
@@ -304,14 +307,40 @@ Lazy-load and render Mermaid diagrams.
 
 #### Functions
 
-**`renderMermaidBlocks(container: Element): Promise<void>`**
+**`renderMermaidBlocks(container: Element): Promise<() => void>`**
 
-Find and render all Mermaid code blocks in a container.
+Find and render all Mermaid code blocks in a container. The resolved function
+removes the shared viewport listeners and controls during section teardown.
 
 ```javascript
-await renderMermaidBlocks(document.querySelector('.canvas'));
+const cleanup = await renderMermaidBlocks(document.querySelector('.canvas'));
 // Replaces ```mermaid blocks with rendered SVGs
+cleanup();
 ```
+
+---
+
+### lib/pan-zoom.js - Shared Viewports
+
+Progressively enhance Mermaid SVG output or an opt-in image with bounded zoom,
+pan, reset, keyboard, pointer, and touch behavior.
+
+#### Functions
+
+**`enhancePanZoomViewport(options): () => void`**
+
+Enhance an existing container, scrollable viewport, and visual target. Options
+are `{ container, viewport, target, label? }`. The returned cleanup function
+aborts listeners, removes generated controls, and restores the original markup.
+
+**`initImageViewports(root?: Element | Document): () => void`**
+
+Enhance informative `[data-image-viewport]` figures under `root`. Decorative or
+linked images are left static. The returned function cleans up every instance.
+
+**`clampViewportScale(value: number): number`**
+
+Clamp a scale value to the shared 0.5–3 range.
 
 ---
 
@@ -571,6 +600,36 @@ snapshot.
 **`generateLlmsTxt(distDir: string, manifest: SectionEntry[], config: object): Promise<void>`**
 
 Write `llms.txt` with tenant-level metadata and links to generated static pages.
+
+### scripts/lib/markdown-delivery.js
+
+Generates deterministic Markdown representations and the bounded route map used
+by negotiation-capable servers.
+
+**`resolveMarkdownDeliveryConfig(config?: object): object`**
+
+Resolve opt-in flags and enforce `limited`, `locked`, and `seo.noIndex` safety
+floors.
+
+**`htmlToMarkdown(html: string): string`**
+
+Convert semantic page content to readable Markdown while excluding scripts,
+styles, navigation chrome, and generated controls. Preserves headings, code,
+tables, links, images, captions, and descriptions.
+
+**`generateMarkdownArtifacts(distDir: string, config?: object): Promise<object>`**
+
+Write `/markdown/*.md` and `markdown-routes.json`, or remove stale output when
+the feature becomes disabled.
+
+### scripts/lib/accept-negotiation.js
+
+**`parseAcceptHeader(header?: string): MediaRange[]`** parses media ranges,
+parameters, wildcards, and quality values.
+
+**`prefersMarkdown(header?: string): boolean`** returns true only when
+`text/markdown` is allowed and has a stronger effective preference than
+`text/html`. HTML wins ties and wildcard-only requests.
 
 ### scripts/lib/collections-generator.js
 

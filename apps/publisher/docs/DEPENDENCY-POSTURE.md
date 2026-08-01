@@ -13,7 +13,7 @@ If minimizing supply-chain exposure is your priority, read this alongside
 
 ## The tiers
 
-| | **Tier 0 — Static** | **Tier 1 — Hybrid React** | **Tier 2 — Fortémi record tier** | **Tier 3 — Fortémi PGlite projection** |
+| **Dimension** | **Tier 0 — Static** | **Tier 1 — Hybrid React** | **Tier 2 — Fortémi record tier** | **Tier 3 — Fortémi PGlite projection** |
 |---|---|---|---|---|
 | Status | Default, shipping | Opt-in, shipping | Planned | Planned |
 | Runtime framework in output | None | React + React DOM | React + React DOM | React + React DOM |

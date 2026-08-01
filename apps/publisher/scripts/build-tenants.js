@@ -17,6 +17,7 @@ import {
   rewriteStaticHtmlLinks
 } from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
+import { generateMarkdownArtifacts, resolveMarkdownDeliveryConfig } from './lib/markdown-delivery.js';
 import { estimateReadingLength, parseFrontmatter } from './lib/frontmatter.js';
 import {
   formatAccessibilityFinding,
@@ -2716,6 +2717,7 @@ function markdownToHtml(markdown, linkContext = null) {
   let inTable = false;
   let tableRows = [];
   let paragraphLines = [];
+  let mediaBlockIndex = 0;
   const headingIds = new Map(); // Track heading IDs for uniqueness
 
   function closeList() {
@@ -2843,7 +2845,7 @@ function markdownToHtml(markdown, linkContext = null) {
 
         // Check for special block types
         if (codeBlockLang.startsWith('media')) {
-          chunks.push(renderMediaBlock(codeBlockContent.join('\n'), mediaConfig));
+          chunks.push(renderMediaBlock(codeBlockContent.join('\n'), mediaConfig, ++mediaBlockIndex));
         } else if (codeBlockLang.startsWith('box')) {
           // Box/panel block: ```box or ```box:Title
           const titleMatch = codeBlockLang.match(/^box(?::(.+))?$/);
@@ -2887,6 +2889,23 @@ function markdownToHtml(markdown, linkContext = null) {
       closeParagraph();
       closeList();
       closeBlockquote();
+      continue;
+    }
+
+    // A zoomable Markdown image is a block construct so generated figure markup
+    // never ends up illegally nested inside a paragraph.
+    const zoomImage = /^!\[([^\]]+)\]\(([^)]+)\)\{zoom\}$/.exec(line);
+    if (zoomImage) {
+      closeParagraph();
+      closeList();
+      closeBlockquote();
+      closeTable();
+      const [, alt, src] = zoomImage;
+      if (isSupportedViewportImage(src)) {
+        chunks.push(`<figure class="media-block media-block--image" data-image-viewport data-image-viewport-label="Image viewer"><img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}"></figure>`);
+      } else {
+        chunks.push(`<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}">`);
+      }
       continue;
     }
 
@@ -3098,8 +3117,8 @@ function mediaFallback(message, detail = '') {
   return `<aside class="media-fallback" role="note"><strong>Media unavailable.</strong> ${escapeHtml(message)}${detail ? ` <span>${escapeHtml(detail)}</span>` : ''}</aside>`;
 }
 
-function renderMediaCaption(def) {
-  const caption = def.caption || def.description || '';
+function renderMediaCaption(def, includeDescription = true) {
+  const caption = def.caption || (includeDescription ? def.description : '') || '';
   const duration = def.duration
     ? `<span class="media-duration">Duration: ${escapeHtml(def.duration)}</span>`
     : '';
@@ -3126,22 +3145,51 @@ function renderImageSource(src, media) {
   return src ? `<source media="${escapeAttribute(media)}" srcset="${escapeAttribute(src)}">` : '';
 }
 
-function renderImageMedia(def) {
+function isTrue(value) {
+  return value === true || value === 'true';
+}
+
+function imageDescriptionId(src, instance = 1) {
+  let hash = 0;
+  for (const char of String(src)) hash = ((hash * 31) + char.charCodeAt(0)) >>> 0;
+  return `image-description-${hash.toString(36)}-${instance}`;
+}
+
+function isSupportedViewportImage(src) {
+  const clean = String(src || '').split(/[?#]/, 1)[0].toLowerCase();
+  return /\.(?:svg|png|jpe?g)$/.test(clean);
+}
+
+function renderImageMedia(def, instance = 1) {
   const portrait = firstMediaValue(def, ['portrait', 'portraitSrc', 'mobile', 'mobileSrc']);
   const landscape = firstMediaValue(def, ['landscape', 'landscapeSrc', 'desktop', 'desktopSrc']);
   const fallbackSrc = firstMediaValue(def, ['src', 'url', 'default', 'defaultSrc']) || landscape || portrait;
   if (!fallbackSrc) return mediaFallback('Image media is missing a src.');
 
-  const alt = def.alt || def.title || def.label || '';
+  const hasAlt = Object.prototype.hasOwnProperty.call(def, 'alt');
+  const alt = hasAlt ? String(def.alt ?? '') : '';
+  const zoomRequested = isTrue(def.zoom) || isTrue(def.viewport) || isTrue(def.panZoom);
+  const viewportSources = [fallbackSrc, portrait, landscape].filter(Boolean);
+  const zoom = zoomRequested && Boolean(alt) && viewportSources.every(isSupportedViewportImage);
   const title = def.title ? ` title="${escapeAttribute(def.title)}"` : '';
   const loading = def.loading === 'eager' ? 'eager' : 'lazy';
   const sources = [
     renderImageSource(portrait, '(orientation: portrait), (max-width: 700px)'),
     renderImageSource(landscape, '(orientation: landscape) and (min-width: 701px)')
   ].filter(Boolean).join('');
-  const img = `<img src="${escapeAttribute(fallbackSrc)}" alt="${escapeAttribute(alt)}"${title} loading="${loading}">`;
+  const description = typeof def.description === 'string' ? def.description.trim() : '';
+  const descriptionId = description ? imageDescriptionId(fallbackSrc, instance) : '';
+  const describedBy = descriptionId ? ` aria-describedby="${descriptionId}"` : '';
+  const dimensions = `${def.width ? ` width="${escapeAttribute(def.width)}"` : ''}${def.height ? ` height="${escapeAttribute(def.height)}"` : ''}`;
+  const img = `<img src="${escapeAttribute(fallbackSrc)}" alt="${escapeAttribute(alt)}"${title}${describedBy}${dimensions} loading="${loading}">`;
   const media = sources ? `<picture>${sources}${img}</picture>` : img;
-  return `<figure class="media-block media-block--image">${media}${renderMediaCaption(def)}</figure>`;
+  const viewportAttrs = zoom
+    ? ` data-image-viewport${def.label ? ` data-image-viewport-label="${escapeAttribute(def.label)}"` : ''}`
+    : '';
+  const descriptionHtml = description
+    ? `<div class="media-description" id="${descriptionId}">${escapeHtml(description)}</div>`
+    : '';
+  return `<figure class="media-block media-block--image"${viewportAttrs}>${media}${renderMediaCaption(def, false)}${descriptionHtml}</figure>`;
 }
 
 function renderNativeMedia(def, kind) {
@@ -3204,7 +3252,7 @@ function renderHostedMedia(def, config = {}) {
   return `<figure class="media-block media-block--embed" style="--media-aspect:${escapeAttribute(aspect)}"><div class="media-embed-frame">${body}</div>${renderMediaCaption({ ...def, transcript: def.transcript || embed.href })}</figure>`;
 }
 
-function renderMediaBlock(raw, config = {}) {
+function renderMediaBlock(raw, config = {}, instance = 1) {
   const def = parseMediaBlock(raw);
   if (!def) return mediaFallback('Media block is empty.');
   if (def.error) return mediaFallback(def.error);
@@ -3212,7 +3260,7 @@ function renderMediaBlock(raw, config = {}) {
     return mediaFallback('Media rendering is disabled for this tenant or document.');
   }
   const type = String(def.type || def.kind || '').toLowerCase();
-  if (type === 'image' || type === 'picture' || type === 'img') return renderImageMedia(def);
+  if (type === 'image' || type === 'picture' || type === 'img') return renderImageMedia(def, instance);
   if (type === 'audio' || type === 'podcast' || type === 'narration') return renderNativeMedia(def, 'audio');
   if (type === 'video') return renderNativeMedia(def, 'video');
   if (type === 'embed' || type === 'youtube' || type === 'vimeo' || type === 'peertube') {
@@ -3465,7 +3513,15 @@ async function ensureMarkdownModule(sourcePath, targetPath, linkContext = null) 
   const bannerHtml = (data && typeof data.banner === 'object') ? renderBannerMarkup(data.banner) : '';
   const childLinksHtml = renderSectionChildLinks(linkContext?.childLinks);
   const html = `${heroHtml}${narration.html}${section}${childLinksHtml}${bannerHtml}`;
-  const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
+  const parsedBody = stripHtmlCommentsOutsideCode(parseFrontmatter(raw).body).trim();
+  const authoredMarkdown = parsedBody.replace(/(?<!!)\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
+    const resolvedHref = linkContext ? transformInternalLink(href, linkContext) : href;
+    return `[${label}](${resolvedHref})`;
+  });
+  const authoredMarkdownComment = linkContext?.markdownDeliveryEnabled
+    ? `// pagenary-authored-markdown-base64: ${Buffer.from(`${authoredMarkdown}\n`, 'utf8').toString('base64')}\n`
+    : '';
+  const moduleSource = `${authoredMarkdownComment}export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
 }
@@ -3720,14 +3776,20 @@ function transformInternalLink(href, context) {
     let found = false;
     let actualId = sectionId;
 
-    for (const [id] of context.sectionIndex) {
+    for (const [id, info] of context.sectionIndex) {
       // Skip entries with undefined/null IDs
       if (!id) continue;
       if (id.toLowerCase() === sectionIdLower) {
         found = true;
         actualId = id;
         // Warn if case doesn't match exactly
-        if (id !== sectionId && context.linkWarnings) {
+        const declaredFile = typeof info?.file === 'string'
+          ? normalizeLinkPath(info.file)
+          : '';
+        const authoredPathMatchesFile = declaredFile && (
+          resolvedPath === declaredFile || resolvedPath.endsWith(`/${declaredFile}`)
+        );
+        if (id !== sectionId && !authoredPathMatchesFile && context.linkWarnings) {
           context.linkWarnings.push({
             type: 'case-mismatch',
             source: context.currentPath,
@@ -4600,6 +4662,7 @@ async function materializeScannedSections(sections, context) {
             strictLinks: context.strictLinks,
             mediaConfig: context.mediaConfig,
             narrationConfig: context.narrationConfig,
+            markdownDeliveryEnabled: context.markdownDeliveryEnabled,
             distDir: context.distDir,
             route: id,
             childLinks: processedSubsections
@@ -4833,6 +4896,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     strictLinks,
     mediaConfig: config.media || {},
     narrationConfig: config.narration || {},
+    markdownDeliveryEnabled: resolveMarkdownDeliveryConfig(config).enabled,
     accessibility: createAccessibilityContext({
       tenantId,
       config,
@@ -5026,6 +5090,7 @@ async function materializeSectionModule(entry, context, options = {}) {
         strictLinks: context.strictLinks,
         mediaConfig: context.mediaConfig,
         narrationConfig: context.narrationConfig,
+        markdownDeliveryEnabled: context.markdownDeliveryEnabled,
         distDir: context.distDir,
         route: id,
         childLinks: options.childLinks
@@ -5333,6 +5398,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     strictLinks,
     mediaConfig: config.media || {},
     narrationConfig: config.narration || {},
+    markdownDeliveryEnabled: resolveMarkdownDeliveryConfig(config).enabled,
     accessibility: createAccessibilityContext({
       tenantId,
       config,
@@ -5975,6 +6041,10 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     return { success: false, changes };
   }
 
+  // Generate negotiated Markdown only after collections and React/static
+  // snapshots exist so every eligible route can use its final rendered fallback.
+  await generateMarkdownArtifacts(distDir, resolvedSeoConfig);
+
   await finalizeContentAddressedBundle(distDir, tenantId, config);
 
   // Copy to final target if different from dist
@@ -6106,6 +6176,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
           strictLinks: options.strictLinks !== false,
           mediaConfig: config.media || {},
           narrationConfig: config.narration || {},
+          markdownDeliveryEnabled: resolveMarkdownDeliveryConfig(config).enabled,
           distDir,
           route: sectionId,
           collections: Array.isArray(config.collections) ? config.collections : []

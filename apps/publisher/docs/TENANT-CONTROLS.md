@@ -161,3 +161,27 @@ references there for content you do not want broadly discoverable. For private
 docs, enforce access at the host and avoid generating public discovery artifacts.
 The `limited` and `locked` profiles suppress `llms.txt` and machine-readable
 corpus artifacts by default.
+
+## Negotiated Markdown Representations
+
+`markdownDelivery.enabled` publishes a complete alternate representation of
+each eligible route. Treat `/markdown/*.md` and negotiated `text/markdown`
+responses as public copies of the page, not as a private agent channel.
+
+Pagenary applies these safety floors:
+
+- `limited`, `locked`, and `seo.noIndex: true` disable generation and remove
+  stale Markdown artifacts on the next build.
+- Frontmatter is removed before authored Markdown is embedded in a compiled
+  section module, so build-only metadata is not delivered.
+- Route lookup comes from the generated `markdown-routes.json`; servers must not
+  translate arbitrary request paths into filesystem paths.
+- Scripts, styles, application chrome, and generated controls are excluded from
+  converted HTML representations.
+
+These are publication safeguards, not authorization. A client that knows a
+direct artifact URL can retrieve it on a public static host. Enforce tenant
+authentication before both HTML and Markdown responses, apply the same rate
+limits to both, and include `Accept` in the CDN cache key whenever negotiation is
+enabled. Do not identify agents from User-Agent strings or log complete Accept
+headers, query values, credentials, or prompt content.

@@ -6,11 +6,65 @@
 
 See [AIWG.md](./AIWG.md) for the full AIWG framework context
 (active frameworks, addons, agents, behaviors, rules).
+Tracker and delivery source of truth: [.aiwg/aiwg.config](./.aiwg/aiwg.config).
 
 Deployed artifacts live under your provider's native directory
 (for example `.codex/agents/`, `.warp/agents/`, `.github/agents/`).
 Use `aiwg discover "<intent>"` and `aiwg show <type> <name>` to browse
 skills, agents, rules, and commands across the installation.
+
+## Tier 1 / Tier 2 / Tier 3 Loading Model
+
+- Tier 1: this bridge plus the finalization block; always-loaded orientation only.
+- Tier 2: compact quickref routing summaries; enough to choose a next lookup.
+- Tier 3: full skill, rule, agent, behavior, docs, and examples; load only through `aiwg discover` / `aiwg show` or an explicit skill invocation.
+
+## Tier 2 Capability Map
+
+This is a quickref-style routing layer. Keep it in default context; load Tier 3 detail only through `aiwg discover` and `aiwg show`, not by traversing provider directories.
+
+Schema per entry: purpose, when to use, when not to use, curated discovery phrases, deep-load target, verification cue.
+
+### Agents
+
+- Purpose: Route specialized work to deployed agent personas without loading their full bodies.
+- When to use: The task names a role, asks for domain review, or needs focused delegation.
+- When not to use: A direct CLI command or loaded skill already handles the work.
+- Curated discovery phrases: `aiwg discover "agent for <task>"`; `aiwg discover "<domain> specialist agent"`; `aiwg discover "review <artifact> agent"`
+- Deep-load target: `aiwg show agent <name>` after discovery selects the exact item.
+- Deployed summary: 194 recorded; examples: Accessibility Checker, Accessibility Specialist, Acquisition Manager, AgentSmith, AI/ML Engineer, +189 more.
+- Verification cue: Selected agent name and scope match the user request before delegation.
+
+### Rules
+
+- Purpose: Expose policy and behavioral constraints as compact routing anchors.
+- When to use: The task involves safety, provider behavior, workflow discipline, or repo policy.
+- When not to use: The user asks for broad framework discovery rather than a specific guardrail.
+- Curated discovery phrases: `aiwg discover "rule for <constraint>"`; `aiwg discover "<provider> routing rule"`; `aiwg discover "context budget rule"`
+- Deep-load target: `aiwg show rule <name>` after discovery selects the exact item.
+- Deployed summary: 43 recorded; examples: RULES-INDEX, RULES-ONDEMAND, agent-deployment, api-abi-stability, auto-compact-continue, +38 more.
+- Verification cue: The applied rule is named and the action taken conforms to it.
+
+### Skills
+
+- Purpose: Route operator intents to executable AIWG workflows and procedural guidance.
+- When to use: The user names an AIWG capability, workflow, issue action, or framework task.
+- When not to use: The task is ordinary code editing with no AIWG-specific workflow needed.
+- Curated discovery phrases: `aiwg discover "skill for <workflow>"`; `aiwg discover "address issues"`; `aiwg discover "regenerate context"`
+- Deep-load target: `aiwg show skill <name>` after discovery selects the exact item.
+- Deployed summary: 0 recorded; examples: none deployed.
+- Verification cue: The selected skill was read before invoking its workflow.
+
+### Behaviors
+
+- Purpose: Summarize reactive behavior packs without carrying long interaction detail.
+- When to use: The task depends on session behavior, daemon interaction, or event-driven agent conduct.
+- When not to use: A static rule or skill directly covers the requested action.
+- Curated discovery phrases: `aiwg discover "behavior for <interaction>"`; `aiwg discover "daemon behavior"`; `aiwg discover "session behavior"`
+- Deep-load target: `aiwg show behavior <name>` after discovery selects the exact item.
+- Deployed summary: 43 recorded; examples: RULES-INDEX, RULES-ONDEMAND, agent-deployment, api-abi-stability, auto-compact-continue, +38 more.
+- Verification cue: The behavior trigger and expected effect are explicit before relying on it.
+
 
 <!-- aiwg-context-finalization:START -->
 ## Context Finalization
@@ -19,7 +73,7 @@ This section is synthesized after template emission from the current workspace s
 
 ### Workspace Snapshot
 
-- Configured providers: claude
+- Configured providers: claude, gitea
 - Installed frameworks/addons: all
 - Recorded deployments: claude, codex
 - Normalized project context: `.aiwg/AIWG.md`
@@ -33,6 +87,25 @@ Also run `aiwg discover` before declining an AIWG request as out of scope or inv
 ### Engagement Verification
 
 When a user asks whether AIWG is active or engaged in this project, run or read `aiwg status --probe --json` and report the result plainly: engaged state, project root, deployed provider files, installed frameworks/addons, and the next action from the probe. Do not add AIWG attribution, signatures, generated-by text, or passive footers to user files, commits, PRs, comments, code headers, or docs.
+
+### Tracker Authority Protocol
+
+- Source of truth: [.aiwg/aiwg.config](./.aiwg/aiwg.config)
+- Canonical tracker: `origin` (gitea; git@git.integrolabs.net:roctinam/pagenary.git)
+- Primary repo remote: `origin`; CI remote: `origin`
+- Secondary/mirror remotes: github (publish)
+- Issue storage mode: gitea-only
+
+Tracker access order for issue, PR, release, and CI-sensitive tracker operations:
+1. MCP/app tools for the configured tracker.
+2. Tracker HTTP API with configured credentials.
+3. Tracker CLI for the configured tracker, after confirming authentication.
+4. Stop and report a blocker.
+
+- Project config decides tracker authority; installed/authenticated CLIs do not.
+- Git SSH remote access is repository sync, not issue-tracker API access.
+- Do not file on mirror or secondary remotes just because their CLI is authenticated.
+- Treat an unauthenticated tracker CLI as one failed access path, then continue probing MCP/app/API before blocking.
 
 ### Source Model
 

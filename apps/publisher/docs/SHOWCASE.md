@@ -132,6 +132,38 @@ zoom is an enhancement.
 </figure>
 ```
 
+This modal effect is for simple enlargement. For detail-heavy images that need
+incremental zoom and pan, use the [interactive image viewport](TENANT-CONFIG.md#media-blocks):
+
+````markdown
+```media
+type: image
+src: assets/images/pipeline.svg
+alt: Publishing stages connected from authoring through deployment
+caption: The Pagenary publishing pipeline.
+zoom: true
+```
+````
+
+It shares Mermaid's Zoom out, Reset view, and Zoom in controls and adds keyboard,
+pointer, pen, touch-pan, and pinch support while retaining the static no-JavaScript image.
+
+## Request Markdown at the same URL
+
+The showcase tenant enables per-route Markdown delivery. A normal request still
+returns accessible HTML, while an agent or tool can prefer Markdown explicitly:
+
+```bash
+curl -H 'Accept: text/markdown, text/html;q=0.5' \
+  https://showcase.example/pages/showcase.html
+```
+
+Static-only hosting can fetch the same generated representation directly from
+`/markdown/showcase.md`. The preview server and Cloudflare reference adapter add
+quality-aware negotiation, `Vary: Accept`, `Content-Location`, validators, and
+`HEAD` parity. This supplements `llms.txt` and corpus artifacts; it does not
+identify clients by User-Agent or bypass tenant access controls.
+
 ## See it as a story
 
 The [Storytelling](#showcase-story) page puts the same engine into a scrollytelling

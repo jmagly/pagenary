@@ -236,22 +236,33 @@ the `@fortemi/core` `aiwg.fortemi.index.*.v1` contract.
 
 ### Mermaid Integration (mermaid-init.js)
 
-Lazy-loaded diagram rendering:
+Lazy-loaded diagram rendering delegates interaction to the shared
+`lib/pan-zoom.js` viewport controller:
 
 ```javascript
 export async function renderMermaidBlocks(container) {
-  const blocks = container.querySelectorAll('pre > code.language-mermaid');
-  if (!blocks.length) return;
+  const blocks = container.querySelectorAll('code.language-mermaid');
+  if (!blocks.length) return () => {};
 
-  const mermaid = await import('https://esm.sh/mermaid@11');
+  const mermaid = await import('https://esm.sh/mermaid@10/dist/mermaid.esm.min.mjs');
   mermaid.default.initialize({ startOnLoad: false });
+
+  const cleanup = [];
 
   for (const block of blocks) {
     const { svg } = await mermaid.default.render(id, block.textContent);
-    // Replace code block with rendered SVG
+    // Replace the code block and enhance its SVG with shared controls.
+    cleanup.push(enhancePanZoomViewport({ container, viewport, target, label: 'Diagram' }));
   }
+  return () => cleanup.forEach((fn) => fn());
 }
 ```
+
+The same controller enhances authored `[data-image-viewport]` figures after a
+section mounts. It owns the 50–300% scale bounds, focal-point zoom, scrolling
+pan state, keyboard arrows, Pointer Events, pinch gestures, control/status
+semantics, and listener cleanup. Static diagram/image markup remains the
+progressive-enhancement baseline.
 
 ### Syntax Highlighting (syntax-highlight.js)
 

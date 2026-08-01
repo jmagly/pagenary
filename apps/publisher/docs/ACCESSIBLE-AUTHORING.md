@@ -70,6 +70,22 @@ Decorative image:
 Pagenary can warn when alt text is missing. It cannot prove that present alt
 text is meaningful, complete, or appropriate for the surrounding text.
 
+### Interactive images
+
+Use `zoom: true` only when zooming and panning helps a reader inspect meaningful
+detail. Keep the text roles distinct:
+
+- `alt` replaces the image when it cannot be seen; keep it concise.
+- `caption` provides visible context or attribution.
+- `description` provides a longer visible text equivalent for complex detail.
+- `label` names the viewer and its controls without repeating the full alt text.
+
+Do not enable controls on decorative images (`alt: ""`), icons, logos, linked
+images, or small assets. A keyboard user can Tab to the viewport, use arrow keys
+to pan, use the three named buttons to zoom or reset, and Tab away normally.
+Always verify that the important meaning remains available in the static image
+and text when JavaScript is disabled.
+
 ## Links
 
 Write link text that tells readers where the link goes.

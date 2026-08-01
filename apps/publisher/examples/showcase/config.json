@@ -9,6 +9,11 @@
   "pageToc": { "placement": "rail", "minHeadings": 2 },
   "codeCopy": true,
   "livingScroll": true,
+  "markdownDelivery": {
+    "enabled": true,
+    "contentNegotiation": true,
+    "directArtifacts": true
+  },
   "siteForm": { "provider": "tally", "id": "xXo4Kd", "mode": "popup", "button": "Feedback" },
   "collections": [
     {

@@ -55,6 +55,27 @@ assert.equal(image.includes('<picture><source media="(orientation: portrait), (m
 assert.equal(image.includes('<source media="(orientation: landscape) and (min-width: 701px)" srcset="assets/landscape.jpg">'), true);
 assert.equal(image.includes('<img src="assets/default.jpg" alt="Product screenshot" loading="lazy">'), true);
 
+const zoomableImage = render(`
+# Zoomable image
+
+\`\`\`media
+type: image
+src: assets/diagram.svg?rev=2
+alt: System architecture
+label: Architecture viewer
+caption: System architecture overview.
+description: Requests move from the browser through the API to storage.
+zoom: true
+width: 1200
+height: 800
+\`\`\`
+`);
+
+assert.equal(zoomableImage.includes('data-image-viewport data-image-viewport-label="Architecture viewer"'), true);
+assert.equal(zoomableImage.includes('alt="System architecture"'), true);
+assert.equal(zoomableImage.includes('width="1200" height="800"'), true);
+assert.equal(zoomableImage.includes('class="media-description"'), true);
+
 const hosted = render(`
 # Hosted
 

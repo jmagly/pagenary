@@ -167,6 +167,55 @@ describe('markdownToHtml responsive image media blocks (#121)', () => {
   });
 });
 
+describe('accessible image viewports (#158-#161)', () => {
+  it.each(['diagram.svg?rev=2', 'diagram.png', 'diagram.jpeg', 'diagram.jpg'])('renders zoomable %s media', (src) => {
+    const html = markdownToHtml([
+      '```media',
+      'type: image',
+      `src: assets/${src}`,
+      'alt: Service dependency diagram',
+      'label: Dependency diagram',
+      'caption: Services and their dependencies.',
+      'description: Arrows run from the web tier to the API and database.',
+      'zoom: true',
+      'width: 1200',
+      'height: 800',
+      '```'
+    ].join('\n'));
+
+    expect(html).toContain('data-image-viewport');
+    expect(html).toContain('data-image-viewport-label="Dependency diagram"');
+    expect(html).toContain('alt="Service dependency diagram"');
+    expect(html).toContain('width="1200" height="800"');
+    expect(html).toMatch(/aria-describedby="image-description-[^"]+"/);
+    expect(html).toContain('<figcaption>Services and their dependencies.</figcaption>');
+    expect(html).toContain('class="media-description"');
+  });
+
+  it('supports concise Markdown opt-in syntax', () => {
+    const html = markdownToHtml('![Architecture overview](assets/architecture.png){zoom}');
+    expect(html).toContain('<figure class="media-block media-block--image" data-image-viewport');
+    expect(html).toContain('<img src="assets/architecture.png" alt="Architecture overview">');
+    expect(html).not.toContain('<p><figure');
+  });
+
+  it('does not make decorative or unsupported media interactive', () => {
+    const decorative = markdownToHtml('```media\ntype: image\nsrc: flourish.png\nalt: ""\nzoom: true\n```');
+    const unsupported = markdownToHtml('```media\ntype: image\nsrc: photo.webp\nalt: Product photo\nzoom: true\n```');
+    expect(decorative).not.toContain('data-image-viewport');
+    expect(unsupported).not.toContain('data-image-viewport');
+  });
+
+  it('uses unique description associations for repeated sources', () => {
+    const block = '```media\ntype: image\nsrc: diagram.png\nalt: Diagram\ndescription: Detailed diagram text.\nzoom: true\n```';
+    const html = markdownToHtml(`${block}\n\n${block}`);
+    const ids = [...html.matchAll(/class="media-description" id="([^"]+)"/g)].map((match) => match[1]);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    ids.forEach((id) => expect(html).toContain(`aria-describedby="${id}"`));
+  });
+});
+
 describe('inline images/links with entities in attributes (#138)', () => {
   it('renders an image whose alt contains an apostrophe (docs.aiwg.io regression)', () => {
     const html = markdownToHtml(

@@ -75,6 +75,8 @@ inspect, build, or run the AIWG project from `~/dev/aiwg`.
 
 ### Rich Content
 - **Mermaid Diagrams** — flowcharts, sequence diagrams, state machines, and more
+- **Interactive Images** — opt-in bounded zoom, pan, and reset for SVG, PNG, and JPEG/JPG with accessible text and keyboard/touch controls
+- **Markdown Delivery** — optionally emit per-route `.md` representations and serve them from the same canonical URL when `Accept: text/markdown` is preferred
 - **Syntax Highlighting** — Prism.js with 10+ language support
 - **Markdown Tables** — full table syntax with alignment support
 - **HTML Components** — spec tables, layer stacks, box diagrams, cards

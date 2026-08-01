@@ -22,6 +22,51 @@ export const FORTEMI_METADATA_SCHEMA = 'pagenary.fortemi.metadata.v1';
 export const DEFAULT_PART_SIZE = 100;
 
 /**
+ * Upgrade a supported Fortemi static index export to Pagenary's current v2
+ * contract. The migration is pure so the source artifact remains retryable.
+ * Already-current exports are returned unchanged.
+ *
+ * @param {object} index - Fortemi index export v1 or v2
+ * @returns {object} A v2 index export
+ */
+export function migrateFortemiIndexExport(index) {
+  if (!index || typeof index !== 'object' || Array.isArray(index)) {
+    throw new TypeError('Fortemi index export must be an object');
+  }
+  if (index.schema_version === FORTEMI_INDEX_SCHEMA) return index;
+  if (index.schema_version !== 'aiwg.fortemi.index.export.v1') {
+    throw new Error(`Unsupported Fortemi index schema: ${String(index.schema_version)}`);
+  }
+  if (!Array.isArray(index.items)) {
+    throw new TypeError('Fortemi index export items must be an array');
+  }
+
+  return {
+    ...index,
+    schema_version: FORTEMI_INDEX_SCHEMA,
+    source: index.source && typeof index.source === 'object'
+      ? { ...index.source }
+      : index.source,
+    compatibility: {
+      previous_schema_version: 'aiwg.fortemi.index.export.v1',
+      strategy: 'supported'
+    },
+    items: index.items.map((record, position) => {
+      if (!record || typeof record !== 'object' || Array.isArray(record)) {
+        throw new TypeError(`Fortemi index record at position ${position} must be an object`);
+      }
+      if (record.schema_version !== 'aiwg.fortemi.index.record.v1' &&
+          record.schema_version !== FORTEMI_RECORD_SCHEMA) {
+        throw new Error(
+          `Unsupported Fortemi record schema at position ${position}: ${String(record.schema_version)}`
+        );
+      }
+      return { ...record, schema_version: FORTEMI_RECORD_SCHEMA };
+    })
+  };
+}
+
+/**
  * Deterministic 64-bit FNV-1a hash, returned as zero-padded hex.
  * Stable across Node and browsers; no crypto dependency required.
  * @param {string} input

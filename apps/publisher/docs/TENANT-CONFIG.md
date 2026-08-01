@@ -102,6 +102,39 @@ image. `mobile`/`mobileSrc` and `desktop`/`desktopSrc` are accepted aliases.
 When no variants are provided, image media renders a plain `<img>` so existing
 single-image usage stays simple.
 
+Add `zoom: true` to an informative SVG, PNG, JPEG, or JPG media block to create
+an accessible bounded image viewport:
+
+````markdown
+```media
+type: image
+src: assets/architecture.svg
+alt: Three application tiers connected from browser to database
+label: Application architecture
+caption: Application architecture at a glance.
+description: Requests enter through the browser tier, pass through two API nodes, and finish in the primary database.
+zoom: true
+width: 1600
+height: 900
+```
+````
+
+The optional `label` names the viewer controls, `caption` is concise visible
+context, and `description` is a longer visible explanation associated with the
+image. They do not replace `alt`. Use an explicit `alt: ""` only for decorative
+static images; decorative images cannot enable the interactive viewport.
+`width` and `height` preserve intrinsic aspect ratio and reduce layout shift.
+
+For a simple Markdown image, append `{zoom}`:
+
+```markdown
+![Application architecture](assets/architecture.png){zoom}
+```
+
+The viewport is opt-in. It keeps the static image as its no-JavaScript fallback
+and supports buttons, pointer/pen drag, touch pan and pinch, and arrow-key pan.
+SVG, PNG, JPEG, and JPG filenames may include query strings or fragments.
+
 Native audio/video media renders semantic `<audio>` or `<video>` with controls,
 accessible labels, optional posters/captions/transcript links, and no autoplay.
 Hosted providers render as click-to-load buttons by default and swap to
@@ -658,6 +691,56 @@ not authorization; private docs still need hosting-layer access control. See
 **AI crawler signals:** `seo.aiCrawlers` emits an advisory `Content-Signal:` line
 in `robots.txt`. These preferences are not universal and do not guarantee AI
 training or generated-answer exclusion.
+
+#### Markdown delivery (`markdownDelivery`)
+
+Markdown delivery is opt-in. It emits a clean, deterministic Markdown
+representation for each eligible canonical page and a route map used by capable
+servers or edge adapters for HTTP content negotiation:
+
+```json
+{
+  "markdownDelivery": {
+    "enabled": true,
+    "contentNegotiation": true,
+    "directArtifacts": true,
+    "observability": {
+      "responseHeader": false
+    }
+  }
+}
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Emit `/markdown/<route>.md` and `markdown-routes.json` |
+| `contentNegotiation` | boolean | `true` | Let the preview server or an edge/origin adapter return Markdown when it is preferred by `Accept` |
+| `directArtifacts` | boolean | `true` | Publish directly addressable Markdown artifacts; setting this false disables generation and negotiation |
+| `observability.responseHeader` | boolean | `false` | Add `X-Pagenary-Representation: html\|markdown` on negotiable routes without logging request headers |
+
+For example:
+
+```bash
+curl -H 'Accept: text/markdown, text/html;q=0.5' \
+  https://docs.example.com/pages/guides--install.html
+```
+
+The negotiated response uses `Content-Type: text/markdown; charset=utf-8`,
+`Vary: Accept`, `Content-Location`, and an `ETag`. HTML wins equal-quality ties;
+`text/markdown;q=0` explicitly excludes Markdown. Requests without `Accept` and
+normal browser requests continue receiving HTML.
+
+Markdown-authored pages retain their frontmatter-free authored structure and
+normalized internal links. HTML, generated, collection, JavaScript-module, and
+React-SPA pages use their static semantic content. Application chrome, scripts,
+styles, and generated viewer controls are excluded. Code fences, tables, links,
+image alt text, captions, and descriptions remain in the text representation.
+
+`limited`, `locked`, and `seo.noIndex: true` disable Markdown output even when
+the feature is requested, and stale artifacts are removed on the next build.
+These settings are publication controls, not authorization; private sites still
+need hosting-layer access control. See [Deployment](DEPLOYMENT.md#markdown-content-negotiation)
+for preview, static-host, and Cloudflare behavior.
 
 #### Export (`export`)
 
@@ -1262,9 +1345,11 @@ Mermaid diagrams render with interactive controls:
 **Features:**
 - **Zoom controls**: +/− buttons for zoom in/out
 - **Reset button**: ⊙ restores original view
-- **Pan**: Click and drag to move diagram
+- **Keyboard pan**: Focus the viewport and use arrow keys (Shift uses larger steps)
+- **Pan**: Pointer or pen drag to move the diagram
 - **Pinch zoom**: Touch devices support pinch gestures
 - **Auto-scroll**: Diagrams larger than viewport are scrollable
+- **Shared behavior**: The same bounded 50–300% controller powers interactive images
 
 **Supported diagram types:**
 - Flowcharts (`graph`, `flowchart`)

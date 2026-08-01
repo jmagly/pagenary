@@ -52,3 +52,23 @@ and appear instantly under reduced motion.
 Every effect degrades to a complete, readable page. The hero is a static banner,
 the reveal cards are visible, and the CTA band is a plain link list — all without
 JavaScript.
+
+## Inspect a detailed image
+
+This SVG uses the same bounded zoom, pan, and reset controls as Mermaid diagrams.
+The image and its text remain visible if JavaScript is unavailable.
+
+```media
+type: image
+src: assets/images/hero-2.svg
+alt: Layered blue geometric panels illustrating a living documentation system
+label: Living documentation illustration
+caption: An SVG illustration with an interactive detail viewport.
+description: Overlapping panels represent documentation layers that can be inspected independently while remaining part of one published site.
+zoom: true
+width: 1600
+height: 900
+```
+
+The same authoring option accepts PNG, JPEG, and JPG sources. Use the format best
+suited to the content; the controls and text semantics are identical.

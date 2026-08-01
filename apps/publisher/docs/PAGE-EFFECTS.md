@@ -168,6 +168,18 @@ visible** — zoom is an enhancement. With JS, the image becomes a `<button>` an
 opens a native `<dialog>` (`showModal()`), which gives the focus trap, `Esc`-to-
 close, inert backdrop, and focus-restore for free. No autoplaying motion.
 
+Use figure zoom when readers only need a larger modal copy. For maps, technical
+drawings, screenshots, and other detail-heavy images that need incremental zoom
+and pan, use an [interactive image viewport](TENANT-CONFIG.md#media-blocks)
+instead. Its controls match Mermaid diagrams: Zoom out, Reset view, and Zoom in;
+the focused viewport pans with the arrow keys (hold Shift for larger steps),
+pointer or pen drag, single-touch drag after zooming, and two-finger pinch.
+
+The viewport clamps zoom to 50–300%, never intercepts browser zoom shortcuts,
+and leaves ordinary one-finger page scrolling available at the initial scale.
+Reset restores 100% and the initial top-left position. With JavaScript disabled,
+the same image, alternative text, caption, and description remain readable.
+
 ### Scroll-snap sections
 
 A `.pe-snap` region snaps its `.pe-snap__panel` children as you scroll it — a

@@ -199,6 +199,30 @@ describe('generateSitemap (#15)', () => {
 });
 
 describe('generateStaticSnapshots (#120)', () => {
+  test('generates a static fallback for the dynamic blog index', async () => {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-static-blog-'));
+    try {
+      await fsp.mkdir(path.join(dir, 'sections'), { recursive: true });
+      await fsp.writeFile(
+        path.join(dir, 'sections', 'blog.js'),
+        'export const load = () => loadBlogIndex({ collection: "posts" });\n',
+        'utf8'
+      );
+      const manifest = [{
+        id: 'blog', title: 'Updates', summary: 'Latest releases.', module: './sections/blog.js'
+      }];
+
+      await generateStaticSnapshots(dir, manifest, { title: 'Docs', domain: 'docs.example' });
+
+      const html = await fsp.readFile(path.join(dir, 'pages', 'blog.html'), 'utf8');
+      expect(html).toContain('<h1>Updates</h1>');
+      expect(html).toContain('Latest releases.');
+      expect(html).toContain('interactive blog index');
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test('rewrites docbase hash links to generated static page counterparts', async () => {
     const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-static-links-'));
     try {

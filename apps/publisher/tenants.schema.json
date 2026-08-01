@@ -284,6 +284,10 @@
           "$ref": "#/definitions/seoConfig",
           "description": "SEO, crawl, and search visibility controls"
         },
+        "markdownDelivery": {
+          "$ref": "#/definitions/markdownDeliveryConfig",
+          "description": "Optional per-route Markdown artifacts and Accept-header content negotiation"
+        },
         "export": {
           "$ref": "#/definitions/exportConfig",
           "description": "Print/PDF export controls"
@@ -716,6 +720,39 @@
         }
       },
       "additionalProperties": true
+    },
+    "markdownDeliveryConfig": {
+      "type": "object",
+      "description": "Agent-friendly Markdown representation delivery. Restrictive discoverability profiles and seo.noIndex disable output as a safety floor.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Generate deterministic per-route Markdown representations"
+        },
+        "contentNegotiation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow capable servers/adapters to select Markdown when Accept prefers text/markdown"
+        },
+        "directArtifacts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Emit directly addressable /markdown/*.md artifacts. Required by negotiated delivery."
+        },
+        "observability": {
+          "type": "object",
+          "properties": {
+            "responseHeader": {
+              "type": "boolean",
+              "default": false,
+              "description": "Expose X-Pagenary-Representation: html|markdown without logging request headers"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "themePickerConfig": {
       "type": "object",

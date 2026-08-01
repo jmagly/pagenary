@@ -2465,17 +2465,18 @@ mark.hl {
   overflow: hidden;
 }
 
-.mermaid-controls {
+.pan-zoom-controls {
   display: flex;
+  align-items: center;
   gap: 0.25rem;
   padding: 0.5rem;
   background: rgba(var(--ink-rgb), 0.03);
   border-bottom: 1px solid var(--grid-line);
 }
 
-.mermaid-btn {
-  width: 28px;
-  height: 28px;
+.pan-zoom-btn {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2489,25 +2490,52 @@ mark.hl {
   transition: background 0.15s, border-color 0.15s;
 }
 
-.mermaid-btn:hover {
+.pan-zoom-btn:hover:not(:disabled) {
   background: rgba(var(--ink-rgb), 0.05);
   border-color: var(--ink);
 }
 
-.mermaid-btn:active {
+.pan-zoom-btn:active:not(:disabled) {
   background: rgba(var(--ink-rgb), 0.1);
 }
 
-.mermaid-content {
+.pan-zoom-btn:focus-visible,
+.pan-zoom-viewport:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.pan-zoom-btn:disabled { cursor: not-allowed; opacity: 0.45; }
+.pan-zoom-status {
+  min-width: 3.5rem;
+  margin-inline-start: 0.25rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.pan-zoom-viewport {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 1rem;
   max-height: 70vh;
+  cursor: grab;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
+
+.pan-zoom-viewport.is-panning,
+.pan-zoom-viewport.is-zoomed { cursor: grabbing; touch-action: none; }
+
+.mermaid-content { padding: 1rem; }
 
 .mermaid-content svg {
   display: block;
-  transition: transform 0.15s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pan-zoom-viewport > img,
+  .pan-zoom-viewport > picture,
+  .mermaid-content svg { transition: transform 0.15s ease; }
 }
 
 .mermaid-diagram svg {
@@ -2649,6 +2677,35 @@ pre:has(code.language-mermaid)::after {
   margin: 0.75rem 0 0;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.media-block--image img { display: block; max-width: 100%; height: auto; }
+.media-block--image picture { display: block; }
+.media-block--image[data-image-viewport] {
+  overflow: hidden;
+  border: 1px solid var(--grid-line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.media-block--image[data-image-viewport] .image-viewport-content {
+  min-height: 12rem;
+  max-height: min(70vh, 48rem);
+  padding: 1rem;
+}
+.media-block--image[data-image-viewport] figcaption,
+.media-block--image[data-image-viewport] .media-description {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--grid-line);
+}
+.media-description { color: var(--muted); font-size: 0.9rem; }
+
+@media (forced-colors: active) {
+  .pan-zoom-controls,
+  .pan-zoom-btn,
+  .media-block--image[data-image-viewport] { border-color: CanvasText; }
+  .pan-zoom-btn:focus-visible,
+  .pan-zoom-viewport:focus-visible { outline-color: Highlight; }
 }
 
 .media-transcript {

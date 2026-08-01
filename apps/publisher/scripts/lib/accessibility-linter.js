@@ -33,12 +33,17 @@ function htmlBlocksAndMarkdown(body) {
   const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
   let inFence = false;
   let fenceLang = '';
+  let fenceMarker = '';
   let fenceLines = [];
 
   for (const line of lines) {
-    const fence = /^\s*```([A-Za-z0-9_-]*)/.exec(line);
+    const fence = /^\s*(`{3,}|~{3,})([^`]*)$/.exec(line);
     if (fence) {
-      if (inFence) {
+      const marker = fence[1];
+      const isClosingFence = inFence &&
+        marker[0] === fenceMarker[0] && marker.length >= fenceMarker.length &&
+        !fence[2].trim();
+      if (isClosingFence) {
         if (fenceLang === 'html') {
           htmlBlocks.push(fenceLines.join('\n'));
         } else if (fenceLang === 'media') {
@@ -46,10 +51,16 @@ function htmlBlocksAndMarkdown(body) {
         }
         inFence = false;
         fenceLang = '';
+        fenceMarker = '';
         fenceLines = [];
-      } else {
+      } else if (!inFence) {
         inFence = true;
-        fenceLang = (fence[1] || '').trim().toLowerCase();
+        fenceMarker = marker;
+        fenceLang = (fence[2] || '').trim().split(/\s+/, 1)[0].toLowerCase();
+      } else {
+        // A shorter or differently styled marker inside a fence is example
+        // content, not a delimiter (CommonMark fenced-code semantics).
+        fenceLines.push(line);
       }
       continue;
     }
@@ -110,6 +121,10 @@ function lineForOffset(text, offset) {
   return String(text || '').slice(0, offset).split(/\r?\n/).length;
 }
 
+function maskInlineCode(markdown) {
+  return String(markdown || '').replace(/(`+)([^`\n]*?)\1/g, (match) => ' '.repeat(match.length));
+}
+
 function hasAttribute(tag, name) {
   return new RegExp(`\\s${name}(?:\\s*=|\\s|>)`, 'i').test(tag);
 }
@@ -156,14 +171,25 @@ function lintHeadings(markdown, context, findings) {
 function lintMarkdownImages(markdown, context, findings) {
   for (const match of markdown.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)) {
     const alt = match[1].trim();
-    if (alt) continue;
-    addFinding(findings, context, {
-      rule: 'image-alt',
-      severity: 'error',
-      line: lineForOffset(markdown, match.index || 0),
-      message: 'Image is missing alt text.',
-      remediation: 'Add concise alt text, or use authored HTML with alt="" only for a truly decorative image.'
-    });
+    const line = lineForOffset(markdown, match.index || 0);
+    if (!alt) {
+      addFinding(findings, context, {
+        rule: 'image-alt', severity: 'error', line,
+        message: 'Image is missing alt text.',
+        remediation: 'Add concise alt text, or use authored HTML with alt="" only for a truly decorative image.'
+      });
+    }
+    const suffix = markdown.slice((match.index || 0) + match[0].length);
+    if (suffix.startsWith('{zoom}')) {
+      const cleanSrc = match[2].split(/[?#]/, 1)[0].toLowerCase();
+      if (!/\.(?:svg|png|jpe?g)$/.test(cleanSrc)) {
+        addFinding(findings, context, {
+          rule: 'image-viewport-format', severity: 'error', line,
+          message: 'Interactive Markdown image supports SVG, PNG, JPEG, and JPG sources only.',
+          remediation: 'Use a supported image format or remove {zoom}.'
+        });
+      }
+    }
   }
 }
 
@@ -271,15 +297,18 @@ function lintRawHtml(html, context, findings, offsetLine = 0) {
     { regex: /javascript\s*:/gi, label: 'javascript: URL' },
     { regex: /\stabindex\s*=\s*["']?[1-9]\d*/gi, label: 'positive tabindex' }
   ];
-  for (const pattern of riskyPatterns) {
-    for (const match of text.matchAll(pattern.regex)) {
-      addFinding(findings, context, {
-        rule: 'risky-raw-html',
-        severity: 'warning',
-        line: offsetLine + lineForOffset(text, match.index || 0),
-        message: `Raw HTML uses ${pattern.label}.`,
-        remediation: 'Prefer semantic markup and external scripts; avoid focus-order overrides and inline JavaScript.'
-      });
+  for (const tagMatch of text.matchAll(/<[^>]+>/g)) {
+    for (const pattern of riskyPatterns) {
+      if (pattern.regex.global) pattern.regex.lastIndex = 0;
+      if (pattern.regex.test(tagMatch[0])) {
+        addFinding(findings, context, {
+          rule: 'risky-raw-html',
+          severity: 'warning',
+          line: offsetLine + lineForOffset(text, tagMatch.index || 0),
+          message: `Raw HTML uses ${pattern.label}.`,
+          remediation: 'Prefer semantic markup and external scripts; avoid focus-order overrides and inline JavaScript.'
+        });
+      }
     }
   }
 }
@@ -292,6 +321,8 @@ function lintMediaBlocks(mediaBlocks, context, findings) {
     const isVideo = type === 'video' || type === 'embed' || type === 'youtube' || type === 'vimeo' || type === 'peertube';
     const isAudio = type === 'audio' || type === 'podcast' || type === 'narration';
     const isHosted = type === 'embed' || type === 'youtube' || type === 'vimeo' || type === 'peertube' || Boolean(def.provider);
+    const isImage = type === 'image' || type === 'picture' || type === 'img';
+    const viewportRequested = def.zoom === true || def.zoom === 'true' || def.viewport === true || def.viewport === 'true' || def.panZoom === true || def.panZoom === 'true';
 
     if (def._invalid) {
       addFinding(findings, context, {
@@ -304,7 +335,7 @@ function lintMediaBlocks(mediaBlocks, context, findings) {
       continue;
     }
 
-    if (!def.title && !def.label) {
+    if (!isImage && !def.title && !def.label) {
       addFinding(findings, context, {
         rule: 'media-title',
         severity: 'error',
@@ -312,6 +343,44 @@ function lintMediaBlocks(mediaBlocks, context, findings) {
         message: 'Media block is missing a title or label.',
         remediation: 'Add a title that gives the generated player or embed an accessible name.'
       });
+    }
+
+    if (isImage) {
+      const hasAlt = Object.prototype.hasOwnProperty.call(def, 'alt');
+      const alt = hasAlt ? String(def.alt ?? '') : '';
+      const sources = [
+        def.src || def.url || def.default || def.defaultSrc,
+        def.portrait || def.portraitSrc || def.mobile || def.mobileSrc,
+        def.landscape || def.landscapeSrc || def.desktop || def.desktopSrc
+      ].filter(Boolean).map((src) => String(src).split(/[?#]/, 1)[0].toLowerCase());
+      if (!hasAlt) {
+        addFinding(findings, context, {
+          rule: 'image-alt', severity: 'error', line,
+          message: 'Image media is missing explicit alt text.',
+          remediation: 'Add concise alt text, or declare alt: "" for a truly decorative static image.'
+        });
+      }
+      if (alt === '' && (def.description || viewportRequested)) {
+        addFinding(findings, context, {
+          rule: 'image-decoration-conflict', severity: 'error', line,
+          message: 'A decorative image cannot have a description or interactive viewport.',
+          remediation: 'Add meaningful alt text for informative content, or remove description/zoom from the decorative image.'
+        });
+      }
+      if (viewportRequested && (!sources.length || sources.some((src) => !/\.(?:svg|png|jpe?g)$/.test(src)))) {
+        addFinding(findings, context, {
+          rule: 'image-viewport-format', severity: 'error', line,
+          message: 'Interactive image viewport supports SVG, PNG, JPEG, and JPG sources only.',
+          remediation: 'Use a supported source format or remove zoom: true.'
+        });
+      }
+      if (viewportRequested && (def.link || def.href)) {
+        addFinding(findings, context, {
+          rule: 'image-viewport-link', severity: 'error', line,
+          message: 'Interactive image viewport cannot also be configured as a link.',
+          remediation: 'Remove the image link or use a separate descriptive link beside the viewport.'
+        });
+      }
     }
 
     if (def.autoplay === true || def.autoplay === 'true') {
@@ -375,7 +444,7 @@ export function lintContentAccessibility(raw, context = {}) {
   lintMarkdownImages(markdown, context, findings);
   lintMarkdownLinks(markdown, context, findings);
   lintMarkdownTables(markdown, context, findings);
-  lintRawHtml(markdown, { ...context, htmlIds: new Map() }, findings);
+  lintRawHtml(maskInlineCode(markdown), { ...context, htmlIds: new Map() }, findings);
   if (html) lintRawHtml(html, { ...context, htmlIds: new Map() }, findings);
   lintMediaBlocks(mediaBlocks, context, findings);
 

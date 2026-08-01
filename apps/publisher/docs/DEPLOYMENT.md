@@ -283,6 +283,78 @@ For local preview of a deploy-oriented build, serve it at the matching mount:
 pagenary serve --mount /server
 ```
 
+## Markdown Content Negotiation
+
+Enable Markdown representations per tenant:
+
+```json
+{
+  "markdownDelivery": {
+    "enabled": true,
+    "contentNegotiation": true,
+    "directArtifacts": true
+  }
+}
+```
+
+The build emits `/markdown/<route>.md` plus `markdown-routes.json`. Direct
+artifact URLs work on S3, GitHub/Gitea Pages, Netlify, Vercel static output,
+plain Caddy `file_server`, and other static hosts. Static file hosting alone
+cannot inspect `Accept`, so it cannot transparently return Markdown from the
+HTML route.
+
+The bundled preview server supports negotiation:
+
+```bash
+npm run serve
+curl -H 'Accept: text/markdown, text/html;q=0.5' \
+  http://localhost:5173/my-tenant/pages/guides--install.html
+```
+
+Negotiable HTML and Markdown responses include `Vary: Accept`; configure every
+proxy/CDN cache key to honor that header. Both representations use validators,
+and `HEAD` returns the selected representation headers without a body. Do not
+strip `Vary` or collapse HTML and Markdown into one cached object.
+
+### Cloudflare Pages/Workers
+
+The production reference adapter is
+`examples/cloudflare/markdown-negotiation-worker.js`. Bind the deployed static
+site as `ASSETS` and route page requests through its exported `onRequest`:
+
+```toml
+# wrangler.toml
+name = "pagenary-docs"
+compatibility_date = "2026-07-01"
+
+[assets]
+directory = "./dist/my-tenant"
+binding = "ASSETS"
+
+[vars]
+PAGENARY_BASE_PATH = ""
+```
+
+For a subpath deployment such as `/docs`, set `PAGENARY_BASE_PATH = "/docs"`.
+The adapter reads the generated route map, applies quality/specificity rules,
+honors `q=0`, lets HTML win ties, preserves asset ETags, and adds
+`Content-Type`, `Content-Location`, and `Vary`. It does not depend on a paid
+runtime HTML-conversion feature because Markdown is generated during the build.
+
+When `markdownDelivery.observability.responseHeader` is true, the preview and
+Cloudflare adapters add `X-Pagenary-Representation: html|markdown`. Operators
+may count that bounded value in access metrics. It is off by default; never log
+full negotiation headers or use them for client fingerprinting.
+
+### Caddy and other origins
+
+Plain Caddy can serve `/markdown/*.md` directly. Correct quality-aware
+negotiation requires an application/edge handler (or a Caddy plugin) that reads
+`markdown-routes.json`; a substring header matcher is insufficient because it
+would mishandle quality values and `text/markdown;q=0`. Put the Cloudflare
+adapter or an equivalent tested origin handler in front when same-URL
+negotiation is required.
+
 ## Cache Strategy
 
 Pagenary emits content-addressed runtime URLs by default. The shell `index.html`
@@ -306,7 +378,7 @@ CloudFront, nginx caches, and most static hosts that honor HTTP caching headers.
 | content-hashed JS/CSS/assets/search parts | `Cache-Control: public, max-age=31536000, immutable` |
 | stable compatibility files (`app.js`, `manifest.js`, `sections/<id>.js`) | `Cache-Control: public, max-age=300, must-revalidate` or bypass if no direct clients use them |
 | lightweight discovery manifests (`search-index/manifest.json`, `search-index/metadata.json`) | `Cache-Control: public, max-age=300, must-revalidate` |
-| `pages/*.html`, `sitemap.xml`, `robots.txt`, `llms.txt`, collection feeds | `Cache-Control: public, max-age=300, must-revalidate` |
+| `pages/*.html`, `markdown/*.md`, `markdown-routes.json`, `sitemap.xml`, `robots.txt`, `llms.txt`, collection feeds | `Cache-Control: public, max-age=300, must-revalidate` |
 
 Add `ETag` headers when your server supports them. ETags make revalidation cheap:
 after `max-age` expires, the CDN can ask the origin whether a file changed and

@@ -4,6 +4,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import url from 'url';
+import { prefersMarkdown } from './lib/accept-negotiation.js';
 
 const root = path.join(process.cwd(), 'dist');
 const port = Number(process.env.PORT || 5173);
@@ -18,6 +19,8 @@ const MIME = {
   '.js': 'application/javascript; charset=utf-8',
   '.mjs': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png'
 };
@@ -120,6 +123,44 @@ const server = http.createServer((req, res) => {
 
   // Determine the root directory for this request
   const requestRoot = path.join(root, tenant);
+  const markdownRoutes = readMarkdownRoutes(requestRoot);
+  const routeKey = normalizeRouteKey(localPath);
+  const markdownRoute = markdownRoutes?.contentNegotiation === true
+    ? markdownRoutes.routes?.[routeKey]
+    : null;
+  const negotiableHeaders = markdownRoute
+    ? {
+        Vary: 'Accept',
+        ...(markdownRoutes.observability?.responseHeader === true
+          ? { 'X-Pagenary-Representation': 'html' }
+          : {})
+      }
+    : {};
+
+  if ((req.method === 'GET' || req.method === 'HEAD') && markdownRoute && prefersMarkdown(req.headers.accept)) {
+    const artifact = String(markdownRoute.artifact || '');
+    const artifactPath = safeArtifactPath(requestRoot, artifact);
+    if (!artifactPath) {
+      res.writeHead(500).end('Invalid Markdown route mapping');
+      return;
+    }
+    fs.stat(artifactPath, (error, artifactStat) => {
+      if (error || !artifactStat.isFile()) {
+        res.writeHead(404).end('Not Found');
+        return;
+      }
+      const routePrefix = pathname.slice(0, Math.max(0, pathname.length - localPath.length)).replace(/\/$/, '');
+      const contentLocation = `${routePrefix}${markdownRoute.canonical || localPath}` || '/';
+      streamFile(artifactPath, req, res, {
+        Vary: 'Accept',
+        'Content-Location': contentLocation,
+        ...(markdownRoutes.observability?.responseHeader === true
+          ? { 'X-Pagenary-Representation': 'markdown' }
+          : {})
+      }, artifactStat);
+    });
+    return;
+  }
 
   // Resolve the local path within the tenant/root directory
   let resolvedPath = localPath === '/' ? '/index.html' : localPath;
@@ -139,7 +180,7 @@ const server = http.createServer((req, res) => {
           res.writeHead(404).end('Not Found');
           return;
         }
-        return streamFile(filePath, res);
+        return streamFile(filePath, req, res, negotiableHeaders, idxStat);
       });
       return;
     }
@@ -153,22 +194,69 @@ const server = http.createServer((req, res) => {
             res.writeHead(404).end('Not Found');
             return;
           }
-          streamFile(htmlFallback, res);
+          streamFile(htmlFallback, req, res, negotiableHeaders, htmlStat);
         });
       }
       res.writeHead(404).end('Not Found');
       return;
     }
-    streamFile(filePath, res);
+    streamFile(filePath, req, res, negotiableHeaders, stat);
   });
 });
 
-function streamFile(target, res) {
+function normalizeRouteKey(localPath) {
+  const value = String(localPath || '/').replace(/\/{2,}/g, '/');
+  if (value === '/') return '/';
+  return value.endsWith('/') ? value.slice(0, -1) : value;
+}
+
+function safeArtifactPath(requestRoot, artifact) {
+  if (!/^\/markdown\/[a-zA-Z0-9._-]+\.md$/.test(artifact)) return null;
+  const resolvedRoot = path.resolve(requestRoot);
+  const candidate = path.resolve(requestRoot, `.${artifact}`);
+  return candidate.startsWith(`${resolvedRoot}${path.sep}`) ? candidate : null;
+}
+
+function readMarkdownRoutes(requestRoot) {
+  try {
+    const manifestPath = path.join(requestRoot, 'markdown-routes.json');
+    const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    return parsed && parsed.version === 1 && parsed.routes && typeof parsed.routes === 'object'
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function streamFile(target, req, res, extraHeaders = {}, knownStat = null) {
   const ext = path.extname(target).toLowerCase();
-  const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
-  headers['Cache-Control'] = DEV ? 'no-store' : (ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable');
-  res.writeHead(200, headers);
-  fs.createReadStream(target).pipe(res);
+  const send = (stat) => {
+    const etag = `W/"${stat.size.toString(16)}-${Math.trunc(stat.mtimeMs).toString(16)}"`;
+    const headers = {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
+      ETag: etag,
+      ...extraHeaders
+    };
+    const revalidated = ext === '.html' || ext === '.md' || path.basename(target) === 'markdown-routes.json';
+    headers['Cache-Control'] = DEV ? 'no-store' : (revalidated ? 'public, max-age=300, must-revalidate' : 'public, max-age=31536000, immutable');
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, headers);
+      res.end();
+      return;
+    }
+    res.writeHead(200, headers);
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+    fs.createReadStream(target).pipe(res);
+  };
+  if (knownStat) send(knownStat);
+  else fs.stat(target, (error, stat) => {
+    if (error || !stat.isFile()) res.writeHead(404).end('Not Found');
+    else send(stat);
+  });
 }
 
 server.listen(port, host, () => {
