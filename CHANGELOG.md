@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.8.2] - 2026-08-02
+
+### Fixed
+
+- Lazy-load the optional Fortémi Knowledge Shard converter so static and
+  brochureware consumers with an older Fortémi runtime can build when shard
+  output is disabled (#147).
+
 ## [2026.8.1] - 2026-08-02
 
 ### Added
