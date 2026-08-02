@@ -288,6 +288,10 @@
           "$ref": "#/definitions/markdownDeliveryConfig",
           "description": "Optional per-route Markdown artifacts and Accept-header content negotiation"
         },
+        "knowledgeShard": {
+          "$ref": "#/definitions/knowledgeShardConfig",
+          "description": "Optional deterministic build-time Fortémi Knowledge Shard export"
+        },
         "export": {
           "$ref": "#/definitions/exportConfig",
           "description": "Print/PDF export controls"
@@ -750,6 +754,29 @@
             }
           },
           "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "knowledgeShardConfig": {
+      "type": "object",
+      "description": "Build-only Fortémi Knowledge Shard export. Dependencies remain outside browser bundles.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "profile": {
+          "type": "string",
+          "enum": ["core-v1", "full-v1"],
+          "default": "core-v1",
+          "description": "core-v1 preserves the Pagenary index exactly; full-v1 fails unless authority conversion is lossless"
+        },
+        "output": {
+          "type": "string",
+          "default": "fortemi/tenant.knowledge-shard.tar.gz",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$",
+          "description": "Safe relative output path inside the tenant bundle"
         }
       },
       "additionalProperties": false

@@ -13,6 +13,10 @@
     "renderer": "svg",
     "title": "Docs Map"
   },
+  "knowledgeShard": {
+    "enabled": true,
+    "profile": "core-v1"
+  },
   "share": {
     "enabled": true,
     "native": "auto",

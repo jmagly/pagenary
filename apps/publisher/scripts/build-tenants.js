@@ -18,6 +18,7 @@ import {
 } from './lib/seo-generator.js';
 import { generateCollections } from './lib/collections-generator.js';
 import { generateMarkdownArtifacts, resolveMarkdownDeliveryConfig } from './lib/markdown-delivery.js';
+import { generateKnowledgeShardArtifacts } from './lib/knowledge-shard.js';
 import { estimateReadingLength, parseFrontmatter } from './lib/frontmatter.js';
 import {
   formatAccessibilityFinding,
@@ -6044,6 +6045,10 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
   // Generate negotiated Markdown only after collections and React/static
   // snapshots exist so every eligible route can use its final rendered fallback.
   await generateMarkdownArtifacts(distDir, resolvedSeoConfig);
+
+  // Optional build-only Fortémi Knowledge Shard export. This consumes the
+  // deterministic static search index and never enters the browser runtime.
+  await generateKnowledgeShardArtifacts(distDir, config);
 
   await finalizeContentAddressedBundle(distDir, tenantId, config);
 

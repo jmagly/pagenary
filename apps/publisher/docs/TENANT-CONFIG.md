@@ -742,6 +742,38 @@ These settings are publication controls, not authorization; private sites still
 need hosting-layer access control. See [Deployment](DEPLOYMENT.md#markdown-content-negotiation)
 for preview, static-host, and Cloudflare behavior.
 
+#### Knowledge Shard export (`knowledgeShard`)
+
+Tenants can opt into a deterministic, build-only Fortémi Knowledge Shard made
+from the same validated static index used by search:
+
+```json
+{
+  "knowledgeShard": {
+    "enabled": true,
+    "profile": "core-v1",
+    "output": "fortemi/tenant.knowledge-shard.tar.gz"
+  }
+}
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Emit the shard and verification sidecars |
+| `profile` | string | `core-v1` | `core-v1` preserves the static index exactly; `full-v1` fails unless authority conversion is lossless |
+| `output` | string | `fortemi/tenant.knowledge-shard.tar.gz` | Safe relative path inside the tenant bundle |
+
+The build also writes `<output>.sha256` and `<output>.provenance.json`. The
+provenance receipt records the source schema/build hash, profile, record count,
+archive size, digest, reproducibility, and round-trip result. Build logs report
+records, bytes, duration, and the digest prefix. Conversion runs twice and fails
+if the archive is not byte-reproducible or the source index does not round-trip.
+
+This feature imports Fortémi conversion dependencies only in the Node build
+toolchain. It does not add Ajv, fflate, uuid, PGlite, WASM, workers, or database
+files to browser runtime assets. Native attachment/blob sidecars remain a
+separate opt-in concern and are not inferred from referenced images or downloads.
+
 #### Export (`export`)
 
 The header's **Export** button compiles the current page or the whole site into a

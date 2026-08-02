@@ -122,6 +122,11 @@ record/index shape comes from the vendored `@fortemi/core` engine
 are byte-identical — and failure is non-fatal (search degrades to the in-browser
 fallback). See `.aiwg/architecture/adr/ADR-015-fortemi-core-search-adapter.md`.
 
+When `knowledgeShard.enabled` is true, the Node-only build then reconstructs the
+validated export from those chunk parts and emits a deterministic Knowledge
+Shard plus SHA-256 and provenance sidecars. Shard conversion is a hard build
+gate when explicitly enabled; converter dependencies never enter browser code.
+
 ### Build Flow
 
 ```text
@@ -134,6 +139,8 @@ resolve source
   -> generate Fortemi search index (search-index/)
   -> generate SEO artifacts
   -> generate collection manifests/feeds
+  -> optionally emit Knowledge Shard + digest/provenance
+  -> finalize content-addressed bundle
   -> copy or sync to target
 ```
 

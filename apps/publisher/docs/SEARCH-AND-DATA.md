@@ -48,6 +48,12 @@ and facets resolve without re-shipping full document text.
 is byte-for-byte reproducible. No server, no runtime index build, no per-query
 cost.
 
+**Portable build artifact.** Set `knowledgeShard.enabled: true` to publish the
+validated static corpus as a deterministic Fortémi `1.2.0/core-v1` Knowledge
+Shard. Pagenary emits the archive, a SHA-256 manifest, and a provenance receipt,
+and verifies byte reproducibility plus exact source-index round-trip during the
+build. The converter stays entirely in the Node build toolchain.
+
 ## The flexibility
 
 The capability you see in Pagenary is the floor, not the ceiling. Because
@@ -62,9 +68,10 @@ far richer interactive experience:
   tags.
 - **Bring your own graph.** `@fortemi/graph` exposes layout, filtering, and
   neighborhood expansion you can drive directly.
-- **Server parity.** Import/export Knowledge Shards for round-trip parity with
-  the self-hosted [Fortémi Rust server](https://docs.fortemi.com/server/) — start
-  in the browser, graduate to a server without reformatting your data.
+- **Server parity.** Import the optional build-time Knowledge Shard into the
+  self-hosted [Fortémi Rust server](https://docs.fortemi.com/server/) for
+  round-trip parity. Runtime authoring/import belongs to the opt-in record tier;
+  the default static tenant remains read-only and dependency-light.
 
 For the full surface — hooks, providers, and core APIs — see the Fortémi
 [API Reference](https://docs.fortemi.com/react/#api-reference).
