@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "pagenary.brochure.content.v1",
+  "templateClass": "portfolio-brochure",
+  "site": {
+    "title": "Northstar Studio",
+    "description": "Product strategy and delivery for growing teams.",
+    "canonicalUrl": "https://northstar.example",
+    "language": "en",
+    "socialImage": "/assets/social-card.png"
+  },
+  "entities": {
+    "profile": { "id": "studio", "name": "Northstar Studio", "tagline": "Make the next move clear." },
+    "offers": [{ "id": "strategy", "title": "Product strategy", "summary": "A focused product direction.", "showPrice": false }],
+    "projects": [{ "id": "atlas", "title": "Atlas", "summary": "A clearer operating model.", "featured": true }],
+    "experience": [{ "id": "delivery", "title": "Delivery leadership", "period": "2018–present" }],
+    "updates": [{ "id": "hello", "title": "Hello", "date": "2026-01-01", "summary": "Studio launch notes." }],
+    "links": [{ "id": "email", "label": "Email", "url": "mailto:hello@northstar.example" }]
+  },
+  "routeManifest": [
+    { "id": "home", "path": "/", "role": "home", "title": "Northstar Studio", "summary": "Product strategy and delivery.", "entityRefs": ["profile.studio", "offers.strategy", "projects.atlas"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
+    { "id": "about", "path": "/about", "role": "about", "title": "About", "summary": "Experience and approach.", "entityRefs": ["profile.studio", "experience.delivery"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
+    { "id": "updates", "path": "/updates", "role": "updates", "title": "Updates", "summary": "Recent studio notes.", "entityRefs": ["updates.hello"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
+    { "id": "contact", "path": "/contact", "role": "contact", "title": "Contact", "summary": "Start a conversation.", "entityRefs": ["links.email"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } }
+  ],
+  "extensions": { "northstar.example/brand": { "tone": "direct" } }
+}
