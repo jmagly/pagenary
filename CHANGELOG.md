@@ -6,6 +6,14 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.8.1] - 2026-08-02
+
+### Added
+
+- Added constrained tenant-local React adapter resolution so an existing SPA
+  can retain its own Vite build and UX while using Pagenary's brochureware
+  artifact pipeline (#147).
+
 ## [2026.8.0] - 2026-08-02
 
 ### Added
