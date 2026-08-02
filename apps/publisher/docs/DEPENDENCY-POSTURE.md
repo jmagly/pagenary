@@ -134,6 +134,10 @@ must prove PGlite stays behind Fortemi's optional dynamic path.
 
 Build-time shard output has two deliberately distinct contracts:
 
+The Fortémi shard converter is loaded only when `knowledgeShard.enabled` is
+true. Static and brochureware consumers do not need to install or align the
+build-only Fortémi converter subpaths when shard output is disabled.
+
 - `1.2.0/core-v1` is the reversible compatibility adapter. Pagenary removes its
   closed-schema static extensions (`source.build_hash` and `delivery_assets`)
   before conversion and verifies the projected index round-trips exactly.

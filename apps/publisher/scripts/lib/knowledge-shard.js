@@ -1,10 +1,6 @@
 import crypto from 'node:crypto';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import {
-  prototypeCoreV1KnowledgeShard,
-  prototypeFullV1KnowledgeShard,
-} from './fortemi-shard-prototype.js';
 
 const DEFAULT_OUTPUT = 'fortemi/tenant.knowledge-shard.tar.gz';
 
@@ -54,6 +50,10 @@ export async function loadSearchIndexExport(distDir) {
 export async function emitKnowledgeShardArtifacts(distDir, index, config = {}) {
   const resolved = resolveKnowledgeShardConfig(config);
   if (!resolved.enabled) return { enabled: false };
+  const {
+    prototypeCoreV1KnowledgeShard,
+    prototypeFullV1KnowledgeShard,
+  } = await import('./fortemi-shard-prototype.js');
   if (!['core-v1', 'full-v1'].includes(resolved.profile)) {
     throw new Error(`Unsupported knowledgeShard.profile: ${resolved.profile}`);
   }
