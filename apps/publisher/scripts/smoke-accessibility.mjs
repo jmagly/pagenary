@@ -460,15 +460,125 @@ async function checkImageViewport(page) {
   });
   await page.emulateMedia({ forcedColors: null, reducedMotion: null });
 
+  const matrix = await page.evaluate(async () => {
+    const { initImageViewports } = await import(new URL('lib/pan-zoom.js', document.baseURI).href);
+    const host = document.createElement('div');
+    host.hidden = true;
+    document.body.appendChild(host);
+    const fixture = ({ src = 'fixture.svg', alt = 'Fixture', picture = false, linked = false }) => {
+      const figure = document.createElement('figure');
+      figure.dataset.imageViewport = '';
+      const image = document.createElement('img');
+      image.src = src;
+      image.alt = alt;
+      image.width = 800;
+      image.height = 450;
+      let media = image;
+      if (picture) {
+        const responsive = document.createElement('picture');
+        const source = document.createElement('source');
+        source.media = '(min-width: 1px)';
+        source.srcset = src;
+        responsive.append(source, image);
+        media = responsive;
+      }
+      if (linked) {
+        const link = document.createElement('a');
+        link.href = '#linked-image';
+        link.append(media);
+        media = link;
+      }
+      figure.append(media);
+      host.append(figure);
+      return figure;
+    };
+    const figures = [
+      fixture({ src: 'fixture.svg' }),
+      fixture({ src: 'fixture.png' }),
+      fixture({ src: 'fixture.jpeg' }),
+      fixture({ src: 'fixture.jpg', picture: true }),
+      fixture({ src: 'decorative.png', alt: '' }),
+      fixture({ src: 'linked.png', linked: true })
+    ];
+    const cleanup = initImageViewports(host);
+    const enhanced = figures.filter((figure) => figure.dataset.panZoomEnhanced === 'true');
+    const first = enhanced[0];
+    const second = enhanced[1];
+    const viewport = first.querySelector('.pan-zoom-viewport');
+    viewport.setPointerCapture = () => {};
+    first.querySelector('.pan-zoom-in').click();
+    const buttonZoom = first.querySelector('.pan-zoom-status').textContent;
+
+    const pointer = (type, init) => new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: init.pointerId,
+      pointerType: init.pointerType, clientX: init.clientX, clientY: init.clientY
+    });
+    viewport.dispatchEvent(pointer('pointerdown', { pointerId: 1, pointerType: 'mouse', clientX: 100, clientY: 60 }));
+    const dragMove = pointer('pointermove', { pointerId: 1, pointerType: 'mouse', clientX: 50, clientY: 30 });
+    viewport.dispatchEvent(dragMove);
+    viewport.dispatchEvent(pointer('pointerup', { pointerId: 1, pointerType: 'mouse', clientX: 50, clientY: 30 }));
+    const mouseDragHandled = dragMove.defaultPrevented;
+
+    const penDown = pointer('pointerdown', { pointerId: 7, pointerType: 'pen', clientX: 80, clientY: 40 });
+    viewport.dispatchEvent(penDown);
+    const penMove = pointer('pointermove', { pointerId: 7, pointerType: 'pen', clientX: 60, clientY: 20 });
+    viewport.dispatchEvent(penMove);
+    viewport.dispatchEvent(pointer('pointerup', { pointerId: 7, pointerType: 'pen', clientX: 60, clientY: 20 }));
+    const penDragHandled = penMove.defaultPrevented;
+
+    first.querySelector('.pan-zoom-reset').click();
+    const touchDown = pointer('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 20, clientY: 20 });
+    viewport.dispatchEvent(touchDown);
+    const touchMove = pointer('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 40, clientY: 40 });
+    viewport.dispatchEvent(touchMove);
+    viewport.dispatchEvent(pointer('pointerup', { pointerId: 2, pointerType: 'touch', clientX: 40, clientY: 40 }));
+    const touchScrollPreserved = !touchMove.defaultPrevented;
+
+    viewport.dispatchEvent(pointer('pointerdown', { pointerId: 3, pointerType: 'touch', clientX: 0, clientY: 0 }));
+    viewport.dispatchEvent(pointer('pointerdown', { pointerId: 4, pointerType: 'touch', clientX: 100, clientY: 0 }));
+    const pinchMove = pointer('pointermove', { pointerId: 4, pointerType: 'touch', clientX: 150, clientY: 0 });
+    viewport.dispatchEvent(pinchMove);
+    viewport.dispatchEvent(pointer('pointerup', { pointerId: 3, pointerType: 'touch', clientX: 0, clientY: 0 }));
+    viewport.dispatchEvent(pointer('pointerup', { pointerId: 4, pointerType: 'touch', clientX: 150, clientY: 0 }));
+    const pinchZoom = first.querySelector('.pan-zoom-status').textContent;
+    const independent = second.querySelector('.pan-zoom-status').textContent;
+    const responsivePreserved = enhanced[3].querySelector('.pan-zoom-viewport > picture > source') !== null;
+
+    cleanup();
+    const cleaned = enhanced.every((figure) => !figure.dataset.panZoomEnhanced
+      && !figure.querySelector('.pan-zoom-controls')
+      && !figure.querySelector('[role="region"]'));
+    host.remove();
+    return {
+      enhanced: enhanced.length,
+      decorativeSkipped: !figures[4].dataset.panZoomEnhanced,
+      linkedSkipped: !figures[5].dataset.panZoomEnhanced,
+      responsivePreserved,
+      buttonZoom,
+      mouseDragHandled,
+      penDragHandled,
+      touchScrollPreserved,
+      pinchZoom,
+      pinchHandled: pinchMove.defaultPrevented,
+      independent,
+      cleaned
+    };
+  });
+
   const valid = initial.buttons.join('|') === 'Zoom out|Reset view|Zoom in'
     && initial.groupName && initial.regionName && initial.focused && initial.keyboardHandled
     && initial.descriptions === 1 && initial.describedBy
     && zoomed.status === '125%' && zoomed.transform === 'scale(1.25)' && reset === '100%'
-    && !reflow.documentOverflow && reflow.controlsWithinViewport && reflow.focusOutline;
+    && !reflow.documentOverflow && reflow.controlsWithinViewport && reflow.focusOutline
+    && matrix.enhanced === 4 && matrix.decorativeSkipped && matrix.linkedSkipped
+    && matrix.responsivePreserved && matrix.buttonZoom === '125%'
+    && matrix.mouseDragHandled && matrix.penDragHandled && matrix.touchScrollPreserved
+    && matrix.pinchHandled && matrix.pinchZoom === '150%'
+    && matrix.independent === '100%' && matrix.cleaned;
   if (valid) pass(route, 'image-viewport-accessibility', 'keyboard, text association, zoom, and reset verified');
   else addFinding({
     route, selector: '[data-image-viewport]', rule: 'image-viewport-accessibility',
-    message: `Image viewport state ${JSON.stringify({ initial, zoomed, reset, reflow })}`,
+    message: `Image viewport state ${JSON.stringify({ initial, zoomed, reset, reflow, matrix })}`,
     remediation: 'Expose named controls/region, associated description, keyboard pan, deterministic zoom, and reset.'
   });
 }
