@@ -7,6 +7,7 @@ import { normalizeBlogIndex } from '../../../blog-client/src/index.js';
 import { assertAiwgFortemiChunkManifest, assertAiwgFortemiChunkPart } from '../../src/vendor/fortemi-aiwg-index.js';
 
 const fixtureUrl = new URL('../../examples/portfolio-brochure/content.json', import.meta.url);
+const registryUrl = new URL('../../examples/recipes.tenants.json', import.meta.url);
 
 describe('brochureware route coverage and corpus emission (#143 #144)', () => {
   let content;
@@ -56,5 +57,15 @@ describe('brochureware route coverage and corpus emission (#143 #144)', () => {
       .toEqual(await fsp.readFile(path.join(secondDir, 'documents.jsonl')));
     await expect(fsp.access(path.join(dir, 'brochure/pages/about.html'))).rejects.toThrow();
     await fsp.rm(secondDir, { recursive: true, force: true });
+  });
+
+  test('registers the independent portfolio fixture in the local/CI example build', async () => {
+    const registry = JSON.parse(await fsp.readFile(registryUrl, 'utf8'));
+    expect(registry.tenants).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'portfolio-brochure',
+        source: { type: 'local', path: './examples/portfolio-brochure' }
+      })
+    ]));
   });
 });
