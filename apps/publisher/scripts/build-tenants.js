@@ -870,8 +870,30 @@ function validateTenantRuntimeConfig(config = {}, sourceDir, tenantId) {
 
   const mode = normalizeRuntimeMode(config);
   const errors = [];
+  const fortemi = runtime.fortemi;
   if (!RUNTIME_MODES.has(mode)) {
     errors.push(`runtime.mode must be one of static, hybrid, react-spa; received "${runtime.mode}"`);
+  }
+  if (fortemi != null) {
+    if (!fortemi || typeof fortemi !== 'object' || Array.isArray(fortemi)) {
+      errors.push('runtime.fortemi must be an object');
+    } else {
+      if (!['record', 'pglite'].includes(fortemi.tier)) {
+        errors.push('runtime.fortemi.tier must be one of record, pglite');
+      }
+      if (fortemi.tier === 'record' && mode === 'static') {
+        errors.push('runtime.fortemi.tier "record" requires runtime.mode hybrid or react-spa');
+      }
+      if (fortemi.storage && !['idb', 'memory'].includes(fortemi.storage)) {
+        errors.push('runtime.fortemi.storage must be one of idb, memory');
+      }
+      if (fortemi.seed?.path) {
+        const seedPath = String(fortemi.seed.path);
+        if (path.isAbsolute(seedPath) || seedPath.split(/[\\/]+/).includes('..')) {
+          errors.push('runtime.fortemi.seed.path must stay inside the tenant bundle');
+        }
+      }
+    }
   }
   if (mode === 'static') {
     return errors.length ? { success: false, errors } : { success: true, mode, react: null };

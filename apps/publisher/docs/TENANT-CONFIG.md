@@ -774,6 +774,31 @@ toolchain. It does not add Ajv, fflate, uuid, PGlite, WASM, workers, or database
 files to browser runtime assets. Native attachment/blob sidecars remain a
 separate opt-in concern and are not inferred from referenced images or downloads.
 
+The optional writable browser record tier consumes that artifact without a
+database. It requires a hybrid/React runtime and remains tenant-local:
+
+```json
+{
+  "runtime": {
+    "mode": "hybrid",
+    "fortemi": {
+      "tier": "record",
+      "storage": "idb",
+      "seed": {
+        "type": "knowledge-shard",
+        "path": "fortemi/tenant.knowledge-shard.tar.gz"
+      }
+    }
+  }
+}
+```
+
+Tenant entries import `createPagenaryRecordRuntime` from
+`@pagenary/react/record-runtime`. Seed bytes are copied into the local
+RecordStore only when it is empty; browser edits never mutate the deployed
+artifact. The runtime exposes writable notes and record-v1 shard exchange and
+reports semantic, provenance, SKOS, and PGlite capabilities as unavailable.
+
 #### Export (`export`)
 
 The header's **Export** button compiles the current page or the whole site into a

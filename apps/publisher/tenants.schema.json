@@ -375,6 +375,10 @@
         "react": {
           "$ref": "#/definitions/reactRuntimeConfig",
           "description": "React adapter settings used when mode is hybrid or react-spa. Ignored in static mode."
+        },
+        "fortemi": {
+          "$ref": "#/definitions/fortemiRuntimeConfig",
+          "description": "Explicit opt-in Fortémi writable runtime tier."
         }
       },
       "additionalProperties": false
@@ -427,6 +431,39 @@
         }
       },
       "required": ["entry", "mount", "routes"],
+      "additionalProperties": false
+    },
+    "fortemiRuntimeConfig": {
+      "type": "object",
+      "properties": {
+        "tier": {
+          "type": "string",
+          "enum": ["record", "pglite"],
+          "description": "record selects the PGlite-free canonical record tier; pglite selects the derived database projection tier."
+        },
+        "storage": {
+          "type": "string",
+          "enum": ["idb", "memory"],
+          "default": "idb"
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "seed": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["knowledge-shard"] },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$"
+            }
+          },
+          "required": ["type", "path"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["tier"],
       "additionalProperties": false
     },
     "reactRuntimeRoute": {

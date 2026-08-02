@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.js",
     "./bake": "./src/bake.js",
-    "./docs-map": "./src/docs-map/index.jsx"
+    "./docs-map": "./src/docs-map/index.jsx",
+    "./record-runtime": "./src/record-runtime.js"
   },
   "files": [
     "src/",
@@ -23,6 +24,7 @@
     "node": ">=20.19 || >=22.12"
   },
   "dependencies": {
+    "@fortemi/core": "2026.7.15",
     "@fortemi/graph": "2026.7.15",
     "@fortemi/react": "2026.7.15",
     "@vitejs/plugin-react": "^5.0.0",

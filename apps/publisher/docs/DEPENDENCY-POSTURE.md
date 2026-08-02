@@ -92,12 +92,12 @@ Cost: a Vite build step, the newer Node floor, and ~200 KB of self-hosted JS on
 the routes that mount React. No external network is required at runtime — assets
 are hashed and served from your own host.
 
-## Tier 2 — Fortémi Record Tier (planned)
+## Tier 2 — Fortémi Record Tier
 
 Fortémi `2026.7.15` provides a writable canonical record tier that does not boot
 PGlite: `createRecordBackend`, `exportShardFromRecords`,
-`importShardToRecords`, and `projectRecords`. This is the next runtime posture
-to evaluate for Pagenary tenants that want writable notes, DB-free shard
+`importShardToRecords`, and `projectRecords`. Pagenary exposes the first three
+through `@pagenary/react/record-runtime` for tenants that want writable notes, DB-free shard
 import/export, or local review workflows without semantic search.
 
 Use it for living-docs annotations, local review notes, imported Knowledge
@@ -109,36 +109,25 @@ The accepted lifecycle, hierarchy guarantees, and Tier-3 projection boundary
 are defined in
 [`ADR-018`](../../../.aiwg/architecture/adr/ADR-018-fortemi-runtime-tier-projection.md).
 
-Config should remain tenant opt-in and static-host compatible. The current
-design sketch is:
+Configuration is tenant opt-in and static-host compatible:
 
 ```json
 {
   "runtime": {
     "mode": "hybrid",
     "fortemi": {
-      "tier": "records",
-      "records": {
-        "enabled": true,
-        "storage": "idb",
-        "seed": {
-          "from": ["search-index", "docs-map", "knowledge-shard"],
-          "knowledgeShardPath": "fortemi/tenant.knowledge-shard.tar.gz"
-        },
-        "features": {
-          "localNotes": true,
-          "reviewDecisions": true,
-          "shardImport": true,
-          "shardExport": true,
-          "docsMapAnnotations": true
-        }
+      "tier": "record",
+      "storage": "idb",
+      "seed": {
+        "type": "knowledge-shard",
+        "path": "fortemi/tenant.knowledge-shard.tar.gz"
       }
     }
   }
 }
 ```
 
-The runtime adapter should declare `@fortemi/core` record/shard use explicitly
+The runtime adapter declares `@fortemi/core` record/shard use explicitly
 and must not declare or import `@electric-sql/pglite`. If Fortemi exposes
 record-specific subpaths, Pagenary should use those. Otherwise, bundle checks
 must prove PGlite stays behind Fortemi's optional dynamic path.

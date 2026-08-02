@@ -95,7 +95,10 @@ const TIER_ONE_DB_MARKERS = [
   'pglite-worker'
 ];
 
-export async function assertTierOneGraphOnly(outDir, emittedAssets) {
+export async function assertRuntimeTierBundle(outDir, emittedAssets, tier = 'graph') {
+  const markers = tier === 'record'
+    ? TIER_ONE_DB_MARKERS.filter((marker) => marker !== '@fortemi/core')
+    : TIER_ONE_DB_MARKERS;
   const forbiddenFiles = emittedAssets
     .map((asset) => asset.file)
     .filter((file) => /(?:pglite|\.wasm(?:$|\?))/i.test(file));
@@ -104,17 +107,20 @@ export async function assertTierOneGraphOnly(outDir, emittedAssets) {
     if (!asset.file.endsWith('.js')) continue;
     const relative = asset.file.replace(/^assets\/react\//, '');
     const source = await fs.readFile(path.join(outDir, relative), 'utf8');
-    for (const marker of TIER_ONE_DB_MARKERS) {
+    for (const marker of markers) {
       if (source.includes(marker)) forbiddenImports.push(`${asset.file}: ${marker}`);
     }
   }
   if (forbiddenFiles.length || forbiddenImports.length) {
     throw new Error(
-      'Tier-1 React graph bundle contains database artifacts/imports:\n' +
+      `Tier ${tier === 'record' ? '2 record' : '1 graph'} bundle contains forbidden database artifacts/imports:\n` +
       [...forbiddenFiles, ...forbiddenImports].map((item) => `- ${item}`).join('\n')
     );
   }
 }
+
+export const assertTierOneGraphOnly = (outDir, emittedAssets) =>
+  assertRuntimeTierBundle(outDir, emittedAssets, 'graph');
 
 export async function buildReactTenant(options = {}) {
   const {
@@ -179,7 +185,7 @@ export async function buildReactTenant(options = {}) {
   });
 
   const emittedAssets = await listEmittedAssets(outDir);
-  await assertTierOneGraphOnly(outDir, emittedAssets);
+  await assertRuntimeTierBundle(outDir, emittedAssets, config.runtime?.fortemi?.tier || 'graph');
   const manifestFile = emittedAssets.find((asset) => asset.file.endsWith('.vite/manifest.json'));
   return {
     adapter: '@pagenary/react',
