@@ -461,6 +461,20 @@
           },
           "required": ["type", "path"],
           "additionalProperties": false
+        },
+        "features": {
+          "type": "object",
+          "properties": {
+            "semantic": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "model": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": ["tier"],

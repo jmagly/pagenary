@@ -96,10 +96,10 @@ const TIER_ONE_DB_MARKERS = [
 ];
 
 export async function assertRuntimeTierBundle(outDir, emittedAssets, tier = 'graph') {
-  const markers = tier === 'record'
+  const markers = tier === 'pglite' ? [] : tier === 'record'
     ? TIER_ONE_DB_MARKERS.filter((marker) => marker !== '@fortemi/core')
     : TIER_ONE_DB_MARKERS;
-  const forbiddenFiles = emittedAssets
+  const forbiddenFiles = (tier === 'pglite' ? [] : emittedAssets)
     .map((asset) => asset.file)
     .filter((file) => /(?:pglite|\.wasm(?:$|\?))/i.test(file));
   const forbiddenImports = [];

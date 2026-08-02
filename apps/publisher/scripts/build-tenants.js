@@ -887,6 +887,9 @@ function validateTenantRuntimeConfig(config = {}, sourceDir, tenantId) {
       if (fortemi.storage && !['idb', 'memory'].includes(fortemi.storage)) {
         errors.push('runtime.fortemi.storage must be one of idb, memory');
       }
+      if (fortemi.tier === 'pglite' && fortemi.features?.semantic?.enabled && !fortemi.features.semantic.model) {
+        errors.push('runtime.fortemi.features.semantic.model is required when semantic is enabled');
+      }
       if (fortemi.seed?.path) {
         const seedPath = String(fortemi.seed.path);
         if (path.isAbsolute(seedPath) || seedPath.split(/[\\/]+/).includes('..')) {

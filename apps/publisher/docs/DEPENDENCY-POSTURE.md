@@ -171,12 +171,18 @@ feature-detected so Tier 2 degrades gracefully when Tier 3 APIs are absent.
 See the detailed spike:
 `../../../.aiwg/planning/fortemi-record-tier-tenant-posture-spike.md`.
 
-## Tier 3 — Full Fortémi PGlite Projection (planned)
+## Tier 3 — Full Fortémi PGlite Projection
 
 The heaviest tier turns a tenant into a **browser-only Fortémi instance**:
 `<FortemiProvider persistence="idb">` boots PGlite (Postgres-in-WASM) in the
 browser, the docs corpus is seeded as notes, and search + graph run
 **compute-based by default** (full-text + citation/link graph — no inference).
+
+Pagenary exposes this tier through `@pagenary/react/pglite-runtime`. Canonical
+Tier-2 records remain authoritative; the adapter opens a tenant-scoped PGlite
+archive, projects parent-first, and exposes a drop/rebuild operation. Semantic
+support stays disabled unless the tenant supplies both `enabled: true` and a
+model name under `runtime.fortemi.features.semantic`.
 Two capabilities are **reader-opt-in and off by default**, mirroring the
 magly.net deployment:
 

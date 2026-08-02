@@ -799,6 +799,33 @@ RecordStore only when it is empty; browser edits never mutate the deployed
 artifact. The runtime exposes writable notes and record-v1 shard exchange and
 reports semantic, provenance, SKOS, and PGlite capabilities as unavailable.
 
+For full-text/PGlite-compatible APIs, select the heavier projection explicitly:
+
+```json
+{
+  "runtime": {
+    "mode": "hybrid",
+    "fortemi": {
+      "tier": "pglite",
+      "storage": "idb",
+      "namespace": "tenant-name",
+      "seed": {
+        "type": "knowledge-shard",
+        "path": "fortemi/tenant.knowledge-shard.tar.gz"
+      },
+      "features": {
+        "semantic": { "enabled": false }
+      }
+    }
+  }
+}
+```
+
+Import `createPagenaryPgliteRuntime` from
+`@pagenary/react/pglite-runtime`. PGlite is a disposable projection: drop and
+rebuild do not mutate canonical records. Set semantic `enabled` only with an
+explicit `model`; it is never activated by selecting the tier alone.
+
 #### Export (`export`)
 
 The header's **Export** button compiles the current page or the whole site into a

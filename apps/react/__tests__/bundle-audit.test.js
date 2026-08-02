@@ -34,3 +34,13 @@ test('Tier-2 artifact audit permits core records but rejects PGlite artifacts', 
   await fs.writeFile(path.join(outDir, 'index.js'), 'import "@electric-sql/pglite"');
   await assert.rejects(assertRuntimeTierBundle(outDir, assets, 'record'), /forbidden database/);
 });
+
+test('Tier-3 artifact audit permits explicitly selected PGlite artifacts', async (t) => {
+  const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-pglite-audit-'));
+  t.after(() => fs.rm(outDir, { recursive: true, force: true }));
+  await fs.writeFile(path.join(outDir, 'index.js'), 'import "@electric-sql/pglite"');
+  await assertRuntimeTierBundle(outDir, [
+    { file: 'assets/react/index.js', isEntry: true },
+    { file: 'assets/react/pglite.wasm', isEntry: false }
+  ], 'pglite');
+});

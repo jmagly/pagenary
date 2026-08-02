@@ -9,7 +9,8 @@
     ".": "./src/index.js",
     "./bake": "./src/bake.js",
     "./docs-map": "./src/docs-map/index.jsx",
-    "./record-runtime": "./src/record-runtime.js"
+    "./record-runtime": "./src/record-runtime.js",
+    "./pglite-runtime": "./src/pglite-runtime.js"
   },
   "files": [
     "src/",
@@ -27,6 +28,7 @@
     "@fortemi/core": "2026.7.15",
     "@fortemi/graph": "2026.7.15",
     "@fortemi/react": "2026.7.15",
+    "@electric-sql/pglite": "^0.4.1",
     "@vitejs/plugin-react": "^5.0.0",
     "vite": "^7.0.0"
   },
