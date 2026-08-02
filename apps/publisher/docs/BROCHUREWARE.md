@@ -56,6 +56,12 @@ The module must stay within the tenant source directory and export either
 publisher. TypeScript must first be compiled by the optional React/Vite adapter;
 the base publisher does not add a TypeScript runtime loader.
 
+Existing SPAs may set `runtime.react.adapter` to a tenant-local ESM module such
+as `./scripts/pagenary-react-adapter.mjs`. The module must remain inside the
+tenant source directory and export `buildReactTenant(options)`. This keeps the
+site's established Vite configuration and UX authoritative while Pagenary owns
+the validated fallback and machine-readable artifact pipeline.
+
 ## Generated artifacts and drift protection
 
 For every public route, Pagenary emits deterministic semantic HTML plus JSON

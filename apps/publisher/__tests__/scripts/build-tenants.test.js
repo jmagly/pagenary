@@ -661,6 +661,38 @@ describe('build-tenants.js', () => {
       expect(result.stderr).toContain('Install the optional React adapter package');
     });
 
+    test('loads a tenant-local React adapter for an existing SPA', async () => {
+      const manifest = { sections: [{ id: 'home', title: 'Home', file: 'home.md' }] };
+      const content = { 'home.md': '# Home\n\n<div id="react-root">Fallback</div>' };
+      testTenantDir = await createTestTenant(TEST_TENANT_ID, {
+        runtime: {
+          mode: 'react-spa',
+          react: {
+            enabled: true,
+            adapter: './scripts/pagenary-react-adapter.mjs',
+            entry: 'app/main.jsx',
+            mount: '#react-root',
+            routes: [{ id: 'home', title: 'Home', path: '/', fallback: 'content/home.md' }]
+          }
+        }
+      }, manifest, content);
+      await fsp.mkdir(path.join(testTenantDir, 'app'), { recursive: true });
+      await fsp.mkdir(path.join(testTenantDir, 'scripts'), { recursive: true });
+      await fsp.writeFile(path.join(testTenantDir, 'app', 'main.jsx'), 'export default null;\n');
+      await fsp.writeFile(path.join(testTenantDir, 'scripts', 'pagenary-react-adapter.mjs'), `
+        import fs from 'node:fs/promises';
+        import path from 'node:path';
+        export async function buildReactTenant({ distDir }) {
+          await fs.writeFile(path.join(distDir, 'tenant-adapter.txt'), 'loaded');
+          return { emittedAssets: [] };
+        }
+      `);
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      expect(result.code).toBe(0);
+      expect(await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'tenant-adapter.txt'), 'utf8')).toBe('loaded');
+    });
+
     test('fails actionably when an interactive docs-map tier is selected without its peers (#135)', async () => {
       const manifest = {
         sections: [

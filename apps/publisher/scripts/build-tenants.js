@@ -1029,18 +1029,28 @@ async function injectReactAdapterScript(distDir, emittedAssets) {
 async function buildReactRuntime({ tenantId, sourceDir, distDir, config, runtime }) {
   if (!wantsReactRuntime(config)) return { success: true, emittedAssets: [] };
   let adapter;
+  const adapterSpecifier = runtime.react.adapter;
+  let resolvedAdapter = adapterSpecifier;
+  if (adapterSpecifier.startsWith('.')) {
+    const adapterPath = path.resolve(sourceDir, adapterSpecifier);
+    const relative = path.relative(sourceDir, adapterPath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      return { success: false, error: `${tenantId}: runtime.react.adapter must stay inside the tenant source directory` };
+    }
+    resolvedAdapter = pathToFileURL(adapterPath).href;
+  }
   try {
-    adapter = await import(runtime.react.adapter);
+    adapter = await import(resolvedAdapter);
   } catch (err) {
     return {
       success: false,
-      error: `${tenantId}: runtime.mode "${runtime.mode}" requires ${runtime.react.adapter}. Install the optional React adapter package or set runtime.mode to "static".`
+      error: `${tenantId}: runtime.mode "${runtime.mode}" requires ${adapterSpecifier}. Install the optional React adapter package, provide a tenant-local adapter, or set runtime.mode to "static".`
     };
   }
   if (!adapter || typeof adapter.buildReactTenant !== 'function') {
     return {
       success: false,
-      error: `${tenantId}: ${runtime.react.adapter} does not export buildReactTenant(options)`
+      error: `${tenantId}: ${adapterSpecifier} does not export buildReactTenant(options)`
     };
   }
 
