@@ -86,6 +86,10 @@ export function validateBrochureContent(input) {
     }
     if (!route.summary) warnings.push(`${prefix}.summary is recommended`);
   }
+  if (input.templateClass === 'portfolio-brochure') {
+    const coveredRoles = new Set((input.routeManifest || []).map((route) => route.role));
+    for (const role of ROUTE_ROLES) if (!coveredRoles.has(role)) errors.push(`portfolio-brochure is missing required route role: ${role}`);
+  }
   for (const ref of entityIds) if (!usedRefs.has(ref)) warnings.push(`unused entity: ${ref}`);
 
   const allowed = new Set(['schemaVersion', 'templateClass', 'site', 'entities', 'routeManifest', 'extensions']);

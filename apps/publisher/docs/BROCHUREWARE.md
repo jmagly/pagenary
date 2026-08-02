@@ -55,3 +55,28 @@ The module must stay within the tenant source directory and export either
 `pagenaryContent` or a default value. JavaScript, MJS, and JSON load in the
 publisher. TypeScript must first be compiled by the optional React/Vite adapter;
 the base publisher does not add a TypeScript runtime loader.
+
+## Generated artifacts and drift protection
+
+For every public route, Pagenary emits deterministic semantic HTML plus JSON
+and plain-text extracts under `brochure/pages/` and `brochure/routes/`. It also
+emits root `llms.txt`, `llms-full.txt`, `content-index.json`,
+`documents.jsonl`, `route-coverage.json`, and a sitemap containing every public
+canonical route. Private/non-extractable routes never enter those surfaces.
+
+The coverage report maps each declared route to its delivery artifacts. The
+generator iterates the validated manifest, so adding a public route cannot
+silently omit its output; malformed or incomplete route policy fails before
+generation. The `portfolio-brochure` template requires home, about, work,
+services, updates, contact, and machine-readable roles.
+
+Template-specific surfaces live under `brochure/`: `offers.json`,
+`projects.json`, `profile.json` (including experience), `updates.json`, and
+`contact.json`. Each has a stable schema marker and id ordering. Updates use the
+`posts`/source shape accepted by `@pagenary/blog-client`; presentation fields
+such as `showPrice` pass through unchanged.
+
+Brochureware routes replace the tenant's normal static search corpus with a
+validated Fortémi chunked index containing route paths, roles, summaries,
+entity refs as tags, and extracted entity text. This is the dependency-free
+static index path; PGlite and Knowledge Shards remain separate explicit tiers.

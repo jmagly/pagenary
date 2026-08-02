@@ -20,7 +20,7 @@ describe('brochureware content-module loader (#142)', () => {
       brochureware: { contentModule: 'content.mjs' }
     }, { mode: 'react-spa' });
     expect(result.content.schemaVersion).toBe('pagenary.brochure.content.v1');
-    expect(result.content.routeManifest).toHaveLength(4);
+    expect(result.content.routeManifest).toHaveLength(7);
   });
 
   test('is a no-op for ordinary tenants', async () => {

@@ -20,6 +20,7 @@ import { generateCollections } from './lib/collections-generator.js';
 import { generateMarkdownArtifacts, resolveMarkdownDeliveryConfig } from './lib/markdown-delivery.js';
 import { generateKnowledgeShardArtifacts } from './lib/knowledge-shard.js';
 import { loadBrochureContentModule } from './lib/brochure-content-loader.js';
+import { generateBrochureArtifacts } from './lib/brochure-generator.js';
 import { estimateReadingLength, parseFrontmatter } from './lib/frontmatter.js';
 import {
   formatAccessibilityFinding,
@@ -6058,6 +6059,7 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
 
   // Generate SEO artifacts (sitemap.xml, robots.txt, static pages)
   await generateSeoArtifacts(distDir, resolvedSeoConfig);
+  await generateBrochureArtifacts(distDir, brochureContent?.content || null);
 
   // Generate collection manifests/feeds (#18) — opt-in via config.collections
   if (Array.isArray(config.collections) && config.collections.length > 0) {

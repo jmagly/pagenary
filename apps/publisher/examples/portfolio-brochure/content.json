@@ -19,8 +19,11 @@
   "routeManifest": [
     { "id": "home", "path": "/", "role": "home", "title": "Northstar Studio", "summary": "Product strategy and delivery.", "entityRefs": ["profile.studio", "offers.strategy", "projects.atlas"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
     { "id": "about", "path": "/about", "role": "about", "title": "About", "summary": "Experience and approach.", "entityRefs": ["profile.studio", "experience.delivery"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
+    { "id": "work", "path": "/work", "role": "work", "title": "Work", "summary": "Selected product outcomes.", "entityRefs": ["projects.atlas"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
+    { "id": "services", "path": "/services", "role": "services", "title": "Services", "summary": "Ways to work together.", "entityRefs": ["offers.strategy"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
     { "id": "updates", "path": "/updates", "role": "updates", "title": "Updates", "summary": "Recent studio notes.", "entityRefs": ["updates.hello"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
-    { "id": "contact", "path": "/contact", "role": "contact", "title": "Contact", "summary": "Start a conversation.", "entityRefs": ["links.email"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } }
+    { "id": "contact", "path": "/contact", "role": "contact", "title": "Contact", "summary": "Start a conversation.", "entityRefs": ["links.email"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } },
+    { "id": "machine-readable", "path": "/machine-readable", "role": "machine-readable", "title": "Machine-readable content", "summary": "Structured publication surfaces.", "entityRefs": ["profile.studio"], "extractPolicy": "public", "prerender": { "kind": "semantic-template" } }
   ],
   "extensions": { "northstar.example/brand": { "tone": "direct" } }
 }
