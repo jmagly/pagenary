@@ -19,6 +19,7 @@ import {
 import { generateCollections } from './lib/collections-generator.js';
 import { generateMarkdownArtifacts, resolveMarkdownDeliveryConfig } from './lib/markdown-delivery.js';
 import { generateKnowledgeShardArtifacts } from './lib/knowledge-shard.js';
+import { loadBrochureContentModule } from './lib/brochure-content-loader.js';
 import { estimateReadingLength, parseFrontmatter } from './lib/frontmatter.js';
 import {
   formatAccessibilityFinding,
@@ -5932,6 +5933,17 @@ async function buildTenant(tenant, targetOverride, cacheDir, buildOptions) {
     for (const error of runtimeResult.errors) {
       console.error(`      - ${error}`);
     }
+    return { success: false, changes };
+  }
+  let brochureContent = null;
+  try {
+    brochureContent = await loadBrochureContentModule(sourceDir, config, runtimeResult);
+    if (brochureContent) {
+      console.log(`  ↳ loaded brochureware content for ${tenantId} (${brochureContent.content.routeManifest.length} route(s))`);
+      for (const warning of brochureContent.warnings) console.warn(`  ⚠ ${tenantId}: ${warning}`);
+    }
+  } catch (err) {
+    console.error(`  ↳ [ERROR] ${tenantId}: ${err.message}`);
     return { success: false, changes };
   }
 

@@ -35,3 +35,23 @@ summary gaps warn; contract, routing, privacy, and output-safety errors fail.
 The base publisher contract remains plain JavaScript and keeps the publisher's
 Node 16 floor. Loading TypeScript content modules belongs to the opt-in
 React/Vite adapter described by the next construction stage.
+
+## Tenant configuration
+
+Enable the loader only for a React-SPA tenant:
+
+```json
+{
+  "runtime": { "mode": "react-spa", "react": { "entry": "app/main.jsx" } },
+  "brochureware": {
+    "enabled": true,
+    "templateClass": "portfolio-brochure",
+    "contentModule": "content.mjs"
+  }
+}
+```
+
+The module must stay within the tenant source directory and export either
+`pagenaryContent` or a default value. JavaScript, MJS, and JSON load in the
+publisher. TypeScript must first be compiled by the optional React/Vite adapter;
+the base publisher does not add a TypeScript runtime loader.

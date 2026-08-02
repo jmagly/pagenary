@@ -124,6 +124,11 @@
       "source": { "type": "local", "path": "./examples/hybrid-react" }
     },
     {
+      "$comment": "React-SPA brochureware content-module fixture for the ADR-017 construction track.",
+      "id": "portfolio-brochure",
+      "source": { "type": "local", "path": "./examples/portfolio-brochure" }
+    },
+    {
       "id": "blog-demo",
       "source": { "type": "local", "path": "./examples/blog-demo" }
     },

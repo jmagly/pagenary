@@ -1,0 +1,21 @@
+{
+  "brand": "Northstar Studio",
+  "domain": "northstar.example",
+  "language": "en",
+  "runtime": {
+    "mode": "react-spa",
+    "react": {
+      "enabled": true,
+      "entry": "app/main.jsx",
+      "mount": "#app",
+      "routes": [
+        { "id": "home", "path": "/", "fallback": "content/home.md" }
+      ]
+    }
+  },
+  "brochureware": {
+    "enabled": true,
+    "templateClass": "portfolio-brochure",
+    "contentModule": "content.mjs"
+  }
+}

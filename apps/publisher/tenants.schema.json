@@ -280,6 +280,10 @@
           "$ref": "#/definitions/runtimeConfig",
           "description": "Optional publishing runtime. Missing runtime preserves the default static Pagenary shell."
         },
+        "brochureware": {
+          "$ref": "#/definitions/brochurewareConfig",
+          "description": "Validated content-module pipeline for React-SPA brochureware tenants."
+        },
         "seo": {
           "$ref": "#/definitions/seoConfig",
           "description": "SEO, crawl, and search visibility controls"
@@ -381,6 +385,19 @@
           "description": "Explicit opt-in Fortémi writable runtime tier."
         }
       },
+      "additionalProperties": false
+    },
+    "brochurewareConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "contentModule": {
+          "type": "string",
+          "pattern": "^(?!/|[A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$)).+\\.(js|mjs|json|ts)$"
+        },
+        "templateClass": { "type": "string", "default": "portfolio-brochure" }
+      },
+      "required": ["contentModule"],
       "additionalProperties": false
     },
     "reactRuntimeConfig": {

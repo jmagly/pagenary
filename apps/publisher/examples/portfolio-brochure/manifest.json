@@ -1,0 +1,6 @@
+{
+  "default": "home",
+  "sections": [
+    { "id": "home", "title": "Northstar Studio", "file": "home.md" }
+  ]
+}
