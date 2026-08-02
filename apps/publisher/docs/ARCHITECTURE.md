@@ -138,6 +138,7 @@ resolve source
   -> copy .public assets
   -> generate Fortemi search index (search-index/)
   -> generate SEO artifacts
+  -> for brochureware tenants, generate validated semantic route and corpus artifacts
   -> generate collection manifests/feeds
   -> optionally emit Knowledge Shard + digest/provenance
   -> finalize content-addressed bundle

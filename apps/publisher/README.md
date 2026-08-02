@@ -72,6 +72,7 @@ inspect, build, or run the AIWG project from `~/dev/aiwg`.
 - **HTML** — direct markup control with `.html` files
 - **JavaScript Modules** — dynamic content with `.js` files returning `{ html, afterRender? }`
 - **Nested Directories** — organize content in subdirectories (`content/guides/setup.md`)
+- **React Brochureware** — load a validated canonical content module while the SPA owns presentation; emit semantic route HTML, search, sitemap, JSON/text, and LLM-readable artifacts ([guide](docs/BROCHUREWARE.md))
 
 ### Rich Content
 - **Mermaid Diagrams** — flowcharts, sequence diagrams, state machines, and more

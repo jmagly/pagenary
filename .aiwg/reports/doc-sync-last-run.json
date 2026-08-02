@@ -1,8 +1,9 @@
 {
-  "timestamp": "2026-08-01T00:16:20Z",
+  "timestamp": "2026-08-02T19:20:00Z",
   "direction": "code-to-docs",
   "mode": "incremental",
   "scope": [
+    "README.md",
     "apps/publisher/README.md",
     "apps/publisher/docs",
     "apps/publisher/src",
@@ -10,6 +11,6 @@
     "apps/publisher/tenants.schema.json",
     "apps/publisher/examples"
   ],
-  "report": ".aiwg/reports/doc-sync-20260801T001620Z.md",
+  "report": ".aiwg/reports/doc-sync-20260802T192000Z.md",
   "remainingHumanReviewItems": []
 }

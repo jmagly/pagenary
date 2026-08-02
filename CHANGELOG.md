@@ -6,6 +6,26 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.8.0] - 2026-08-02
+
+### Added
+
+- Added a validated brochureware content contract and React-SPA tenant loader,
+  with a complete portfolio fixture and repeatable setup guide (#141, #142,
+  #148).
+- Added deterministic semantic HTML, JSON, and text output for every public
+  brochure route, plus complete sitemap, `llms.txt`, `llms-full.txt`, corpus,
+  route-coverage, search, and template-specific data artifacts (#143–#146).
+- Added production-ready Fortémi Knowledge Shard integration, the DB-free
+  canonical record runtime, and the optional PGlite projection runtime with
+  explicit tier boundaries and bundle audits (#155–#157).
+
+### Fixed
+
+- Extended accessible bounded image viewports across authored SVG, PNG, and
+  JPEG/JPG figures with keyboard, pointer, touch, reset, and cleanup coverage
+  (#158–#161).
+
 ## [2026.7.25] - 2026-07-31
 
 ### Added
