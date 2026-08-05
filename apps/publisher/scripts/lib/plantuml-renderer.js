@@ -13,6 +13,9 @@ import {
   resolveContainedRendererPath,
   runRendererSubprocess
 } from './renderer-security.js';
+import authoringContract from '../../../authoring-contract/index.cjs';
+
+const { RICH_CONFIG } = authoringContract;
 
 const INCLUDE_DIRECTIVE = /^\s*!(include|include_once)\s+(.+?)\s*$/gim;
 const FORBIDDEN_INCLUDE = /^\s*!(includeurl|include_many|import)\b/im;
@@ -351,7 +354,7 @@ function plantUmlCacheIdentity({ source, dependencies = [], version = 'local', p
 
 function normalizeIncludeProfile(value) {
   const profile = value || 'OFF';
-  if (!['OFF', 'ALLOWLIST'].includes(profile)) {
+  if (!RICH_CONFIG.plantUmlIncludeProfiles.includes(profile)) {
     throw new PlantUmlRendererError('PlantUML includeProfile must be OFF or ALLOWLIST.', {
       code: 'RTC_PLANTUML_INCLUDE_PROFILE_INVALID'
     });

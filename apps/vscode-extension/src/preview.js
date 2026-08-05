@@ -1,10 +1,12 @@
 'use strict';
 
+const { hasRichAuthoringSyntax, parseRichFenceInfo } = require('./authoring-contract');
+
 function renderPreviewHtml(markdown, { title = 'Pagenary Preview', nonce = '', languageId = 'markdown' } = {}) {
   const parsed = splitFrontmatter(markdown);
   const isLatexPage = languageId === 'latex' || languageId === 'tex';
   const body = isLatexPage ? renderLatexPagePreview(parsed.body) : renderMarkdown(parsed.body);
-  const reduced = isLatexPage || /\\[([]|```(?:mermaid|plantuml|puml)\b/i.test(parsed.body)
+  const reduced = isLatexPage || hasRichAuthoringSyntax(parsed.body)
     ? '<aside class="preview-notice" role="note"><strong>Reduced preview:</strong> rich content uses production delimiters and fences, but external converters and browser Mermaid are not executed in the editor webview. Run a Pagenary build for final output.</aside>'
     : '';
   const frontmatter = parsed.frontmatter
@@ -66,10 +68,10 @@ function renderMarkdown(markdown) {
   }
 
   function flushCode() {
-    const renderer = /^(mermaid|plantuml|puml)\b/i.exec(codeInfo)?.[1]?.toLowerCase();
-    if (renderer) {
-      const title = /\btitle=(?:"([^"]+)"|'([^']+)')/.exec(codeInfo);
-      out.push(`<figure class="rich-preview" data-renderer="${renderer}"><figcaption>${escapeHtml(title?.[1] || title?.[2] || `${renderer} diagram`)}</figcaption><p>External ${renderer} rendering is unavailable in reduced preview.</p><pre><code>${escapeHtml(code.join('\n'))}</code></pre></figure>`);
+    const language = /^(mermaid|plantuml|puml)\b/i.exec(codeInfo)?.[1];
+    if (language) {
+      const parsedFence = parseRichFenceInfo(language, codeInfo.slice(language.length));
+      out.push(`<figure class="rich-preview" data-renderer="${parsedFence.renderer}"><figcaption>${escapeHtml(parsedFence.title || `${parsedFence.renderer} diagram`)}</figcaption><p>External ${parsedFence.renderer} rendering is unavailable in reduced preview.</p><pre><code>${escapeHtml(code.join('\n'))}</code></pre></figure>`);
     } else out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
     code = [];
     codeInfo = '';

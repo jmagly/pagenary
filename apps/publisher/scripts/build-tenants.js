@@ -43,6 +43,9 @@ import { createPlantUmlAdapter } from './lib/plantuml-renderer.js';
 import { createRendererRegistry, renderRichContentNodes } from './lib/rich-content-adapters.js';
 import { fallbackHtmlForSource } from './lib/rich-content-diagnostics.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import authoringContract from '../../authoring-contract/index.cjs';
+
+const { parseRichFenceInfo, scanRichFences } = authoringContract;
 
 const root = process.cwd();
 // The package's own directory (this file lives at <pkg>/scripts/build-tenants.js).
@@ -3598,12 +3601,12 @@ async function renderConfiguredBuildFences(source, context = {}) {
   const rich = context.richContentConfig || {};
   const mermaidMode = rich.mermaid?.mode || 'runtime';
   const plantEnabled = rich.plantuml?.enabled !== false;
-  const pattern = /^```(mermaid|plantuml|puml)([^\n]*)\n([\s\S]*?)^```\s*$/gm;
   let output = '';
   let cursor = 0;
-  for (const match of String(source).matchAll(pattern)) {
+  for (const match of scanRichFences(source)) {
     output += source.slice(cursor, match.index);
-    const renderer = match[1] === 'puml' ? 'plantuml' : match[1];
+    const parsedFence = parseRichFenceInfo(match[1], match[2]);
+    const renderer = parsedFence.renderer;
     if ((renderer === 'mermaid' && mermaidMode !== 'build') || (renderer === 'plantuml' && !plantEnabled)) {
       output += match[0];
       cursor = (match.index || 0) + match[0].length;
@@ -3625,7 +3628,7 @@ async function renderConfiguredBuildFences(source, context = {}) {
       const [result] = await renderRichContentNodes([{
         type: 'fence', renderer, body, source: match[0],
         relativePath: context.currentPath,
-        attributes: { title: match[2].match(/title=(?:"([^"]*)"|'([^']*)')/)?.slice(1).find(Boolean) },
+        attributes: { title: parsedFence.title },
         location
       }], {
         registry,

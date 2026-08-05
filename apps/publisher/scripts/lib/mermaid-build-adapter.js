@@ -11,6 +11,9 @@ import {
   deepFreeze,
   runRendererSubprocess
 } from './renderer-security.js';
+import authoringContract from '../../../authoring-contract/index.cjs';
+
+const { RICH_CONFIG } = authoringContract;
 
 const VERSION = '11.16.0';
 const DEFAULT_MAX_SOURCE_BYTES = RENDERER_SECURITY_BASELINES.mermaid.maxTextSize;
@@ -197,6 +200,9 @@ function normalizeFonts(value) {
 
 function secureConfig(config = {}) {
   const authored = config && typeof config === 'object' ? config : {};
+  if (authored.theme !== undefined && !RICH_CONFIG.mermaidThemes.includes(authored.theme)) {
+    throw mermaidError('MERMAID_CONFIG_INVALID', `Mermaid theme must be one of ${RICH_CONFIG.mermaidThemes.join(', ')}`);
+  }
   return deepFreeze({
     ...authored,
     startOnLoad: false,

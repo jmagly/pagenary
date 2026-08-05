@@ -175,8 +175,8 @@ adoption after cooldown without bypassing repository supply-chain policy.
 The reproducible qualification image is defined in
 `ci/rich-content/Dockerfile` and its real-adapter corpus in
 `ci/rich-content/qualify.mjs`. The qualified local image manifest list was
-`sha256:32a13c9806d6d38614912b6e26a023c6fa3906e4403e523fd53e4ae47e1ec1b7`
-(946,227,570 bytes). It also contains a lockfile-backed Mermaid CLI 11.16.0 and
+`sha256:55b1024ff14994df0d960f9119a6eb0092bb402b365f3cb8811327f3212aa19d`
+(946,229,194 bytes). It also contains a lockfile-backed Mermaid CLI 11.16.0 and
 Puppeteer 24.16.0 browser plus pinned Pandoc and make4ht packages for the
 converter-selection regression.
 Its immutable base image and downloaded renderer artifacts are digest/checksum

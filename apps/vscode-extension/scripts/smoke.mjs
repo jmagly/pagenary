@@ -52,9 +52,12 @@ if (invalidConfigFindings.length < 2) {
 const richConfigFindings = validateJsonText(JSON.stringify({
   inlineLatex: { trust: true, maxExpand: 0 },
   latexPage: { profile: 'arbitrary-tex', allowShellEscape: true, pdf: { profile: 'html' } },
-  richContent: { mermaid: { securityLevel: 'loose' }, plantuml: { allowNetwork: true } }
+  richContent: {
+    mermaid: { securityLevel: 'loose', executablePath: 'relative/mmdc', theme: 'unknown' },
+    plantuml: { allowNetwork: true, includeProfile: 'PUBLIC', toolchainDigest: 'latest' }
+  }
 }), 'config.json', schema);
-if (richConfigFindings.length < 7) {
+if (richConfigFindings.length < 11) {
   throw new Error(`Expected immutable rich-content configuration findings, got ${richConfigFindings.length}.`);
 }
 

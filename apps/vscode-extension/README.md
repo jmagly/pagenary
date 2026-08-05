@@ -24,6 +24,9 @@ documents, and forbidden TeX operations. `Pagenary: Validate Workspace` applies
 the same checks to registries, configs, manifests, Markdown, and `.tex` files.
 
 The preview is script-disabled and preserves Pagenary delimiter/fence semantics.
+Publisher preprocessing, editor validation, and preview all consume the same
+`@pagenary/authoring-contract` fence scanner, alias/title parser, and renderer
+configuration enums; the VSIX packages that exact module beside the extension.
 It displays inline-LaTeX placeholders and titled Mermaid/PlantUML source with an
 explicit reduced-preview notice. It never pretends to run Mermaid, LaTeXML,
 Pandoc, PlantUML, or Tectonic inside the editor; run the normal Pagenary build for

@@ -1,0 +1,7 @@
+{
+  "name": "@pagenary/authoring-contract",
+  "version": "2026.8.5",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.cjs"
+}

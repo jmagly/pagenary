@@ -1,5 +1,7 @@
 'use strict';
 
+const { RICH_CONFIG, parseRichFenceInfo, scanRichFences } = require('./authoring-contract');
+
 const TENANT_ID_FALLBACK = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 
 function validateJsonText(text, fileName, schema = {}) {
@@ -119,11 +121,15 @@ function validateLatexPageConfig(config, path, findings) {
 
 function validateRichContentConfig(config, path, findings) {
   if (!isObject(config)) return findings.push(finding('`richContent` must be an object.', path));
-  enumKey(config, 'failurePolicy', ['warn', 'strict', 'off'], path, findings, 'richContent');
+  enumKey(config, 'failurePolicy', RICH_CONFIG.failurePolicies, path, findings, 'richContent');
   if (config.mermaid !== undefined) {
     if (!isObject(config.mermaid)) findings.push(finding('`richContent.mermaid` must be an object.', [...path, 'mermaid']));
     else {
-      enumKey(config.mermaid, 'mode', ['runtime', 'build'], [...path, 'mermaid'], findings, 'richContent.mermaid');
+      enumKey(config.mermaid, 'mode', RICH_CONFIG.mermaidModes, [...path, 'mermaid'], findings, 'richContent.mermaid');
+      enumKey(config.mermaid, 'theme', RICH_CONFIG.mermaidThemes, [...path, 'mermaid'], findings, 'richContent.mermaid');
+      integerRange(config.mermaid, 'timeoutMs', 1000, 120000, [...path, 'mermaid'], findings, 'richContent.mermaid');
+      absolutePathKeys(config.mermaid, ['executablePath', 'browserPath'], [...path, 'mermaid'], findings, 'richContent.mermaid');
+      stringArrayKey(config.mermaid, 'fonts', [...path, 'mermaid'], findings, 'richContent.mermaid');
       integerRange(config.mermaid, 'maxSourceBytes', 1, 50000, [...path, 'mermaid'], findings, 'richContent.mermaid');
       integerRange(config.mermaid, 'maxEdges', 1, 500, [...path, 'mermaid'], findings, 'richContent.mermaid');
       integerRange(config.mermaid, 'maxOutputBytes', 65536, 4194304, [...path, 'mermaid'], findings, 'richContent.mermaid');
@@ -136,7 +142,13 @@ function validateRichContentConfig(config, path, findings) {
     if (!isObject(config.plantuml)) findings.push(finding('`richContent.plantuml` must be an object.', [...path, 'plantuml']));
     else {
       booleanKeys(config.plantuml, ['enabled', 'pngFallback'], [...path, 'plantuml'], findings, 'richContent.plantuml');
-      enumKey(config.plantuml, 'securityProfile', ['SANDBOX'], [...path, 'plantuml'], findings, 'richContent.plantuml');
+      enumKey(config.plantuml, 'securityProfile', RICH_CONFIG.plantUmlSecurityProfiles, [...path, 'plantuml'], findings, 'richContent.plantuml');
+      enumKey(config.plantuml, 'includeProfile', RICH_CONFIG.plantUmlIncludeProfiles, [...path, 'plantuml'], findings, 'richContent.plantuml');
+      absolutePathKeys(config.plantuml, ['executablePath', 'jarPath', 'javaPath'], [...path, 'plantuml'], findings, 'richContent.plantuml');
+      stringArrayKey(config.plantuml, 'fonts', [...path, 'plantuml'], findings, 'richContent.plantuml');
+      if (config.plantuml.toolchainDigest !== undefined && !/^sha256:[a-f0-9]{64}$/.test(config.plantuml.toolchainDigest)) {
+        findings.push(finding('`richContent.plantuml.toolchainDigest` must be a SHA-256 identity.', [...path, 'plantuml', 'toolchainDigest']));
+      }
       integerRange(config.plantuml, 'maxSourceBytes', 1, 131072, [...path, 'plantuml'], findings, 'richContent.plantuml');
       integerRange(config.plantuml, 'maxIncludes', 0, 32, [...path, 'plantuml'], findings, 'richContent.plantuml');
       integerRange(config.plantuml, 'maxOutputBytes', 65536, 4194304, [...path, 'plantuml'], findings, 'richContent.plantuml');
@@ -155,14 +167,13 @@ function validateMarkdownText(text) {
       findings.push(finding(`Unbalanced inline LaTeX delimiters: ${delimiter.join(' … ')}`, []));
     }
   }
-  const fences = [...source.matchAll(/^```(mermaid|plantuml|puml)\b([^\n]*)\n([\s\S]*?)^```\s*$/gmi)];
+  const fences = scanRichFences(source);
   for (const match of fences) {
-    const renderer = match[1].toLowerCase();
-    const metadata = match[2];
-    if (!/\btitle=(?:"[^"]+"|'[^']+')/.test(metadata)) {
-      findings.push(finding(`${renderer} fence needs a quoted title for an accessible alternative.`, []));
+    const parsedFence = parseRichFenceInfo(match[1], match[2]);
+    if (!parsedFence.title) {
+      findings.push(finding(`${parsedFence.authored} fence needs a quoted title for an accessible alternative.`, []));
     }
-    if (renderer !== 'mermaid' && /!(?:include|includeurl|include_many)\s+(?:https?:|\/|\.\.)/i.test(match[3])) {
+    if (parsedFence.renderer !== 'mermaid' && /!(?:include|includeurl|include_many)\s+(?:https?:|\/|\.\.)/i.test(match[3])) {
       findings.push(finding('PlantUML fence contains a forbidden remote, absolute, or parent include.', []));
     }
   }
@@ -274,6 +285,18 @@ function enumKey(value, key, allowed, path, findings, label) {
 function integerRange(value, key, minimum, maximum, path, findings, label) {
   if (value[key] !== undefined && (!Number.isInteger(value[key]) || value[key] < minimum || value[key] > maximum)) {
     findings.push(finding(`\`${label}.${key}\` must be an integer from ${minimum} through ${maximum}.`, [...path, key]));
+  }
+}
+
+function absolutePathKeys(value, keys, path, findings, label) {
+  for (const key of keys) if (value[key] !== undefined && (typeof value[key] !== 'string' || !/^(?:\/|[A-Za-z]:[\\/])/.test(value[key]))) {
+    findings.push(finding(`\`${label}.${key}\` must be an absolute operator path.`, [...path, key]));
+  }
+}
+
+function stringArrayKey(value, key, path, findings, label) {
+  if (value[key] !== undefined && (!Array.isArray(value[key]) || value[key].some((entry) => typeof entry !== 'string' || !entry))) {
+    findings.push(finding(`\`${label}.${key}\` must be an array of non-empty strings.`, [...path, key]));
   }
 }
 

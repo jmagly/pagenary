@@ -12,6 +12,7 @@ const bundledSchemaDir = path.join(extensionDir, 'schemas');
 
 fs.mkdirSync(extensionDir, { recursive: true });
 fs.cpSync(path.join(root, 'src'), path.join(extensionDir, 'src'), { recursive: true });
+fs.copyFileSync(path.resolve(root, '..', 'authoring-contract', 'index.cjs'), path.join(extensionDir, 'src', 'authoring-contract.cjs'));
 fs.cpSync(path.join(root, 'docs'), path.join(extensionDir, 'docs'), { recursive: true });
 fs.mkdirSync(bundledSchemaDir, { recursive: true });
 fs.copyFileSync(path.resolve(root, '..', 'publisher', 'tenants.schema.json'), path.join(bundledSchemaDir, 'tenants.schema.json'));
