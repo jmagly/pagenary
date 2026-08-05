@@ -8,4 +8,5 @@
 # kind       name              pin                                                                resolved-version  date-pinned  rationale
 container    node:20           sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  20.20.2  2026-05-25  initial pin (matches roctinam/aiwg)
 container    node:24           sha256:c35698d36238c69451c7e7a5951dd5c9b11c3e45884c918059c94c4a8be969b1  24.18.0  2026-07-05  npm trusted publishing requires Node >=22.14.0 and npm >=11.5.1
+container    docker:27-cli     sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c  27.5.1-cli       2026-08-05  renderer qualification needs a daemon-compatible CLI and Node is installed before checkout
 action       actions/checkout  34e114876b0b11c390a56381ad16ebd13914f8d5                           v4.3.1            2026-05-25  initial pin (matches roctinam/aiwg)
