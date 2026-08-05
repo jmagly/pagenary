@@ -2757,7 +2757,18 @@ function markdownToHtml(markdown, linkContext = null) {
   });
   markdown = inlineLatex.source;
   if (Array.isArray(linkContext?.renderDiagnostics)) {
-    linkContext.renderDiagnostics.push(...inlineLatex.diagnostics);
+    linkContext.renderDiagnostics.push(...inlineLatex.diagnostics.map((diagnostic) => ({
+      ...diagnostic,
+      profile: 'inline-latex',
+      location: {
+        ...(diagnostic.location || {}),
+        ...(linkContext.currentPath || linkContext.sourcePath
+          ? { file: safeDiagnosticFile(linkContext.currentPath || linkContext.sourcePath, linkContext.contentRoot) }
+          : {}),
+        line: diagnostic.location?.line || 1,
+        column: diagnostic.location?.column || 1
+      }
+    })));
   }
   const mediaConfig = mergeMediaConfig(linkContext?.mediaConfig || {}, parsed.data?.media || {});
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
@@ -3599,6 +3610,11 @@ async function renderConfiguredBuildFences(source, context = {}) {
       continue;
     }
     const body = match[3];
+    const location = {
+      file: safeDiagnosticFile(context.currentPath || context.sourcePath, context.contentRoot),
+      line: String(source).slice(0, match.index || 0).split(/\r?\n/).length,
+      column: 1
+    };
     const failurePolicy = rich.failurePolicy || 'warn';
     try {
       const adapter = renderer === 'mermaid'
@@ -3609,7 +3625,8 @@ async function renderConfiguredBuildFences(source, context = {}) {
       const [result] = await renderRichContentNodes([{
         type: 'fence', renderer, body, source: match[0],
         relativePath: context.currentPath,
-        attributes: { title: match[2].match(/title=(?:"([^"]*)"|'([^']*)')/)?.slice(1).find(Boolean) }
+        attributes: { title: match[2].match(/title=(?:"([^"]*)"|'([^']*)')/)?.slice(1).find(Boolean) },
+        location
       }], {
         registry,
         failurePolicy,
@@ -3617,13 +3634,15 @@ async function renderConfiguredBuildFences(source, context = {}) {
         sourceRelativePath: context.currentPath,
         workspaceRoot: root
       });
-      if (Array.isArray(context.renderDiagnostics)) context.renderDiagnostics.push(...(result.diagnostics || []));
+      if (Array.isArray(context.renderDiagnostics)) context.renderDiagnostics.push(...(result.diagnostics || []).map((diagnostic) => ({
+        ...diagnostic, location: diagnostic.location || location
+      })));
       await materializeRichContentAssets(result.assets, context.distDir);
       output += `\n\`\`\`html\n${result.html}\n\`\`\`\n`;
     } catch (error) {
       if (failurePolicy === 'strict') throw error;
       if (Array.isArray(context.renderDiagnostics)) {
-        context.renderDiagnostics.push({ code: error.code || 'RTC_RENDER_FAILED', severity: 'warning', renderer, message: error.message });
+        context.renderDiagnostics.push({ code: error.code || 'RTC_RENDER_FAILED', severity: 'warning', renderer, profile: renderer === 'mermaid' ? mermaidMode : 'SANDBOX', location, message: safeDiagnosticMessage(error.message, context.contentRoot) });
       }
       output += `\n\`\`\`html\n${fallbackHtmlForSource(body)}\n\`\`\`\n`;
     }
@@ -3665,7 +3684,12 @@ async function ensureLatexPageModule(sourcePath, targetPath, renderContext = {})
     failurePolicy: renderContext.latexPageConfig?.failurePolicy || 'warn'
   });
   if (Array.isArray(renderContext.renderDiagnostics)) {
-    renderContext.renderDiagnostics.push(...(result.diagnostics || []));
+    renderContext.renderDiagnostics.push(...(result.diagnostics || []).map((diagnostic) => ({
+      ...diagnostic,
+      location: diagnostic.location || {
+        file: safeDiagnosticFile(sourcePath, renderContext.contentRoot), line: 1, column: 1
+      }
+    })));
   }
   let pdfLink = '';
   const pdfConfig = renderContext.latexPageConfig?.pdf;
@@ -3694,7 +3718,8 @@ async function ensureLatexPageModule(sourcePath, targetPath, renderContext = {})
         severity: pdfConfig.failurePolicy === 'strict' ? 'error' : 'warning',
         renderer: 'latexPage',
         profile: 'pdf-v1',
-        message: error.message || 'Optional PDF rendering failed'
+        location: { file: safeDiagnosticFile(sourcePath, renderContext.contentRoot), line: 1, column: 1 },
+        message: safeDiagnosticMessage(error.message || 'Optional PDF rendering failed', renderContext.contentRoot)
       };
       if (Array.isArray(renderContext.renderDiagnostics)) renderContext.renderDiagnostics.push(diagnostic);
       if (pdfConfig.failurePolicy === 'strict') throw error;
@@ -4049,6 +4074,39 @@ function reportTemplateErrors(templateErrors, tenantId) {
     console.error(`      ${e.route} (template "${e.template}"): ${e.errors.join('; ')}`);
   }
   return true;
+}
+
+function reportRenderDiagnostics(diagnostics, tenantId, contentRoot) {
+  if (!Array.isArray(diagnostics) || diagnostics.length === 0) return;
+  console.warn(`  ↳ [WARN] ${tenantId}: ${diagnostics.length} rich-content diagnostic(s):`);
+  for (const diagnostic of diagnostics.slice(0, 20)) {
+    const location = diagnostic.location || {};
+    const file = safeDiagnosticFile(location.file, contentRoot) || '<content>';
+    const line = Number.isInteger(location.line) ? location.line : 1;
+    const column = Number.isInteger(location.column) ? location.column : 1;
+    const renderer = [diagnostic.renderer, diagnostic.profile].filter(Boolean).join('/');
+    const code = diagnostic.code || 'RTC_RENDER_FAILED';
+    const message = safeDiagnosticMessage(diagnostic.message || 'Rendering failed', contentRoot);
+    console.warn(`      ${file}:${line}:${column} [${renderer || 'renderer'}] ${code}: ${message}`);
+  }
+  if (diagnostics.length > 20) console.warn(`      ... and ${diagnostics.length - 20} more`);
+}
+
+function safeDiagnosticFile(file, contentRoot) {
+  if (!file) return null;
+  const value = String(file).replace(/\\/g, '/');
+  if (!path.isAbsolute(value)) return value.replace(/^\.\//, '');
+  if (!contentRoot) return path.basename(value);
+  const relative = path.relative(path.resolve(contentRoot), path.resolve(value)).replace(/\\/g, '/');
+  return relative.startsWith('../') || path.isAbsolute(relative) ? path.basename(value) : relative;
+}
+
+function safeDiagnosticMessage(message, contentRoot) {
+  let value = String(message || '').replace(/[\r\n]+/g, ' ').trim();
+  for (const secret of [contentRoot, root, process.cwd()].filter(Boolean)) {
+    value = value.split(String(secret)).join('<content-root>');
+  }
+  return value.replace(/(?:[A-Za-z]:)?[\\/](?:[^\s:]+[\\/]){2,}[^\s:]*/g, '<path>');
 }
 
 // ============================================================================
@@ -5128,6 +5186,8 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     return { success: false };
   }
 
+  reportRenderDiagnostics(context.renderDiagnostics, tenantId, contentRoot.basePath);
+
   // Print link warnings
   if (linkWarnings.length > 0) {
     printLinkWarnings(linkWarnings, tenantId, strictLinks);
@@ -5610,6 +5670,9 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     console.warn(`  ↳ ${tenantId}: manifest did not produce any sections`);
     return;
   }
+
+
+  reportRenderDiagnostics(context.renderDiagnostics, tenantId, contentDir);
 
   // Print link warnings, and fail the tenant on broken links under strict mode
   if (linkWarnings.length > 0) {

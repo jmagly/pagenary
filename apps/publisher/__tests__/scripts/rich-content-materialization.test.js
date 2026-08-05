@@ -22,7 +22,7 @@ describe('rich-content fence materialization', () => {
 
   test('routes the puml alias through PlantUML preprocessing', async () => {
     const diagnostics = [];
-    const output = await renderConfiguredBuildFences('```puml\n@startuml\nA -> B\n@enduml\n```', {
+    const output = await renderConfiguredBuildFences('# Heading\n\n```puml\n@startuml\nA -> B\n@enduml\n```', {
       richContentConfig: { failurePolicy: 'warn', plantuml: { enabled: true } },
       renderDiagnostics: diagnostics,
       contentRoot: process.cwd(),
@@ -30,7 +30,10 @@ describe('rich-content fence materialization', () => {
     });
     expect(output).toContain('rich-content-fallback');
     expect(diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ renderer: 'plantuml', severity: 'warning' })
+      expect.objectContaining({
+        renderer: 'plantuml', severity: 'warning', profile: 'SANDBOX',
+        location: { file: 'page.md', line: 3, column: 1 }
+      })
     ]));
   });
 
