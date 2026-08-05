@@ -14,6 +14,22 @@ const distDir = outputDirEnv ? path.resolve(root, outputDirEnv) : path.join(root
 const argv = process.argv.slice(2);
 const DEV = argv.includes('--dev') || process.env.NODE_ENV === 'development';
 const FORCE_MINIFY = argv.includes('--force-minify') || /^(1|true)$/i.test(process.env.FORCE_MINIFY || '');
+
+function resolveBuildTimestamp(env = process.env) {
+  const sourceDateEpoch = env.SOURCE_DATE_EPOCH;
+  if (sourceDateEpoch === undefined || sourceDateEpoch === '') return new Date().toISOString();
+  if (!/^\d+$/.test(sourceDateEpoch)) {
+    throw new Error('SOURCE_DATE_EPOCH must be a non-negative integer number of Unix seconds');
+  }
+  const milliseconds = Number(sourceDateEpoch) * 1000;
+  const timestamp = new Date(milliseconds);
+  if (!Number.isFinite(milliseconds) || Number.isNaN(timestamp.getTime())) {
+    throw new Error('SOURCE_DATE_EPOCH is outside the supported date range');
+  }
+  return timestamp.toISOString();
+}
+
+const BUILD_TIMESTAMP = resolveBuildTimestamp();
 let buildConfig = {};
 const cfgPath = path.join(root, 'build.config.json');
 if (fs.existsSync(cfgPath)) {
@@ -53,7 +69,7 @@ async function copyEntry(from, to) {
 
   let content = await fsp.readFile(from, 'utf8');
   if (path.basename(from) === 'index.html') {
-    content = content.replace('</head>', `  <meta name="x-build" content="${new Date().toISOString()}" />\n  </head>`);
+    content = content.replace('</head>', `  <meta name="x-build" content="${BUILD_TIMESTAMP}" />\n  </head>`);
   }
 
   if (MINIFY && from.endsWith('.js')) {
@@ -82,6 +98,22 @@ async function copyEntry(from, to) {
   await fsp.writeFile(to, content, 'utf8');
 }
 
+async function copyRuntimeDependencies() {
+  const mermaidSource = require.resolve('mermaid/dist/mermaid.min.js');
+  const mermaidTarget = path.join(distDir, 'vendor', 'mermaid', 'mermaid.min.js');
+  await ensureDir(path.dirname(mermaidTarget));
+  await fsp.copyFile(mermaidSource, mermaidTarget);
+
+  const katexCssSource = require.resolve('katex/dist/katex.min.css');
+  const katexDistSource = path.dirname(katexCssSource);
+  const katexTarget = path.join(distDir, 'vendor', 'katex');
+  await ensureDir(katexTarget);
+  await Promise.all([
+    fsp.copyFile(katexCssSource, path.join(katexTarget, 'katex.min.css')),
+    fsp.cp(path.join(katexDistSource, 'fonts'), path.join(katexTarget, 'fonts'), { recursive: true })
+  ]);
+}
+
 async function main() {
   if (!fs.existsSync(srcDir)) {
     console.error('src directory missing.');
@@ -90,6 +122,7 @@ async function main() {
   await rimraf(distDir);
   await ensureDir(distDir);
   await copyEntry(srcDir, distDir);
+  await copyRuntimeDependencies();
   console.log(`Built docs-toolkit -> ${path.relative(root, distDir)}/ ${MINIFY ? '(minified)' : '(dev copy)'}`);
 }
 

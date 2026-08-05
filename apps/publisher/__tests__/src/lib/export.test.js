@@ -258,6 +258,17 @@ describe('lib/export.js', () => {
 });
 
 describe('export document scenarios', () => {
+  test('preserves accessible rich-content markup for print export', () => {
+    const rich = '<p>Formula <span class="katex"><span class="katex-mathml"><math><mi>x</mi><mo>+</mo><mi>y</mi></math></span><span class="katex-html" aria-hidden="true">x+y</span></span></p><figure class="rich-diagram"><svg role="img" aria-labelledby="flow-caption"></svg><figcaption id="flow-caption">Request flow</figcaption></figure>';
+    const result = composeExportDocument([
+      { section: { title: 'Rich content' }, html: rich }
+    ]);
+    expect(result).toContain('<math>');
+    expect(result).toContain('class="katex-html" aria-hidden="true"');
+    expect(result).toContain('aria-labelledby="flow-caption"');
+    expect(result).toContain('<figcaption id="flow-caption">Request flow</figcaption>');
+  });
+
   test('single section export', () => {
     const chapters = [
       { section: { title: 'Quick Start', summary: 'Get up and running in 5 minutes' }, html: '<p>Step 1: Install</p>' }

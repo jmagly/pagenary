@@ -100,17 +100,81 @@ function checkWriteTarget() {
   }
 }
 
+function commandCapability(id, command, args, purpose, fix, { required = false } = {}) {
+  const res = spawnSync(command, args, { encoding: 'utf8', timeout: 3000, windowsHide: true, shell: false });
+  const available = res.status === 0;
+  const output = String(res.stdout || res.stderr || '').trim().split(/\r?\n/, 1)[0];
+  return {
+    id,
+    kind: 'executable',
+    command,
+    available,
+    required,
+    version: available ? (output || 'available (version not reported)') : null,
+    purpose,
+    diagnostic: available ? null : fix
+  };
+}
+
+/** Report rich-content renderer support without installing or executing a render. */
+export function checkRendererCapabilities() {
+  const pkg = readPackageJson();
+  const declared = { ...(pkg.dependencies || {}), ...(pkg.optionalDependencies || {}), ...(pkg.devDependencies || {}) };
+  const capabilities = [
+    {
+      id: 'inline-latex',
+      kind: 'bundled-library',
+      package: 'katex',
+      available: Boolean(declared.katex),
+      required: true,
+      version: declared.katex || null,
+      purpose: 'Build-time inline and display LaTeX to HTML + MathML',
+      diagnostic: declared.katex ? null : 'Install the publisher dependencies; KaTeX must remain pinned to an exact reviewed version.'
+    },
+    {
+      id: 'mermaid',
+      kind: 'bundled-library',
+      package: 'mermaid',
+      available: Boolean(declared.mermaid),
+      required: true,
+      version: declared.mermaid || null,
+      purpose: 'Pinned local Mermaid rendering (no CDN dependency)',
+      diagnostic: declared.mermaid ? null : 'Install the publisher dependencies; Mermaid must remain pinned to an exact reviewed version.'
+    },
+    commandCapability('latex-standard-web', 'latexmlc', ['--version'], 'Full LaTeX pages using the standard-web-v1 semantic profile', 'Install LaTeXML and put `latexmlc` on PATH, or explicitly select portable-subset-v1 when its limits are acceptable.'),
+    commandCapability('latex-portable-subset', 'pandoc', ['--version'], 'Portable LaTeX subset to semantic HTML + MathML', 'Install Pandoc and put `pandoc` on PATH to enable portable-subset-v1.'),
+    commandCapability('latex-pdf', 'tectonic', ['--version'], 'Optional LaTeX PDF artifact generation', 'Install Tectonic and put `tectonic` on PATH only when PDF output is required.'),
+    commandCapability('plantuml', 'plantuml', ['-version'], 'Build-time PlantUML diagrams', 'Install PlantUML and put `plantuml` on PATH; builds using PlantUML will otherwise follow the configured failure policy.'),
+    commandCapability('java', 'java', ['-version'], 'Java runtime for PlantUML jar-based installations', 'Install a supported Java runtime if PlantUML is provided as a jar.')
+  ];
+  const missingRequired = capabilities.filter((item) => item.required && !item.available);
+  const optionalAvailable = capabilities.filter((item) => !item.required && item.available).length;
+  return {
+    name: 'renderers',
+    status: missingRequired.length ? 'fail' : optionalAvailable ? 'pass' : 'warn',
+    detail: `${capabilities.filter((item) => item.available).length}/${capabilities.length} renderer capabilities available`,
+    fix: missingRequired.length ? missingRequired.map((item) => item.diagnostic).join(' ') : null,
+    capabilities
+  };
+}
+
 const SYMBOL = { pass: '✓', warn: '!', fail: '✗' };
 
 /** Run all diagnostics. Returns the process exit code. */
 export function runDoctor({ json = false } = {}) {
   const pkg = readPackageJson();
-  const checks = [checkNode(), checkGit(), checkRegistry(), checkBuildConfig(), checkWriteTarget()];
+  const checks = [checkNode(), checkGit(), checkRegistry(), checkBuildConfig(), checkWriteTarget(), checkRendererCapabilities()];
   const failed = checks.filter((c) => c.status === 'fail');
   const ok = failed.length === 0;
 
   if (json) {
-    process.stdout.write(JSON.stringify({ tool: pkg.name, version: pkg.version, ok, checks }, null, 2) + '\n');
+    process.stdout.write(JSON.stringify({
+      tool: pkg.name,
+      version: pkg.version,
+      ok,
+      checks,
+      renderers: checks.find((check) => check.name === 'renderers').capabilities
+    }, null, 2) + '\n');
     return ok ? 0 : 1;
   }
 
@@ -118,6 +182,13 @@ export function runDoctor({ json = false } = {}) {
   for (const c of checks) {
     lines.push(`  ${SYMBOL[c.status] || '?'} ${c.name.padEnd(14)} ${c.detail}`);
     if (c.fix) lines.push(`      → ${c.fix}`);
+    if (c.name === 'renderers') {
+      for (const renderer of c.capabilities) {
+        const label = renderer.available ? renderer.version : 'not found';
+        lines.push(`      ${renderer.available ? '✓' : '·'} ${renderer.id.padEnd(22)} ${label}`);
+        if (!renderer.available && renderer.diagnostic) lines.push(`        → ${renderer.diagnostic}`);
+      }
+    }
   }
   lines.push('');
   lines.push(ok ? 'All required checks passed.' : `${failed.length} check(s) failed.`);

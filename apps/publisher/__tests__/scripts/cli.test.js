@@ -141,6 +141,20 @@ describe('pagenary read-only commands', () => {
     expect(report.ok).toBe(true);
     expect(Array.isArray(report.checks)).toBe(true);
     expect(report.checks.some((c) => c.name === 'node-version')).toBe(true);
+    expect(Array.isArray(report.renderers)).toBe(true);
+    expect(report.renderers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'inline-latex', package: 'katex', version: '0.18.1', available: true }),
+      expect.objectContaining({ id: 'mermaid', package: 'mermaid', version: '11.16.0', available: true }),
+      expect.objectContaining({ id: 'latex-standard-web', command: 'latexmlc' }),
+      expect.objectContaining({ id: 'latex-portable-subset', command: 'pandoc' }),
+      expect.objectContaining({ id: 'latex-pdf', command: 'tectonic' }),
+      expect.objectContaining({ id: 'plantuml', command: 'plantuml' }),
+      expect.objectContaining({ id: 'java', command: 'java' })
+    ]));
+    for (const renderer of report.renderers) {
+      expect(typeof renderer.available).toBe('boolean');
+      if (!renderer.available) expect(renderer.diagnostic).toEqual(expect.any(String));
+    }
   });
 });
 

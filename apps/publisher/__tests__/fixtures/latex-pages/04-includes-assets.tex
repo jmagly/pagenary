@@ -1,0 +1,15 @@
+\documentclass{article}
+\usepackage{graphicx}
+\title{Local Includes and Assets}
+
+\begin{document}
+\maketitle
+\input{_included-section}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.25\textwidth]{_fixture-image.svg}
+  \caption{A tenant-local fixture image.}\label{fig:local}
+\end{figure}
+Figure~\ref{fig:local} must remain a local asset.
+\end{document}

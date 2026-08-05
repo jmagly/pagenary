@@ -1,0 +1,12 @@
+{
+  "default": "index",
+  "sections": [
+    { "id": "index", "title": "Syntax gallery", "file": "index.md" },
+    { "id": "markdown", "title": "Markdown", "file": "markdown.md" },
+    { "id": "page-primitives", "title": "Page primitives", "file": "page-primitives.md" },
+    { "id": "inline-latex", "title": "Inline LaTeX", "file": "inline-latex.md" },
+    { "id": "diagrams", "title": "Diagrams", "file": "diagrams.md" },
+    { "id": "media-forms", "title": "Media and forms", "file": "media-forms.md" },
+    { "id": "latex-page", "title": "Complete LaTeX page", "file": "latex-page.tex" }
+  ]
+}

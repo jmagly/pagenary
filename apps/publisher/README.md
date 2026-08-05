@@ -75,7 +75,11 @@ inspect, build, or run the AIWG project from `~/dev/aiwg`.
 - **React Brochureware** — load a validated canonical content module while the SPA owns presentation; emit semantic route HTML, search, sitemap, JSON/text, and LLM-readable artifacts ([guide](docs/BROCHUREWARE.md))
 
 ### Rich Content
-- **Mermaid Diagrams** — flowcharts, sequence diagrams, state machines, and more
+- **Inline LaTeX** — full KaTeX-supported math syntax in inline/display contexts, rendered to local HTML + MathML with bounded macros and expansion
+- **LaTeX Pages** — convert complete `.tex` pages to semantic HTML + MathML through an explicitly selected local converter profile
+- **Mermaid Diagrams** — local pinned Mermaid 11.16.0 runtime by default, with optional sanitized build-time SVG
+- **PlantUML Diagrams** — local-only build rendering with the PlantUML `SANDBOX` security profile and contained includes
+- **Rich Content Guide** — syntax, configuration, prerequisites, security boundaries, and failure behavior ([guide](docs/RICH-CONTENT.md))
 - **Interactive Images** — opt-in bounded zoom, pan, and reset for SVG, PNG, and JPEG/JPG with accessible text and keyboard/touch controls
 - **Markdown Delivery** — optionally emit per-route `.md` representations and serve them from the same canonical URL when `Accept: text/markdown` is preferred
 - **Syntax Highlighting** — Prism.js with 10+ language support
@@ -164,6 +168,23 @@ graph LR
     B --> C[Deploy]
 \`\`\`
 ```
+
+Markdown also supports build-time inline LaTeX with `\(...\)`, `\[...\]`, and
+`$$...$$`; single-dollar math is opt-in. See the
+[rich technical content guide](docs/RICH-CONTENT.md) for syntax and bounds.
+
+**LaTeX (.tex)**
+```latex
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\section{A semantic LaTeX page}
+\[ E = mc^2 \]
+\end{document}
+```
+
+Complete `.tex` pages require the local converter selected by `latexPage.profile`.
+Pagenary does not install converters or TeX packages during the build.
 
 **HTML (.html)**
 ```html

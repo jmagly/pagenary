@@ -5,6 +5,7 @@
 
 import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
+import { semanticHtmlToText } from '../../src/lib/semantic-html.js';
 import { buildShareHref, buildShareTargets, resolveSharePayload } from '../../src/lib/share.js';
 
 const DISCOVERABILITY_PROFILES = new Set(['standard', 'open', 'limited', 'locked']);
@@ -886,18 +887,7 @@ function buildLlmsExtractSuffix(baseUrl, filename, seoConfig) {
 }
 
 function htmlToText(html) {
-  return String(html || '')
-    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
+  return semanticHtmlToText(html);
 }
 
 function resolveArtifactUrl(baseUrl, pathname) {

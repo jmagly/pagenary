@@ -6,6 +6,7 @@ import {
   readManifestFromDist,
   resolveDiscoverabilityProfile
 } from './seo-generator.js';
+import { decodeHtmlEntities, semanticHtml } from '../../src/lib/semantic-html.js';
 
 const RESTRICTED_PROFILES = new Set(['limited', 'locked']);
 
@@ -56,15 +57,7 @@ export function resolveMarkdownDeliveryConfig(config = {}) {
 }
 
 function decodeEntities(value) {
-  return String(value || '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([\da-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
+  return decodeHtmlEntities(value);
 }
 
 function textOnly(value) {
@@ -103,7 +96,7 @@ export function htmlToMarkdown(html) {
     return token;
   };
 
-  let output = String(html || '')
+  let output = semanticHtml(html)
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<(script|style|template)\b[\s\S]*?<\/\1>/gi, '')
     .replace(/<(nav)\b[\s\S]*?<\/\1>/gi, '')
@@ -142,6 +135,7 @@ export function htmlToMarkdown(html) {
     output = output.replace(`\u0000PAGENARY_MD_${index}\u0000`, block);
   });
   return output
+    .replace(/[ \t]{2,}/g, ' ')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n[ \t]+/g, '\n')
     .replace(/\n{3,}/g, '\n\n')

@@ -16,6 +16,11 @@
 | R3 | Multi-tenant isolation | HIGH | LOW | MEDIUM | MITIGATED | Architecture |
 | R4 | Zero-dependency maintainability | MEDIUM | LOW | LOW | MONITORING | Engineering |
 | R5 | Test coverage gaps | MEDIUM | LOW | MEDIUM | MITIGATED | Test Engineer |
+| R6 | TeX/diagram renderer arbitrary access or resource exhaustion | HIGH | MEDIUM | HIGH | OPEN | Security Architecture |
+| R7 | LaTeX-page compatibility claims exceed tested converter profile | HIGH | MEDIUM | HIGH | OPEN | Architecture |
+| R8 | Renderer output diverges across SPA, snapshots, search, and export | HIGH | MEDIUM | HIGH | OPEN | Engineering |
+| R9 | Renderer dependency drift or vulnerable generated markup | HIGH | MEDIUM | HIGH | OPEN | Security Engineering |
+| R10 | Cold-build cost and toolchain portability regress publisher usability | MEDIUM | MEDIUM | MEDIUM | OPEN | Build Engineering |
 
 ---
 
@@ -162,17 +167,46 @@
 
 ---
 
+### R6-R10: Rich Technical Content Rendering Risks
+
+**Status:** OPEN pending planning audit and construction-entry spikes.
+
+| ID | Trigger | Mitigation owner | Retirement evidence | Tracker |
+|---|---|---|---|---|
+| R6 | Any renderer can access network, secrets, host paths, shell, or exhaust resources | Security Architecture | Approved threat model plus passing abuse/isolation suite | #167 |
+| R7 | Representative `.tex` fixtures fail or require undeclared packages/manual repair | Architecture | Converter bake-off and versioned compatibility profile | #166 |
+| R8 | A syntax renders differently or disappears in snapshots/search/export | Engineering | Normalized payload and artifact-parity suite | #169, #176 |
+| R9 | Dependency advisory, mutable version, unsafe SVG/HTML, or untracked license | Security Engineering | Exact versions/checksums/SBOM, sanitizer tests, upgrade gate | #167, #171, #176 |
+| R10 | Cold build, image size, Java/TeX portability, or cache misses exceed budgets | Build Engineering | Benchmarks, cache evidence, pinned CI image and doctor output | #166, #176 |
+
 ## Risk Metrics
 
-**Total Risks:** 5
-**Retired:** 1 (20%)
-**Mitigated:** 2 (40%)
-**Accepted:** 1 (20%)
-**Monitoring:** 1 (20%)
-**Open:** 0 (0%)
+### Rich Technical Content Risks (2026-08-05)
 
-**HIGH Priority:** 1 (Retired)
-**MEDIUM Priority:** 2 (Both Mitigated)
+- **R6 mitigation:** immutable safe profiles, no-network sandbox, scrubbed
+  environment, path/symlink containment, process and output limits, abuse tests.
+- **R7 mitigation:** fixture-based converter bake-off, versioned compatibility
+  profile, explicit unsupported-package diagnostics, no universal-CTAN claim.
+- **R8 mitigation:** normalized renderer payload and mandatory artifact-parity
+  tests for every syntax and mode.
+- **R9 mitigation:** exact local versions/checksums, advisory fixtures, generated
+  SVG/HTML normalization, SBOM/license review, gated upgrades.
+- **R10 mitigation:** content-addressed cache, optional toolchains, cold/warm
+  benchmarks, prebuilt pinned CI image, CLI capability diagnostics.
+
+R6 and R7 are construction-entry risks and must be retired by the threat model and
+converter bake-off. R8-R10 must be mitigated with automated evidence before
+release.
+
+**Total Risks:** 10
+**Retired:** 1 (10%)
+**Mitigated:** 2 (20%)
+**Accepted:** 1 (10%)
+**Monitoring:** 1 (10%)
+**Open:** 5 (50%)
+
+**HIGH Priority:** 5 (1 Retired, 4 Open)
+**MEDIUM Priority:** 3 (2 Mitigated, 1 Open)
 **LOW Priority:** 2 (1 Accepted, 1 Monitoring)
 
 ---
@@ -192,3 +226,4 @@
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
 | 2025-12-01 | 1.0 | Initial baseline from LOM/ABM findings | Architecture Team |
+| 2026-08-05 | 1.1 | Added R6-R10 for rich technical content planning | SDLC Planning Track |

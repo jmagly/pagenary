@@ -28,7 +28,12 @@ function runBuildTenants(args = [], env = {}) {
   return new Promise((resolve, reject) => {
     const proc = spawn(process.execPath, [BUILD_TENANTS_SCRIPT, ...args], {
       cwd: PUBLISHER_ROOT,
-      env: { ...process.env, ...env },
+      // This suite exercises tenant assembly, not the standalone minifier.
+      // Avoid running Terser over the complete publisher runtime in every one
+      // of the many child-process builds; production minification has focused
+      // coverage in build.test.js. Callers can still override NODE_ENV when a
+      // tenant test specifically needs production behavior.
+      env: { ...process.env, NODE_ENV: 'development', ...env },
       stdio: 'pipe'
     });
 
@@ -170,13 +175,16 @@ async function expectFilenameHashMatches(distDir, relPath) {
 }
 
 describe('build-tenants.js', () => {
-  describe('existing tenants', () => {
+  describe('existing tenant builds and isolation', () => {
     // Use a test registry with only local tenants to avoid git clone delays
     const LOCAL_TENANTS = [{ id: 'tenant-alpha' }, { id: 'tenant-beta' }];
+    let result;
+
+    beforeAll(async () => {
+      result = await runBuildTenantsWithRegistry(LOCAL_TENANTS);
+    });
 
     test('builds existing sample tenants successfully', async () => {
-      const result = await runBuildTenantsWithRegistry(LOCAL_TENANTS);
-
       expect(result.code).toBe(0);
       // Should find tenant-alpha and tenant-beta
       expect(result.stdout).toMatch(/tenant-alpha/);
@@ -184,8 +192,6 @@ describe('build-tenants.js', () => {
     });
 
     test('creates separate dist directories for each tenant', async () => {
-      await runBuildTenantsWithRegistry(LOCAL_TENANTS);
-
       const alphaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha');
       const betaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta');
 
@@ -194,22 +200,14 @@ describe('build-tenants.js', () => {
     });
 
     test('each tenant bundle has index.html', async () => {
-      await runBuildTenantsWithRegistry(LOCAL_TENANTS);
-
       const alphaIndex = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha', 'index.html');
       const betaIndex = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta', 'index.html');
 
       expect(fs.existsSync(alphaIndex)).toBe(true);
       expect(fs.existsSync(betaIndex)).toBe(true);
     });
-  });
-
-  describe('tenant isolation', () => {
-    const LOCAL_TENANTS = [{ id: 'tenant-alpha' }, { id: 'tenant-beta' }];
 
     test('tenant bundles are independent', async () => {
-      await runBuildTenantsWithRegistry(LOCAL_TENANTS);
-
       const alphaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha');
       const betaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta');
 

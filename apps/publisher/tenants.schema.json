@@ -292,6 +292,18 @@
           "$ref": "#/definitions/markdownDeliveryConfig",
           "description": "Optional per-route Markdown artifacts and Accept-header content negotiation"
         },
+        "inlineLatex": {
+          "$ref": "#/definitions/inlineLatexConfig",
+          "description": "Build-time inline LaTeX rendering with local KaTeX HTML and MathML output"
+        },
+        "latexPage": {
+          "$ref": "#/definitions/latexPageConfig",
+          "description": "Bounded conversion profile for complete .tex pages"
+        },
+        "richContent": {
+          "$ref": "#/definitions/richContentConfig",
+          "description": "Build/runtime rendering controls for Mermaid and PlantUML fences"
+        },
         "knowledgeShard": {
           "$ref": "#/definitions/knowledgeShardConfig",
           "description": "Optional deterministic build-time Fortémi Knowledge Shard export"
@@ -820,6 +832,110 @@
               "default": false,
               "description": "Expose X-Pagenary-Representation: html|markdown without logging request headers"
             }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "inlineLatexConfig": {
+      "type": "object",
+      "description": "Bounded build-time inline LaTeX rendering. KaTeX trust remains disabled and cannot be overridden by tenant content.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "dollarDelimiters": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt in to single-dollar inline delimiters in addition to \\(...\\), \\[...\\], and $$...$$."
+        },
+        "throwOnError": {
+          "type": "boolean",
+          "default": false,
+          "description": "Promote invalid inline LaTeX to build diagnostics instead of rendering KaTeX error fallback."
+        },
+        "maxSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "maxExpand": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 1000
+        },
+        "macros": {
+          "type": "object",
+          "description": "Page-scoped KaTeX macro definitions.",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "latexPageConfig": {
+      "type": "object",
+      "description": "Complete LaTeX page conversion. standard-web-v1 requires local LaTeXML; portable-subset-v1 is an explicitly constrained Pandoc profile.",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "enum": ["standard-web-v1", "portable-subset-v1"],
+          "default": "standard-web-v1"
+        },
+        "failurePolicy": {
+          "type": "string",
+          "enum": ["warn", "strict", "off"],
+          "default": "warn"
+        },
+        "allowedPackages": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" }
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 120000,
+          "default": 20000
+        },
+        "maxOutputBytes": {
+          "type": "integer",
+          "minimum": 65536,
+          "maximum": 16777216,
+          "default": 4194304
+        }
+      },
+      "additionalProperties": false
+    },
+    "richContentConfig": {
+      "type": "object",
+      "properties": {
+        "failurePolicy": {
+          "type": "string",
+          "enum": ["warn", "strict", "off"],
+          "default": "warn"
+        },
+        "mermaid": {
+          "type": "object",
+          "properties": {
+            "mode": { "type": "string", "enum": ["runtime", "build"], "default": "runtime" },
+            "maxSourceBytes": { "type": "integer", "minimum": 1, "maximum": 50000 },
+            "maxEdges": { "type": "integer", "minimum": 1, "maximum": 500 },
+            "maxOutputBytes": { "type": "integer", "minimum": 65536, "maximum": 4194304 }
+          },
+          "additionalProperties": false
+        },
+        "plantuml": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "executablePath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/])" },
+            "jarPath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/])" },
+            "javaPath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/])" },
+            "version": { "type": "string" }
           },
           "additionalProperties": false
         }

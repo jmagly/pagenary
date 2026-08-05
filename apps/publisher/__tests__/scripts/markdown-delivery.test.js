@@ -41,6 +41,18 @@ describe('Markdown delivery artifacts (#163)', () => {
     expect(markdown).not.toContain('<nav');
   });
 
+  it('keeps semantic math and diagram captions without visual renderer duplication', () => {
+    const markdown = htmlToMarkdown(`
+      <p>Formula <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>x</mi><mo>+</mo><mi>y</mi></mrow><annotation encoding="application/x-tex">x+y</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span>x</span><span>+</span><span>y</span></span></span></p>
+      <figure class="rich-diagram"><svg><text>visual duplicate</text></svg><figcaption>Request flow</figcaption><details class="rich-diagram__source"><pre>graph TD; A--&gt;B</pre></details></figure>
+    `);
+    expect(markdown).toContain('Formula x + y');
+    expect(markdown).toContain('_Request flow_');
+    expect(markdown).not.toContain('visual duplicate');
+    expect(markdown).not.toContain('graph TD');
+    expect((markdown.match(/x \+ y/g) || [])).toHaveLength(1);
+  });
+
   it('extracts sanitized authored Markdown embedded in a section module', () => {
     const encoded = Buffer.from('# X\n\nBody.\n', 'utf8').toString('base64');
     const module = `// pagenary-authored-markdown-base64: ${encoded}\nexport async function load(){ return { html: "<h1>X</h1>" }; }`;

@@ -1,0 +1,20 @@
+schema: prov-record.yaml
+record_id: urn:aiwg:prov:rich-content-core-test
+generated_at: "2026-08-05T17:27:39Z"
+entity:
+  id: urn:aiwg:artifact:apps/publisher/__tests__/scripts/rich-content-core.test.js
+  path: apps/publisher/__tests__/scripts/rich-content-core.test.js
+  sha256: "053c0bb9eb72a48fdd3797fc7c04330d81a16c1cf65ad9e4f8f2a87cdb96cd7c"
+activity:
+  id: urn:aiwg:activity:issue-168-rich-content-core-tests
+  type: generation
+  started_at: "2026-08-05T17:19:00Z"
+  ended_at: "2026-08-05T17:27:39Z"
+agent:
+  id: urn:aiwg:agent:software-implementer
+  tool_version: codex-gpt-5
+wasDerivedFrom:
+  - urn:aiwg:artifact:.aiwg/requirements/REQ-rich-technical-content.md
+  - urn:aiwg:artifact:.aiwg/architecture/adr/ADR-019-rich-technical-content-rendering.md
+  - urn:aiwg:artifact:.aiwg/testing/test-strategy-rich-technical-content.md
+  - urn:aiwg:tracker:gitea:roctinam/pagenary/issues/168

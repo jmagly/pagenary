@@ -393,6 +393,30 @@ describe('profile artifact matrix (#114, #115, #117)', () => {
     }
   });
 
+  test('corpus extracts semantic rich content without hidden visual duplicates', async () => {
+    const dir = await writeSeoFixture();
+    try {
+      const html = '<h1>Rich page</h1><p>Formula <span class="katex"><span class="katex-mathml"><math><mi>x</mi><mo>+</mo><mi>y</mi></math></span><span class="katex-html" aria-hidden="true"><span>x</span><span>+</span><span>y</span></span></span></p><figure><svg><text>visual duplicate</text></svg><figcaption>Request flow</figcaption><details class="rich-diagram__source"><pre>graph TD</pre></details></figure>';
+      await fsp.writeFile(path.join(dir, 'sections', 'welcome.js'), `export default { html: ${JSON.stringify(html)} };\n`, 'utf8');
+      await generateSeoArtifacts(dir, {
+        title: 'Open Docs',
+        seo: { discoverabilityProfile: 'open' }
+      });
+      const page = JSON.parse(await fsp.readFile(path.join(dir, 'pages', 'welcome.json'), 'utf8'));
+      const snapshot = await fsp.readFile(path.join(dir, 'pages', 'welcome.html'), 'utf8');
+      expect(snapshot).toContain('<math>');
+      expect(snapshot).toContain('class="katex-html" aria-hidden="true"');
+      expect(snapshot).toContain('<figcaption>Request flow</figcaption>');
+      expect(page.bodyText).toContain('Formula x + y');
+      expect(page.bodyText).toContain('Request flow');
+      expect(page.bodyText).not.toContain('visual duplicate');
+      expect(page.bodyText).not.toContain('graph TD');
+      expect((page.bodyText.match(/x \+ y/g) || [])).toHaveLength(1);
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test('limited profile suppresses sitemap, llms, and corpus artifacts by default', async () => {
     const dir = await writeSeoFixture();
     try {

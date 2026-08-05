@@ -1,0 +1,30 @@
+{
+  "Pagenary inline LaTeX": {
+    "prefix": "pagenary-inline-latex",
+    "body": [
+      "\\(${1:x = y}\\)"
+    ],
+    "description": "Insert Pagenary inline LaTeX using the unambiguous \\(…\\) delimiters."
+  },
+  "Pagenary display LaTeX": {
+    "prefix": "pagenary-display-latex",
+    "body": [
+      "\\[",
+      "${1:\\begin{aligned}}",
+      "  ${2:x &= y}",
+      "${3:\\end{aligned}}",
+      "\\]"
+    ],
+    "description": "Insert a Pagenary display-LaTeX block."
+  },
+  "Pagenary LaTeX page": {
+    "prefix": "pagenary-latex-page",
+    "body": [
+      "\\documentclass{article}",
+      "\\begin{document}",
+      "${1}",
+      "\\end{document}"
+    ],
+    "description": "Create the minimal structure for a Pagenary .tex page."
+  }
+}

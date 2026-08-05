@@ -1,0 +1,19 @@
+schema: prov-record.yaml
+record_id: urn:aiwg:prov:rich-content-tokenizer
+generated_at: "2026-08-05T17:27:39Z"
+entity:
+  id: urn:aiwg:artifact:apps/publisher/scripts/lib/rich-content-tokenizer.js
+  path: apps/publisher/scripts/lib/rich-content-tokenizer.js
+  sha256: "dd7c46902524090edd6531c317415ef57b8b41f60777c844b269a33c21b6bea4"
+activity:
+  id: urn:aiwg:activity:issue-168-rich-content-core-implementation
+  type: generation
+  started_at: "2026-08-05T17:19:00Z"
+  ended_at: "2026-08-05T17:27:39Z"
+agent:
+  id: urn:aiwg:agent:software-implementer
+  tool_version: codex-gpt-5
+wasDerivedFrom:
+  - urn:aiwg:artifact:.aiwg/requirements/REQ-rich-technical-content.md
+  - urn:aiwg:artifact:.aiwg/architecture/adr/ADR-019-rich-technical-content-rendering.md
+  - urn:aiwg:tracker:gitea:roctinam/pagenary/issues/168

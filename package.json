@@ -6,6 +6,10 @@
   "workspaces": [
     "apps/*"
   ],
+  "overrides": {
+    "js-yaml": "3.15.0",
+    "postcss": "8.5.23"
+  },
   "scripts": {
     "bootstrap": "npm install --workspaces",
     "publisher:build": "npm run build --workspace @pagenary/publisher",

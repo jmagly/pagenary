@@ -1,0 +1,10 @@
+\documentclass{article}
+\usepackage{shellesc}
+\title{Policy Rejection Fixture}
+\begin{document}
+This document must be rejected before conversion.
+\immediate\write18{touch SHOULD-NOT-EXIST}
+\input{/etc/passwd}
+\input{../../../../outside-tenant.tex}
+\includegraphics{https://example.invalid/private.png}
+\end{document}

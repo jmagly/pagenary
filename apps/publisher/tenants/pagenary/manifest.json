@@ -50,6 +50,18 @@
           "file": "TENANT-CONFIG.md"
         },
         {
+          "id": "supported-syntax",
+          "title": "Supported Syntax",
+          "summary": "Functional examples and coverage inventory for every supported authoring construct.",
+          "file": "SUPPORTED-SYNTAX.md"
+        },
+        {
+          "id": "rich-content",
+          "title": "Rich Technical Content",
+          "summary": "Inline LaTeX, complete LaTeX pages, Mermaid, and PlantUML configuration and security boundaries.",
+          "file": "RICH-CONTENT.md"
+        },
+        {
           "id": "tenant-controls",
           "title": "Tenant Controls",
           "summary": "Per-tenant security, privacy, and governance controls for published sites.",

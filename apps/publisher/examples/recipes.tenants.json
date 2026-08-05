@@ -137,6 +137,11 @@
       "source": { "type": "local", "path": "./examples/page-effects" }
     },
     {
+      "$comment": "Executable supported-syntax gallery and help-reference companion (#178).",
+      "id": "syntax-gallery",
+      "source": { "type": "local", "path": "./examples/syntax-gallery" }
+    },
+    {
       "$comment": "Blog theme gallery — each variant reuses examples/blog-demo's posts and differs only by its inline theme config (same blog layout, distinct looks). Dark/matrix palettes are already shown by theme-dark/theme-matrix on docs content, so the blog gallery keeps the looks unique to it: editorial, rail, and vivid.",
       "id": "blog-editorial",
       "source": { "type": "local", "path": "./examples/blog-demo" },

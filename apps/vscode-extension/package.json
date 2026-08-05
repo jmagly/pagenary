@@ -15,6 +15,7 @@
   ],
   "activationEvents": [
     "onLanguage:markdown",
+    "onLanguage:latex",
     "workspaceContains:**/tenants.json",
     "workspaceContains:**/config.json",
     "onCommand:pagenary.validateActiveFile",
@@ -23,6 +24,16 @@
   ],
   "main": "./src/extension.js",
   "contributes": {
+    "snippets": [
+      {
+        "language": "markdown",
+        "path": "./snippets/pagenary.json"
+      },
+      {
+        "language": "latex",
+        "path": "./snippets/pagenary.json"
+      }
+    ],
     "commands": [
       {
         "command": "pagenary.validateActiveFile",
@@ -60,6 +71,7 @@
   },
   "files": [
     "src/",
+    "snippets/",
     "scripts/",
     "docs/",
     "README.md",

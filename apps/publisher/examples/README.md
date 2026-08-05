@@ -13,6 +13,14 @@ Copy-paste starting points for making any docs repo "Pagenary ready". See
 `@pagenary/publisher` is published to the Gitea registry; the workflows install
 with `--registry=https://git.integrolabs.net/api/packages/pagenary/npm/`.
 
+## Supported syntax gallery
+
+[`syntax-gallery/`](syntax-gallery/) is the functional, buildable catalog of
+every supported authoring construct—not only Markdown, but page frontmatter,
+inline LaTeX, Mermaid, PlantUML, complete `.tex` pages, media, and forms. Its
+machine-readable inventory is checked against the examples and the
+[`Supported syntax reference`](../docs/SUPPORTED-SYNTAX.md) in CI.
+
 ## Recipe gallery & the consolidated showcase
 
 The recipe tenants in [`recipes.tenants.json`](recipes.tenants.json) are one

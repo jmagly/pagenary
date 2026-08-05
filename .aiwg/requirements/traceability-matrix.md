@@ -582,3 +582,20 @@ This section identifies requirements without clear traceability.
 ---
 
 **End of Document**
+# Rich Technical Content Traceability Addendum (2026-08-05)
+
+| Requirement range | Architecture | Verification | Delivery |
+|---|---|---|---|
+| RTC-FR-001..007 | ADR-019 shared adapter model | Parser, cache, diagnostics, artifact-parity suites | #168, #169, #176 |
+| RTC-FR-010..017 | ADR-019 inline LaTeX decision | Inline LaTeX unit/security/a11y/search/export suites | #170, #176 |
+| RTC-FR-020..029 | ADR-019 LaTeX-page boundary | Converter bake-off, compatibility and sandbox suites | #166, #167, #174, #176 |
+| RTC-FR-030..036 | ADR-019 Mermaid profiles; supersedes ADR-012 delivery | Corpus migration, advisory, CSP/offline, a11y suites | #171, #172, #176 |
+| RTC-FR-040..046 | ADR-019 PlantUML boundary | CLI/container isolation and diagram-family suites | #167, #173, #176 |
+| RTC-FR-050..057 | ADR-019 normalized payload | End-to-end artifact-parity and editor/CLI suites | #169, #175, #176, #177 |
+| RTC-NFR-001..009 | ADR-019 security/consequences | Security, reproducibility, performance, accessibility, compatibility gates | #166-#177 |
+
+Authoritative requirement details are in
+`.aiwg/requirements/REQ-rich-technical-content.md`; test coverage is specified in
+`.aiwg/testing/test-strategy-rich-technical-content.md`. Tracker issue links are
+and the canonical tracker parent is
+[pagenary#165](https://git.integrolabs.net/roctinam/pagenary/issues/165).

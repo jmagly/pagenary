@@ -1369,6 +1369,39 @@ Hide bottom navigation:
 
 ## Content Files
 
+Rich technical content has additional tenant settings for `inlineLatex`,
+`latexPage`, and `richContent` (Mermaid and PlantUML). See
+[Rich Technical Content](RICH-CONTENT.md) for complete author syntax, local tool
+prerequisites, security boundaries, failure policies, and troubleshooting.
+
+```json
+{
+  "inlineLatex": {
+    "enabled": true,
+    "dollarDelimiters": false,
+    "maxSize": 20,
+    "maxExpand": 1000,
+    "macros": { "\\RR": "\\mathbb{R}" }
+  },
+  "latexPage": {
+    "profile": "standard-web-v1",
+    "failurePolicy": "strict"
+  },
+  "richContent": {
+    "failurePolicy": "warn",
+    "mermaid": { "mode": "runtime" },
+    "plantuml": {
+      "enabled": true,
+      "executablePath": "/opt/plantuml/bin/plantuml"
+    }
+  }
+}
+```
+
+Mermaid runtime assets are vendored locally at version 11.16.0. Complete LaTeX
+pages and PlantUML diagrams require the configured local tools; builds never
+use a public rendering service or install missing tools automatically.
+
 ### Markdown (.md)
 
 Full CommonMark support plus:

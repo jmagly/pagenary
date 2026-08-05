@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Pagenary syntax flow</title>
+  <desc id="desc">Source syntax flows through Pagenary to an offline static site.</desc>
+  <rect width="1200" height="675" fill="#f8fafc"/>
+  <g font-family="system-ui,sans-serif" font-size="34" text-anchor="middle">
+    <rect x="80" y="255" width="280" height="150" rx="24" fill="#dbeafe" stroke="#2563eb" stroke-width="5"/>
+    <text x="220" y="345" fill="#172554">Source syntax</text>
+    <rect x="460" y="255" width="280" height="150" rx="24" fill="#ede9fe" stroke="#7c3aed" stroke-width="5"/>
+    <text x="600" y="345" fill="#2e1065">Pagenary</text>
+    <rect x="840" y="255" width="280" height="150" rx="24" fill="#dcfce7" stroke="#16a34a" stroke-width="5"/>
+    <text x="980" y="325" fill="#14532d">Offline</text>
+    <text x="980" y="367" fill="#14532d">static site</text>
+  </g>
+  <path d="M360 330h90m290 0h90" stroke="#334155" stroke-width="8" marker-end="url(#arrow)"/>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0l10 5-10 5z" fill="#334155"/></marker></defs>
+</svg>

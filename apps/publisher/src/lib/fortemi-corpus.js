@@ -1,3 +1,5 @@
+import { semanticHtmlToText } from './semantic-html.js';
+
 /**
  * Fortemi corpus builder — shared, pure, deterministic.
  *
@@ -92,20 +94,9 @@ export function stableHash(input) {
  * @returns {string}
  */
 export function stripHtml(html) {
-  if (!html) return '';
-  return String(html)
-    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
+  return semanticHtmlToText(html)
     .replace(/&mdash;/gi, '—')
-    .replace(/&hellip;/gi, '…')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/&hellip;/gi, '…');
 }
 
 /**

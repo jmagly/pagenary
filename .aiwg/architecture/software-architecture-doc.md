@@ -1577,4 +1577,30 @@ apps/publisher/
 
 ---
 
+## Rich Technical Content Architecture Addendum (2026-08-05)
+
+Pagenary plans a unified rich-content rendering layer for inline LaTeX, complete
+LaTeX-authored pages, Mermaid, and PlantUML. Renderer adapters execute in the
+build/control path or as pinned local lazy assets and emit a normalized section
+payload before static snapshots, search, export, and accessibility processing.
+
+The addendum preserves static deployment and read/write segregation while
+qualifying the earlier zero-dependency constraint: specialist parsers and
+renderers may be exact, audited build dependencies when hand-written substitutes
+would reduce compatibility or safety. No external runtime service is required by
+default.
+
+Authoritative detail:
+
+- `.aiwg/architecture/adr/ADR-019-rich-technical-content-rendering.md`
+- `.aiwg/requirements/REQ-rich-technical-content.md`
+- `.aiwg/testing/test-strategy-rich-technical-content.md`
+- `.aiwg/planning/rich-technical-content-delivery-track.md`
+- Canonical tracker epic: https://git.integrolabs.net/roctinam/pagenary/issues/165
+
+This addendum is proposed and does not alter the baselined implementation until
+the planning audit accepts ADR-019 and the Phase 0 construction-entry gates pass.
+
+---
+
 **End of Document**

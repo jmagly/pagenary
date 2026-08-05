@@ -91,6 +91,10 @@ describe('fortemi-corpus', () => {
       expect(stripHtml('<p>  one\n\n two </p>')).toBe('one two');
       expect(stripHtml('')).toBe('');
     });
+    test('keeps semantic math text but excludes aria-hidden visual renderings', () => {
+      const katexLike = '<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>x</mi><mo>+</mo><mi>y</mi></mrow><annotation encoding="application/x-tex">x+y</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span>x</span><span>+</span><span>y</span></span></span>';
+      expect(stripHtml(katexLike)).toBe('x + y');
+    });
   });
 
   describe('normalizeFacetValue', () => {

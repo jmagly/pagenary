@@ -1,0 +1,57 @@
+import { renderConfiguredBuildFences } from '../../scripts/build-tenants.js';
+
+describe('rich-content fence materialization', () => {
+  test('keeps Mermaid fences for the default local runtime mode', async () => {
+    const source = '```mermaid\ngraph TD\n A-->B\n```';
+    await expect(renderConfiguredBuildFences(source, {
+      richContentConfig: { mermaid: { mode: 'runtime' } }
+    })).resolves.toBe(source);
+  });
+
+  test('normalizes Mermaid fence metadata to the runtime language class', async () => {
+    const { markdownToHtml } = await import('../../scripts/build-tenants.js');
+    const html = markdownToHtml('```mermaid title="Request flow"\ngraph TD\n A-->B\n```');
+    expect(html).toContain('class="language-mermaid"');
+    expect(html).toContain('data-title="Request flow"');
+    expect(html).not.toContain('language-mermaid title');
+  });
+
+  test('routes the puml alias through PlantUML preprocessing', async () => {
+    const diagnostics = [];
+    const output = await renderConfiguredBuildFences('```puml\n@startuml\nA -> B\n@enduml\n```', {
+      richContentConfig: { failurePolicy: 'warn', plantuml: { enabled: true } },
+      renderDiagnostics: diagnostics,
+      contentRoot: process.cwd(),
+      currentPath: 'page.md'
+    });
+    expect(output).toContain('rich-content-fallback');
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ renderer: 'plantuml', severity: 'warning' })
+    ]));
+  });
+
+  test('build mode degrades to visible source and diagnostics without a build DOM', async () => {
+    const diagnostics = [];
+    const output = await renderConfiguredBuildFences('```mermaid\ngraph TD\n A-->B\n```', {
+      richContentConfig: { failurePolicy: 'warn', mermaid: { mode: 'build' } },
+      renderDiagnostics: diagnostics,
+      contentRoot: process.cwd(),
+      currentPath: 'page.md'
+    });
+    expect(output).toContain('```html');
+    expect(output).toContain('rich-content-fallback');
+    expect(output).toContain('graph TD');
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'MERMAID_BUILD_UNAVAILABLE', severity: 'warning' })
+    ]));
+  });
+
+  test('strict build mode fails when the renderer is unavailable', async () => {
+    await expect(renderConfiguredBuildFences('```mermaid\ngraph TD\n A-->B\n```', {
+      richContentConfig: { failurePolicy: 'strict', mermaid: { mode: 'build' } },
+      renderDiagnostics: [],
+      contentRoot: process.cwd(),
+      currentPath: 'page.md'
+    })).rejects.toThrow(/browser DOM/i);
+  });
+});

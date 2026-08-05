@@ -36,6 +36,12 @@ import { buildSectionLayoutMap, normalizeLayout } from '../src/lib/layout.js';
 import { validateFrontmatter } from '../src/lib/templates.js';
 import { isFormProvider, parseFormFenceConfig, renderFormEmbed } from '../src/lib/form-providers.js';
 import { normalizeShareConfig } from '../src/lib/share.js';
+import { protectInlineLatex } from './lib/inline-latex.js';
+import { renderLatexPage } from './lib/latex-page-adapter.js';
+import { createMermaidBuildAdapter } from './lib/mermaid-build-adapter.js';
+import { createPlantUmlAdapter } from './lib/plantuml-renderer.js';
+import { createRendererRegistry, renderRichContentNodes } from './lib/rich-content-adapters.js';
+import { fallbackHtmlForSource } from './lib/rich-content-diagnostics.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = process.cwd();
@@ -53,7 +59,7 @@ const DIRECTORY_MANIFEST = '_manifest.json';
 const MAX_CONTENT_DEPTH = 10;
 
 // Content file extensions for link transformation
-const CONTENT_EXTENSIONS = ['.md', '.markdown', '.html', '.htm', '.js', '.mjs'];
+const CONTENT_EXTENSIONS = ['.md', '.markdown', '.tex', '.html', '.htm', '.js', '.mjs'];
 
 // Common abbreviations to preserve in title humanization
 const ABBREVIATIONS = new Set(['api', 'sdk', 'cli', 'ui', 'ux', 'http', 'https', 'html', 'css', 'js', 'json', 'xml', 'sql', 'nosql', 'jwt', 'oauth', 'ocp', 'tap', 'ieee', 'ptp', 'ntp', 'mev', 'dao', 'nft', 'defi', 'faq', 'id', 'ids', 'url', 'urls', 'uri', 'uris']);
@@ -2613,7 +2619,7 @@ async function applyWelcome(distDir, config, tenantId) {
  * @param {Array} linkContext.linkWarnings - Array to collect warnings
  * @returns {string} HTML string
  */
-function parseInlineMarkdown(input, linkContext = null) {
+function parseInlineMarkdown(input, linkContext = null, restoreInlineLatex = (value) => value) {
   if (!input) return '';
   let output = input.replace(/\r\n/g, '\n');
 
@@ -2697,7 +2703,7 @@ function parseInlineMarkdown(input, linkContext = null) {
   // containing an entity — apostrophes, ampersand querystrings — leaving the
   // whole tag escaped and shipped as visible text.)
   const restoreAttr = (value) => value.replace(/&amp;/g, '&');
-  return escapeHtml(output)
+  const html = escapeHtml(output)
     .replace(/&lt;strong&gt;([^]*?)&lt;\/strong&gt;/g, '<strong>$1</strong>')
     .replace(/&lt;em&gt;([^]*?)&lt;\/em&gt;/g, '<em>$1</em>')
     .replace(/&lt;img src=&quot;([^]*?)&quot; alt=&quot;([^]*?)&quot;&gt;/g,
@@ -2711,6 +2717,7 @@ function parseInlineMarkdown(input, linkContext = null) {
     // Inline span with title attribute for tooltips: <span title="...">text</span>
     .replace(/&lt;span title=&quot;([^]*?)&quot;&gt;([^]*?)&lt;\/span&gt;/g,
       (_, title, text) => `<span title="${restoreAttr(title)}">${text}</span>`);
+  return restoreInlineLatex(html);
 }
 
 /**
@@ -2744,6 +2751,14 @@ function markdownToHtml(markdown, linkContext = null) {
   // already uses into the page render path so every caller benefits.
   const parsed = parseFrontmatter(markdown);
   markdown = stripHtmlCommentsOutsideCode(parsed.body);
+  const inlineLatex = protectInlineLatex(markdown, {
+    ...(linkContext?.inlineLatex && typeof linkContext.inlineLatex === 'object' ? linkContext.inlineLatex : {}),
+    ...(parsed.data?.inlineLatex && typeof parsed.data.inlineLatex === 'object' ? parsed.data.inlineLatex : {})
+  });
+  markdown = inlineLatex.source;
+  if (Array.isArray(linkContext?.renderDiagnostics)) {
+    linkContext.renderDiagnostics.push(...inlineLatex.diagnostics);
+  }
   const mediaConfig = mergeMediaConfig(linkContext?.mediaConfig || {}, parsed.data?.media || {});
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   const chunks = [];
@@ -2772,7 +2787,7 @@ function markdownToHtml(markdown, linkContext = null) {
   function closeParagraph() {
     if (paragraphLines.length > 0) {
       const joined = paragraphLines.join(' ').replace(/\s+/g, ' ').trim();
-      if (joined) chunks.push(`<p>${parseInlineMarkdown(joined, linkContext)}</p>`);
+      if (joined) chunks.push(`<p>${parseInlineMarkdown(joined, linkContext, inlineLatex.restore)}</p>`);
       paragraphLines = [];
     }
   }
@@ -2828,7 +2843,7 @@ function markdownToHtml(markdown, linkContext = null) {
         tableHtml += '<thead><tr>';
         headerRow.forEach((cell, i) => {
           const align = alignments[i] ? ` style="text-align: ${alignments[i]}"` : '';
-          tableHtml += `<th${align}>${parseInlineMarkdown(cell, linkContext)}</th>`;
+          tableHtml += `<th${align}>${parseInlineMarkdown(cell, linkContext, inlineLatex.restore)}</th>`;
         });
         tableHtml += '</tr></thead>';
       }
@@ -2839,7 +2854,7 @@ function markdownToHtml(markdown, linkContext = null) {
           tableHtml += '<tr>';
           row.forEach((cell, i) => {
             const align = alignments[i] ? ` style="text-align: ${alignments[i]}"` : '';
-            tableHtml += `<td${align}>${parseInlineMarkdown(cell, linkContext)}</td>`;
+            tableHtml += `<td${align}>${parseInlineMarkdown(cell, linkContext, inlineLatex.restore)}</td>`;
           });
           tableHtml += '</tr>';
         });
@@ -2880,9 +2895,11 @@ function markdownToHtml(markdown, linkContext = null) {
       if (inCodeBlock) {
         // End code block
         const escapedCode = escapeHtml(codeBlockContent.join('\n'));
+        const codeBlockLanguage = codeBlockLang.split(/\s+/, 1)[0].toLowerCase();
+        const codeBlockTitle = codeBlockLang.match(/\btitle=(?:"([^"]*)"|'([^']*)')/)?.slice(1).find(Boolean) || '';
 
         // Check for special block types
-        if (codeBlockLang.startsWith('media')) {
+        if (codeBlockLanguage.startsWith('media')) {
           chunks.push(renderMediaBlock(codeBlockContent.join('\n'), mediaConfig, ++mediaBlockIndex));
         } else if (codeBlockLang.startsWith('box')) {
           // Box/panel block: ```box or ```box:Title
@@ -2894,15 +2911,16 @@ function markdownToHtml(markdown, linkContext = null) {
           // Raw HTML block: ```html - renders HTML directly (use with caution)
           // Note: We don't escape here to allow HTML rendering
           chunks.push(`<div class="html-block">${codeBlockContent.join('\n')}</div>`);
-        } else if (isFormProvider(codeBlockLang)) {
+        } else if (isFormProvider(codeBlockLanguage)) {
           // Form embed (#91): a ```<provider> fence (e.g. ```tally) whose body is
           // the form config. Emits a static, progressively-enhanced placeholder
           // (a real hosted-form link); form-embeds.js upgrades it at runtime.
-          chunks.push(renderFormEmbed(codeBlockLang, parseFormFenceConfig(codeBlockContent.join('\n'))));
+          chunks.push(renderFormEmbed(codeBlockLanguage, parseFormFenceConfig(codeBlockContent.join('\n'))));
         } else {
           // Standard code block
-          const langAttr = codeBlockLang ? ` class="language-${escapeAttribute(codeBlockLang)}"` : '';
-          chunks.push(`<pre><code${langAttr}>${escapedCode}</code></pre>`);
+          const langAttr = codeBlockLanguage ? ` class="language-${escapeAttribute(codeBlockLanguage)}"` : '';
+          const titleAttr = codeBlockTitle ? ` data-title="${escapeAttribute(codeBlockTitle)}"` : '';
+          chunks.push(`<pre><code${langAttr}${titleAttr}>${escapedCode}</code></pre>`);
         }
         inCodeBlock = false;
         codeBlockContent = [];
@@ -2955,7 +2973,7 @@ function markdownToHtml(markdown, linkContext = null) {
       closeTable();
       const level = Math.min(headingMatch[1].length, 6);
       const rawText = headingMatch[2].trim();
-      const text = parseInlineMarkdown(rawText, linkContext);
+      const text = parseInlineMarkdown(rawText, linkContext, inlineLatex.restore);
       const headingId = getUniqueHeadingId(rawText);
       if (headingId) {
         chunks.push(`<h${level} id="${headingId}">${text}</h${level}>`);
@@ -2974,7 +2992,7 @@ function markdownToHtml(markdown, linkContext = null) {
         chunks.push('<ul>');
         inList = true;
       }
-      const item = parseInlineMarkdown(listMatch[1].trim(), linkContext);
+      const item = parseInlineMarkdown(listMatch[1].trim(), linkContext, inlineLatex.restore);
       chunks.push(`<li>${item}</li>`);
       continue;
     }
@@ -2985,7 +3003,7 @@ function markdownToHtml(markdown, linkContext = null) {
       closeList();
       closeTable();
       openBlockquote();
-      const quoteLine = parseInlineMarkdown(quoteMatch[1], linkContext);
+      const quoteLine = parseInlineMarkdown(quoteMatch[1], linkContext, inlineLatex.restore);
       chunks.push(`<p>${quoteLine}</p>`);
       continue;
     }
@@ -3514,7 +3532,8 @@ function renderBannerMarkup(banner) {
 }
 
 async function ensureMarkdownModule(sourcePath, targetPath, linkContext = null) {
-  const raw = await fsp.readFile(sourcePath, 'utf8');
+  let raw = await fsp.readFile(sourcePath, 'utf8');
+  raw = await renderConfiguredBuildFences(raw, { ...(linkContext || {}), sourcePath });
   const { data } = parseFrontmatter(raw);
 
   // Template frontmatter validation (#90 phase 4). Validation runs ONLY when a
@@ -3560,6 +3579,76 @@ async function ensureMarkdownModule(sourcePath, targetPath, linkContext = null) 
     ? `// pagenary-authored-markdown-base64: ${Buffer.from(`${authoredMarkdown}\n`, 'utf8').toString('base64')}\n`
     : '';
   const moduleSource = `${authoredMarkdownComment}export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
+  await fsp.mkdir(path.dirname(targetPath), { recursive: true });
+  await fsp.writeFile(targetPath, moduleSource, 'utf8');
+}
+
+async function renderConfiguredBuildFences(source, context = {}) {
+  const rich = context.richContentConfig || {};
+  const mermaidMode = rich.mermaid?.mode || 'runtime';
+  const plantEnabled = rich.plantuml?.enabled !== false;
+  const pattern = /^```(mermaid|plantuml|puml)([^\n]*)\n([\s\S]*?)^```\s*$/gm;
+  let output = '';
+  let cursor = 0;
+  for (const match of String(source).matchAll(pattern)) {
+    output += source.slice(cursor, match.index);
+    const renderer = match[1] === 'puml' ? 'plantuml' : match[1];
+    if ((renderer === 'mermaid' && mermaidMode !== 'build') || (renderer === 'plantuml' && !plantEnabled)) {
+      output += match[0];
+      cursor = (match.index || 0) + match[0].length;
+      continue;
+    }
+    const body = match[3];
+    const failurePolicy = rich.failurePolicy || 'warn';
+    try {
+      const adapter = renderer === 'mermaid'
+        ? createMermaidBuildAdapter(rich.mermaid || {})
+        : createPlantUmlAdapter({ ...(rich.plantuml || {}), tenantRoot: context.contentRoot });
+      const registry = createRendererRegistry();
+      registry.register(adapter);
+      const [result] = await renderRichContentNodes([{
+        type: 'fence', renderer, body, source: match[0],
+        relativePath: context.currentPath,
+        attributes: { title: match[2].match(/title=(?:"([^"]*)"|'([^']*)')/)?.slice(1).find(Boolean) }
+      }], {
+        registry,
+        failurePolicy,
+        tenantRoot: context.contentRoot,
+        sourceRelativePath: context.currentPath,
+        workspaceRoot: root
+      });
+      if (Array.isArray(context.renderDiagnostics)) context.renderDiagnostics.push(...(result.diagnostics || []));
+      output += `\n\`\`\`html\n${result.html}\n\`\`\`\n`;
+    } catch (error) {
+      if (failurePolicy === 'strict') throw error;
+      if (Array.isArray(context.renderDiagnostics)) {
+        context.renderDiagnostics.push({ code: error.code || 'RTC_RENDER_FAILED', severity: 'warning', renderer, message: error.message });
+      }
+      output += `\n\`\`\`html\n${fallbackHtmlForSource(body)}\n\`\`\`\n`;
+    }
+    cursor = (match.index || 0) + match[0].length;
+  }
+  return output + source.slice(cursor);
+}
+
+async function ensureLatexPageModule(sourcePath, targetPath, renderContext = {}) {
+  const source = await fsp.readFile(sourcePath, 'utf8');
+  const result = await renderLatexPage({
+    type: 'latexPage',
+    body: source,
+    sourceFile: sourcePath,
+    contentRoot: renderContext.contentRoot
+  }, {
+    ...(renderContext.latexPageConfig || {}),
+    contentRoot: renderContext.contentRoot,
+    profile: renderContext.latexPageConfig?.profile || 'standard-web-v1',
+    failurePolicy: renderContext.latexPageConfig?.failurePolicy || 'warn'
+  });
+  if (Array.isArray(renderContext.renderDiagnostics)) {
+    renderContext.renderDiagnostics.push(...(result.diagnostics || []));
+  }
+  const html = `<section class="section doc latex-page" data-latex-profile="${escapeAttribute(result.rendererMetadata?.profile || 'standard-web-v1')}">${result.html}</section>`;
+  const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
 }
@@ -3930,7 +4019,7 @@ function isExcludedName(name) {
  */
 function isContentFile(filename) {
   const ext = path.extname(filename).toLowerCase();
-  return ['.md', '.markdown', '.html', '.htm', '.js', '.mjs'].includes(ext);
+  return CONTENT_EXTENSIONS.includes(ext);
 }
 
 /**
@@ -4241,7 +4330,7 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
   );
 
   // Process index file first (if exists)
-  const indexFile = files.find(f => /^index\.(md|markdown|html|htm|js|mjs)$/i.test(f.name));
+  const indexFile = files.find(f => /^index\.(md|markdown|tex|html|htm|js|mjs)$/i.test(f.name));
   if (indexFile) {
     const sectionId = parentId || path.basename(dirPath);
     const relPath = path.relative(context.contentRoot, path.join(dirPath, indexFile.name));
@@ -4699,6 +4788,9 @@ async function materializeScannedSections(sections, context) {
             template: metadata.template,
             strictLinks: context.strictLinks,
             mediaConfig: context.mediaConfig,
+            richContentConfig: context.richContentConfig,
+            inlineLatex: context.inlineLatexConfig,
+            renderDiagnostics: context.renderDiagnostics,
             narrationConfig: context.narrationConfig,
             markdownDeliveryEnabled: context.markdownDeliveryEnabled,
             distDir: context.distDir,
@@ -4706,6 +4798,8 @@ async function materializeScannedSections(sections, context) {
             childLinks: processedSubsections
           };
           await ensureMarkdownModule(sourcePath, targetPath, linkContext);
+        } else if (ext === '.tex') {
+          await ensureLatexPageModule(sourcePath, targetPath, context);
         } else if (ext === '.html' || ext === '.htm') {
           await lintContentSourceForAccessibility(sourcePath, context.accessibility, id);
           await ensureHtmlModule(sourcePath, targetPath, { childLinks: processedSubsections });
@@ -4933,6 +5027,10 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     templateErrors: [],
     strictLinks,
     mediaConfig: config.media || {},
+    richContentConfig: config.richContent || {},
+    inlineLatexConfig: config.inlineLatex || {},
+    latexPageConfig: config.latexPage || {},
+    renderDiagnostics: [],
     narrationConfig: config.narration || {},
     markdownDeliveryEnabled: resolveMarkdownDeliveryConfig(config).enabled,
     accessibility: createAccessibilityContext({
@@ -5127,6 +5225,9 @@ async function materializeSectionModule(entry, context, options = {}) {
         template: entry.template,
         strictLinks: context.strictLinks,
         mediaConfig: context.mediaConfig,
+        richContentConfig: context.richContentConfig,
+        inlineLatex: context.inlineLatexConfig,
+        renderDiagnostics: context.renderDiagnostics,
         narrationConfig: context.narrationConfig,
         markdownDeliveryEnabled: context.markdownDeliveryEnabled,
         distDir: context.distDir,
@@ -5134,6 +5235,8 @@ async function materializeSectionModule(entry, context, options = {}) {
         childLinks: options.childLinks
       } : null;
       await ensureMarkdownModule(sourcePath, targetPath, linkContext);
+    } else if (ext === '.tex') {
+      await ensureLatexPageModule(sourcePath, targetPath, context);
     } else if (ext === '.html' || ext === '.htm') {
       await lintContentSourceForAccessibility(sourcePath, context.accessibility, id);
       await ensureHtmlModule(sourcePath, targetPath, { childLinks: options.childLinks });
@@ -5435,6 +5538,10 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     templateErrors: [],
     strictLinks,
     mediaConfig: config.media || {},
+    richContentConfig: config.richContent || {},
+    inlineLatexConfig: config.inlineLatex || {},
+    latexPageConfig: config.latexPage || {},
+    renderDiagnostics: [],
     narrationConfig: config.narration || {},
     markdownDeliveryEnabled: resolveMarkdownDeliveryConfig(config).enabled,
     accessibility: createAccessibilityContext({
@@ -6229,6 +6336,9 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
           linkWarnings,
           strictLinks: options.strictLinks !== false,
           mediaConfig: config.media || {},
+          richContentConfig: config.richContent || {},
+          inlineLatex: config.inlineLatex || {},
+          renderDiagnostics: [],
           narrationConfig: config.narration || {},
           markdownDeliveryEnabled: resolveMarkdownDeliveryConfig(config).enabled,
           distDir,
@@ -6237,6 +6347,13 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
         };
         await ensureMarkdownModule(sourcePath, targetPath, linkContext);
         console.log(`  ↳ updated: ${sectionId} (markdown)`);
+      } else if (ext === '.tex') {
+        await ensureLatexPageModule(sourcePath, targetPath, {
+          contentRoot: contentRoot.basePath || contentDir,
+          latexPageConfig: config.latexPage || {},
+          renderDiagnostics: []
+        });
+        console.log(`  ↳ updated: ${sectionId} (LaTeX page)`);
       } else if (ext === '.html' || ext === '.htm') {
         await lintContentSourceForAccessibility(sourcePath, accessibility, sectionId);
         await ensureHtmlModule(sourcePath, targetPath);
@@ -6524,6 +6641,8 @@ export {
   extractNarrationTextFromMarkdown,
   buildNarration,
   ensureMarkdownModule,
+  ensureLatexPageModule,
+  renderConfiguredBuildFences,
   // Git-source helpers — exported for regression coverage (#80 shell-safety,
   // #81 GIT_CREDENTIALS). execWithRetry only runs spawn after the argv guard.
   execWithRetry,

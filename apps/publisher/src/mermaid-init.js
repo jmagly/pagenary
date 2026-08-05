@@ -8,20 +8,41 @@ import { enhancePanZoomViewport } from './lib/pan-zoom.js';
 let mermaidPromise = null;
 
 /**
- * Lazily load mermaid.js from CDN
+ * Lazily load the exact Mermaid runtime vendored by the publisher build.
  * @returns {Promise<object>} The mermaid module
  */
 async function loadMermaid() {
   if (mermaidPromise) return mermaidPromise;
 
-  mermaidPromise = (async () => {
-    const { default: mermaid } = await import('https://esm.sh/mermaid@10/dist/mermaid.esm.min.mjs');
+  mermaidPromise = new Promise((resolve, reject) => {
+    if (globalThis.mermaid) {
+      resolve(globalThis.mermaid);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = new URL('./vendor/mermaid/mermaid.min.js', import.meta.url).href;
+    script.async = true;
+    script.addEventListener('load', () => {
+      if (!globalThis.mermaid) {
+        reject(new Error('Local Mermaid runtime loaded without exposing its API'));
+        return;
+      }
+      resolve(globalThis.mermaid);
+    }, { once: true });
+    script.addEventListener('error', () => reject(new Error('Unable to load local Mermaid runtime')), { once: true });
+    document.head.appendChild(script);
+  }).then((mermaid) => {
     mermaid.initialize({
       startOnLoad: false,
       theme: 'neutral',
       securityLevel: 'strict',
+      suppressErrorRendering: true,
+      maxTextSize: 50000,
+      maxEdges: 500,
+      deterministicIds: true,
+      deterministicIDSeed: 'pagenary',
       flowchart: {
-        htmlLabels: true,
+        htmlLabels: false,
         curve: 'basis',
         nodeSpacing: 30,
         rankSpacing: 50,
@@ -34,7 +55,7 @@ async function loadMermaid() {
       }
     });
     return mermaid;
-  })();
+  });
 
   return mermaidPromise;
 }
@@ -43,8 +64,14 @@ async function loadMermaid() {
  * Generate a unique ID for mermaid diagrams
  * @returns {string} A unique identifier
  */
-function generateId() {
-  return 'mermaid-' + Math.random().toString(36).slice(2, 10);
+function generateId(definition, index) {
+  let hash = 2166136261;
+  const value = `${index}\u0000${definition}`;
+  for (let cursor = 0; cursor < value.length; cursor += 1) {
+    hash ^= value.charCodeAt(cursor);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `mermaid-${(hash >>> 0).toString(36)}`;
 }
 
 /**
@@ -58,15 +85,18 @@ export async function renderMermaidBlocks(container) {
   const mermaid = await loadMermaid();
   const cleanup = [];
 
-  for (const codeBlock of codeBlocks) {
+  for (const [index, codeBlock] of [...codeBlocks].entries()) {
     const pre = codeBlock.parentElement;
     const definition = codeBlock.textContent;
-    const id = generateId();
+    const title = codeBlock.dataset.title || 'Mermaid diagram';
+    const id = generateId(definition, index);
 
     try {
       const { svg } = await mermaid.render(id, definition);
       const wrapper = document.createElement('div');
       wrapper.className = 'mermaid-diagram';
+      wrapper.setAttribute('role', 'figure');
+      wrapper.setAttribute('aria-label', title);
 
       // Create scrollable content area
       const content = document.createElement('div');

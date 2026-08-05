@@ -1,0 +1,24 @@
+{
+  "title": "Pagenary Syntax Gallery",
+  "brandMark": "Pagenary",
+  "brandSub": "Syntax Gallery",
+  "description": "Functional examples of every supported Pagenary authoring syntax.",
+  "language": "en",
+  "layout": "docs",
+  "codeCopy": true,
+  "pageToc": { "placement": "rail", "minHeadings": 2 },
+  "inlineLatex": {
+    "enabled": true,
+    "dollarDelimiters": false,
+    "macros": { "\\RR": "\\mathbb{R}" }
+  },
+  "richContent": {
+    "failurePolicy": "warn",
+    "mermaid": { "mode": "runtime" },
+    "plantuml": { "enabled": true }
+  },
+  "latexPage": {
+    "profile": "portable-subset-v1",
+    "failurePolicy": "warn"
+  }
+}
