@@ -126,6 +126,7 @@ function validateRichContentConfig(config, path, findings) {
       enumKey(config.mermaid, 'mode', ['runtime', 'build'], [...path, 'mermaid'], findings, 'richContent.mermaid');
       integerRange(config.mermaid, 'maxSourceBytes', 1, 50000, [...path, 'mermaid'], findings, 'richContent.mermaid');
       integerRange(config.mermaid, 'maxEdges', 1, 500, [...path, 'mermaid'], findings, 'richContent.mermaid');
+      integerRange(config.mermaid, 'maxOutputBytes', 65536, 4194304, [...path, 'mermaid'], findings, 'richContent.mermaid');
       for (const key of ['securityLevel', 'secure', 'startOnLoad']) {
         if (config.mermaid[key] !== undefined) findings.push(finding(`\`richContent.mermaid.${key}\` is immutable.`, [...path, 'mermaid', key]));
       }
@@ -136,6 +137,9 @@ function validateRichContentConfig(config, path, findings) {
     else {
       booleanKeys(config.plantuml, ['enabled', 'pngFallback'], [...path, 'plantuml'], findings, 'richContent.plantuml');
       enumKey(config.plantuml, 'securityProfile', ['SANDBOX'], [...path, 'plantuml'], findings, 'richContent.plantuml');
+      integerRange(config.plantuml, 'maxSourceBytes', 1, 131072, [...path, 'plantuml'], findings, 'richContent.plantuml');
+      integerRange(config.plantuml, 'maxIncludes', 0, 32, [...path, 'plantuml'], findings, 'richContent.plantuml');
+      integerRange(config.plantuml, 'maxOutputBytes', 65536, 4194304, [...path, 'plantuml'], findings, 'richContent.plantuml');
       for (const key of ['allowNetwork', 'allowUrlIncludes', 'allowAbsoluteIncludes']) {
         if (config.plantuml[key] !== undefined) findings.push(finding(`\`richContent.plantuml.${key}\` is forbidden.`, [...path, 'plantuml', key]));
       }
