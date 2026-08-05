@@ -153,6 +153,9 @@ describe('pagenary read-only commands', () => {
     ]));
     for (const renderer of report.renderers) {
       expect(typeof renderer.available).toBe('boolean');
+      expect(typeof renderer.offlineReady).toBe('boolean');
+      expect(Array.isArray(renderer.profiles)).toBe(true);
+      expect(renderer.securityProfile).toEqual(expect.any(String));
       if (!renderer.available) expect(renderer.diagnostic).toEqual(expect.any(String));
     }
   });

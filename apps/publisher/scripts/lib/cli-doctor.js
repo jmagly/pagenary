@@ -100,7 +100,8 @@ function checkWriteTarget() {
   }
 }
 
-function commandCapability(id, command, args, purpose, fix, { required = false } = {}) {
+function commandCapability(id, command, args, purpose, fix, options = {}) {
+  const { required = false, profiles = [], securityProfile = null, cache = null } = options;
   const res = spawnSync(command, args, { encoding: 'utf8', timeout: 3000, windowsHide: true, shell: false });
   const available = res.status === 0;
   const output = String(res.stdout || res.stderr || '').trim().split(/\r?\n/, 1)[0];
@@ -112,7 +113,11 @@ function commandCapability(id, command, args, purpose, fix, { required = false }
     required,
     version: available ? (output || 'available (version not reported)') : null,
     purpose,
-    diagnostic: available ? null : fix
+    profiles,
+    securityProfile,
+    offlineReady: available && options.offlineReady === true,
+    cache,
+    diagnostic: available ? (options.availableDiagnostic || null) : fix
   };
 }
 
@@ -129,6 +134,7 @@ export function checkRendererCapabilities() {
       required: true,
       version: declared.katex || null,
       purpose: 'Build-time inline and display LaTeX to HTML + MathML',
+      profiles: ['inline-latex'], securityProfile: 'trust=false; bounded expansion', offlineReady: true,
       diagnostic: declared.katex ? null : 'Install the publisher dependencies; KaTeX must remain pinned to an exact reviewed version.'
     },
     {
@@ -139,13 +145,14 @@ export function checkRendererCapabilities() {
       required: true,
       version: declared.mermaid || null,
       purpose: 'Pinned local Mermaid rendering (no CDN dependency)',
+      profiles: ['runtime', 'build'], securityProfile: 'strict; immutable secure options', offlineReady: true,
       diagnostic: declared.mermaid ? null : 'Install the publisher dependencies; Mermaid must remain pinned to an exact reviewed version.'
     },
-    commandCapability('latex-standard-web', 'latexmlc', ['--version'], 'Full LaTeX pages using the standard-web-v1 semantic profile', 'Install LaTeXML and put `latexmlc` on PATH, or explicitly select portable-subset-v1 when its limits are acceptable.'),
-    commandCapability('latex-portable-subset', 'pandoc', ['--version'], 'Portable LaTeX subset to semantic HTML + MathML', 'Install Pandoc and put `pandoc` on PATH to enable portable-subset-v1.'),
-    commandCapability('latex-pdf', 'tectonic', ['--version'], 'Optional LaTeX PDF artifact generation', 'Install Tectonic and put `tectonic` on PATH only when PDF output is required.'),
-    commandCapability('plantuml', 'plantuml', ['-version'], 'Build-time PlantUML diagrams', 'Install PlantUML and put `plantuml` on PATH; builds using PlantUML will otherwise follow the configured failure policy.'),
-    commandCapability('java', 'java', ['-version'], 'Java runtime for PlantUML jar-based installations', 'Install a supported Java runtime if PlantUML is provided as a jar.')
+    commandCapability('latex-standard-web', 'latexmlc', ['--VERSION'], 'Full LaTeX pages using the standard-web-v1 semantic profile', 'Install qualified LaTeXML 0.8.8 and put `latexmlc` on PATH, or explicitly select portable-subset-v1 when its limits are acceptable.', { profiles: ['standard-web-v1'], securityProfile: 'preflight + external networkless sandbox', offlineReady: true }),
+    commandCapability('latex-portable-subset', 'pandoc', ['--version'], 'Portable LaTeX subset to semantic HTML + MathML', 'Install qualified Pandoc 3.1.3 and put `pandoc` on PATH to enable portable-subset-v1.', { profiles: ['portable-subset-v1'], securityProfile: 'preflight + external networkless sandbox', offlineReady: true }),
+    commandCapability('latex-pdf', 'tectonic', ['--version'], 'Optional LaTeX PDF artifact generation', 'Install qualified Tectonic 0.16.9 and prewarm its bundle only when PDF output is required.', { profiles: ['pdf-v1'], securityProfile: '--untrusted --only-cached', offlineReady: hasTectonicCache(), cache: tectonicCacheStatus(), availableDiagnostic: 'Tectonic is installed; offline PDF still requires the qualified bundle to be present in its cache.' }),
+    commandCapability('plantuml', 'plantuml', ['-version'], 'Build-time PlantUML diagrams', 'Install qualified PlantUML 1.2026.4 and put `plantuml` on PATH, or configure a checksum-verified jar.', { profiles: ['SANDBOX'], securityProfile: 'SANDBOX', offlineReady: true }),
+    commandCapability('java', 'java', ['-version'], 'Java runtime for PlantUML jar-based installations', 'Install qualified OpenJDK 21 when PlantUML is provided as a jar.', { profiles: ['PlantUML jar host'], securityProfile: 'host only; PlantUML enforces SANDBOX', offlineReady: true })
   ];
   const missingRequired = capabilities.filter((item) => item.required && !item.available);
   const optionalAvailable = capabilities.filter((item) => !item.required && item.available).length;
@@ -156,6 +163,19 @@ export function checkRendererCapabilities() {
     fix: missingRequired.length ? missingRequired.map((item) => item.diagnostic).join(' ') : null,
     capabilities
   };
+}
+
+function tectonicCacheStatus() {
+  const candidates = [
+    process.env.XDG_CACHE_HOME && path.join(process.env.XDG_CACHE_HOME, 'Tectonic'),
+    process.env.HOME && path.join(process.env.HOME, '.cache', 'Tectonic')
+  ].filter(Boolean);
+  const present = candidates.find((candidate) => fs.existsSync(candidate));
+  return { required: true, present: Boolean(present), path: present ? path.relative(process.cwd(), present) || '.' : null };
+}
+
+function hasTectonicCache() {
+  return tectonicCacheStatus().present;
 }
 
 const SYMBOL = { pass: '✓', warn: '!', fail: '✗' };
