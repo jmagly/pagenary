@@ -67,6 +67,22 @@ describe('LaTeX page normalization', () => {
 });
 
 describe('LaTeX page adapters', () => {
+  test('rejects LaTeXML conversion errors even when the process exits zero', async () => {
+    const adapter = createLatexPageAdapter({
+      runCommand: async (_command, args) => args[0] === '--VERSION'
+        ? { stdout: 'latexmlc (LaTeXML version 0.8.8)\n', stderr: '' }
+        : {
+            stdout: '<article><p>partial recovery output</p></article>',
+            stderr: 'Conversion complete: 3 errors\nStatus:conversion:2\n'
+          }
+    });
+    await expect(adapter.render({
+      source: '\\documentclass{article}\\begin{document}\\begin{', sourceFile
+    }, { contentRoot: root, profile: 'standard-web-v1' })).rejects.toMatchObject({
+      code: 'LATEX_CONVERSION_ERRORS'
+    });
+  });
+
   test('default command runner resolves an absolute allowlisted executable without a shell', async () => {
     const result = await runBoundedCommand('node', ['-e', 'process.stdout.write("bounded")'], {
       cwd: process.cwd(),

@@ -53,6 +53,9 @@ export function createLatexPageAdapter(options = {}) {
       }
       const invocation = invocationFor(profile, input.sourceFile, preflight.dependencies);
       const result = await runner(invocation.command, invocation.args, commandOptions(input.contentRoot, context));
+      if (profile === 'standard-web-v1' && latexmlReportedErrors(result.stderr)) {
+        throw latexError('LATEX_CONVERSION_ERRORS', 'LaTeXML reported conversion errors');
+      }
       const html = normalizeLatexHtml(result.stdout);
       if (!html) throw latexError('LATEX_EMPTY_OUTPUT', `${definition.command} produced no semantic HTML`);
       return {
@@ -191,6 +194,13 @@ export async function runBoundedCommand(command, args, options = {}) {
     throw latexError('LATEX_PROCESS_FAILED', `${path.basename(executable)} exited unsuccessfully`);
   }
   return { stdout: result.stdout, stderr: result.stderr };
+}
+
+function latexmlReportedErrors(stderr) {
+  const text = String(stderr || '');
+  const status = text.match(/Status:conversion:(\d+)/i);
+  if (status && Number(status[1]) >= 2) return true;
+  return /Conversion complete:\s*(?:[1-9]\d*)\s+errors?\b/i.test(text);
 }
 
 async function resolveExecutable(command, commandPath) {

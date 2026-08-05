@@ -33,7 +33,8 @@ try {
     '02-crossrefs.tex',
     '03-bibliography.tex',
     '04-includes-assets.tex',
-    '05-unicode-tables.tex'
+    '05-unicode-tables.tex',
+    '07-custom-macros.tex'
   ]) {
     const sourceFile = path.join(temp, name);
     const source = await fs.readFile(sourceFile, 'utf8');
@@ -80,6 +81,24 @@ try {
   });
   assert.equal(rejected.ok, false);
   assert.ok(rejected.diagnostics.some(({ code }) => code === 'LATEX_UNSAFE_COMMAND'));
+
+  const unsupported = await fs.readFile(path.join(temp, '08-unsupported-package.tex'), 'utf8');
+  const unsupportedResult = preflightLatexPage(unsupported, {
+    contentRoot: temp,
+    sourceFile: path.join(temp, '08-unsupported-package.tex')
+  });
+  assert.equal(unsupportedResult.ok, false);
+  assert.ok(unsupportedResult.diagnostics.some(({ code }) => code === 'LATEX_PACKAGE_NOT_ALLOWED'));
+
+  const malformedFile = path.join(temp, '09-malformed.tex');
+  await assert.rejects(
+    latex.render({ source: await fs.readFile(malformedFile, 'utf8'), sourceFile: malformedFile }, {
+      contentRoot: temp,
+      profile: 'standard-web-v1',
+      timeoutMs: 60_000,
+      maxOutputBytes: 8 * 1024 * 1024
+    })
+  );
 
   const converterBakeoff = await qualifyConverterCandidates(temp);
 
@@ -131,6 +150,11 @@ try {
     result: 'PASS',
     versions,
     latex: latexResults,
+    negativeLatex: {
+      hostile: 'LATEX_UNSAFE_COMMAND',
+      unsupportedPackage: 'LATEX_PACKAGE_NOT_ALLOWED',
+      malformed: 'bounded converter rejection'
+    },
     converterBakeoff,
     plantuml: {
       profile: plantStatus.securityProfile,

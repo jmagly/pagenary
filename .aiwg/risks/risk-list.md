@@ -17,7 +17,7 @@
 | R4 | Zero-dependency maintainability | MEDIUM | LOW | LOW | MONITORING | Engineering |
 | R5 | Test coverage gaps | MEDIUM | LOW | MEDIUM | MITIGATED | Test Engineer |
 | R6 | TeX/diagram renderer arbitrary access or resource exhaustion | HIGH | MEDIUM | HIGH | RETIRED | Security Architecture |
-| R7 | LaTeX-page compatibility claims exceed tested converter profile | HIGH | MEDIUM | HIGH | OPEN | Architecture |
+| R7 | LaTeX-page compatibility claims exceed tested converter profile | HIGH | MEDIUM | HIGH | RETIRED | Architecture |
 | R8 | Renderer output diverges across SPA, snapshots, search, and export | HIGH | MEDIUM | HIGH | OPEN | Engineering |
 | R9 | Renderer dependency drift or vulnerable generated markup | HIGH | MEDIUM | HIGH | MITIGATED | Security Engineering |
 | R10 | Cold-build cost and toolchain portability regress publisher usability | MEDIUM | MEDIUM | MEDIUM | OPEN | Build Engineering |
@@ -194,13 +194,14 @@
 - **R10 mitigation:** content-addressed cache, optional toolchains, cold/warm
   benchmarks, prebuilt pinned CI image, CLI capability diagnostics.
 
-R6 is retired for the qualified container profiles. R7 remains open until every
-bake-off candidate has executable evidence. R8 and R10 remain open; R9 is
+R6 and R7 are retired for the qualified container profiles: every LaTeX bake-off
+candidate has executable evidence, and the selected adapter passes the positive,
+policy, unsupported-package, and malformed-input gates. R8 and R10 remain open; R9 is
 mitigated and monitored through exact pins, sanitizer/advisory fixtures, and the
 upgrade gate.
 
 **Total Risks:** 10
-**Retired:** 2 (20%)
+**Retired:** 3 (30%)
 **Mitigated:** 3 (30%)
 **Accepted:** 1 (10%)
 **Monitoring:** 1 (10%)

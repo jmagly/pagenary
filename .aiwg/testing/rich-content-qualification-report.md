@@ -183,9 +183,10 @@ docker run --rm --network none --read-only \
   pagenary-rich-content:2026-08-05
 ```
 
-Result: `PASS`. The five positive LaTeXML fixtures each rendered twice
-with byte-identical normalized HTML. The negative fixture was rejected at
-preflight with `LATEX_UNSAFE_COMMAND`. PlantUML rendered sequence, class,
+Result: `PASS`. The six positive LaTeXML fixtures each rendered twice
+with byte-identical normalized HTML. The hostile fixture was rejected at
+preflight with `LATEX_UNSAFE_COMMAND`; unsupported-package and malformed-input
+fixtures also failed safely. PlantUML rendered sequence, class,
 component, activity, state, ER, JSON, and YAML diagrams twice with byte-identical
 sanitized SVG under SANDBOX, plus a valid 2,772-byte optional PNG fallback.
 Tectonic emitted a 32,379-byte PDF with network
@@ -199,7 +200,7 @@ Qualified tools:
 | make4ht | MEASURED / NOT SELECTED | v0.3m; four fixtures passed, baseline `booktabs` fixture exposed missing package surface |
 | Java | CONTAINER PINNED | OpenJDK 21.0.11 |
 | Graphviz | CONTAINER PINNED | 2.42.2 |
-| LaTeXML | PASS | 0.8.8; five positive semantic fixtures plus hostile preflight rejection |
+| LaTeXML | PASS | 0.8.8; six positive semantic fixtures plus hostile, unsupported-package, and malformed rejection |
 | PlantUML | PASS | MIT JAR 1.2026.4; eight diagram families; SANDBOX and sanitized deterministic SVG |
 | Tectonic | PASS | 0.16.9; untrusted cached-only PDF output |
 

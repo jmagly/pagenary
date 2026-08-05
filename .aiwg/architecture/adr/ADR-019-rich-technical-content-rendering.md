@@ -120,6 +120,18 @@ compatibility profile. The profile declares engine, converter, TeX bundle,
 packages, fonts, asset rules, and known gaps. Universal CTAN/package compatibility
 is explicitly not promised.
 
+The selected `standard-web-v1` profile uses LaTeXML 0.8.8 for semantic HTML5
+with Presentation MathML. It allows the built-in `article` bindings plus
+`amsmath`, `graphicx`, `booktabs`, and UTF-8 `inputenc`; source-local macros are
+accepted when they stay within that profile. Unsupported packages fail preflight
+with `LATEX_PACKAGE_NOT_ALLOWED`. Converter-reported errors fail even when
+LaTeXML exits zero. The default process budget is 20 seconds and 4 MiB per output
+stream (configurable only within 1--120 seconds and 64 KiB--16 MiB). The optional
+`pdf-v1` sibling uses Tectonic 0.16.9 with `--untrusted --only-cached` and a
+16 MiB PDF default. Pandoc 3.1.3 remains a possible portable-subset converter;
+make4ht v0.3m is not selected because its reviewed minimal TeX package surface
+failed the qualified `booktabs` fixture.
+
 ## Consequences
 
 ### Positive

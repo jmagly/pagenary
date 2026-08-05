@@ -206,14 +206,14 @@ converter identity affects semantics, cache keys, diagnostics, and attack surfac
 8. Record unsupported-package diagnostics and author-facing remediation rather
    than expanding the allowlist during tests.
 
-R7 is **mitigated, not retired**: the compatibility boundary is now explicit and
-has a fixture gate, but retirement requires the pinned LaTeXML adapter to pass the
-full corpus in #174. R10 remains open until #176 establishes cold/cached build and
-toolchain-size budgets.
+R7 is **retired**: the pinned LaTeXML adapter passes the reusable positive,
+custom-macro, unsupported-package, malformed, and hostile fixtures in the
+networkless qualification image, and the compatibility boundary is explicit.
+R10 remains open until #176 completes browser cold/cached performance budgets.
 
 ## Measured corpus results
 
-LaTeXML converted all five positive fixtures twice to byte-identical normalized
+LaTeXML converted all six positive fixtures twice to byte-identical normalized
 HTML and semantic text. Pandoc converted all five with explicit citeproc and
 bibliography arguments; output sizes were 1,458, 813, 421, 375, and 612 bytes.
 make4ht converted four fixtures (2,791, 1,889, 737, and 1,302 bytes) but rejected
