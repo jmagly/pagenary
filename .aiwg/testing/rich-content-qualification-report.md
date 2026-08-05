@@ -200,7 +200,9 @@ docker run --rm --network none --read-only \
 Result: `PASS`. The six positive LaTeXML fixtures each rendered twice
 with byte-identical normalized HTML. The hostile fixture was rejected at
 preflight with `LATEX_UNSAFE_COMMAND`; unsupported-package and malformed-input
-fixtures also failed safely. PlantUML rendered sequence, class,
+fixtures also failed safely. A deliberately non-terminating Node converter shim
+was killed at the configured deadline and surfaced `ERR_RENDERER_TIMEOUT` inside
+the same restricted container. PlantUML rendered sequence, class,
 component, activity, state, ER, JSON, and YAML diagrams twice with byte-identical
 sanitized SVG under SANDBOX, plus a valid 2,772-byte optional PNG fallback.
 Tectonic emitted a 32,379-byte PDF with network
@@ -253,10 +255,6 @@ isolation, corpus, determinism, and visual-snapshot regression coverage.
    complete LaTeX page semantics, reflow/media preferences, offline operation,
    and strict self-only CSP; Chromium's accessibility tree exposes the page
    content, but that is not a substitute for a real screen-reader session.
-3. Add explicit timeout/termination attack execution to the external container
-   corpus; unit tests already cover the bounded subprocess paths and hostile
-   preflight, but a real deliberately non-terminating converter shim remains a
-   useful defense-in-depth regression.
-4. Keep an eye on payload cost: Mermaid is about 3.57 MB on disk. It is lazy
+3. Keep an eye on payload cost: Mermaid is about 3.57 MB on disk. It is lazy
    loaded, but compression and first-diagram latency should be measured in the
    browser performance gate.

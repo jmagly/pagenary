@@ -11,6 +11,7 @@ import { createLatexPageAdapter, renderLatexPdf } from '../../apps/publisher/scr
 import { preflightLatexPage } from '../../apps/publisher/scripts/lib/latex-page-preflight.js';
 import { createPlantUmlAdapter, diagnosePlantUmlTool } from '../../apps/publisher/scripts/lib/plantuml-renderer.js';
 import { createMermaidBuildAdapter } from '../../apps/publisher/scripts/lib/mermaid-build-adapter.js';
+import { runRendererSubprocess } from '../../apps/publisher/scripts/lib/renderer-security.js';
 
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
@@ -33,6 +34,16 @@ assert.match(versions.fonts.latinModern, /Latin Modern Roman/i);
 const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-external-renderers-'));
 try {
   await fs.cp(fixtures, temp, { recursive: true });
+  await assert.rejects(
+    runRendererSubprocess({
+      command: process.execPath,
+      args: ['-e', 'setInterval(() => {}, 1000)'],
+      timeoutMs: 100,
+      killGraceMs: 50,
+      trustedCommands: [process.execPath]
+    }),
+    (error) => error?.code === 'ERR_RENDERER_TIMEOUT'
+  );
   const latex = createLatexPageAdapter();
   const latexResults = [];
   for (const name of [
