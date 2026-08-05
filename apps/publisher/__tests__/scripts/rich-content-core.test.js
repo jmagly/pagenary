@@ -213,6 +213,35 @@ describe('rich-content cache identity and storage', () => {
       reason: 'content-hash-mismatch'
     });
   });
+
+  test('isolates tenants and ignores interrupted partial writes', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-cache-isolation-'));
+    const cache = new RendererCache({ rootDir: dir });
+    const base = { pageId: 'intro', renderer: { id: 'mock', version: '1.0.0' }, source: 'same source' };
+    const tenantA = buildRendererCacheIdentity({ ...base, tenantId: 'tenant-a' });
+    const tenantB = buildRendererCacheIdentity({ ...base, tenantId: 'tenant-b' });
+
+    await cache.write(tenantA, { html: '<p>Tenant A</p>' });
+    await fs.writeFile(path.join(dir, `.${tenantB.key}.interrupted.tmp`), '{"partial":', 'utf8');
+
+    await expect(cache.read(tenantA)).resolves.toMatchObject({ status: 'hit', payload: { html: '<p>Tenant A</p>' } });
+    await expect(cache.read(tenantB)).resolves.toMatchObject({ status: 'miss', reason: 'not-found' });
+  });
+
+  test('concurrent writes publish one complete atomic entry and clean temporary files', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-cache-concurrent-'));
+    const cache = new RendererCache({ rootDir: dir });
+    const identity = buildRendererCacheIdentity({
+      tenantId: 'tenant-a', pageId: 'intro', renderer: { id: 'mock', version: '1.0.0' }, source: 'same source'
+    });
+    const payloads = Array.from({ length: 12 }, (_, index) => ({ html: `<p>${index}</p>`, index }));
+
+    await Promise.all(payloads.map((payload) => cache.write(identity, payload)));
+    const result = await cache.read(identity);
+    expect(result.status).toBe('hit');
+    expect(payloads).toContainEqual(result.payload);
+    expect((await fs.readdir(dir)).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
 });
 
 describe('rich-content diagnostics', () => {

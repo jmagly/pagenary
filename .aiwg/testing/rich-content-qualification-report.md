@@ -32,6 +32,7 @@ technology UAT remains, and the timeout/performance gates below are unfinished.
 | External renderer matrix | PASS | Pinned Ubuntu 24.04 image; LaTeXML 0.8.8, Mermaid CLI 11.16.0/Puppeteer 24.16.0, PlantUML 1.2026.4 SANDBOX, and Tectonic 0.16.9; networkless/read-only/non-root/resource-bounded run |
 | Mermaid static visual matrix | PASS | Five representative families × neutral/forest/dark themes; byte-identical repeated SVG plus real headless-browser PNG snapshots with hashes |
 | Browser/CSP matrix | PASS | Chromium, Firefox, and WebKit: math/MathML, five Mermaid families, complete LaTeX pages, 320 px reflow, mobile, reduced motion, dark/forced colors, print, strict self-only CSP, and offline request denial; Chromium also validates the accessibility tree and PDF output |
+| Cache integrity/isolation | PASS | Content-hash poisoning and malformed metadata fail closed; tenant identity separation, interrupted partial-write isolation, 12-way concurrent atomic publication, and temporary-file cleanup are tested |
 
 ## Exact Commands and Evidence
 

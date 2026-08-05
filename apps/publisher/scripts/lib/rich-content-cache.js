@@ -63,7 +63,7 @@ export class RendererCache {
     const clean = assertIdentity(identity);
     await fs.mkdir(this.rootDir, { recursive: true });
     const entryPath = this.entryPath(clean);
-    const tmpPath = path.join(this.rootDir, `.${clean.key}.${process.pid}.${Date.now()}.tmp`);
+    const tmpPath = path.join(this.rootDir, `.${clean.key}.${process.pid}.${crypto.randomUUID()}.tmp`);
     const entry = {
       schemaVersion: CACHE_SCHEMA_VERSION,
       key: clean.key,
@@ -72,9 +72,13 @@ export class RendererCache {
       writtenAt: new Date(0).toISOString(),
       payload
     };
-    await fs.writeFile(tmpPath, `${stableStringify(entry)}\n`, 'utf8');
-    await fs.rename(tmpPath, entryPath);
-    return { status: 'written', path: entryPath };
+    try {
+      await fs.writeFile(tmpPath, `${stableStringify(entry)}\n`, 'utf8');
+      await fs.rename(tmpPath, entryPath);
+      return { status: 'written', path: entryPath };
+    } finally {
+      await removeQuietly(tmpPath);
+    }
   }
 }
 
