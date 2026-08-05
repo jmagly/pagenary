@@ -352,6 +352,7 @@ The full documentation site is published at **[docs.pagenary.com](https://docs.p
 - [API Reference](apps/publisher/docs/API.md) — module documentation
 - [Deployment](apps/publisher/docs/DEPLOYMENT.md) — hosting patterns
 - [Releasing](docs/contributing/releasing.md) — CalVer release + npm publish flow
+- [Changing the authoring contract](docs/contributing/authoring-contract.md) — required syntax inventory, examples, help, and qualification gates
 
 ---
 

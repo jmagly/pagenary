@@ -1,5 +1,9 @@
 # Rich Technical Content
 
+Maintainers changing syntax must follow the
+[authoring-contract checklist](https://git.integrolabs.net/roctinam/pagenary/src/branch/main/docs/contributing/authoring-contract.md)
+so the functional gallery, help base, and qualification coverage remain in sync.
+
 Pagenary renders inline LaTeX, complete `.tex` pages, Mermaid diagrams, and
 PlantUML diagrams without depending on a public rendering service. This guide
 describes the supported authoring syntax, local tool requirements, and the

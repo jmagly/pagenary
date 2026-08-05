@@ -56,7 +56,9 @@ jobs:
 
       - name: Build docs tenant
         working-directory: apps/publisher
-        run: node scripts/build-tenants.js pagenary
+        run: |
+          npm run check:syntax
+          node scripts/build-tenants.js pagenary
 
       - name: Build example recipes into the docsite
         # Each recipe builds to dist/pagenary/<id>/ so it deploys to
