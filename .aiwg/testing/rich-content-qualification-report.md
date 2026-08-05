@@ -142,6 +142,13 @@ Both new renderer dependencies are exact package/lockfile pins. Lockfile SRI:
 - KaTeX: `sha512-Td8GCYSxDAoMhHOlKmCFMJ/hz5qlAAb71n66Dryw9nfCVfumLo7nhuotbvKom/XPADmrYC3O5QR71EPq4DarJQ==`
 - Mermaid: `sha512-Zvm3kbstgdpvIJPPItlL7fppIZ3kibvc1oZIGxdvk9t6UFz6flv+Jw7FtRGKwfcI8OckmH04LqG6LlS6X4B1pA==`
 
+Mermaid 11.16.0 was published on 2026-06-25, more than five weeks before this
+qualification; it is not the newly published release. Mermaid 11.16.1 was
+published on 2026-08-04 and is deliberately not adopted while inside the
+repository's seven-day release-age gate. Moving backward to 11.15.0 would add a
+renderer change without improving the cooldown posture, so 11.16.0 remains the
+qualified exact v11 pin.
+
 ### Audit attribution
 
 The initial `npm audit --json` reported four high-severity, zero critical
