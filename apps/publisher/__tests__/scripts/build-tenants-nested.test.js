@@ -153,6 +153,40 @@ describe('nested content directories', () => {
       expect(result.stdout).toMatch(/manifest-driven content/);
     });
 
+    test('requires an explicit latexPage content type for manifest-declared .tex pages', async () => {
+      tenantDir = path.join(PUBLISHER_ROOT, 'tenants', TEST_ID);
+      await fsp.mkdir(path.join(tenantDir, 'content'), { recursive: true });
+      await fsp.writeFile(path.join(tenantDir, 'config.json'), '{}');
+      await fsp.writeFile(
+        path.join(tenantDir, 'manifest.json'),
+        JSON.stringify({ sections: [{ id: 'paper', title: 'Paper', file: 'paper.tex' }] })
+      );
+      await fsp.writeFile(path.join(tenantDir, 'content', 'paper.tex'), '\\documentclass{article}\\begin{document}Paper\\end{document}');
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
+      expect(result.code).not.toBe(0);
+      expect(`${result.stdout}\n${result.stderr}`).toContain('must declare contentType "latexPage"');
+    });
+
+    test('safely auto-discovers .tex pages with the latexPage content type', async () => {
+      tenantDir = await createNestedTenant(TEST_ID, {
+        config: { latexPage: { profile: 'portable-subset-v1', failurePolicy: 'warn' } },
+        directories: {
+          'papers': {
+            files: {
+              'overview.tex': '\\documentclass{article}\\begin{document}Overview\\end{document}'
+            }
+          }
+        }
+      });
+
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
+      expect(result.code).toBe(0);
+      const manifest = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js'), 'utf8');
+      expect(manifest).toContain('papers/overview');
+      expect(manifest).toContain('"contentType": "latexPage"');
+    });
+
     test('detects nested directory structure', async () => {
       tenantDir = await createNestedTenant(TEST_ID, {
         config: { title: 'Nested Test' },

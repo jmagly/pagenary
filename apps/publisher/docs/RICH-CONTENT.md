@@ -87,13 +87,21 @@ A manifest entry may point directly to a `.tex` file:
 
 ```json
 [
-  { "id": "theory", "title": "Theory", "file": "theory.tex" }
+  {
+    "id": "theory",
+    "title": "Theory",
+    "file": "theory.tex",
+    "contentType": "latexPage"
+  }
 ]
 ```
 
 Pagenary converts it to semantic HTML and MathML during the build. A `.tex`
 page is a distinct content type; it is not Markdown with broader math
-delimiters. The selected converter must already be installed locally:
+delimiters. Explicit manifests must declare `contentType: "latexPage"`; a
+mismatched type or an undeclared `.tex` page fails validation. Safe filesystem
+discovery assigns this type automatically. The selected converter must already
+be installed locally:
 
 - `standard-web-v1` (default) invokes `latexmlc`. It is the standard semantic
   web profile.

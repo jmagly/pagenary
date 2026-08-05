@@ -7,6 +7,6 @@
     { "id": "inline-latex", "title": "Inline LaTeX", "file": "inline-latex.md" },
     { "id": "diagrams", "title": "Diagrams", "file": "diagrams.md" },
     { "id": "media-forms", "title": "Media and forms", "file": "media-forms.md" },
-    { "id": "latex-page", "title": "Complete LaTeX page", "file": "latex-page.tex" }
+    { "id": "latex-page", "title": "Complete LaTeX page", "file": "latex-page.tex", "contentType": "latexPage" }
   ]
 }

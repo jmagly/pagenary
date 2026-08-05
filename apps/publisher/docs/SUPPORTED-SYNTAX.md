@@ -228,6 +228,18 @@ absent, while `strict` fails the build. See [Rich technical content](RICH-CONTEN
 
 ```json
 {
+  "id": "theory",
+  "title": "Theory",
+  "file": "theory.tex",
+  "contentType": "latexPage"
+}
+```
+
+Explicit manifests require `contentType: "latexPage"`; filesystem discovery
+assigns it automatically for safely contained `.tex` files.
+
+```json
+{
   "latexPage": {
     "profile": "standard-web-v1",
     "failurePolicy": "strict",

@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/authoring-contract/**'
+      - 'apps/publisher/scripts/build-tenants.js'
       - 'apps/publisher/scripts/lib/latex-page-*.js'
       - 'apps/publisher/scripts/lib/mermaid-build-adapter.js'
       - 'apps/publisher/scripts/lib/plantuml-renderer.js'
@@ -14,6 +18,10 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/authoring-contract/**'
+      - 'apps/publisher/scripts/build-tenants.js'
       - 'apps/publisher/scripts/lib/latex-page-*.js'
       - 'apps/publisher/scripts/lib/mermaid-build-adapter.js'
       - 'apps/publisher/scripts/lib/plantuml-renderer.js'

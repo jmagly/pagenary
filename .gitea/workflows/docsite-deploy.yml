@@ -32,6 +32,9 @@ on:
     tags: ['v*']
     branches: [main]
     paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/authoring-contract/**'
       - 'apps/publisher/docs/**'
       - 'apps/publisher/tenants/pagenary/**'
       - 'apps/publisher/examples/**'

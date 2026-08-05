@@ -63,6 +63,12 @@ const MAX_CONTENT_DEPTH = 10;
 
 // Content file extensions for link transformation
 const CONTENT_EXTENSIONS = ['.md', '.markdown', '.tex', '.html', '.htm', '.js', '.mjs'];
+const CONTENT_TYPE_EXTENSIONS = Object.freeze({
+  markdown: Object.freeze(['.md', '.markdown']),
+  latexPage: Object.freeze(['.tex']),
+  html: Object.freeze(['.html', '.htm']),
+  javascript: Object.freeze(['.js', '.mjs'])
+});
 
 // Common abbreviations to preserve in title humanization
 const ABBREVIATIONS = new Set(['api', 'sdk', 'cli', 'ui', 'ux', 'http', 'https', 'html', 'css', 'js', 'json', 'xml', 'sql', 'nosql', 'jwt', 'oauth', 'ocp', 'tap', 'ieee', 'ptp', 'ntp', 'mev', 'dao', 'nft', 'defi', 'faq', 'id', 'ids', 'url', 'urls', 'uri', 'uris']);
@@ -4137,6 +4143,38 @@ function isContentFile(filename) {
   return CONTENT_EXTENSIONS.includes(ext);
 }
 
+function inferredContentType(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  return Object.entries(CONTENT_TYPE_EXTENSIONS)
+    .find(([, extensions]) => extensions.includes(ext))?.[0] || null;
+}
+
+/**
+ * Validate the author-declared content contract. Complete LaTeX pages are a
+ * distinct page type rather than Markdown with a different suffix, so an
+ * explicit manifest must opt into `contentType: "latexPage"`. Filesystem
+ * discovery supplies the same type itself (see scanContentDirectory).
+ */
+function validateManifestContentTypes(entries, manifestPath = TENANT_MANIFEST) {
+  for (const entry of entries || []) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.file) {
+      const inferred = inferredContentType(entry.file);
+      const declared = entry.contentType;
+      if (declared != null && !Object.hasOwn(CONTENT_TYPE_EXTENSIONS, declared)) {
+        throw new Error(`${manifestPath}: section "${entry.id || '<unknown>'}" has unknown contentType "${declared}"`);
+      }
+      if (inferred === 'latexPage' && declared !== 'latexPage') {
+        throw new Error(`${manifestPath}: section "${entry.id || '<unknown>'}" must declare contentType "latexPage" for ${entry.file}`);
+      }
+      if (declared && inferred !== declared) {
+        throw new Error(`${manifestPath}: section "${entry.id || '<unknown>'}" declares contentType "${declared}" but ${entry.file} is ${inferred || 'unsupported'}`);
+      }
+    }
+    if (Array.isArray(entry.sections)) validateManifestContentTypes(entry.sections, manifestPath);
+  }
+}
+
 /**
  * Convert filename or directory name to human-readable title
  * - Strips extension
@@ -4351,13 +4389,18 @@ async function loadDirectoryManifest(dirPath) {
     return null;
   }
 
+  let manifest;
   try {
     const raw = await fsp.readFile(manifestPath, 'utf8');
-    return JSON.parse(raw);
+    manifest = JSON.parse(raw);
   } catch (err) {
     console.warn(`  ↳ warning: unable to parse ${DIRECTORY_MANIFEST} in ${dirPath}: ${err.message}`);
     return null;
   }
+  if (Array.isArray(manifest?.sections)) {
+    validateManifestContentTypes(manifest.sections, normalizePathForModule(path.relative(root, manifestPath)));
+  }
+  return manifest;
 }
 
 /**
@@ -4459,6 +4502,7 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
       title,
       summary,
       file: relPath,
+      contentType: inferredContentType(indexFile.name),
       _isIndex: true
     };
     decorateCollectionEntry(sectionEntry, metadata, collection);
@@ -4485,7 +4529,8 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
       id: sectionId,
       title,
       summary,
-      file: relPath
+      file: relPath,
+      contentType: inferredContentType(file.name)
     };
     decorateCollectionEntry(sectionEntry, metadata, collection);
     if (type) sectionEntry.type = type;
@@ -5504,6 +5549,21 @@ async function processTenantContent(sourceDir, distDir, tenantId, options = {}, 
   const manifestPath = path.join(sourceDir, TENANT_MANIFEST);
   const hasManifest = await pathExists(manifestPath);
 
+  // Validate explicit page-type declarations before selecting flat, nested, or
+  // hybrid processing so every manifest mode enforces the same contract.
+  if (hasManifest) {
+    let manifestData;
+    try {
+      manifestData = JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
+    } catch (err) {
+      throw new Error(`${tenantId}: unable to parse manifest.json (${err.message})`);
+    }
+    const manifestEntries = Array.isArray(manifestData) ? manifestData : manifestData.sections;
+    if (Array.isArray(manifestEntries)) {
+      validateManifestContentTypes(manifestEntries, normalizePathForModule(path.relative(root, manifestPath)));
+    }
+  }
+
   if (contentRoot.type === 'none' && !hasManifest) {
     console.warn(`  ↳ ${tenantId}: no content found`);
     return { success: true };
@@ -5588,6 +5648,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     console.warn(`  ↳ ${tenantId}: manifest has no sections`);
     return;
   }
+  validateManifestContentTypes(entries, normalizePathForModule(path.relative(root, manifestPath)));
 
   const collections = Array.isArray(config.collections) ? config.collections : [];
   const appendedCollectionPosts = await appendCollectionPostEntries(entries, contentDir, collections);
