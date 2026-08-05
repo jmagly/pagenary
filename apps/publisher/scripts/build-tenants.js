@@ -2604,7 +2604,7 @@ async function applyWelcome(distDir, config, tenantId) {
     '</section>'
   ].join('\n');
 
-  const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
+  const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)}, metadata: ${JSON.stringify(result.metadata || {})} };\n}\n`;
   await fsp.writeFile(welcomePath, moduleSource, 'utf8');
   console.log(`  ↳ customized welcome section for ${tenantId}`);
 }
@@ -3691,6 +3691,7 @@ async function ensureLatexPageModule(sourcePath, targetPath, renderContext = {})
       }
     })));
   }
+  await materializeRichContentAssets(result.assets, renderContext.distDir);
   let pdfLink = '';
   const pdfConfig = renderContext.latexPageConfig?.pdf;
   if (pdfConfig?.enabled) {

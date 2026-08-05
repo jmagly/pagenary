@@ -23,6 +23,8 @@ const DEPENDENCY_COMMANDS = [
 
 export function preflightLatexPage(source, options = {}) {
   const contentRoot = path.resolve(options.contentRoot || process.cwd());
+  const realpath = options.realpath || fs.realpathSync;
+  const realContentRoot = safeRealpath(contentRoot, realpath) || contentRoot;
   const sourceFile = options.sourceFile ? path.resolve(options.sourceFile) : path.join(contentRoot, 'page.tex');
   const allowPackages = new Set(options.allowedPackages || DEFAULT_LATEX_PACKAGE_ALLOWLIST);
   const diagnostics = [];
@@ -34,6 +36,11 @@ export function preflightLatexPage(source, options = {}) {
   }
   if (!contained(contentRoot, sourceFile)) {
     diagnostics.push(error('LATEX_SOURCE_OUTSIDE_ROOT', 'LaTeX source must be contained by the configured content root'));
+  } else {
+    const realSource = safeRealpath(sourceFile, realpath);
+    if (realSource && !contained(realContentRoot, realSource)) {
+      diagnostics.push(error('LATEX_SOURCE_SYMLINK_ESCAPE', 'LaTeX source resolves outside the configured content root'));
+    }
   }
   for (const [pattern, label] of FORBIDDEN) {
     if (pattern.test(text)) diagnostics.push(error('LATEX_UNSAFE_COMMAND', `LaTeX source contains forbidden ${label}`));
@@ -51,7 +58,10 @@ export function preflightLatexPage(source, options = {}) {
     for (const match of text.matchAll(command.regex)) {
       const values = command.split ? match[1].split(',') : [match[1]];
       for (const value of values) {
-        inspectDependency(value.trim(), command, { contentRoot, sourceFile, dependencies, diagnostics, fileExists: options.fileExists });
+      inspectDependency(value.trim(), command, {
+        contentRoot, realContentRoot, sourceFile, dependencies, diagnostics,
+        fileExists: options.fileExists, realpath
+      });
       }
     }
   }
@@ -76,7 +86,20 @@ function inspectDependency(value, command, state) {
     state.diagnostics.push(error('LATEX_DEPENDENCY_MISSING', `${command.kind} dependency was not found: ${path.basename(value)}`));
     return;
   }
-  state.dependencies.push({ kind: command.kind, path: resolved, relativePath: path.relative(state.contentRoot, resolved).replace(/\\/g, '/') });
+  const realResolved = safeRealpath(resolved, state.realpath) || resolved;
+  if (!contained(state.realContentRoot, realResolved)) {
+    state.diagnostics.push(error('LATEX_DEPENDENCY_SYMLINK_ESCAPE', `${command.kind} dependency resolves outside the content root`));
+    return;
+  }
+  state.dependencies.push({
+    kind: command.kind,
+    path: realResolved,
+    relativePath: path.relative(state.realContentRoot, realResolved).replace(/\\/g, '/')
+  });
+}
+
+function safeRealpath(value, realpath) {
+  try { return path.resolve(realpath(value)); } catch { return null; }
 }
 
 function contained(root, target) {

@@ -1,10 +1,11 @@
 import { constants as fsConstants } from 'node:fs';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { defineRendererAdapter } from './rich-content-adapters.js';
 import { fallbackHtmlForSource } from './rich-content-diagnostics.js';
-import { normalizeLatexHtml, latexHtmlSemanticText } from './latex-page-normalize.js';
+import { normalizeLatexHtml, latexHtmlSemanticText, extractLatexPageMetadata } from './latex-page-normalize.js';
 import { preflightLatexPage } from './latex-page-preflight.js';
 import { runRendererSubprocess } from './renderer-security.js';
 
@@ -56,14 +57,19 @@ export function createLatexPageAdapter(options = {}) {
       if (profile === 'standard-web-v1' && latexmlReportedErrors(result.stderr)) {
         throw latexError('LATEX_CONVERSION_ERRORS', 'LaTeXML reported conversion errors');
       }
-      const html = normalizeLatexHtml(result.stdout);
+      let html = normalizeLatexHtml(result.stdout);
       if (!html) throw latexError('LATEX_EMPTY_OUTPUT', `${definition.command} produced no semantic HTML`);
+      const materialized = await materializeLatexAssets(html, preflight.dependencies, context);
+      html = materialized.html;
+      const metadata = extractLatexPageMetadata(input.source, html);
       return {
         html,
         semanticText: latexHtmlSemanticText(html),
         searchText: latexHtmlSemanticText(html),
         source: input.source,
+        metadata,
         dependencies: preflight.dependencies,
+        assets: materialized.assets,
         rendererMetadata: {
           renderer: 'latexPage',
           version: await rendererVersion(definition.command, definition.versionArgs, runner, context),
@@ -91,6 +97,54 @@ export function createLatexPageAdapter(options = {}) {
       return { source: input.source, profile: context.profile || node.profile || defaultProfile };
     }
   });
+}
+
+async function materializeLatexAssets(html, dependencies, options = {}) {
+  const assets = [];
+  let output = String(html || '');
+  const maxAssetBytes = bounded(options.maxOutputBytes, 4 * 1024 * 1024, 64 * 1024, 16 * 1024 * 1024);
+  for (const dependency of dependencies.filter(({ kind }) => kind === 'graphic')) {
+    let bytes = await fs.readFile(dependency.path);
+    if (bytes.length > maxAssetBytes) throw latexError('LATEX_ASSET_OUTPUT_LIMIT', 'LaTeX graphic exceeds the configured output limit');
+    const extension = safeAssetExtension(dependency.path);
+    if (extension === '.svg') bytes = Buffer.from(sanitizeLatexSvg(bytes.toString('utf8')), 'utf8');
+    const digest = createHash('sha256').update(bytes).digest('hex').slice(0, 24);
+    const assetPath = `assets/rich-content/latex/${digest}${extension}`;
+    const candidates = new Set([
+      dependency.relativePath,
+      path.basename(dependency.relativePath),
+      dependency.relativePath.replace(/\.[^.]+$/, ''),
+      path.basename(dependency.relativePath).replace(/\.[^.]+$/, '')
+    ]);
+    output = output.replace(/(<img\b[^>]*\bsrc=")([^"]+)(")/gi, (whole, prefix, value, suffix) => {
+      const normalized = value.replace(/\\/g, '/').replace(/^\.\//, '');
+      return [...candidates].some((candidate) => normalized === candidate || normalized.endsWith(`/${candidate}`))
+        ? `${prefix}./${assetPath}${suffix}`
+        : whole;
+    });
+    assets.push({ path: assetPath, bytes, mimeType: mimeTypeForExtension(extension) });
+  }
+  return { html: output, assets };
+}
+
+function sanitizeLatexSvg(svg) {
+  const clean = String(svg || '')
+    .replace(/<\?[\s\S]*?\?>/g, '')
+    .replace(/<(script|foreignObject|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<(?:script|foreignObject|iframe|object|embed)\b[^>]*\/?\s*>/gi, '')
+    .replace(/\s+on[a-z][\w:-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s+(?:href|xlink:href)\s*=\s*(["'])\s*(?:javascript:|data:text\/html)[\s\S]*?\1/gi, '');
+  if (!/^\s*<svg\b/i.test(clean)) throw latexError('LATEX_ASSET_INVALID', 'LaTeX SVG asset is not a valid SVG document');
+  return clean;
+}
+
+function safeAssetExtension(file) {
+  const extension = path.extname(file).toLowerCase();
+  return ['.svg', '.png', '.jpg', '.jpeg', '.pdf'].includes(extension) ? extension : '.bin';
+}
+
+function mimeTypeForExtension(extension) {
+  return ({ '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.pdf': 'application/pdf' })[extension] || 'application/octet-stream';
 }
 
 export async function inspectLatexPageRenderers(options = {}) {

@@ -8,7 +8,7 @@ import {
   renderLatexPage,
   renderLatexPdf
 } from '../../scripts/lib/latex-page-adapter.js';
-import { normalizeLatexHtml, latexHtmlSemanticText } from '../../scripts/lib/latex-page-normalize.js';
+import { normalizeLatexHtml, latexHtmlSemanticText, extractLatexPageMetadata } from '../../scripts/lib/latex-page-normalize.js';
 import { preflightLatexPage } from '../../scripts/lib/latex-page-preflight.js';
 import { ensureLatexPageModule } from '../../scripts/build-tenants.js';
 
@@ -16,6 +16,26 @@ const root = path.resolve('/workspace/content');
 const sourceFile = path.join(root, 'guides', 'page.tex');
 
 describe('LaTeX full-page preflight', () => {
+  test('rejects a tenant-local dependency symlink that resolves outside the content root', async () => {
+    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-symlink-'));
+    const content = path.join(temp, 'content');
+    const outside = path.join(temp, 'outside.tex');
+    await fs.mkdir(content);
+    await fs.writeFile(outside, 'outside');
+    await fs.symlink(outside, path.join(content, 'escape.tex'));
+    const page = path.join(content, 'page.tex');
+    const source = '\\documentclass{article}\\input{escape}\\begin{document}Hi\\end{document}';
+    await fs.writeFile(page, source);
+    try {
+      const result = preflightLatexPage(source, { contentRoot: content, sourceFile: page });
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'LATEX_DEPENDENCY_SYMLINK_ESCAPE' }));
+      expect(result.dependencies).toHaveLength(0);
+    } finally {
+      await fs.rm(temp, { recursive: true, force: true });
+    }
+  });
+
   test('recognizes a distinct .tex page and contained local dependencies', () => {
     const source = String.raw`\documentclass{article}
 \usepackage{amsmath,graphicx}
@@ -54,6 +74,20 @@ describe('LaTeX full-page preflight', () => {
 });
 
 describe('LaTeX page normalization', () => {
+  test('extracts page, semantic, accessibility, and reading metadata', () => {
+    const source = String.raw`\documentclass{article}\usepackage[english]{babel}\title{Qualified Page}\author{Ada}\date{2026-08-05}\begin{document}\begin{abstract}A useful summary.\end{abstract}\end{document}`;
+    const html = '<article lang="en"><h1 id="qualified">Qualified Page</h1><section><h2 id="proof">Proof</h2><p>A useful summary with enough words.</p><figure></figure><table></table><cite>Ref</cite><a class="footnote">1</a></section></article>';
+    expect(extractLatexPageMetadata(source, html)).toMatchObject({
+      title: 'Qualified Page', summary: 'A useful summary.', language: 'en',
+      author: 'Ada', date: '2026-08-05', wordCount: 11, readingMinutes: 1,
+      landmarks: ['article', 'section'], figures: 1, tables: 1, citations: 1,
+      headings: [
+        { level: 1, id: 'qualified', text: 'Qualified Page' },
+        { level: 2, id: 'proof', text: 'Proof' }
+      ]
+    });
+  });
+
   test('keeps semantic HTML and MathML while removing active content and unsafe URLs', () => {
     const output = normalizeLatexHtml(`<!doctype html><html><body>
       <article onclick="steal()"><h1>Proof</h1><math display="block"><mrow><mi>x</mi><mo>=</mo><mn>1</mn></mrow></math>
@@ -184,6 +218,32 @@ describe('LaTeX page adapters', () => {
     expect(calls[1].options.env).toEqual(expect.objectContaining({ HOME: root, SOURCE_DATE_EPOCH: '0' }));
     expect(result.semanticText).toBe('Result x');
     expect(result.rendererMetadata).toMatchObject({ profile: 'portable-subset-v1', portableSubset: true });
+  });
+
+  test('rewrites declared graphics to sanitized content-addressed local assets', async () => {
+    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-assets-'));
+    const sourcePath = path.join(temp, 'page.tex');
+    const graphicPath = path.join(temp, 'figure.svg');
+    const source = '\\documentclass{article}\\usepackage{graphicx}\\begin{document}\\includegraphics{figure.svg}\\end{document}';
+    await fs.writeFile(sourcePath, source);
+    await fs.writeFile(graphicPath, '<svg xmlns="http://www.w3.org/2000/svg" onload="steal()"><script>steal()</script><text>Chart</text></svg>');
+    try {
+      const adapter = createLatexPageAdapter({
+        runCommand: async (_command, args) => args[0] === '--version'
+          ? { stdout: 'pandoc 3.1.3\n', stderr: '' }
+          : { stdout: '<main><figure><img src="figure.svg" alt="Chart"></figure></main>', stderr: '' }
+      });
+      const result = await adapter.render({ source, sourceFile: sourcePath }, {
+        contentRoot: temp, profile: 'portable-subset-v1'
+      });
+      expect(result.assets).toHaveLength(1);
+      expect(result.assets[0]).toMatchObject({ mimeType: 'image/svg+xml' });
+      expect(result.assets[0].path).toMatch(/^assets\/rich-content\/latex\/[a-f0-9]{24}\.svg$/);
+      expect(result.html).toContain(`src="./${result.assets[0].path}"`);
+      expect(result.assets[0].bytes.toString()).not.toMatch(/script|onload/i);
+    } finally {
+      await fs.rm(temp, { recursive: true, force: true });
+    }
   });
 
   test('standard profile uses the real LaTeXML version flag, stdout, and BibTeX mode', async () => {

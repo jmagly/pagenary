@@ -51,11 +51,19 @@ try {
     assert.equal(rendered.rendererMetadata.profile, 'standard-web-v1');
     assert.match(rendered.rendererMetadata.version || '', /0\.8\.8/);
     assert.equal(repeated.html, rendered.html);
+    assert.deepEqual(repeated.assets, rendered.assets);
+    for (const asset of rendered.assets || []) {
+      assert.match(asset.path, /^assets\/rich-content\/latex\/[a-f0-9]{24}\.(?:svg|png|jpe?g|pdf)$/);
+      if (asset.mimeType === 'image/svg+xml') {
+        assert.doesNotMatch(asset.bytes.toString('utf8'), /<script|\son[a-z]+=|javascript:/i);
+      }
+    }
     latexResults.push({
       fixture: name,
       htmlBytes: Buffer.byteLength(rendered.html),
       semanticBytes: Buffer.byteLength(rendered.semanticText),
-      dependencies: rendered.dependencies.length
+      dependencies: rendered.dependencies.length,
+      assets: rendered.assets.length
     });
   }
   assert.match(latexResults[0].fixture, /^01-/);
