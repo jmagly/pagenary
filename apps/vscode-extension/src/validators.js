@@ -105,6 +105,10 @@ function validateLatexPageConfig(config, path, findings) {
   enumKey(config, 'failurePolicy', ['warn', 'strict', 'off'], path, findings, 'latexPage');
   integerRange(config, 'timeoutMs', 1000, 120000, path, findings, 'latexPage');
   integerRange(config, 'maxOutputBytes', 65536, 16777216, path, findings, 'latexPage');
+  integerRange(config, 'maxSourceBytes', 1024, 8388608, path, findings, 'latexPage');
+  integerRange(config, 'maxDependencyFiles', 1, 1024, path, findings, 'latexPage');
+  integerRange(config, 'maxTotalInputBytes', 1024, 67108864, path, findings, 'latexPage');
+  integerRange(config, 'maxRecursionDepth', 1, 64, path, findings, 'latexPage');
   for (const forbidden of ['allowShellEscape', 'allowNetwork', 'allowPackageInstall', 'allowAbsolutePaths', 'allowParentTraversal']) {
     if (config[forbidden] !== undefined) findings.push(finding(`\`latexPage.${forbidden}\` is forbidden by the immutable security policy.`, [...path, forbidden]));
   }

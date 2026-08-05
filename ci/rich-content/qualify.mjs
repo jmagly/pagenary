@@ -27,6 +27,8 @@ assert.match(versions.tectonic, /0\.16\.9/);
 assert.match(versions.pandoc, /3\.1\.3/);
 assert.match(versions.make4ht, /v0\.3m/);
 assert.match(versions.mermaid, /11\.16\.0/);
+assert.match(versions.texlive, /kpathsea version 6\.3\.5/);
+assert.match(versions.fonts.latinModern, /Latin Modern Roman/i);
 
 const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-external-renderers-'));
 try {
@@ -227,13 +229,17 @@ async function probeVersions() {
   const pandoc = await exec('pandoc', ['--version'], { encoding: 'utf8' });
   const make4ht = await exec('make4ht', ['--version'], { encoding: 'utf8' });
   const mermaid = await exec(mermaidCliPath, ['--version'], { encoding: 'utf8' });
+  const texlive = await exec('kpsewhich', ['--version'], { encoding: 'utf8' });
+  const latinModern = await exec('fc-match', ['--format=%{family}\\n', 'Latin Modern Roman'], { encoding: 'utf8' });
   return {
     latexml: firstLine(latexml.stdout || latexml.stderr),
     plantuml: firstLine(plantuml.stdout || plantuml.stderr),
     tectonic: firstLine(tectonic.stdout || tectonic.stderr),
     pandoc: firstLine(pandoc.stdout || pandoc.stderr),
     make4ht: firstLine(make4ht.stdout || make4ht.stderr),
-    mermaid: firstLine(mermaid.stdout || mermaid.stderr)
+    mermaid: firstLine(mermaid.stdout || mermaid.stderr),
+    texlive: firstLine(texlive.stdout || texlive.stderr),
+    fonts: { latinModern: firstLine(latinModern.stdout || latinModern.stderr) }
   };
 }
 

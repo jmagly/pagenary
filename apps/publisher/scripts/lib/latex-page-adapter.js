@@ -10,9 +10,9 @@ import { preflightLatexPage } from './latex-page-preflight.js';
 import { runRendererSubprocess } from './renderer-security.js';
 
 export const LATEX_PAGE_PROFILES = Object.freeze({
-  'standard-web-v1': Object.freeze({ command: 'latexmlc', versionArgs: ['--VERSION'], semantic: true, output: 'html+mathml' }),
-  'portable-subset-v1': Object.freeze({ command: 'pandoc', semantic: true, output: 'html+mathml', subset: true }),
-  'pdf-v1': Object.freeze({ command: 'tectonic', semantic: false, output: 'pdf', optional: true })
+  'standard-web-v1': Object.freeze({ command: 'latexmlc', engine: 'LaTeXML', qualifiedVersion: '0.8.8', versionArgs: ['--VERSION'], semantic: true, output: 'html+mathml', documentMode: 'complete-document', fonts: ['Latin Modern'] }),
+  'portable-subset-v1': Object.freeze({ command: 'pandoc', engine: 'Pandoc', qualifiedVersion: '3.1.3', semantic: true, output: 'html+mathml', documentMode: 'complete-document', fonts: [], subset: true }),
+  'pdf-v1': Object.freeze({ command: 'tectonic', engine: 'Tectonic', qualifiedVersion: '0.16.9', semantic: false, output: 'pdf', documentMode: 'complete-document', fonts: ['Latin Modern'], optional: true })
 });
 
 export function createLatexPageAdapter(options = {}) {
@@ -27,7 +27,8 @@ export function createLatexPageAdapter(options = {}) {
         contentRoot: resolved.contentRoot,
         sourceFile: resolved.sourceFile,
         allowedPackages: context.allowedPackages || options.allowedPackages,
-        fileExists: context.fileExists || options.fileExists
+        fileExists: context.fileExists || options.fileExists,
+        ...preflightBounds(context, options)
       }).diagnostics;
     },
     async render(node, context) {
@@ -43,7 +44,8 @@ export function createLatexPageAdapter(options = {}) {
         contentRoot: input.contentRoot,
         sourceFile: input.sourceFile,
         allowedPackages: context.allowedPackages || options.allowedPackages,
-        fileExists: context.fileExists || options.fileExists
+        fileExists: context.fileExists || options.fileExists,
+        ...preflightBounds(context, options)
       });
       if (!preflight.ok) throw latexError(preflight.diagnostics[0].code, preflight.diagnostics[0].message);
 
@@ -74,8 +76,14 @@ export function createLatexPageAdapter(options = {}) {
           renderer: 'latexPage',
           version: await rendererVersion(definition.command, definition.versionArgs, runner, context),
           profile,
+          engine: definition.engine,
+          qualifiedVersion: definition.qualifiedVersion,
           output: definition.output,
-          portableSubset: definition.subset === true
+          portableSubset: definition.subset === true,
+          documentMode: definition.documentMode,
+          packages: [...(context.allowedPackages || options.allowedPackages || preflightDefaultPackages())].sort(),
+          fonts: [...definition.fonts],
+          bounds: preflight.bounds
         }
       };
     },
@@ -90,11 +98,35 @@ export function createLatexPageAdapter(options = {}) {
     },
     dependencies(node, context) {
       const input = resolveInput(node, context);
-      return preflightLatexPage(input.source, { contentRoot: input.contentRoot, sourceFile: input.sourceFile }).dependencies;
+      return preflightLatexPage(input.source, {
+        contentRoot: input.contentRoot,
+        sourceFile: input.sourceFile,
+        allowedPackages: context.allowedPackages || options.allowedPackages,
+        fileExists: context.fileExists || options.fileExists,
+        ...preflightBounds(context, options)
+      }).dependencies;
     },
     cacheIdentity(node, context) {
       const input = resolveInput(node, context);
-      return { source: input.source, profile: context.profile || node.profile || defaultProfile };
+      const profile = context.profile || node.profile || defaultProfile;
+      const preflight = preflightLatexPage(input.source, {
+        contentRoot: input.contentRoot,
+        sourceFile: input.sourceFile,
+        allowedPackages: context.allowedPackages || options.allowedPackages,
+        fileExists: context.fileExists || options.fileExists,
+        ...preflightBounds(context, options)
+      });
+      return {
+        source: input.source,
+        profile,
+        converter: LATEX_PAGE_PROFILES[profile]?.command || null,
+        toolchainDigest: context.toolchainDigest || options.toolchainDigest || null,
+        allowedPackages: [...(context.allowedPackages || options.allowedPackages || [])].sort(),
+        bounds: preflight.bounds,
+        dependencies: preflight.dependencies.map(({ kind, relativePath, bytes, sha256 }) => ({
+          kind, relativePath, bytes: bytes ?? null, sha256: sha256 || null
+        }))
+      };
     }
   });
 }
@@ -157,6 +189,10 @@ export async function inspectLatexPageRenderers(options = {}) {
       available,
       version: available ? await rendererVersion(definition.command, definition.versionArgs, runner, options) : null,
       output: definition.output,
+      engine: definition.engine,
+      qualifiedVersion: definition.qualifiedVersion,
+      documentMode: definition.documentMode,
+      fonts: [...definition.fonts],
       semantic: definition.semantic,
       optional: definition.optional === true
     };
@@ -189,7 +225,8 @@ export async function renderLatexPdf(node, options = {}) {
     contentRoot: input.contentRoot,
     sourceFile: input.sourceFile,
     allowedPackages: options.allowedPackages,
-    fileExists: options.fileExists
+    fileExists: options.fileExists,
+    ...preflightBounds(options)
   });
   if (!preflight.ok) throw latexError(preflight.diagnostics[0].code, preflight.diagnostics[0].message);
   const runner = options.runCommand || runBoundedCommand;
@@ -331,6 +368,16 @@ async function rendererVersion(command, versionArgs = ['--version'], runner, opt
 function bounded(value, fallback, minimum, maximum) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, Math.trunc(number))) : fallback;
+}
+
+function preflightBounds(primary = {}, fallback = {}) {
+  return Object.fromEntries([
+    'maxSourceBytes', 'maxDependencyFiles', 'maxTotalInputBytes', 'maxRecursionDepth'
+  ].map((key) => [key, primary[key] ?? fallback[key]]).filter(([, value]) => value != null));
+}
+
+function preflightDefaultPackages() {
+  return ['amsmath', 'amssymb', 'array', 'booktabs', 'graphicx', 'hyperref', 'inputenc', 'mathtools', 'microtype', 'textcomp', 'url', 'xcolor'];
 }
 
 function latexError(code, message) {

@@ -907,6 +907,30 @@
           "maximum": 16777216,
           "default": 4194304
         },
+        "maxSourceBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 8388608,
+          "default": 1048576
+        },
+        "maxDependencyFiles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024,
+          "default": 128
+        },
+        "maxTotalInputBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 67108864,
+          "default": 8388608
+        },
+        "maxRecursionDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 16
+        },
         "pdf": {
           "type": "object",
           "description": "Optional Tectonic-generated PDF sibling; semantic HTML remains the primary page.",

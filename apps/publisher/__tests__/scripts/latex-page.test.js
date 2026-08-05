@@ -71,6 +71,30 @@ describe('LaTeX full-page preflight', () => {
     const result = preflightLatexPage('text', { contentRoot: root, sourceFile: path.join(root, 'page.md') });
     expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'LATEX_PAGE_TYPE_INVALID' })]));
   });
+
+  test('requires complete document boundaries and enforces source size', () => {
+    const incomplete = preflightLatexPage('fragment only', { contentRoot: root, sourceFile });
+    expect(incomplete.diagnostics).toContainEqual(expect.objectContaining({ code: 'LATEX_DOCUMENT_INCOMPLETE' }));
+    const oversized = preflightLatexPage('\\documentclass{article}\\begin{document}' + 'x'.repeat(2048) + '\\end{document}', {
+      contentRoot: root, sourceFile, maxSourceBytes: 1024
+    });
+    expect(oversized.diagnostics).toContainEqual(expect.objectContaining({ code: 'LATEX_SOURCE_SIZE_LIMIT' }));
+  });
+
+  test('preflights nested includes and rejects unsafe transitive source', async () => {
+    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-nested-'));
+    const page = path.join(temp, 'page.tex');
+    const nested = path.join(temp, 'nested.tex');
+    await fs.writeFile(page, '\\documentclass{article}\\input{nested}\\begin{document}Page\\end{document}');
+    await fs.writeFile(nested, '\\immediate\\write18{bad}');
+    try {
+      const result = preflightLatexPage(await fs.readFile(page, 'utf8'), { contentRoot: temp, sourceFile: page });
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'LATEX_UNSAFE_COMMAND' }));
+    } finally {
+      await fs.rm(temp, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('LaTeX page normalization', () => {
@@ -111,7 +135,7 @@ describe('LaTeX page adapters', () => {
           }
     });
     await expect(adapter.render({
-      source: '\\documentclass{article}\\begin{document}\\begin{', sourceFile
+      source: '\\documentclass{article}\\begin{document}\\begin{\\end{document}', sourceFile
     }, { contentRoot: root, profile: 'standard-web-v1' })).rejects.toMatchObject({
       code: 'LATEX_CONVERSION_ERRORS'
     });
@@ -185,7 +209,7 @@ describe('LaTeX page adapters', () => {
 
   test('defaults to standard-web-v1 and reports unavailable LaTeXML with source fallback', async () => {
     const runCommand = async () => { const error = new Error('missing'); error.code = 'ENOENT'; throw error; };
-    const result = await renderLatexPage({ body: '\\begin{document}Hi\\end{document}', sourceFile }, {
+    const result = await renderLatexPage({ body: '\\documentclass{article}\\begin{document}Hi\\end{document}', sourceFile }, {
       contentRoot: root,
       runCommand,
       fileExists: () => true
@@ -196,7 +220,7 @@ describe('LaTeX page adapters', () => {
 
   test('strict mode fails when the selected converter is unavailable', async () => {
     const runCommand = async () => { const error = new Error('missing'); error.code = 'ENOENT'; throw error; };
-    await expect(renderLatexPage({ body: 'Hi', sourceFile }, {
+    await expect(renderLatexPage({ body: '\\documentclass{article}\\begin{document}Hi\\end{document}', sourceFile }, {
       contentRoot: root, runCommand, fileExists: () => true, failurePolicy: 'strict'
     })).rejects.toMatchObject({ code: 'LATEX_RENDERER_UNAVAILABLE' });
   });
@@ -209,7 +233,7 @@ describe('LaTeX page adapters', () => {
       return { stdout: '<main><h1>Result</h1><math><mi>x</mi></math></main>', stderr: '' };
     };
     const adapter = createLatexPageAdapter();
-    const result = await adapter.render({ body: 'Result $x$', sourceFile }, {
+    const result = await adapter.render({ body: '\\documentclass{article}\\begin{document}Result $x$\\end{document}', sourceFile }, {
       profile: 'portable-subset-v1', contentRoot: root, runCommand, fileExists: () => true
     });
 
@@ -218,6 +242,25 @@ describe('LaTeX page adapters', () => {
     expect(calls[1].options.env).toEqual(expect.objectContaining({ HOME: root, SOURCE_DATE_EPOCH: '0' }));
     expect(result.semanticText).toBe('Result x');
     expect(result.rendererMetadata).toMatchObject({ profile: 'portable-subset-v1', portableSubset: true });
+  });
+
+  test('cache identity changes when a contained dependency changes', async () => {
+    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-cache-'));
+    const page = path.join(temp, 'page.tex');
+    const included = path.join(temp, 'included.tex');
+    const source = '\\documentclass{article}\\input{included}\\begin{document}Page\\end{document}';
+    await fs.writeFile(page, source);
+    await fs.writeFile(included, 'first');
+    try {
+      const adapter = createLatexPageAdapter();
+      const first = adapter.cacheIdentity({ source, sourceFile: page }, { contentRoot: temp });
+      await fs.writeFile(included, 'second');
+      const second = adapter.cacheIdentity({ source, sourceFile: page }, { contentRoot: temp });
+      expect(first.dependencies[0].sha256).not.toBe(second.dependencies[0].sha256);
+      expect(first.dependencies[0].relativePath).toBe('included.tex');
+    } finally {
+      await fs.rm(temp, { recursive: true, force: true });
+    }
   });
 
   test('rewrites declared graphics to sanitized content-addressed local assets', async () => {

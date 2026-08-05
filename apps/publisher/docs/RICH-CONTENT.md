@@ -100,8 +100,10 @@ Pagenary converts it to semantic HTML and MathML during the build. A `.tex`
 page is a distinct content type; it is not Markdown with broader math
 delimiters. Explicit manifests must declare `contentType: "latexPage"`; a
 mismatched type or an undeclared `.tex` page fails validation. Safe filesystem
-discovery assigns this type automatically. The selected converter must already
-be installed locally:
+discovery assigns this type automatically. Page sources must contain a complete
+document entry point (`\\documentclass`, `\\begin{document}`, and
+`\\end{document}`); fragment synthesis is not part of these profiles. The
+selected converter must already be installed locally:
 
 - `standard-web-v1` (default) invokes `latexmlc`. It is the standard semantic
   web profile.
@@ -119,6 +121,10 @@ be installed locally:
     "allowedPackages": ["amsmath", "amssymb", "graphicx"],
     "timeoutMs": 20000,
     "maxOutputBytes": 4194304,
+    "maxSourceBytes": 1048576,
+    "maxDependencyFiles": 128,
+    "maxTotalInputBytes": 8388608,
+    "maxRecursionDepth": 16,
     "pdf": {
       "enabled": true,
       "profile": "pdf-v1",
@@ -135,6 +141,10 @@ The default package allowlist is `amsmath`, `amssymb`, `array`, `booktabs`,
 TeX, bibliography, and graphic files must exist beneath the tenant content
 root. Absolute paths, parent traversal, URLs, pipe input, direct TeX file I/O,
 shell escape, and unsafe packages are rejected before the converter runs.
+The standard bounds are 1 MiB of page source, 128 dependency files, 8 MiB of
+total input, and 16 nested include levels. The qualification report records the
+exact LaTeXML, TeX Live/Kpathsea, and Latin Modern font identities used by the
+pinned image.
 
 The converter receives a bounded timeout/output buffer, a content-root working
 directory, a deterministic epoch, and a restricted environment. Pagenary does
