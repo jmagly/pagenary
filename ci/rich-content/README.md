@@ -11,7 +11,7 @@ docker build -f ci/rich-content/Dockerfile -t pagenary-rich-content:2026-08-05 .
 docker run --rm --network none --read-only \
   --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=256m \
   --tmpfs /home/renderer/.cache/fontconfig:rw,nosuid,nodev,mode=0700,uid=10001,gid=10001,size=16m \
-  --cpus 2 --memory 1g --pids-limit 128 \
+  --cpus 2 --memory 2g --pids-limit 512 \
   -v "$PWD:/workspace:ro" \
   pagenary-rich-content:2026-08-05
 ```

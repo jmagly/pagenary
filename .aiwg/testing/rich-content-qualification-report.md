@@ -195,7 +195,7 @@ during the networked image build; runtime PDF generation uses `--untrusted
 docker run --rm --network none --read-only \
   --user 10001:10001 --cap-drop ALL --security-opt no-new-privileges \
   --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=768m \
-  --cpus 2 --memory 2g --pids-limit 256 \
+  --cpus 2 --memory 2g --pids-limit 512 \
   pagenary-rich-content:2026-08-05
 ```
 
