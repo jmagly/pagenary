@@ -18,6 +18,8 @@ RUN apt-get update \
       graphviz=2.42.2-9ubuntu0.1 \
       latexml=0.8.8-1 \
       openjdk-21-jre-headless=21.0.11+10-1~24.04.2 \
+      pandoc=3.1.3+ds-2 \
+      texlive-extra-utils=2023.20240207-1 \
  && rm -rf /var/lib/apt/lists/* \
  && curl -fsSLo /opt/plantuml.jar \
       "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \

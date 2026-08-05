@@ -20,6 +20,8 @@ const versions = await probeVersions();
 assert.match(versions.latexml, /0\.8\.8/);
 assert.match(versions.plantuml, /1\.2026\.4/);
 assert.match(versions.tectonic, /0\.16\.9/);
+assert.match(versions.pandoc, /3\.1\.3/);
+assert.match(versions.make4ht, /v0\.3m/);
 
 const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-external-renderers-'));
 try {
@@ -79,6 +81,8 @@ try {
   assert.equal(rejected.ok, false);
   assert.ok(rejected.diagnostics.some(({ code }) => code === 'LATEX_UNSAFE_COMMAND'));
 
+  const converterBakeoff = await qualifyConverterCandidates(temp);
+
   const plantStatus = await diagnosePlantUmlTool({ jarPath, javaPath, version: '1.2026.4' });
   assert.equal(plantStatus.available, true);
   assert.equal(plantStatus.version, '1.2026.4');
@@ -127,6 +131,7 @@ try {
     result: 'PASS',
     versions,
     latex: latexResults,
+    converterBakeoff,
     plantuml: {
       profile: plantStatus.securityProfile,
       diagrams: plantUmlResults,
@@ -142,11 +147,78 @@ async function probeVersions() {
   const latexml = await exec('latexmlc', ['--VERSION'], { encoding: 'utf8' });
   const plantuml = await exec(javaPath, ['-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', jarPath, '-version'], { encoding: 'utf8' });
   const tectonic = await exec('tectonic', ['--version'], { encoding: 'utf8' });
+  const pandoc = await exec('pandoc', ['--version'], { encoding: 'utf8' });
+  const make4ht = await exec('make4ht', ['--version'], { encoding: 'utf8' });
   return {
     latexml: firstLine(latexml.stdout || latexml.stderr),
     plantuml: firstLine(plantuml.stdout || plantuml.stderr),
-    tectonic: firstLine(tectonic.stdout || tectonic.stderr)
+    tectonic: firstLine(tectonic.stdout || tectonic.stderr),
+    pandoc: firstLine(pandoc.stdout || pandoc.stderr),
+    make4ht: firstLine(make4ht.stdout || make4ht.stderr)
   };
+}
+
+async function qualifyConverterCandidates(workDir) {
+  const names = [
+    '01-structure-math.tex',
+    '02-crossrefs.tex',
+    '03-bibliography.tex',
+    '04-includes-assets.tex',
+    '05-unicode-tables.tex'
+  ];
+  const pandoc = [];
+  const make4ht = [];
+  for (const name of names) {
+    const pandocOutput = `${path.parse(name).name}.pandoc.html`;
+    const pandocRun = await runCandidate('pandoc', [
+      '--from=latex', '--to=html5', '--mathml', '--wrap=none',
+      '--citeproc', '--bibliography=_references.bib', name, '-o', pandocOutput
+    ], workDir);
+    assert.equal(pandocRun.exitCode, 0);
+    const pandocHtml = await fs.readFile(path.join(workDir, pandocOutput), 'utf8');
+    pandoc.push({ fixture: name, exitCode: 0, htmlBytes: Buffer.byteLength(pandocHtml) });
+
+    const make4htRun = await runCandidate('make4ht', [
+      '-u', '-f', 'html5', name, 'mathml'
+    ], workDir);
+    const make4htOutput = path.join(workDir, `${path.parse(name).name}.html`);
+    const htmlBytes = make4htRun.exitCode === 0
+      ? (await fs.stat(make4htOutput)).size
+      : 0;
+    const make4htLog = `${make4htRun.stdout}\n${make4htRun.stderr}`;
+    make4ht.push({
+      fixture: name,
+      exitCode: make4htRun.exitCode,
+      htmlBytes,
+      failure: make4htRun.exitCode === 0
+        ? null
+        : /booktabs\.sty[^\n]*not found/i.test(make4htLog)
+          ? 'LaTeX Error: booktabs.sty not found'
+          : firstDiagnostic(make4htLog)
+    });
+  }
+  assert.equal(make4ht.filter(({ exitCode }) => exitCode === 0).length, 4);
+  assert.match(make4ht.at(-1)?.failure || '', /booktabs\.sty.*not found/i);
+  return { pandoc, make4ht };
+}
+
+async function runCandidate(command, args, cwd) {
+  try {
+    const result = await exec(command, args, {
+      cwd, encoding: 'utf8', timeout: 60_000, maxBuffer: 8 * 1024 * 1024
+    });
+    return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
+  } catch (error) {
+    return {
+      exitCode: Number.isInteger(error.code) ? error.code : 1,
+      stdout: error.stdout || '',
+      stderr: error.stderr || error.message
+    };
+  }
+}
+
+function firstDiagnostic(value) {
+  return String(value).split(/\r?\n/).find((line) => /error|fatal|not found/i.test(line))?.trim() || firstLine(value);
 }
 
 function firstLine(value) {

@@ -166,7 +166,9 @@ adoption after cooldown without bypassing repository supply-chain policy.
 The reproducible qualification image is defined in
 `ci/rich-content/Dockerfile` and its real-adapter corpus in
 `ci/rich-content/qualify.mjs`. The qualified local image manifest list was
-`sha256:3803f70b83bf707d3051f9cfdd7c5ef0350cadd90f1d1fe2663ed389f36a6ac6`.
+`sha256:35be8644ecd18b2d74b0b6e05964ae26546da0d44cd4349cfa898950a8bf001f`
+(416,374,433 bytes). It also contains pinned Pandoc and make4ht packages for the
+converter-selection regression.
 Its immutable base image and downloaded renderer artifacts are digest/checksum
 pinned. Tectonic resources are warmed from the accepted representative fixture
 during the networked image build; runtime PDF generation uses `--untrusted
@@ -193,7 +195,8 @@ Qualified tools:
 
 | Tool | Status | Version/evidence |
 |---|---:|---|
-| Pandoc | HOST AVAILABLE | 3.1.3; portable-subset unit/integration coverage |
+| Pandoc | PASS / NOT SELECTED | 3.1.3; all five positive fixtures converted in the networkless image |
+| make4ht | MEASURED / NOT SELECTED | v0.3m; four fixtures passed, baseline `booktabs` fixture exposed missing package surface |
 | Java | CONTAINER PINNED | OpenJDK 21.0.11 |
 | Graphviz | CONTAINER PINNED | 2.42.2 |
 | LaTeXML | PASS | 0.8.8; five positive semantic fixtures plus hostile preflight rejection |

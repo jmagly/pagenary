@@ -25,20 +25,12 @@ The fixture corpus is at
 cross-references, bibliography, local includes/assets, Unicode, tables, and
 policy rejection. This is a tool-selection spike, not production integration.
 
-Only Pandoc 3.1.3 was installed in the evaluation environment. LaTeXML,
-make4ht/TeX4ht, Tectonic, and TeX engines were absent. Accordingly:
-
-- Pandoc results below are measured locally.
-- LaTeXML, make4ht, and Tectonic assessments are derived from their primary
-  project manuals and must be re-run as pinned-container compatibility tests
-  during #174 before the adapter is enabled.
-- No dependencies were installed and the policy-negative fixture was never
-  passed to a converter.
-
-This distinction prevents documentation claims from masquerading as benchmark
-results. It also means cold-start and container-size budgets remain for #176;
-this spike can select the architecture but cannot establish those deployment
-thresholds.
+All four candidates now run in the pinned Ubuntu 24.04 qualification image:
+LaTeXML 0.8.8, make4ht v0.3m, Pandoc 3.1.3, and Tectonic 0.16.9. The image runs
+networkless, read-only, non-root, and resource-bounded. `ci/rich-content/qualify.mjs`
+is the executable record, so the comparison is continuously reproducible. The
+current image is 416,374,433 bytes and has manifest-list digest
+`sha256:35be8644ecd18b2d74b0b6e05964ae26546da0d44cd4349cfa898950a8bf001f`.
 
 ## Candidate roles
 
@@ -123,14 +115,14 @@ never assert that a converter alone safely processes hostile input.
 
 | Criterion | Weight | LaTeXML | make4ht | Pandoc | Tectonic |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Semantic HTML/landmarks | 20 | 3 D | 2 D | 2 M | 1 D |
-| Native MathML | 15 | 3 D | 3 D | 3 M | 0 |
-| References/bibliography | 10 | 3 D | 3 D | 2 M | 1 D |
-| Local assets/dependency observability | 10 | 2 D | 2 D | 2 M | 3 D |
-| Profile/package predictability | 10 | 2 D | 1 D | 2 M | 3 D |
-| Sandboxability/minimal helpers | 15 | 2 D | 1 D | 2 M | 2 D |
-| Normalization/diagnostics | 10 | 3 D | 2 D | 3 M | 1 D |
-| Determinism/offline operation | 10 | 2 D | 2 D | 3 M | 3 D |
+| Semantic HTML/landmarks | 20 | 3 M | 2 M | 2 M | 1 M |
+| Native MathML | 15 | 3 M | 3 M | 3 M | 0 M |
+| References/bibliography | 10 | 3 M | 3 M | 2 M | 1 M |
+| Local assets/dependency observability | 10 | 2 M | 2 M | 2 M | 3 M |
+| Profile/package predictability | 10 | 2 M | 1 M | 2 M | 3 M |
+| Sandboxability/minimal helpers | 15 | 2 M | 1 M | 2 M | 2 M |
+| Normalization/diagnostics | 10 | 3 M | 2 M | 3 M | 1 M |
+| Determinism/offline operation | 10 | 2 M | 2 M | 3 M | 3 M |
 | **Weighted total / 300** | **100** | **255** | **200** | **235** | **160** |
 
 Pandoc's total is close because it is operationally simple and has a good AST;
@@ -219,22 +211,35 @@ has a fixture gate, but retirement requires the pinned LaTeXML adapter to pass t
 full corpus in #174. R10 remains open until #176 establishes cold/cached build and
 toolchain-size budgets.
 
+## Measured corpus results
+
+LaTeXML converted all five positive fixtures twice to byte-identical normalized
+HTML and semantic text. Pandoc converted all five with explicit citeproc and
+bibliography arguments; output sizes were 1,458, 813, 421, 375, and 612 bytes.
+make4ht converted four fixtures (2,791, 1,889, 737, and 1,302 bytes) but rejected
+the Unicode/table fixture because the minimal pinned TeX installation does not
+contain `booktabs.sty`. That is an intentional compatibility signal: make4ht
+needs a larger reviewed TeX package set before it can qualify for the baseline
+profile. Tectonic produced a 32,379-byte PDF in untrusted, cached-only mode. The
+policy-negative source was rejected by Pagenary preflight before invocation.
+
 ## Reproduction notes
 
 The safe local probe used commands equivalent to:
 
 ```sh
-pandoc --version
-pandoc --from=latex --to=html5 --mathml --standalone 01-structure-math.tex -o output.html
-pandoc --from=latex --to=html5 --mathml --standalone \
-  --citeproc --bibliography=_references.bib 03-bibliography.tex -o output.html
+docker build -f ci/rich-content/Dockerfile -t pagenary-rich-content:bakeoff .
+docker run --rm --network none --read-only \
+  --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=512m \
+  --tmpfs /home/renderer/.cache/fontconfig:rw,nosuid,nodev,mode=0700,uid=10001,gid=10001,size=16m \
+  --cpus 2 --memory 1g --pids-limit 128 \
+  -v "$PWD:/workspace:ro" pagenary-rich-content:bakeoff
 ```
 
-The commands were run in a temporary output directory; generated files were
-removed after inspection. The first multi-file run from the repository root
-captured the include-resolution warning. The successful include and bibliography
-runs used the fixture directory as the working directory. No production files or
-dependencies were changed.
+The script copies fixtures to a fresh temporary directory, invokes each candidate
+with a 60-second and 8-MiB output bound, emits structured JSON, and removes the
+temporary directory. The container has no runtime network and the repository is
+mounted read-only.
 
 ## Primary sources
 
