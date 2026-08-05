@@ -37,10 +37,11 @@ import { validateFrontmatter } from '../src/lib/templates.js';
 import { isFormProvider, parseFormFenceConfig, renderFormEmbed } from '../src/lib/form-providers.js';
 import { normalizeShareConfig } from '../src/lib/share.js';
 import { protectInlineLatex } from './lib/inline-latex.js';
-import { renderLatexPage, renderLatexPdf } from './lib/latex-page-adapter.js';
+import { createLatexPageAdapter, renderLatexPdf } from './lib/latex-page-adapter.js';
 import { createMermaidBuildAdapter } from './lib/mermaid-build-adapter.js';
 import { createPlantUmlAdapter } from './lib/plantuml-renderer.js';
 import { createRendererRegistry, renderRichContentNodes } from './lib/rich-content-adapters.js';
+import { buildRendererCacheIdentity, RendererCache } from './lib/rich-content-cache.js';
 import { fallbackHtmlForSource } from './lib/rich-content-diagnostics.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import authoringContract from '../../authoring-contract/index.cjs';
@@ -3638,6 +3639,9 @@ async function renderConfiguredBuildFences(source, context = {}) {
         location
       }], {
         registry,
+        cache: context.richContentCache,
+        tenantId: context.tenantId,
+        pageId: context.currentPath,
         failurePolicy,
         tenantRoot: context.contentRoot,
         sourceRelativePath: context.currentPath,
@@ -3681,16 +3685,28 @@ async function materializeRichContentAssets(assets, distDir) {
 
 async function ensureLatexPageModule(sourcePath, targetPath, renderContext = {}) {
   const source = await fsp.readFile(sourcePath, 'utf8');
-  const result = await renderLatexPage({
-    type: 'latexPage',
-    body: source,
-    sourceFile: sourcePath,
-    contentRoot: renderContext.contentRoot
-  }, {
+  const latexContentRoot = renderContext.contentRoot || renderContext.contentDir || path.dirname(sourcePath);
+  const latexOptions = {
     ...(renderContext.latexPageConfig || {}),
-    contentRoot: renderContext.contentRoot,
+    contentRoot: latexContentRoot,
     profile: renderContext.latexPageConfig?.profile || 'standard-web-v1',
     failurePolicy: renderContext.latexPageConfig?.failurePolicy || 'warn'
+  };
+  const registry = createRendererRegistry();
+  const latexAdapter = registry.register(createLatexPageAdapter(latexOptions));
+  const latexNode = {
+    type: 'latexPage',
+    renderer: 'latexPage',
+    body: source,
+    sourceFile: sourcePath,
+    contentRoot: latexContentRoot
+  };
+  const [result] = await renderRichContentNodes([latexNode], {
+    ...latexOptions,
+    registry,
+    cache: renderContext.richContentCache,
+    tenantId: renderContext.tenantId,
+    pageId: path.relative(latexContentRoot, sourcePath).replace(/\\/g, '/')
   });
   if (Array.isArray(renderContext.renderDiagnostics)) {
     renderContext.renderDiagnostics.push(...(result.diagnostics || []).map((diagnostic) => ({
@@ -3706,15 +3722,31 @@ async function ensureLatexPageModule(sourcePath, targetPath, renderContext = {})
   if (pdfConfig?.enabled) {
     try {
       const pdfRenderer = renderContext.renderLatexPdf || renderLatexPdf;
-      const pdf = await pdfRenderer({
-        source,
-        sourceFile: sourcePath,
-        contentRoot: renderContext.contentRoot
-      }, {
+      const pdfOptions = {
         ...(renderContext.latexPageConfig || {}),
         ...(pdfConfig || {}),
-        contentRoot: renderContext.contentRoot
-      });
+        contentRoot: latexContentRoot
+      };
+      const pdfIdentity = renderContext.richContentCache ? buildRendererCacheIdentity({
+        tenantId: renderContext.tenantId,
+        pageId: path.relative(latexContentRoot, sourcePath).replace(/\\/g, '/'),
+        renderer: { id: 'latexPdf', version: pdfConfig.profile || 'pdf-v1' },
+        profile: pdfConfig.profile || 'pdf-v1',
+        source,
+        config: pdfOptions,
+        outputFormat: 'pdf',
+        securityProfile: 'untrusted-cached-only',
+        dependencies: latexAdapter.dependencies(latexNode, latexOptions)
+      }) : null;
+      const cachedPdf = pdfIdentity
+        ? await renderContext.richContentCache.read(pdfIdentity).catch(() => ({ status: 'miss', reason: 'cache-read-failed' }))
+        : null;
+      const pdf = cachedPdf?.status === 'hit'
+        ? cachedPdf.payload
+        : await pdfRenderer({ source, sourceFile: sourcePath, contentRoot: latexContentRoot }, pdfOptions);
+      if (pdfIdentity && cachedPdf?.status !== 'hit') {
+        await renderContext.richContentCache.write(pdfIdentity, pdf).catch(() => {});
+      }
       if (!renderContext.distDir) throw new Error('Optional LaTeX PDF output requires a tenant output directory.');
       const digest = createHash('sha256').update(pdf.bytes).digest('hex').slice(0, 24);
       const relativePdf = `assets/rich-content/latex/${digest}.pdf`;
@@ -4949,6 +4981,8 @@ async function materializeScannedSections(sections, context) {
             strictLinks: context.strictLinks,
             mediaConfig: context.mediaConfig,
             richContentConfig: context.richContentConfig,
+            richContentCache: context.richContentCache,
+            tenantId: context.tenantId,
             inlineLatex: context.inlineLatexConfig,
             renderDiagnostics: context.renderDiagnostics,
             narrationConfig: context.narrationConfig,
@@ -5188,6 +5222,7 @@ async function processNestedContent(sourceDir, distDir, tenantId, contentRoot, o
     strictLinks,
     mediaConfig: config.media || {},
     richContentConfig: config.richContent || {},
+    richContentCache: new RendererCache({ rootDir: path.join(root, '.cache', 'rich-content', encodePathForFilename(tenantId)) }),
     inlineLatexConfig: config.inlineLatex || {},
     latexPageConfig: config.latexPage || {},
     renderDiagnostics: [],
@@ -5388,6 +5423,8 @@ async function materializeSectionModule(entry, context, options = {}) {
         strictLinks: context.strictLinks,
         mediaConfig: context.mediaConfig,
         richContentConfig: context.richContentConfig,
+        richContentCache: context.richContentCache,
+        tenantId: context.tenantId,
         inlineLatex: context.inlineLatexConfig,
         renderDiagnostics: context.renderDiagnostics,
         narrationConfig: context.narrationConfig,
@@ -5717,6 +5754,7 @@ async function processTenantManifestLegacy(sourceDir, distDir, tenantId, options
     strictLinks,
     mediaConfig: config.media || {},
     richContentConfig: config.richContent || {},
+    richContentCache: new RendererCache({ rootDir: path.join(root, '.cache', 'rich-content', encodePathForFilename(tenantId)) }),
     inlineLatexConfig: config.inlineLatex || {},
     latexPageConfig: config.latexPage || {},
     renderDiagnostics: [],
@@ -6529,6 +6567,8 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
           strictLinks: options.strictLinks !== false,
           mediaConfig: config.media || {},
           richContentConfig: config.richContent || {},
+          richContentCache: new RendererCache({ rootDir: path.join(root, '.cache', 'rich-content', encodePathForFilename(tenantId)) }),
+          tenantId,
           inlineLatex: config.inlineLatex || {},
           renderDiagnostics: [],
           narrationConfig: config.narration || {},
@@ -6543,6 +6583,8 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
         await ensureLatexPageModule(sourcePath, targetPath, {
           contentRoot: contentRoot.basePath || contentDir,
           distDir,
+          tenantId,
+          richContentCache: new RendererCache({ rootDir: path.join(root, '.cache', 'rich-content', encodePathForFilename(tenantId)) }),
           latexPageConfig: config.latexPage || {},
           renderDiagnostics: []
         });

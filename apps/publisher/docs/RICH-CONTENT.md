@@ -324,3 +324,35 @@ tested corpus. An absolute PlantUML path configured for a tenant may therefore
 work even when the PATH-based doctor check says `plantuml` was not found. Keep
 `failurePolicy: strict` in CI, pin operator tools, and reproduce with the same
 tenant configuration when diagnosing a release build.
+
+## Renderer upgrade and rollback runbook
+
+Treat every renderer major release, and every change to the qualified external
+toolchain, as a compatibility migration rather than a routine version bump.
+
+1. Wait for the repository's minimum release-age policy. Record the candidate
+   version, publication date, license, integrity digest, advisories, and release
+   notes. Do not bypass the age gate for a newly published release.
+2. Change exact versions in the root and qualification lockfiles and update the
+   pinned image/JAR/font/checksum inventory. Never introduce a range or floating
+   CDN reference.
+3. Run the previous and candidate toolchains over the versioned positive,
+   malformed, adversarial, accessibility, and diagram-family corpora. Classify
+   every semantic HTML, MathML, sanitized SVG, text-alternative, and visual
+   snapshot difference.
+4. Run the full publisher checks, syntax inventory, Chromium/Firefox/WebKit
+   matrix, offline self-CSP gate, external networkless container, reproducible
+   build comparison, and dependency audit. A major upgrade is rejected if an
+   unexplained compatibility or security regression remains.
+5. Publish the candidate only after the qualification report names the exact
+   versions and canonical CI runs. Keep the prior lockfiles and toolchain image
+   reference available until deployment smoke tests pass.
+
+Rollback is a normal lockfile/configuration revert: restore the prior exact
+package versions and qualification checksums, rebuild all rich-content assets,
+run the same qualification gates, and deploy the newly rebuilt output. Do not
+reuse candidate-version cache entries; renderer version, configuration,
+toolchain, fonts, dependencies, and output profile are part of cache identity.
+If authored syntax depended on the rejected release, retain it as escaped source
+or revert that content change as well. The rollback is complete only when the
+old corpus output, audit posture, and browser/offline checks are green again.

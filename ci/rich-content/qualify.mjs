@@ -146,8 +146,13 @@ try {
       theme
     });
     for (const [family, body] of Object.entries(mermaidCorpus)) {
+      const coldStarted = Date.now();
       const diagram = await mermaid.render({ body, attributes: { title: `${family} diagram` } });
+      const coldMs = Date.now() - coldStarted;
+      const repeatStarted = Date.now();
       const repeated = await mermaid.render({ body, attributes: { title: `${family} diagram` } });
+      const repeatMs = Date.now() - repeatStarted;
+      assert.ok(coldMs <= 60_000 && repeatMs <= 60_000);
       assert.match(diagram.html, /<img src="\.\/assets\/rich-content\/mermaid\/[a-f0-9]{24}\.svg"/);
       assert.equal(diagram.assets.length, 1);
       assert.deepEqual(repeated.assets[0].bytes, diagram.assets[0].bytes);
@@ -156,9 +161,25 @@ try {
       assert.match(svg, /<svg\b/);
       assert.doesNotMatch(svg, /<script|<foreignObject|\son[a-z]+=|javascript:/i);
       const snapshot = await captureSvgSnapshot(browserPath, diagram.assets[0].bytes, temp, `${theme}-${family}`);
-      mermaidResults.push({ theme, family, svgBytes: diagram.assets[0].bytes.length, snapshot });
+      mermaidResults.push({ theme, family, coldMs, repeatMs, svgBytes: diagram.assets[0].bytes.length, snapshot });
     }
   }
+  const concurrentMermaid = createMermaidBuildAdapter({
+    executablePath: mermaidCliPath,
+    browserPath,
+    timeoutMs: 60_000,
+    fonts: ['DejaVu Sans'],
+    theme: 'neutral'
+  });
+  const concurrentStarted = Date.now();
+  const concurrentResults = await Promise.all(
+    Object.entries(mermaidCorpus).slice(0, 3).map(([family, body]) =>
+      concurrentMermaid.render({ body, attributes: { title: `${family} concurrent diagram` } }))
+  );
+  const concurrentMs = Date.now() - concurrentStarted;
+  assert.equal(concurrentResults.length, 3);
+  assert.ok(concurrentResults.every(({ assets }) => assets.length === 1));
+  assert.ok(concurrentMs <= 60_000);
 
   const plantStatus = await diagnosePlantUmlTool({ jarPath, javaPath, version: '1.2026.4' });
   assert.equal(plantStatus.available, true);
@@ -221,7 +242,7 @@ try {
       malformed: 'bounded converter rejection'
     },
     converterBakeoff,
-    mermaid: { browserPath, diagrams: mermaidResults },
+    mermaid: { browserPath, diagrams: mermaidResults, concurrent: { diagrams: 3, budgetMs: 60_000, durationMs: concurrentMs } },
     plantuml: {
       profile: plantStatus.securityProfile,
       diagrams: plantUmlResults,

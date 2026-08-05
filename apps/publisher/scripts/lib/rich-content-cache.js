@@ -48,7 +48,7 @@ export class RendererCache {
     }
     return {
       status: 'hit',
-      payload: parsed.payload,
+      payload: decodePayload(parsed.payload),
       metadata: {
         schemaVersion: parsed.schemaVersion,
         key: parsed.key,
@@ -68,9 +68,9 @@ export class RendererCache {
       schemaVersion: CACHE_SCHEMA_VERSION,
       key: clean.key,
       materialHash: clean.materialHash,
-      payloadHash: payloadDigest(payload),
+      payloadHash: payloadDigest(encodePayload(payload)),
       writtenAt: new Date(0).toISOString(),
-      payload
+      payload: encodePayload(payload)
     };
     try {
       await fs.writeFile(tmpPath, `${stableStringify(entry)}\n`, 'utf8');
@@ -137,6 +137,22 @@ function assertIdentity(identity) {
 
 function payloadDigest(payload) {
   return `sha256:${sha256(stableStringify(payload))}`;
+}
+
+function encodePayload(value) {
+  if (Buffer.isBuffer(value)) return { $pagenaryBuffer: value.toString('base64') };
+  if (Array.isArray(value)) return value.map(encodePayload);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encodePayload(item)]));
+}
+
+function decodePayload(value) {
+  if (Array.isArray(value)) return value.map(decodePayload);
+  if (!value || typeof value !== 'object') return value;
+  if (Object.keys(value).length === 1 && typeof value.$pagenaryBuffer === 'string') {
+    return Buffer.from(value.$pagenaryBuffer, 'base64');
+  }
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, decodePayload(item)]));
 }
 
 function sha256(value) {

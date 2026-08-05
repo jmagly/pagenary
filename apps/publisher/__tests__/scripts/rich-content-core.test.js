@@ -134,6 +134,58 @@ describe('rich-content adapter registry', () => {
     });
   });
 
+  test('serves warm adapter results without another renderer invocation', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-adapter-cache-'));
+    const cache = new RendererCache({ rootDir: dir });
+    const registry = createRendererRegistry();
+    let invocations = 0;
+    registry.register(defineRendererAdapter({
+      id: 'cached-mock',
+      version: '1.0.0',
+      cacheIdentity: (node) => ({ body: node.body, option: 'stable' }),
+      async render(node) {
+        invocations++;
+        return {
+          html: `<p>${node.body}</p>`,
+          assets: [{ path: 'assets/result.bin', bytes: Buffer.from('binary-result') }],
+          semanticText: node.body
+        };
+      }
+    }));
+    const node = { renderer: 'cached-mock', body: 'same input', source: 'same input', location: { line: 1, column: 1 } };
+    const options = { registry, cache, tenantId: 'docs', pageId: 'intro', profile: 'default' };
+
+    const [cold] = await renderRichContentNodes([node], options);
+    const [warm] = await renderRichContentNodes([node], options);
+
+    expect(invocations).toBe(1);
+    expect(cold.rendererMetadata.cacheStatus).toBe('miss');
+    expect(warm.rendererMetadata.cacheStatus).toBe('hit');
+    expect(warm.assets[0].bytes).toEqual(Buffer.from('binary-result'));
+  });
+
+  test('renders successfully when the optional cache is unavailable', async () => {
+    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-cache-bypass-'));
+    const blockedRoot = path.join(temp, 'not-a-directory');
+    await fs.writeFile(blockedRoot, 'file blocks cache directory');
+    const registry = createRendererRegistry();
+    registry.register(defineRendererAdapter({
+      id: 'cache-bypass', version: '1.0.0', async render() { return { html: '<p>rendered</p>' }; }
+    }));
+
+    const [result] = await renderRichContentNodes([
+      { renderer: 'cache-bypass', body: 'input', source: 'input' }
+    ], {
+      registry,
+      cache: new RendererCache({ rootDir: blockedRoot }),
+      tenantId: 'docs',
+      pageId: 'intro'
+    });
+
+    expect(result.html).toBe('<p>rendered</p>');
+    expect(result.rendererMetadata.cacheStatus).toBe('bypass');
+  });
+
   test('turns adapter failures into escaped fallback payloads in warn mode', async () => {
     const registry = createRendererRegistry();
     registry.register(defineRendererAdapter({

@@ -4,6 +4,7 @@ import {
   resolveFailurePolicy,
   sanitizeDiagnostic
 } from './rich-content-diagnostics.js';
+import { buildRendererCacheIdentity } from './rich-content-cache.js';
 
 export function defineRendererAdapter(definition = {}) {
   if (!definition.id || typeof definition.id !== 'string') {
@@ -118,6 +119,32 @@ async function renderWithAdapter(adapter, node, context) {
     if (validationDiagnostics.some((diagnostic) => diagnostic.severity === 'error')) {
       return resultForDiagnostics(node, adapter, validationDiagnostics, context, started);
     }
+    const cacheIdentity = context.cache
+      ? buildRendererCacheIdentity({
+          tenantId: context.tenantId,
+          pageId: context.pageId || context.sourceRelativePath,
+          nodeId: node.id || `${node.location?.line || 0}:${node.location?.column || 0}`,
+          renderer: adapter,
+          profile: context.profile,
+          source: node.source || node.body || '',
+          config: adapter.cacheIdentity(node, rendererContext),
+          theme: context.theme,
+          fonts: context.fonts,
+          outputFormat: context.outputFormat,
+          securityProfile: context.securityProfile,
+          dependencies: adapter.dependencies(node, rendererContext)
+        })
+      : null;
+    if (cacheIdentity) {
+      const cached = await context.cache.read(cacheIdentity).catch(() => ({ status: 'miss', reason: 'cache-read-failed' }));
+      if (cached.status === 'hit') {
+        const hit = normalizeRenderResult(cached.payload, { adapter, node, profile: context.profile });
+        hit.rendererMetadata.cacheIdentity = cacheIdentity.materialHash;
+        hit.rendererMetadata.cacheStatus = 'hit';
+        hit.rendererMetadata.durationMs = Date.now() - started;
+        return hit;
+      }
+    }
     const result = await adapter.render(node, rendererContext);
     const normalized = normalizeRenderResult(result, {
       adapter,
@@ -129,6 +156,15 @@ async function renderWithAdapter(adapter, node, context) {
       ...normalizeDiagnostics(normalized.diagnostics, adapter, node, context)
     ];
     normalized.rendererMetadata.durationMs = Date.now() - started;
+    if (cacheIdentity) {
+      normalized.rendererMetadata.cacheIdentity = cacheIdentity.materialHash;
+      normalized.rendererMetadata.cacheStatus = 'miss';
+      try {
+        await context.cache.write(cacheIdentity, normalized);
+      } catch {
+        normalized.rendererMetadata.cacheStatus = 'bypass';
+      }
+    }
     return normalized;
   } catch (error) {
     const diagnostics = normalizeDiagnostics(adapter.diagnose(error, node, rendererContext), adapter, node, context);

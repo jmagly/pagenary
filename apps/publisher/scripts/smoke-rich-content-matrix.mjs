@@ -14,6 +14,8 @@ const playwright = await loadPlaywright();
 if (!playwright) throw new Error('Playwright is required; set PLAYWRIGHT_MODULE to its index.mjs');
 
 await run(process.execPath, ['scripts/build-tenants.js', '--registry', 'examples/recipes.tenants.json', 'syntax-gallery']);
+const mermaidBytes = fs.statSync(path.join(packageRoot, 'dist/syntax-gallery/vendor/mermaid/mermaid.min.js')).size;
+assert(mermaidBytes <= 4 * 1024 * 1024, `Mermaid lazy chunk stays within 4 MiB (${mermaidBytes} bytes)`);
 const server = spawn(process.execPath, ['scripts/serve.js', '--dev'], {
   cwd: packageRoot,
   env: { ...process.env, PORT: String(port) },
@@ -71,8 +73,11 @@ async function qualifyBrowser(name, browserType) {
     }));
     assert(math.mathml >= 5 && math.display >= 1 && math.visible, `${name}: MathML and display math semantics`);
 
+    const mermaidColdStarted = Date.now();
     await page.goto(`${base}#diagrams`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => document.querySelectorAll('.mermaid-content svg').length >= 5);
+    const mermaidColdMs = Date.now() - mermaidColdStarted;
+    assert(mermaidColdMs <= 20_000, `${name}: cold Mermaid route within 20 s (${mermaidColdMs} ms)`);
     const diagrams = await page.evaluate(() => ({
       figures: document.querySelectorAll('figure.rich-diagram--mermaid').length,
       captions: document.querySelectorAll('figure.rich-diagram--mermaid figcaption').length,
@@ -86,6 +91,12 @@ async function qualifyBrowser(name, browserType) {
     }));
     assert(diagrams.figures >= 5 && diagrams.captions >= 5 && diagrams.named && diagrams.sources >= 5 && diagrams.order,
       `${name}: diagram alternatives and reading order ${JSON.stringify(diagrams)}`);
+    await page.goto(`${base}#inline-latex`, { waitUntil: 'networkidle' });
+    const mermaidWarmStarted = Date.now();
+    await page.goto(`${base}#diagrams`, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => document.querySelectorAll('.mermaid-content svg').length >= 5);
+    const mermaidWarmMs = Date.now() - mermaidWarmStarted;
+    assert(mermaidWarmMs <= 10_000, `${name}: warm Mermaid route within 10 s (${mermaidWarmMs} ms)`);
 
     await page.goto(`${base}#latex-page`, { waitUntil: 'networkidle' });
     await page.waitForSelector('.section.doc.latex-page');

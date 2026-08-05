@@ -11,6 +11,7 @@ import {
 import { normalizeLatexHtml, latexHtmlSemanticText, extractLatexPageMetadata } from '../../scripts/lib/latex-page-normalize.js';
 import { preflightLatexPage } from '../../scripts/lib/latex-page-preflight.js';
 import { ensureLatexPageModule } from '../../scripts/build-tenants.js';
+import { RendererCache } from '../../scripts/lib/rich-content-cache.js';
 
 const root = path.resolve('/workspace/content');
 const sourceFile = path.join(root, 'guides', 'page.tex');
@@ -182,26 +183,42 @@ describe('LaTeX page adapters', () => {
     const sourcePath = path.join(temp, 'page.tex');
     const targetPath = path.join(temp, 'sections', 'page.js');
     const pdfBytes = Buffer.from('%PDF-1.7\nqualified fixture\n');
+    const cache = new RendererCache({ rootDir: path.join(temp, '.render-cache') });
+    let htmlInvocations = 0;
+    let pdfInvocations = 0;
     await fs.writeFile(sourcePath, '\\documentclass{article}\\begin{document}Hello\\end{document}');
     try {
-      await ensureLatexPageModule(sourcePath, targetPath, {
+      const renderContext = {
         contentRoot: temp,
         distDir: temp,
+        tenantId: 'docs',
+        richContentCache: cache,
         latexPageConfig: {
           profile: 'portable-subset-v1',
-          runCommand: async (_command, args) => args[0] === '--version'
-            ? { stdout: 'pandoc 3.1.3\n', stderr: '' }
-            : { stdout: '<article><h1>Hello</h1></article>', stderr: '' },
+          runCommand: async (_command, args) => {
+            htmlInvocations++;
+            return args[0] === '--version'
+              ? { stdout: 'pandoc 3.1.3\n', stderr: '' }
+              : { stdout: '<article><h1>Hello</h1></article>', stderr: '' };
+          },
           pdf: { enabled: true, profile: 'pdf-v1', failurePolicy: 'strict' }
         },
-        renderLatexPdf: async () => ({ bytes: pdfBytes, mimeType: 'application/pdf' }),
+        renderLatexPdf: async () => {
+          pdfInvocations++;
+          return { bytes: pdfBytes, mimeType: 'application/pdf' };
+        },
         renderDiagnostics: []
-      });
+      };
+      await ensureLatexPageModule(sourcePath, targetPath, renderContext);
+      const coldHtmlInvocations = htmlInvocations;
+      await ensureLatexPageModule(sourcePath, targetPath, renderContext);
       const digest = (await import('node:crypto')).createHash('sha256').update(pdfBytes).digest('hex').slice(0, 24);
       const pdfPath = path.join(temp, 'assets', 'rich-content', 'latex', `${digest}.pdf`);
       expect(await fs.readFile(pdfPath)).toEqual(pdfBytes);
       expect(await fs.readFile(targetPath, 'utf8')).toContain(`./assets/rich-content/latex/${digest}.pdf`);
       expect(await fs.readFile(targetPath, 'utf8')).toContain('Download this page as PDF');
+      expect(htmlInvocations).toBe(coldHtmlInvocations);
+      expect(pdfInvocations).toBe(1);
     } finally {
       await fs.rm(temp, { recursive: true, force: true });
     }

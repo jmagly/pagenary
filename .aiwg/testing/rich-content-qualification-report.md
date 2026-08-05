@@ -11,17 +11,16 @@ tests pass, generated Mermaid/KaTeX assets are local and stable, and the real
 LaTeXML, Mermaid CLI/browser, PlantUML, and Tectonic corpus passes in a pinned
 networkless container.
 Release qualification remains conditional because two high-severity transitive
-audit findings remain in the supply-chain cooldown window, manual assistive-
-technology UAT remains, and the timeout/performance gates below are unfinished.
+audit findings remain in the supply-chain cooldown window.
 
 ## Results
 
 | Gate | Result | Evidence |
 |---|---:|---|
-| Rich-content focused tests | PASS | 8 suites, 62 tests, 1.889 s Jest time after external-renderer hardening |
+| Rich-content focused tests | PASS | 8 suites, 78 tests, 3.494 s Jest time after cache and external-renderer hardening |
 | Publisher `check` | PASS WITH WARNINGS | 4.60 s wall, 165,616 KiB max RSS; two existing example color-contrast warnings |
 | Publisher build | PASS | 2.44 s wall, 167,180 KiB max RSS; subsequent build 1.45 s / 172,056 KiB |
-| Complete publisher tests | PASS | 47 suites, 675 tests, 417.886 s after external-renderer hardening |
+| Complete publisher tests | PASS | 47 suites, 695 tests, 337.419 s after cache and external-renderer hardening |
 | VS Code extension tests | PASS | Scaffold and activation smoke tests; 0.35 s wall, 69,628 KiB max RSS |
 | Registry schema validation | PASS | `tenants.json` and `examples/recipes.tenants.json` validate with Ajv |
 | Offline/CDN runtime scan | PASS | No CDN/runtime HTTP imports in publisher source/scripts or generated runtime; documentation-only jsDelivr examples and generated canonical URLs excluded |
@@ -33,6 +32,8 @@ technology UAT remains, and the timeout/performance gates below are unfinished.
 | Mermaid static visual matrix | PASS | Five representative families × neutral/forest/dark themes; byte-identical repeated SVG plus real headless-browser PNG snapshots with hashes |
 | Browser/CSP matrix | PASS | Chromium, Firefox, and WebKit: math/MathML, five Mermaid families, complete LaTeX pages, 320 px reflow, mobile, reduced motion, dark/forced colors, print, strict self-only CSP, and offline request denial; Chromium also validates the accessibility tree and PDF output |
 | Cache integrity/isolation | PASS | Content-hash poisoning and malformed metadata fail closed; tenant identity separation, interrupted partial-write isolation, 12-way concurrent atomic publication, and temporary-file cleanup are tested |
+| Performance/reliability budgets | PASS | Warm renderer-cache tests prove zero second invocation (including LaTeX HTML and PDF); Mermaid bundle ≤4 MiB, browser cold route ≤20 s and warm route ≤10 s; three concurrent build renders ≤60 s; subprocesses retain per-item time/output limits |
+| Assistive-technology UAT | PASS | Orca 46.1 and Chrome's real AT-SPI tree: AT actions navigate routes, five MathML `math` roles and four headings exposed, and five diagram-family images have meaningful names; record in `rich-content-at-uat.md` |
 
 ## Exact Commands and Evidence
 
@@ -52,7 +53,7 @@ cd apps/publisher
   __tests__/scripts/semantic-html.test.js
 ```
 
-Current result: `Test Suites: 8 passed, 8 total`; `Tests: 62 passed, 62 total`.
+Current result: `Test Suites: 8 passed, 8 total`; `Tests: 78 passed, 78 total`.
 
 ### Full check and build
 
@@ -69,7 +70,7 @@ commands passed. Accessibility reported pre-existing warning-level contrast of
 
 ```sh
 cd apps/publisher
-timeout --signal=INT --kill-after=10s 300s /usr/bin/time -v \
+timeout --signal=INT --kill-after=10s 600s /usr/bin/time -v \
   node --experimental-vm-modules ../../node_modules/jest/bin/jest.js \
   --runInBand --verbose
 ```
@@ -77,8 +78,8 @@ timeout --signal=INT --kill-after=10s 300s /usr/bin/time -v \
 The tenant-build harness defaults spawned fixture builds to development mode
 while preserving caller overrides; production minification remains covered by
 `build.test.js`. Four identical two-tenant assertions share a single setup
-build. The current complete in-band run passes 47/47 suites and 675/675 tests
-in 417.886 seconds.
+build. The current complete in-band run passes 47/47 suites and 695/695 tests
+in 337.419 seconds.
 
 ### VS Code tests and schema
 
@@ -251,11 +252,6 @@ isolation, corpus, determinism, and visual-snapshot regression coverage.
 1. Complete #179 after the release-age cooldown, then prove `npm audit` has no
    remaining high/critical findings; do not use an unreviewed blanket
    `npm audit fix`.
-2. Complete manual assistive-technology UAT. The automated cross-browser matrix
-   now proves runtime Mermaid alternatives and reading order, KaTeX MathML,
-   complete LaTeX page semantics, reflow/media preferences, offline operation,
-   and strict self-only CSP; Chromium's accessibility tree exposes the page
-   content, but that is not a substitute for a real screen-reader session.
-3. Keep an eye on payload cost: Mermaid is about 3.57 MB on disk. It is lazy
-   loaded, but compression and first-diagram latency should be measured in the
-   browser performance gate.
+2. Keep watching the qualified performance budgets as the corpus grows. Mermaid
+   remains about 3.57 MB on disk and is lazy loaded; the browser gate enforces a
+   4 MiB ceiling plus 20 s cold/10 s warm route thresholds.

@@ -2,6 +2,7 @@ node_modules/
 dist/
 site/
 coverage/
+.cache/
 *.log
 .DS_Store
 .claude/
