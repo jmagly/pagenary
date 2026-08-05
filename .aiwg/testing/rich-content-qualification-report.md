@@ -175,8 +175,8 @@ adoption after cooldown without bypassing repository supply-chain policy.
 The reproducible qualification image is defined in
 `ci/rich-content/Dockerfile` and its real-adapter corpus in
 `ci/rich-content/qualify.mjs`. The qualified local image manifest list was
-`sha256:1baf05aec512528e6ab966d85269e5618d49799cfb0039118bd86c1e42d49115`
-(946,147,719 bytes). It also contains a lockfile-backed Mermaid CLI 11.16.0 and
+`sha256:32a13c9806d6d38614912b6e26a023c6fa3906e4403e523fd53e4ae47e1ec1b7`
+(946,227,570 bytes). It also contains a lockfile-backed Mermaid CLI 11.16.0 and
 Puppeteer 24.16.0 browser plus pinned Pandoc and make4ht packages for the
 converter-selection regression.
 Its immutable base image and downloaded renderer artifacts are digest/checksum
@@ -189,7 +189,6 @@ docker run --rm --network none --read-only \
   --user 10001:10001 --cap-drop ALL --security-opt no-new-privileges \
   --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=768m \
   --cpus 2 --memory 2g --pids-limit 256 \
-  -v "$PWD:/workspace:ro" \
   pagenary-rich-content:2026-08-05
 ```
 
@@ -218,6 +217,21 @@ Qualified tools:
 | LaTeXML | PASS | 0.8.8; six positive semantic fixtures plus hostile, unsupported-package, and malformed rejection |
 | PlantUML | PASS | MIT JAR 1.2026.4; eight diagram families; SANDBOX and sanitized deterministic SVG |
 | Tectonic | PASS | 0.16.9; untrusted cached-only PDF output |
+
+PlantUML's qualified toolchain records PlantUML MIT 1.2026.4 and its verified
+JAR checksum, Graphviz EPL-1.0 2.42.2, Fontconfig 2.15.0, and DejaVu fonts under
+their permissive Bitstream Vera-derived license. The stable toolchain-input
+digest is `sha256:eeeb2887f90fbca52c03e96ec13a05a3138b8661fc437a72ab1e08822f071b57`;
+it, versions, sorted font identities, include profile, dependencies, security
+profile, and output format all participate in PlantUML cache identity.
+
+RTC-FR-040 through RTC-FR-046 evidence is explicit: alias/envelope unit tests;
+local-only pinned rendering; hardened SANDBOX container/subprocess execution;
+default-off and tenant-contained ALLOWLIST include tests; recorded toolchain and
+licenses; content-addressed sanitized SVG plus PNG fallback; and accessible
+image text/caption behavior. A real materialization test also routes `puml`
+through the publisher, writes the immutable SVG, and proves the completed image
+markup is what static HTML consumers receive.
 
 The matching Gitea workflow builds this exact Dockerfile and runs the same image
 with network denial, a read-only filesystem, non-root UID, dropped capabilities,

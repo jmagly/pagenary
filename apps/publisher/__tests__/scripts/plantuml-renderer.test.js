@@ -114,13 +114,39 @@ if (process.argv.includes('-tpng')) {
     fs.writeFileSync(path.join(tmpDir, 'docs', 'shared', 'actors.puml'), 'actor Alice');
     const expanded = await expandContainedIncludes('!include shared/actors.puml\nAlice -> Bob', {
       tenantRoot: tmpDir,
-      sourceRelativePath: 'docs/page.md'
+      sourceRelativePath: 'docs/page.md',
+      includeProfile: 'ALLOWLIST'
     });
 
     expect(expanded.source).toContain('actor Alice');
     expect(expanded.dependencies).toEqual([{
       path: 'docs/shared/actors.puml', hash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/)
     }]);
+  });
+
+  test('requires explicit ALLOWLIST for local includes and keys toolchain inputs into cache identity', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'actors.puml'), 'actor Alice');
+    const source = '!include actors.puml\nAlice -> Bob';
+    const disabled = createPlantUmlAdapter({ executablePath: fakePlantUml, tenantRoot: tmpDir });
+    await expect(disabled.render({ body: source }, { tenantRoot: tmpDir }))
+      .rejects.toMatchObject({ code: 'RTC_PLANTUML_INCLUDE_DISABLED' });
+
+    const allowed = createPlantUmlAdapter({
+      executablePath: fakePlantUml,
+      tenantRoot: tmpDir,
+      includeProfile: 'ALLOWLIST',
+      version: '1.2026.4',
+      graphvizVersion: '2.42.2',
+      fonts: ['DejaVu Sans'],
+      toolchainDigest: `sha256:${'a'.repeat(64)}`
+    });
+    const result = await allowed.render({ body: source }, { tenantRoot: tmpDir });
+    expect(result.dependencies).toEqual([expect.objectContaining({ path: 'actors.puml' })]);
+    expect(result.rendererMetadata).toMatchObject({
+      includeProfile: 'ALLOWLIST',
+      toolchain: { plantuml: '1.2026.4', graphviz: '2.42.2', fonts: ['DejaVu Sans'] }
+    });
+    expect(result.rendererMetadata.cacheIdentity).not.toBe(disabled.cacheIdentity({ body: 'Alice -> Bob' }));
   });
 
   test.each([

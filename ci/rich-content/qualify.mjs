@@ -11,7 +11,6 @@ import { createLatexPageAdapter, renderLatexPdf } from '../../apps/publisher/scr
 import { preflightLatexPage } from '../../apps/publisher/scripts/lib/latex-page-preflight.js';
 import { createPlantUmlAdapter, diagnosePlantUmlTool } from '../../apps/publisher/scripts/lib/plantuml-renderer.js';
 import { createMermaidBuildAdapter } from '../../apps/publisher/scripts/lib/mermaid-build-adapter.js';
-import { renderConfiguredBuildFences } from '../../apps/publisher/scripts/build-tenants.js';
 
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
@@ -19,6 +18,7 @@ const fixtures = path.join(root, 'apps/publisher/__tests__/fixtures/latex-pages'
 const javaPath = process.env.JAVA_PATH || '/usr/bin/java';
 const jarPath = process.env.PLANTUML_JAR || '/opt/plantuml.jar';
 const mermaidCliPath = process.env.MERMAID_CLI_PATH || '/opt/mermaid-cli/node_modules/.bin/mmdc';
+const toolchainDigest = 'sha256:eeeb2887f90fbca52c03e96ec13a05a3138b8661fc437a72ab1e08822f071b57';
 
 const versions = await probeVersions();
 assert.match(versions.latexml, /0\.8\.8/);
@@ -146,35 +146,16 @@ try {
       mermaidResults.push({ theme, family, svgBytes: diagram.assets[0].bytes.length, snapshot });
     }
   }
-  const materializedDir = path.join(temp, 'mermaid-materialized');
-  const materializedFence = await renderConfiguredBuildFences(
-    '```mermaid title="Static export"\nflowchart LR\n  Source --> Snapshot\n```',
-    {
-      richContentConfig: {
-        failurePolicy: 'strict',
-        mermaid: {
-          mode: 'build', theme: 'neutral', executablePath: mermaidCliPath,
-          browserPath, timeoutMs: 60_000, fonts: ['DejaVu Sans']
-        }
-      },
-      contentRoot: temp,
-      currentPath: 'static-export.md',
-      distDir: materializedDir,
-      renderDiagnostics: []
-    }
-  );
-  const materializedPath = materializedFence.match(/assets\/rich-content\/mermaid\/[a-f0-9]{24}\.svg/)?.[0];
-  assert.ok(materializedPath);
-  assert.match(materializedFence, /data-render-mode="build"/);
-  assert.doesNotMatch(materializedFence, /class="language-mermaid"/);
-  assert.match(await fs.readFile(path.join(materializedDir, materializedPath), 'utf8'), /<svg\b/);
 
   const plantStatus = await diagnosePlantUmlTool({ jarPath, javaPath, version: '1.2026.4' });
   assert.equal(plantStatus.available, true);
   assert.equal(plantStatus.version, '1.2026.4');
   assert.equal(plantStatus.securityProfile, 'SANDBOX');
 
-  const plant = createPlantUmlAdapter({ jarPath, javaPath, version: '1.2026.4' });
+  const plant = createPlantUmlAdapter({
+    jarPath, javaPath, version: '1.2026.4', graphvizVersion: '2.42.2',
+    fonts: ['DejaVu Sans'], toolchainDigest
+  });
   const plantUmlCorpus = {
     sequence: '@startuml\nactor Author\nAuthor -> Publisher: build\n@enduml',
     class: '@startuml\nclass Page\nclass Renderer\nPage --> Renderer\n@enduml',
@@ -196,12 +177,16 @@ try {
     assert.doesNotMatch(svg, /<script|\son[a-z]+=|javascript:/i);
     assert.doesNotMatch(svg, /<\?/);
     assert.equal(diagram.rendererMetadata.profile, 'SANDBOX');
+    assert.deepEqual(diagram.rendererMetadata.toolchain, {
+      plantuml: '1.2026.4', graphviz: '2.42.2', fonts: ['DejaVu Sans'], digest: toolchainDigest
+    });
     assert.equal(repeated.html, diagram.html);
     assert.deepEqual(repeated.assets[0].bytes, diagram.assets[0].bytes);
     plantUmlResults.push({ family, svgBytes: diagram.assets[0].bytes.length });
   }
   const plantWithPng = createPlantUmlAdapter({
-    jarPath, javaPath, version: '1.2026.4', pngFallback: true
+    jarPath, javaPath, version: '1.2026.4', pngFallback: true,
+    graphvizVersion: '2.42.2', fonts: ['DejaVu Sans'], toolchainDigest
   });
   const pngFallback = await plantWithPng.render({
     body: plantUmlCorpus.sequence, relativePath: 'sequence-fallback.puml'

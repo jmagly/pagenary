@@ -53,5 +53,4 @@ jobs:
             --memory 2g \
             --cpus 2 \
             --tmpfs /tmp:rw,nosuid,nodev,size=768m,mode=1777 \
-            --volume "$PWD:/workspace:ro" \
             pagenary-rich-content:qualification

@@ -30,6 +30,8 @@ export class PlantUmlRendererError extends Error {
 
 export function createPlantUmlAdapter(options = {}) {
   const tool = normalizeTool(options);
+  const includeProfile = normalizeIncludeProfile(options.includeProfile);
+  const toolchain = normalizeToolchain(options);
   const limits = {
     ...DEFAULT_LIMITS,
     ...(options.limits || {}),
@@ -51,7 +53,8 @@ export function createPlantUmlAdapter(options = {}) {
       const expanded = await expandContainedIncludes(envelopedSource, {
         tenantRoot,
         sourceRelativePath: node.relativePath || context.sourceRelativePath || null,
-        limits
+        limits,
+        includeProfile
       });
       const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-plantuml-'));
       try {
@@ -101,7 +104,9 @@ export function createPlantUmlAdapter(options = {}) {
             renderer: 'plantuml',
             version: options.version || 'local',
             profile: RENDERER_SECURITY_BASELINES.plantuml.securityProfile,
-            cacheIdentity: plantUmlCacheIdentity({ source: expanded.source, dependencies: expanded.dependencies, version: options.version, pngFallback: options.pngFallback === true })
+            includeProfile,
+            toolchain,
+            cacheIdentity: plantUmlCacheIdentity({ source: expanded.source, dependencies: expanded.dependencies, version: options.version, pngFallback: options.pngFallback === true, includeProfile, toolchain })
           }
         };
       } finally {
@@ -111,6 +116,7 @@ export function createPlantUmlAdapter(options = {}) {
     diagnose: diagnosePlantUmlError,
     dependencies(node, context = {}) {
       return scanPlantUmlIncludes(node.body ?? node.source ?? '', {
+        includeProfile,
         tenantRoot: context.tenantRoot || options.tenantRoot,
         sourceRelativePath: node.relativePath || context.sourceRelativePath
       });
@@ -119,7 +125,9 @@ export function createPlantUmlAdapter(options = {}) {
       return plantUmlCacheIdentity({
         source: node.body ?? node.source ?? '',
         version: options.version,
-        pngFallback: options.pngFallback === true
+        pngFallback: options.pngFallback === true,
+        includeProfile,
+        toolchain
       });
     }
   });
@@ -164,6 +172,14 @@ export async function expandContainedIncludes(source, options = {}) {
   if (!tenantRoot) throw new PlantUmlRendererError('PlantUML rendering requires a tenant root.', { code: 'RTC_PLANTUML_ROOT_REQUIRED' });
   const limits = { ...DEFAULT_LIMITS, ...(options.limits || {}) };
   validateSource(source, limits);
+  const includeProfile = normalizeIncludeProfile(options.includeProfile);
+  if (INCLUDE_DIRECTIVE.test(String(source)) && includeProfile !== 'ALLOWLIST') {
+    INCLUDE_DIRECTIVE.lastIndex = 0;
+    throw new PlantUmlRendererError('Tenant-local PlantUML includes require the explicit ALLOWLIST profile.', {
+      code: 'RTC_PLANTUML_INCLUDE_DISABLED'
+    });
+  }
+  INCLUDE_DIRECTIVE.lastIndex = 0;
   const dependencies = [];
   const seen = new Set();
   const baseDir = options.sourceRelativePath ? path.posix.dirname(options.sourceRelativePath.replace(/\\/g, '/')) : '';
@@ -198,9 +214,15 @@ export async function expandContainedIncludes(source, options = {}) {
   return { source: await expand(String(source), baseDir), dependencies };
 }
 
-export function scanPlantUmlIncludes(source) {
+export function scanPlantUmlIncludes(source, options = {}) {
   validateSource(source, DEFAULT_LIMITS);
-  return [...String(source).matchAll(INCLUDE_DIRECTIVE)].map((match) => ({ path: normalizeIncludeRequest(match[2]) }));
+  const matches = [...String(source).matchAll(INCLUDE_DIRECTIVE)];
+  if (matches.length && normalizeIncludeProfile(options.includeProfile) !== 'ALLOWLIST') {
+    throw new PlantUmlRendererError('Tenant-local PlantUML includes require the explicit ALLOWLIST profile.', {
+      code: 'RTC_PLANTUML_INCLUDE_DISABLED'
+    });
+  }
+  return matches.map((match) => ({ path: normalizeIncludeRequest(match[2]) }));
 }
 
 export function ensurePlantUmlEnvelope(source) {
@@ -323,8 +345,27 @@ function plantUmlSemanticText(source) {
     .filter(Boolean).join(' ');
 }
 
-function plantUmlCacheIdentity({ source, dependencies = [], version = 'local', pngFallback = false }) {
-  return `sha256:${sha256(JSON.stringify({ source: String(source), dependencies, version, securityProfile: 'SANDBOX', format: pngFallback ? 'svg+png' : 'svg' }))}`;
+function plantUmlCacheIdentity({ source, dependencies = [], version = 'local', pngFallback = false, includeProfile = 'OFF', toolchain = {} }) {
+  return `sha256:${sha256(JSON.stringify({ source: String(source), dependencies, version, securityProfile: 'SANDBOX', includeProfile, toolchain, format: pngFallback ? 'svg+png' : 'svg' }))}`;
+}
+
+function normalizeIncludeProfile(value) {
+  const profile = value || 'OFF';
+  if (!['OFF', 'ALLOWLIST'].includes(profile)) {
+    throw new PlantUmlRendererError('PlantUML includeProfile must be OFF or ALLOWLIST.', {
+      code: 'RTC_PLANTUML_INCLUDE_PROFILE_INVALID'
+    });
+  }
+  return profile;
+}
+
+function normalizeToolchain(options) {
+  return Object.freeze({
+    plantuml: String(options.version || 'local'),
+    graphviz: String(options.graphvizVersion || 'operator-managed'),
+    fonts: [...new Set((Array.isArray(options.fonts) ? options.fonts : []).map(String).filter(Boolean))].sort(),
+    digest: String(options.toolchainDigest || 'operator-managed')
+  });
 }
 
 function boundedSubprocessOptions(overrides = {}) {

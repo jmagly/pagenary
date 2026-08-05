@@ -37,6 +37,38 @@ describe('rich-content fence materialization', () => {
     ]));
   });
 
+  test('materializes successful PlantUML output for static HTML consumers', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-puml-build-'));
+    const distDir = path.join(root, 'dist');
+    const executablePath = path.join(root, 'plantuml');
+    await fs.writeFile(executablePath, `#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+const outputDir = process.argv[process.argv.indexOf('-o') + 1];
+const input = process.argv.at(-1);
+fs.mkdirSync(outputDir, { recursive: true });
+fs.writeFileSync(path.join(outputDir, 'diagram.svg'), '<svg xmlns="http://www.w3.org/2000/svg"><text>Author to Publisher</text></svg>');
+`, { mode: 0o700 });
+    try {
+      const output = await renderConfiguredBuildFences('```puml\nAuthor -> Publisher: build\n```', {
+        richContentConfig: {
+          failurePolicy: 'strict',
+          plantuml: { enabled: true, executablePath, version: '1.2026.4' }
+        },
+        renderDiagnostics: [], contentRoot: root, currentPath: 'page.md', distDir
+      });
+      const { markdownToHtml } = await import('../../scripts/build-tenants.js');
+      const html = markdownToHtml(output);
+      const asset = html.match(/assets\/rich-content\/plantuml\/[a-f0-9]{24}\.svg/)?.[0];
+      expect(asset).toBeTruthy();
+      expect(html).toContain('<img src="./assets/rich-content/plantuml/');
+      expect(html).not.toContain('language-puml');
+      await expect(fs.readFile(path.join(distDir, asset), 'utf8')).resolves.toMatch(/<svg\b/);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   test('build mode degrades to visible source and diagnostics without a configured CLI', async () => {
     const diagnostics = [];
     const output = await renderConfiguredBuildFences('```mermaid\ngraph TD\n A-->B\n```', {

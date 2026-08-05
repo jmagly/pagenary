@@ -70,4 +70,8 @@ COPY --chown=renderer:renderer apps/publisher/__tests__/fixtures/latex-pages/01-
 RUN tectonic -X compile --untrusted --outdir /tmp/tectonic-warm /tmp/tectonic-warm/cache.tex \
  && rm -rf /tmp/tectonic-warm
 
+COPY --chown=renderer:renderer apps/publisher/scripts/lib/ /workspace/apps/publisher/scripts/lib/
+COPY --chown=renderer:renderer apps/publisher/__tests__/fixtures/latex-pages/ /workspace/apps/publisher/__tests__/fixtures/latex-pages/
+COPY --chown=renderer:renderer ci/rich-content/qualify.mjs /workspace/ci/rich-content/qualify.mjs
+
 CMD ["node", "ci/rich-content/qualify.mjs"]

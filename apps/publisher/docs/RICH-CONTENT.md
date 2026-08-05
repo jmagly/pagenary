@@ -230,6 +230,10 @@ Java path. Paths are operator configuration, not content-controlled commands:
       "enabled": true,
       "executablePath": "/opt/plantuml/bin/plantuml",
       "version": "1.2026.4",
+      "includeProfile": "OFF",
+      "graphvizVersion": "2.42.2",
+      "fonts": ["DejaVu Sans"],
+      "toolchainDigest": "sha256:eeeb2887f90fbca52c03e96ec13a05a3138b8661fc437a72ab1e08822f071b57",
       "pngFallback": false,
       "maxSourceBytes": 131072,
       "maxIncludes": 32,
@@ -253,8 +257,10 @@ Java path. Paths are operator configuration, not content-controlled commands:
 Pagenary always forces `PLANTUML_SECURITY_PROFILE=SANDBOX` (including the JVM
 system property for JAR execution), uses a scrubbed environment and bounded
 subprocess, and sanitizes SVG output. URL/import directives are forbidden.
-Local `!include` and `!include_once` files must remain beneath the tenant root;
-cycles and excessive includes are rejected. The publisher never falls back to
+Local includes are disabled by default. Set `includeProfile: "ALLOWLIST"` only
+when `!include` or `!include_once` is required; every included file must remain
+beneath the tenant root and is dependency-hashed for cache invalidation. Cycles,
+symlink escapes, traversal, and excessive includes are rejected. The publisher never falls back to
 a PlantUML server. Sanitized SVG is emitted as a content-addressed tenant asset
 and referenced by accessible image markup, rather than injected inline. When no configured local tool is available, `warn` retains
 escaped source and diagnostics while `strict` fails the build.
