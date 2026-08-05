@@ -26,5 +26,26 @@
       "\\end{document}"
     ],
     "description": "Create the minimal structure for a Pagenary .tex page."
+  },
+  "Pagenary Mermaid diagram": {
+    "prefix": "pagenary-mermaid",
+    "body": [
+      "```mermaid title=\"${1:Diagram title}\"",
+      "flowchart LR",
+      "  ${2:A} --> ${3:B}",
+      "```"
+    ],
+    "description": "Insert a titled Mermaid fence using the local renderer contract."
+  },
+  "Pagenary PlantUML diagram": {
+    "prefix": "pagenary-plantuml",
+    "body": [
+      "```plantuml title=\"${1:Diagram title}\"",
+      "@startuml",
+      "${2:Author} -> ${3:Pagenary}: ${4:Build}",
+      "@enduml",
+      "```"
+    ],
+    "description": "Insert a titled PlantUML fence for bounded local rendering."
   }
 }

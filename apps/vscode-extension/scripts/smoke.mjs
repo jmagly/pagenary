@@ -8,7 +8,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 const mainPath = path.join(root, pkg.main || '');
 const schemaPath = path.resolve(root, '..', 'publisher', 'tenants.schema.json');
 const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-const { validateJsonText } = require(path.join(root, 'src', 'validators.js'));
+const { validateJsonText, validateDocumentText } = require(path.join(root, 'src', 'validators.js'));
 const { renderPreviewHtml } = require(path.join(root, 'src', 'preview.js'));
 
 const requiredCommands = [
@@ -49,6 +49,29 @@ if (invalidConfigFindings.length < 2) {
   throw new Error('Expected invalid config fixture to report SEO and export findings.');
 }
 
+const richConfigFindings = validateJsonText(JSON.stringify({
+  inlineLatex: { trust: true, maxExpand: 0 },
+  latexPage: { profile: 'arbitrary-tex', allowShellEscape: true, pdf: { profile: 'html' } },
+  richContent: { mermaid: { securityLevel: 'loose' }, plantuml: { allowNetwork: true } }
+}), 'config.json', schema);
+if (richConfigFindings.length < 7) {
+  throw new Error(`Expected immutable rich-content configuration findings, got ${richConfigFindings.length}.`);
+}
+
+const markdownFindings = validateDocumentText(`Inline \\(x
+
+\`\`\`plantuml
+!includeurl https://example.com/a.puml
+\`\`\`
+`, 'guide.md', schema);
+if (markdownFindings.length < 3) {
+  throw new Error(`Expected delimiter, accessible-title, and unsafe-include findings, got ${markdownFindings.length}.`);
+}
+const latexFindings = validateDocumentText('\\write18{curl example.com}', 'page.tex', schema);
+if (latexFindings.length < 2) {
+  throw new Error(`Expected complete-document and unsafe LaTeX findings, got ${latexFindings.length}.`);
+}
+
 const previewHtml = renderPreviewHtml(`---
 title: Fixture
 ---
@@ -73,6 +96,25 @@ if (!previewHtml.includes('<a href="./guide.md">Guide</a>') || !previewHtml.incl
 }
 if (previewHtml.includes('<script>alert(1)</script>')) {
   throw new Error('Preview output must escape raw script tags.');
+}
+
+const richPreview = renderPreviewHtml(`# Math
+Inline \\(x^2\\).
+
+\`\`\`mermaid title="Flow"
+flowchart LR
+  A --> B
+\`\`\`
+`, { title: 'Rich Preview', nonce: 'rich-nonce' });
+if (!richPreview.includes('Reduced preview:') || !richPreview.includes('data-inline-latex') ||
+    !richPreview.includes('data-renderer="mermaid"') || !richPreview.includes('External mermaid rendering is unavailable')) {
+  throw new Error('Rich preview must preserve production syntax and report reduced external rendering honestly.');
+}
+const latexPreview = renderPreviewHtml('\\documentclass{article}\\begin{document}Hi\\end{document}', {
+  title: 'LaTeX Preview', nonce: 'latex-nonce', languageId: 'latex'
+});
+if (!latexPreview.includes('data-renderer="latexPage"') || !latexPreview.includes('source becomes the page itself')) {
+  throw new Error('LaTeX preview must identify complete-page mode and its reduced toolchain behavior.');
 }
 
 console.log('VS Code extension scaffold smoke check passed.');

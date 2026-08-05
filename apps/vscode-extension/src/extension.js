@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { renderPreviewHtml } = require('./preview');
-const { validateJsonText } = require('./validators');
+const { validateDocumentText } = require('./validators');
 
 function activate(context) {
   const vscode = require('vscode');
@@ -28,8 +28,8 @@ function activate(context) {
 
   context.subscriptions.push(vscode.commands.registerCommand('pagenary.openPreview', () => {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document.languageId !== 'markdown') {
-      vscode.window.showInformationMessage('Open a Markdown file to preview it with Pagenary.');
+    if (!editor || !['markdown', 'latex'].includes(editor.document.languageId)) {
+      vscode.window.showInformationMessage('Open a Markdown or LaTeX file to preview it with Pagenary.');
       return;
     }
     const panel = vscode.window.createWebviewPanel(
@@ -40,7 +40,8 @@ function activate(context) {
     );
     panel.webview.html = renderPreviewHtml(editor.document.getText(), {
       title: panel.title,
-      nonce: crypto.randomBytes(16).toString('base64')
+      nonce: crypto.randomBytes(16).toString('base64'),
+      languageId: editor.document.languageId
     });
   }));
 }
@@ -51,7 +52,7 @@ module.exports = { activate, deactivate };
 
 function validateDocument(vscode, diagnostics, document) {
   const schema = loadTenantSchema();
-  const findings = validateJsonText(document.getText(), document.fileName, schema);
+  const findings = validateDocumentText(document.getText(), document.fileName, schema);
   const mapped = findings.map((item) => toDiagnostic(vscode, document, item));
   diagnostics.set(document.uri, mapped);
   return mapped.length;
@@ -59,7 +60,7 @@ function validateDocument(vscode, diagnostics, document) {
 
 async function validateWorkspace(vscode, diagnostics) {
   const schema = loadTenantSchema();
-  const pattern = '**/{tenants.json,*.tenants.json,config.json,manifest.json}';
+  const pattern = '**/{tenants.json,*.tenants.json,config.json,manifest.json,*.md,*.markdown,*.tex}';
   const exclude = '**/{node_modules,dist,site}/**';
   const uris = await vscode.workspace.findFiles(pattern, exclude, 200);
   let issues = 0;
@@ -67,7 +68,7 @@ async function validateWorkspace(vscode, diagnostics) {
   diagnostics.clear();
   for (const uri of uris) {
     const document = await vscode.workspace.openTextDocument(uri);
-    const findings = validateJsonText(document.getText(), document.fileName, schema);
+    const findings = validateDocumentText(document.getText(), document.fileName, schema);
     const mapped = findings.map((item) => toDiagnostic(vscode, document, item));
     diagnostics.set(uri, mapped);
     issues += mapped.length;

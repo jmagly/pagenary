@@ -14,20 +14,22 @@ The current scaffold contributes commands for:
 
 - `Pagenary: Validate Active File`
 - `Pagenary: Validate Workspace`
-- `Pagenary: Open Markdown Preview`
+- `Pagenary: Open Markdown Preview` (also accepts complete `.tex` pages)
 
-`Pagenary: Validate Active File` parses the active JSON file and reports
-Pagenary diagnostics for tenant registries and tenant config files. `Pagenary:
-Validate Workspace` scans common Pagenary JSON artifacts such as `tenants.json`,
-`*.tenants.json`, `config.json`, and `manifest.json` and publishes diagnostics in
-one command-driven pass. Validation reuses the publisher tenant schema for the
-tenant id contract and validates current SEO and export control shapes.
+`Pagenary: Validate Active File` recognizes JSON configuration, Markdown, and
+complete `.tex` pages. It reports tenant/schema shapes, rich-renderer profiles
+and bounds, immutable security options, unbalanced inline-LaTeX delimiters,
+missing diagram alternatives, unsafe PlantUML includes, incomplete LaTeX
+documents, and forbidden TeX operations. `Pagenary: Validate Workspace` applies
+the same checks to registries, configs, manifests, Markdown, and `.tex` files.
 
-`Pagenary: Open Markdown Preview` opens a script-disabled webview preview for the
-active Markdown file. The initial preview path covers frontmatter display,
-headings, paragraphs, inline code, links, and fenced code blocks. Fuller
-extension lifecycle tests and distribution documentation continue in #101 and
-#102.
+The preview is script-disabled and preserves Pagenary delimiter/fence semantics.
+It displays inline-LaTeX placeholders and titled Mermaid/PlantUML source with an
+explicit reduced-preview notice. It never pretends to run Mermaid, LaTeXML,
+Pandoc, PlantUML, or Tectonic inside the editor; run the normal Pagenary build for
+final rendering. Complete `.tex` files are identified as page sources rather
+than Markdown. This keeps unavailable external toolchains honest and ordinary
+extension startup dependency-free.
 
 ## Packaging
 

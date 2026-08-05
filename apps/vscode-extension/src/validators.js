@@ -16,6 +16,12 @@ function validateJsonText(text, fileName, schema = {}) {
   return validateTenantConfig(data);
 }
 
+function validateDocumentText(text, fileName, schema = {}) {
+  if (/\.tex$/i.test(fileName)) return validateLatexText(text);
+  if (/\.(?:md|markdown)$/i.test(fileName)) return validateMarkdownText(text);
+  return validateJsonText(text, fileName, schema);
+}
+
 function isTenantRegistry(data, fileName = '') {
   return Array.isArray(data?.tenants) || /(^|[\\/])tenants(?:\.[\w-]+)?\.json$/i.test(fileName);
 }
@@ -75,6 +81,96 @@ function validateTenantConfig(config, basePath = []) {
 
   if (config.seo) validateSeoConfig(config.seo, [...basePath, 'seo'], findings);
   if (config.export) validateExportConfig(config.export, [...basePath, 'export'], findings);
+  if (config.inlineLatex) validateInlineLatexConfig(config.inlineLatex, [...basePath, 'inlineLatex'], findings);
+  if (config.latexPage) validateLatexPageConfig(config.latexPage, [...basePath, 'latexPage'], findings);
+  if (config.richContent) validateRichContentConfig(config.richContent, [...basePath, 'richContent'], findings);
+  return findings;
+}
+
+function validateInlineLatexConfig(config, path, findings) {
+  if (!isObject(config)) return findings.push(finding('`inlineLatex` must be an object.', path));
+  booleanKeys(config, ['enabled', 'dollarDelimiters'], path, findings, 'inlineLatex');
+  integerRange(config, 'maxSize', 1, 100, path, findings, 'inlineLatex');
+  integerRange(config, 'maxExpand', 1, 10000, path, findings, 'inlineLatex');
+  for (const forbidden of ['trust', 'strict', 'throwOnError']) {
+    if (config[forbidden] !== undefined) findings.push(finding(`\`inlineLatex.${forbidden}\` is immutable and cannot be authored.`, [...path, forbidden]));
+  }
+}
+
+function validateLatexPageConfig(config, path, findings) {
+  if (!isObject(config)) return findings.push(finding('`latexPage` must be an object.', path));
+  enumKey(config, 'profile', ['standard-web-v1', 'portable-subset-v1'], path, findings, 'latexPage');
+  enumKey(config, 'failurePolicy', ['warn', 'strict', 'off'], path, findings, 'latexPage');
+  integerRange(config, 'timeoutMs', 1000, 120000, path, findings, 'latexPage');
+  integerRange(config, 'maxOutputBytes', 65536, 16777216, path, findings, 'latexPage');
+  for (const forbidden of ['allowShellEscape', 'allowNetwork', 'allowPackageInstall', 'allowAbsolutePaths', 'allowParentTraversal']) {
+    if (config[forbidden] !== undefined) findings.push(finding(`\`latexPage.${forbidden}\` is forbidden by the immutable security policy.`, [...path, forbidden]));
+  }
+  if (config.pdf !== undefined) {
+    if (!isObject(config.pdf)) findings.push(finding('`latexPage.pdf` must be an object.', [...path, 'pdf']));
+    else {
+      booleanKeys(config.pdf, ['enabled'], [...path, 'pdf'], findings, 'latexPage.pdf');
+      enumKey(config.pdf, 'profile', ['pdf-v1'], [...path, 'pdf'], findings, 'latexPage.pdf');
+      enumKey(config.pdf, 'failurePolicy', ['warn', 'strict'], [...path, 'pdf'], findings, 'latexPage.pdf');
+      integerRange(config.pdf, 'maxPdfBytes', 65536, 67108864, [...path, 'pdf'], findings, 'latexPage.pdf');
+    }
+  }
+}
+
+function validateRichContentConfig(config, path, findings) {
+  if (!isObject(config)) return findings.push(finding('`richContent` must be an object.', path));
+  enumKey(config, 'failurePolicy', ['warn', 'strict', 'off'], path, findings, 'richContent');
+  if (config.mermaid !== undefined) {
+    if (!isObject(config.mermaid)) findings.push(finding('`richContent.mermaid` must be an object.', [...path, 'mermaid']));
+    else {
+      enumKey(config.mermaid, 'mode', ['runtime', 'build'], [...path, 'mermaid'], findings, 'richContent.mermaid');
+      integerRange(config.mermaid, 'maxSourceBytes', 1, 50000, [...path, 'mermaid'], findings, 'richContent.mermaid');
+      integerRange(config.mermaid, 'maxEdges', 1, 500, [...path, 'mermaid'], findings, 'richContent.mermaid');
+      for (const key of ['securityLevel', 'secure', 'startOnLoad']) {
+        if (config.mermaid[key] !== undefined) findings.push(finding(`\`richContent.mermaid.${key}\` is immutable.`, [...path, 'mermaid', key]));
+      }
+    }
+  }
+  if (config.plantuml !== undefined) {
+    if (!isObject(config.plantuml)) findings.push(finding('`richContent.plantuml` must be an object.', [...path, 'plantuml']));
+    else {
+      booleanKeys(config.plantuml, ['enabled', 'pngFallback'], [...path, 'plantuml'], findings, 'richContent.plantuml');
+      enumKey(config.plantuml, 'securityProfile', ['SANDBOX'], [...path, 'plantuml'], findings, 'richContent.plantuml');
+      for (const key of ['allowNetwork', 'allowUrlIncludes', 'allowAbsoluteIncludes']) {
+        if (config.plantuml[key] !== undefined) findings.push(finding(`\`richContent.plantuml.${key}\` is forbidden.`, [...path, 'plantuml', key]));
+      }
+    }
+  }
+}
+
+function validateMarkdownText(text) {
+  const findings = [];
+  const source = String(text || '');
+  for (const delimiter of [['\\(', '\\)'], ['\\[', '\\]']]) {
+    if (countToken(source, delimiter[0]) !== countToken(source, delimiter[1])) {
+      findings.push(finding(`Unbalanced inline LaTeX delimiters: ${delimiter.join(' … ')}`, []));
+    }
+  }
+  const fences = [...source.matchAll(/^```(mermaid|plantuml|puml)\b([^\n]*)\n([\s\S]*?)^```\s*$/gmi)];
+  for (const match of fences) {
+    const renderer = match[1].toLowerCase();
+    const metadata = match[2];
+    if (!/\btitle=(?:"[^"]+"|'[^']+')/.test(metadata)) {
+      findings.push(finding(`${renderer} fence needs a quoted title for an accessible alternative.`, []));
+    }
+    if (renderer !== 'mermaid' && /!(?:include|includeurl|include_many)\s+(?:https?:|\/|\.\.)/i.test(match[3])) {
+      findings.push(finding('PlantUML fence contains a forbidden remote, absolute, or parent include.', []));
+    }
+  }
+  return findings;
+}
+
+function validateLatexText(text) {
+  const findings = [];
+  const source = String(text || '');
+  if (!/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}/.test(source)) findings.push(finding('Complete LaTeX page needs `\\documentclass{…}`.', []));
+  if (!/\\begin\{document\}/.test(source) || !/\\end\{document\}/.test(source)) findings.push(finding('Complete LaTeX page needs matching document environment markers.', []));
+  if (/\\(?:immediate\s*)?\\write18|\\(?:openout|openin|read|write)\b|\bhttps?:\/\//i.test(source)) findings.push(finding('LaTeX page contains forbidden shell, file-I/O, or network syntax.', []));
   return findings;
 }
 
@@ -155,6 +251,32 @@ function isStringArray(value) {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
+function isObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function booleanKeys(value, keys, path, findings, label) {
+  for (const key of keys) if (value[key] !== undefined && typeof value[key] !== 'boolean') {
+    findings.push(finding(`\`${label}.${key}\` must be a boolean.`, [...path, key]));
+  }
+}
+
+function enumKey(value, key, allowed, path, findings, label) {
+  if (value[key] !== undefined && !allowed.includes(value[key])) {
+    findings.push(finding(`\`${label}.${key}\` must be one of ${allowed.map((item) => `\`${item}\``).join(', ')}.`, [...path, key]));
+  }
+}
+
+function integerRange(value, key, minimum, maximum, path, findings, label) {
+  if (value[key] !== undefined && (!Number.isInteger(value[key]) || value[key] < minimum || value[key] > maximum)) {
+    findings.push(finding(`\`${label}.${key}\` must be an integer from ${minimum} through ${maximum}.`, [...path, key]));
+  }
+}
+
+function countToken(source, token) {
+  return source.split(token).length - 1;
+}
+
 function jsonParseFinding(err) {
   const match = /position (\d+)/i.exec(err.message || '');
   return {
@@ -169,7 +291,10 @@ function finding(message, path) {
 }
 
 module.exports = {
+  validateDocumentText,
   validateJsonText,
   validateTenantRegistry,
-  validateTenantConfig
+  validateTenantConfig,
+  validateMarkdownText,
+  validateLatexText
 };

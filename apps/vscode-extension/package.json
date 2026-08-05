@@ -45,7 +45,7 @@
       },
       {
         "command": "pagenary.openPreview",
-        "title": "Pagenary: Open Markdown Preview"
+        "title": "Pagenary: Open Content Preview"
       }
     ],
     "configuration": {

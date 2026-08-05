@@ -1,8 +1,8 @@
 # Supported syntax reference
 
 This is the help-base index for Pagenary authoring syntax. Its executable companion is the
-[`syntax-gallery`](../examples/syntax-gallery/) tenant. The machine-readable
-[`syntax-inventory.json`](../examples/syntax-gallery/syntax-inventory.json) maps each supported feature
+[syntax gallery](https://docs.pagenary.com/syntax-gallery/) tenant. The machine-readable
+[syntax inventory](https://git.integrolabs.net/roctinam/pagenary/src/branch/main/apps/publisher/examples/syntax-gallery/syntax-inventory.json) maps each supported feature
 to both an example and a section here; CI rejects missing files, anchors, duplicate IDs, and undocumented
 inventory entries.
 
@@ -13,7 +13,7 @@ buildable when optional tools are absent.
 
 ## Markdown blocks
 
-Runnable source: [`content/markdown.md`](../examples/syntax-gallery/content/markdown.md).
+Runnable gallery: [Markdown](https://docs.pagenary.com/syntax-gallery/#markdown).
 
 The built-in Markdown renderer supports ATX headings (`#` through `######`), soft-wrapped paragraphs,
 unordered lists using `-`, `*`, or `+`, block quotations beginning with `>`, pipe tables with optional
@@ -41,7 +41,7 @@ continuation.
 
 ## Inline Markdown
 
-Runnable source: [`content/markdown.md`](../examples/syntax-gallery/content/markdown.md).
+Runnable gallery: [Markdown](https://docs.pagenary.com/syntax-gallery/#markdown).
 
 Use `**strong**`, `*emphasis*` or `_emphasis_`, and backticks for inline code. A deliberately narrow raw
 HTML exception, `<span title="…">text</span>`, provides tooltips. Other raw HTML in prose is escaped; use
@@ -54,7 +54,7 @@ and <span title="Extra context">a tooltip</span>.
 
 ## Links and images
 
-Runnable source: [`content/markdown.md`](../examples/syntax-gallery/content/markdown.md).
+Runnable gallery: [Markdown](https://docs.pagenary.com/syntax-gallery/#markdown).
 
 Pagenary supports `[label](target)`, `![alt](source)`, `<https://example.com>`, `<mailto:name@example.com>`,
 and bare HTTP(S) URLs. External links receive safe new-tab attributes. Internal Markdown paths are
@@ -63,15 +63,15 @@ validated and transformed into site routes. `@docs/path.md` resolves a document 
 SVG, PNG, or JPEG Markdown image to opt into the accessible image viewport.
 
 ```markdown
-[Help](../help.md) · <https://example.com> · @docs/reference/api.md
+[Rich content](RICH-CONTENT.md) · <https://example.com> · @docs/RICH-CONTENT.md
 ![Architecture diagram](assets/architecture.svg)
 ![Zoomable architecture](assets/architecture.svg){zoom}
 ```
 
 ## Special fences
 
-Runnable sources: [`content/markdown.md`](../examples/syntax-gallery/content/markdown.md) and
-[`content/page-primitives.md`](../examples/syntax-gallery/content/page-primitives.md).
+Runnable galleries: [Markdown](https://docs.pagenary.com/syntax-gallery/#markdown) and
+[page primitives](https://docs.pagenary.com/syntax-gallery/#page-primitives).
 
 An ordinary triple-backtick fence produces escaped code and accepts a language label for syntax
 highlighting. ```` ```box ```` and ```` ```box:Title ```` produce an escaped panel. ```` ```html ````
@@ -94,7 +94,7 @@ Panel text is escaped.
 
 ## Page frontmatter
 
-Runnable source: [`content/page-primitives.md`](../examples/syntax-gallery/content/page-primitives.md).
+Runnable gallery: [Page primitives](https://docs.pagenary.com/syntax-gallery/#page-primitives).
 
 A leading YAML frontmatter block supports scalars, nested maps, block lists, and inline flow maps/lists.
 Common page keys include `title`, `summary`, `template`, page-scoped `inlineLatex` and `media` controls,
@@ -119,7 +119,7 @@ banner:
 
 ## Inline LaTeX
 
-Runnable source: [`content/inline-latex.md`](../examples/syntax-gallery/content/inline-latex.md).
+Runnable gallery: [Inline LaTeX](https://docs.pagenary.com/syntax-gallery/#inline-latex).
 
 Inline LaTeX uses the pinned KaTeX math-language surface. Use `\(...\)` inline and `\[...\]` or `$$...$$`
 for display math. Single-dollar `$...$` is a page- or tenant-level opt-in. Tenant macros are copied into
@@ -142,7 +142,7 @@ subject to trust, expansion, and source-size bounds—not a reduced notation lis
 
 ## Diagrams
 
-Runnable source: [`content/diagrams.md`](../examples/syntax-gallery/content/diagrams.md).
+Runnable gallery: [Diagrams](https://docs.pagenary.com/syntax-gallery/#diagrams).
 
 A `mermaid` fence creates a Mermaid diagram. Runtime mode loads the exact locally vendored Mermaid bundle
 only when needed; build mode emits sanitized SVG when its DOM-capable environment is available. A
@@ -172,7 +172,7 @@ is bounded to 1 MiB. PlantUML uses the documented source/include/output limits.
 
 ## Media
 
-Runnable source: [`content/media-forms.md`](../examples/syntax-gallery/content/media-forms.md).
+Runnable gallery: [Media and forms](https://docs.pagenary.com/syntax-gallery/#media-forms).
 
 A `media` fence accepts either simple `key: value` lines or JSON. Supported types are:
 
@@ -201,7 +201,7 @@ a deliberate activation control plus fallback link rather than loading an iframe
 
 ## Forms
 
-Runnable source: [`content/media-forms.md`](../examples/syntax-gallery/content/media-forms.md).
+Runnable gallery: [Media and forms](https://docs.pagenary.com/syntax-gallery/#media-forms).
 
 A `tally` fence supports `id`, `mode` (`inline` or `popup`), `button`, and `title`. It emits a static hosted
 fallback and progressively enhances only when used. The form ID is public authoring data, never a secret.
@@ -218,7 +218,7 @@ title: Feedback
 
 ## Complete LaTeX pages
 
-Runnable source: [`content/latex-page.tex`](../examples/syntax-gallery/content/latex-page.tex).
+Runnable gallery: [Complete LaTeX page](https://docs.pagenary.com/syntax-gallery/#latex-page).
 
 A manifest may point directly to a `.tex` file, making converted LaTeX the rendered page content rather
 than embedding it in Markdown. The standard web profile uses local LaTeXML; the portable subset uses

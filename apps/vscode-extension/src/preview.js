@@ -1,8 +1,12 @@
 'use strict';
 
-function renderPreviewHtml(markdown, { title = 'Pagenary Preview', nonce = '' } = {}) {
+function renderPreviewHtml(markdown, { title = 'Pagenary Preview', nonce = '', languageId = 'markdown' } = {}) {
   const parsed = splitFrontmatter(markdown);
-  const body = renderMarkdown(parsed.body);
+  const isLatexPage = languageId === 'latex' || languageId === 'tex';
+  const body = isLatexPage ? renderLatexPagePreview(parsed.body) : renderMarkdown(parsed.body);
+  const reduced = isLatexPage || /\\[([]|```(?:mermaid|plantuml|puml)\b/i.test(parsed.body)
+    ? '<aside class="preview-notice" role="note"><strong>Reduced preview:</strong> rich content uses production delimiters and fences, but external converters and browser Mermaid are not executed in the editor webview. Run a Pagenary build for final output.</aside>'
+    : '';
   const frontmatter = parsed.frontmatter
     ? `<section class="frontmatter"><h2>Frontmatter</h2><pre>${escapeHtml(parsed.frontmatter)}</pre></section>`
     : '';
@@ -21,11 +25,15 @@ function renderPreviewHtml(markdown, { title = 'Pagenary Preview', nonce = '' } 
     code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .frontmatter { border: 1px solid #d9e2ec; border-radius: 4px; margin-bottom: 2rem; padding: 1rem; }
     .frontmatter h2 { font-size: 0.9rem; letter-spacing: 0; margin-top: 0; text-transform: uppercase; }
+    .preview-notice { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 4px; margin-bottom: 1rem; padding: .75rem; }
+    .rich-preview { border-left: 4px solid #64748b; padding-left: 1rem; }
+    .math-preview { font-family: ui-serif, Georgia, serif; }
     a { color: #0f62fe; }
   </style>
 </head>
 <body>
   <main>
+    ${reduced}
     ${frontmatter}
     <article>${body}</article>
   </main>
@@ -49,6 +57,7 @@ function renderMarkdown(markdown) {
   let paragraph = [];
   let code = [];
   let inCode = false;
+  let codeInfo = '';
 
   function flushParagraph() {
     if (!paragraph.length) return;
@@ -57,18 +66,25 @@ function renderMarkdown(markdown) {
   }
 
   function flushCode() {
-    out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
+    const renderer = /^(mermaid|plantuml|puml)\b/i.exec(codeInfo)?.[1]?.toLowerCase();
+    if (renderer) {
+      const title = /\btitle=(?:"([^"]+)"|'([^']+)')/.exec(codeInfo);
+      out.push(`<figure class="rich-preview" data-renderer="${renderer}"><figcaption>${escapeHtml(title?.[1] || title?.[2] || `${renderer} diagram`)}</figcaption><p>External ${renderer} rendering is unavailable in reduced preview.</p><pre><code>${escapeHtml(code.join('\n'))}</code></pre></figure>`);
+    } else out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
     code = [];
+    codeInfo = '';
   }
 
   for (const line of lines) {
-    if (/^```/.test(line)) {
+    const fence = /^```(.*)$/.exec(line);
+    if (fence) {
       if (inCode) {
         flushCode();
         inCode = false;
       } else {
         flushParagraph();
         inCode = true;
+        codeInfo = fence[1].trim();
       }
       continue;
     }
@@ -99,7 +115,13 @@ function renderInline(value) {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, href) => {
       const safeHref = String(href).startsWith('javascript:') ? '#' : href;
       return `<a href="${escapeAttribute(safeHref)}">${label}</a>`;
-    });
+    })
+    .replace(/\\\((.+?)\\\)/g, '<span class="math-preview" data-inline-latex>$1</span>')
+    .replace(/\\\[(.+?)\\\]/g, '<span class="math-preview" data-display-latex>$1</span>');
+}
+
+function renderLatexPagePreview(source) {
+  return `<section class="rich-preview" data-renderer="latexPage"><h1>Complete LaTeX page</h1><p>LaTeXML/Pandoc and optional Tectonic are not executed in reduced preview. This source becomes the page itself in a production build.</p><pre><code>${escapeHtml(source)}</code></pre></section>`;
 }
 
 function escapeHtml(value) {
@@ -115,4 +137,4 @@ function escapeAttribute(value) {
   return escapeHtml(value).replace(/`/g, '&#96;');
 }
 
-module.exports = { renderPreviewHtml, renderMarkdown, splitFrontmatter };
+module.exports = { renderPreviewHtml, renderMarkdown, renderLatexPagePreview, splitFrontmatter };
