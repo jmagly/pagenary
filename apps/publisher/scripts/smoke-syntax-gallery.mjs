@@ -35,8 +35,12 @@ try {
 
   assert(count(diagrams, /class="mermaid-content[^>]*>[\s\S]*?<svg\b/g) >= 5,
     'five representative Mermaid families render to SVG');
-  assert(count(diagrams, /class="mermaid-diagram[^>]*role="figure"[^>]*aria-label=/g) >= 5,
-    'Mermaid figures retain accessible names');
+  assert(count(diagrams, /class="mermaid-diagram rich-diagram rich-diagram--mermaid(?:\s|")/g) >= 5
+    && count(diagrams, /<figcaption id="mermaid-[^"]+-caption">/g) >= 5
+    && count(diagrams, /<svg[^>]*role="img"[^>]*aria-labelledby="mermaid-[^"]+-caption"[^>]*>/g) >= 5,
+  'Mermaid figures retain equivalent captions and accessible names');
+  assert(count(diagrams, /<summary>Mermaid source<\/summary>/g) >= 5,
+    'runtime Mermaid retains authored source fallbacks');
   assert(!/Syntax error in text|mermaid-error|data-render-error/i.test(diagrams),
     'Mermaid browser rendering has no syntax errors');
   assert(count(diagrams, /class="rich-content-fallback/g) >= 9,

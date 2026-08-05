@@ -37,7 +37,7 @@ describe('rich-content fence materialization', () => {
     ]));
   });
 
-  test('build mode degrades to visible source and diagnostics without a build DOM', async () => {
+  test('build mode degrades to visible source and diagnostics without a configured CLI', async () => {
     const diagnostics = [];
     const output = await renderConfiguredBuildFences('```mermaid\ngraph TD\n A-->B\n```', {
       richContentConfig: { failurePolicy: 'warn', mermaid: { mode: 'build' } },
@@ -59,7 +59,7 @@ describe('rich-content fence materialization', () => {
       renderDiagnostics: [],
       contentRoot: process.cwd(),
       currentPath: 'page.md'
-    })).rejects.toThrow(/browser DOM/i);
+    })).rejects.toThrow(/configured absolute executable path/i);
   });
 
   test('writes only contained content-addressed renderer assets', async () => {

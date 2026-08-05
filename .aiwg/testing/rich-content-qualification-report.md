@@ -8,7 +8,8 @@
 The implemented in-process rich-content paths pass their focused and complete
 test suites, the publisher build/check/package pipelines pass, VS Code smoke
 tests pass, generated Mermaid/KaTeX assets are local and stable, and the real
-LaTeXML, PlantUML, and Tectonic corpus passes in a pinned networkless container.
+LaTeXML, Mermaid CLI/browser, PlantUML, and Tectonic corpus passes in a pinned
+networkless container.
 Release qualification remains conditional because two high-severity transitive
 audit findings remain in the supply-chain cooldown window and browser/CSP/AT
 qualification is still outstanding.
@@ -28,7 +29,8 @@ qualification is still outstanding.
 | Whole-build reproducibility | PASS | With `SOURCE_DATE_EPOCH=1704067200`, two isolated builds had identical file sets and byte content; the focused build suite compares every emitted file |
 | Dependency pinning | PASS | KaTeX 0.18.1 and Mermaid 11.16.0 are exact lockfile versions with integrity hashes |
 | Dependency audit | CONDITIONAL | Policy-aged exact overrides fixed `js-yaml` and `postcss`; `npm audit` now reports 2 high, 0 critical (`brace-expansion`, `fast-uri`), neither introduced by the renderer packages; cooldown follow-up is #179 |
-| External renderer matrix | PASS | Pinned Ubuntu 24.04 image; LaTeXML 0.8.8, PlantUML 1.2026.4 SANDBOX, and Tectonic 0.16.9; networkless/read-only/resource-bounded run |
+| External renderer matrix | PASS | Pinned Ubuntu 24.04 image; LaTeXML 0.8.8, Mermaid CLI 11.16.0/Puppeteer 24.16.0, PlantUML 1.2026.4 SANDBOX, and Tectonic 0.16.9; networkless/read-only/non-root/resource-bounded run |
+| Mermaid static visual matrix | PASS | Five representative families × neutral/forest/dark themes; byte-identical repeated SVG plus real headless-browser PNG snapshots with hashes |
 
 ## Exact Commands and Evidence
 
@@ -173,8 +175,9 @@ adoption after cooldown without bypassing repository supply-chain policy.
 The reproducible qualification image is defined in
 `ci/rich-content/Dockerfile` and its real-adapter corpus in
 `ci/rich-content/qualify.mjs`. The qualified local image manifest list was
-`sha256:35be8644ecd18b2d74b0b6e05964ae26546da0d44cd4349cfa898950a8bf001f`
-(416,374,433 bytes). It also contains pinned Pandoc and make4ht packages for the
+`sha256:1baf05aec512528e6ab966d85269e5618d49799cfb0039118bd86c1e42d49115`
+(946,147,719 bytes). It also contains a lockfile-backed Mermaid CLI 11.16.0 and
+Puppeteer 24.16.0 browser plus pinned Pandoc and make4ht packages for the
 converter-selection regression.
 Its immutable base image and downloaded renderer artifacts are digest/checksum
 pinned. Tectonic resources are warmed from the accepted representative fixture
@@ -183,9 +186,9 @@ during the networked image build; runtime PDF generation uses `--untrusted
 
 ```sh
 docker run --rm --network none --read-only \
-  --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=256m \
-  --tmpfs /home/renderer/.cache/fontconfig:rw,nosuid,nodev,mode=0700,uid=10001,gid=10001,size=16m \
-  --cpus 2 --memory 1g --pids-limit 128 \
+  --user 10001:10001 --cap-drop ALL --security-opt no-new-privileges \
+  --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=768m \
+  --cpus 2 --memory 2g --pids-limit 256 \
   -v "$PWD:/workspace:ro" \
   pagenary-rich-content:2026-08-05
 ```
@@ -197,7 +200,10 @@ fixtures also failed safely. PlantUML rendered sequence, class,
 component, activity, state, ER, JSON, and YAML diagrams twice with byte-identical
 sanitized SVG under SANDBOX, plus a valid 2,772-byte optional PNG fallback.
 Tectonic emitted a 32,379-byte PDF with network
-disabled and cached-only mode.
+disabled and cached-only mode. Mermaid rendered flowchart, sequence, class,
+state, and ER diagrams under neutral, forest, and dark themes. Each repeated SVG
+was byte-identical, sanitized, and content-addressed; the pinned headless browser
+also captured and hashed a valid PNG visual snapshot for all 15 combinations.
 
 Qualified tools:
 
@@ -207,24 +213,27 @@ Qualified tools:
 | make4ht | MEASURED / NOT SELECTED | v0.3m; four fixtures passed, baseline `booktabs` fixture exposed missing package surface |
 | Java | CONTAINER PINNED | OpenJDK 21.0.11 |
 | Graphviz | CONTAINER PINNED | 2.42.2 |
+| Mermaid CLI | PASS | 11.16.0 exact npm lockfile pin; deterministic secured SVG and content-addressed output |
+| Puppeteer/browser | PASS | Puppeteer 24.16.0 exact lockfile pin; cached Chrome Headless Shell 139.0.7258.66 visual snapshots |
 | LaTeXML | PASS | 0.8.8; six positive semantic fixtures plus hostile, unsupported-package, and malformed rejection |
 | PlantUML | PASS | MIT JAR 1.2026.4; eight diagram families; SANDBOX and sanitized deterministic SVG |
 | Tectonic | PASS | 0.16.9; untrusted cached-only PDF output |
 
-The matching Gitea workflow installs the same exact package versions and
-checksum-verified binaries, warms the same accepted Tectonic fixture, and runs
-the same corpus. The local Docker invocation is the stronger network-denial and
-read-only-filesystem proof; the workflow supplies continuous version/corpus
-regression coverage.
+The matching Gitea workflow builds this exact Dockerfile and runs the same image
+with network denial, a read-only filesystem, non-root UID, dropped capabilities,
+and explicit CPU/memory/PID/tmpfs limits. It supplies continuous version,
+isolation, corpus, determinism, and visual-snapshot regression coverage.
 
 ## Risks and Required Follow-up
 
 1. Complete #179 after the release-age cooldown, then prove `npm audit` has no
    remaining high/critical findings; do not use an unreviewed blanket
    `npm audit fix`.
-2. Add a browser/CSP qualification that renders representative Mermaid and
-   KaTeX pages with networking disabled and asserts accessibility output. Static
-   scans prove local references but do not substitute for browser execution.
+2. Complete the remaining whole-page CSP and assistive-technology matrix. The
+   real Chrome syntax-gallery smoke now proves five runtime Mermaid families,
+   accessible captions/names/source fallback, and KaTeX MathML; the external
+   gate proves 15 static Mermaid browser snapshots offline, but manual AT
+   qualification remains.
 3. Add explicit timeout/termination attack execution to the external container
    corpus; unit tests already cover the bounded subprocess paths and hostile
    preflight, but a real deliberately non-terminating converter shim remains a

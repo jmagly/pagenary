@@ -172,6 +172,11 @@ Set build mode to generate sanitized SVG while publishing:
     "failurePolicy": "warn",
     "mermaid": {
       "mode": "build",
+      "theme": "neutral",
+      "executablePath": "/opt/mermaid-cli/node_modules/.bin/mmdc",
+      "browserPath": "/opt/puppeteer-cache/chrome-headless-shell/linux-139.0.7258.66/chrome-headless-shell-linux64/chrome-headless-shell",
+      "timeoutMs": 20000,
+      "fonts": ["DejaVu Sans"],
       "maxSourceBytes": 50000,
       "maxEdges": 500,
       "maxOutputBytes": 4194304
@@ -180,11 +185,25 @@ Set build mode to generate sanitized SVG while publishing:
 }
 ```
 
-Build mode uses the local package and requires a DOM-capable Mermaid rendering
-environment. If that environment is unavailable, `warn` preserves escaped
-source with diagnostics and `strict` fails the build. Generated SVG is checked
-for active content. A build-rendered figure includes a caption and a disclosure
-containing the original source for accessibility and troubleshooting.
+Build mode uses the lockfile-backed `@mermaid-js/mermaid-cli` 11.16.0 and
+Puppeteer 24.16.0 qualification toolchain. Both executable paths are explicit
+operator configuration; content cannot select a command. Rendering runs as a
+bounded subprocess with a scrubbed environment, fixed classic rendering and
+hand-drawn seed, strict Mermaid security, and no remote service. The cache key
+includes source, Mermaid/CLI version, secured configuration, theme, declared
+fonts, and SVG output format. Sanitized output is stored as an immutable local
+`assets/rich-content/mermaid/<digest>.svg` asset. If the toolchain is
+unavailable, `warn` preserves escaped source with diagnostics and `strict`
+fails the build. The figure retains its caption and original source disclosure
+for accessibility and troubleshooting.
+
+Choose `runtime` when interactive pan/zoom and the smallest publish-time
+toolchain matter most. Choose `build` for script-free CSP, static/offline
+delivery, crawlers, snapshots, and exports. Migration requires installing the
+qualified image/toolchain, setting the two absolute executable paths, declaring
+the theme/fonts used by the deployment, and changing only `mode` to `build`;
+fence syntax, titles, captions, search text, source fallback, and accessible
+names remain the same.
 
 ## PlantUML
 

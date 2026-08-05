@@ -1,3 +1,7 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import {
   createMermaidBuildAdapter,
   deterministicMermaidId,
@@ -27,8 +31,8 @@ describe('Mermaid build-time adapter', () => {
 
     expect(first.html).toBe(second.html);
     expect(first.html).toContain('<figure class="rich-diagram rich-diagram--mermaid"');
-    expect(first.html).toContain('role="img"');
-    expect(first.html).toContain('aria-labelledby="pagenary-mermaid-');
+    expect(first.html).toContain('<img src="./assets/rich-content/mermaid/');
+    expect(first.html).toContain('aria-describedby="pagenary-mermaid-');
     expect(first.html).toContain('<figcaption');
     expect(first.html).toContain('Request flow');
     expect(first.html).toContain('<summary>Mermaid source</summary>');
@@ -36,9 +40,14 @@ describe('Mermaid build-time adapter', () => {
     expect(first.rendererMetadata).toMatchObject({ renderer: 'mermaid', version: '11.16.0', profile: 'build' });
     expect(first.rendererMetadata.provenance.sourceDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
     expect(first.rendererMetadata.provenance.outputDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(first.assets).toHaveLength(1);
+    expect(first.assets[0]).toMatchObject({ mimeType: 'image/svg+xml', integrity: expect.stringMatching(/^sha256:[a-f0-9]{64}$/) });
+    expect(first.assets[0].path).toMatch(/^assets\/rich-content\/mermaid\/[a-f0-9]{24}\.svg$/);
     expect(calls[0].config).toMatchObject({
       theme: 'forest',
       securityLevel: 'strict',
+      look: 'classic',
+      handDrawnSeed: 1,
       startOnLoad: false,
       suppressErrorRendering: true
     });
@@ -50,6 +59,8 @@ describe('Mermaid build-time adapter', () => {
       .toBe(deterministicMermaidId('A --> B', { theme: 'default' }));
     expect(deterministicMermaidId('A --> C', { theme: 'default' }))
       .not.toBe(deterministicMermaidId('A --> B', { theme: 'default' }));
+    expect(deterministicMermaidId('A --> B', { theme: 'default' }, { fonts: ['A'] }))
+      .not.toBe(deterministicMermaidId('A --> B', { theme: 'default' }, { fonts: ['B'] }));
   });
 
   test('removes active SVG content and unsafe attributes', () => {
@@ -80,5 +91,30 @@ describe('Mermaid build-time adapter', () => {
       profile: 'build',
       failurePolicy: 'strict'
     })).rejects.toMatchObject({ diagnostics: [expect.objectContaining({ code: 'MERMAID_SOURCE_LIMIT' })] });
+  });
+
+  test('bounds CLI execution and removes its temporary workspace after failure', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-mermaid-test-'));
+    const command = path.join(tempRoot, 'slow-mmdc');
+    await fs.writeFile(command, '#!/bin/sh\nsleep 2\n', { mode: 0o700 });
+    try {
+      const registry = createRendererRegistry();
+      registry.register(createMermaidBuildAdapter({
+        executablePath: command,
+        browserPath: '/bin/true',
+        timeoutMs: 25,
+        tempRoot
+      }));
+      await expect(renderRichContentNodes([node], {
+        registry,
+        profile: 'build',
+        failurePolicy: 'strict'
+      })).rejects.toMatchObject({
+        diagnostics: [expect.objectContaining({ code: 'MERMAID_RENDER_FAILED' })]
+      });
+      expect(await fs.readdir(tempRoot)).toEqual(['slow-mmdc']);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
   });
 });

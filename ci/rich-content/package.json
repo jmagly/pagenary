@@ -1,0 +1,9 @@
+{
+  "name": "pagenary-rich-content-toolchain",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "11.16.0",
+    "puppeteer": "24.16.0"
+  }
+}

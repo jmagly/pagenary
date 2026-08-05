@@ -8,7 +8,15 @@ ARG PLANTUML_SHA256=08588de4b505bd3f08fcc35bf2ca2fd9b7ec785e28203c5d6c57a7f05f4a
 ARG TECTONIC_VERSION=0.16.9
 ARG TECTONIC_SHA256=60b13a0826ae7ad9ce34b4a2df06bff2cfcfa6dda8a915477c0cbb84e1a4a902
 
+ENV PUPPETEER_CACHE_DIR=/opt/puppeteer-cache
+
 COPY --from=node /usr/local/ /usr/local/
+
+COPY ci/rich-content/package.json ci/rich-content/package-lock.json /opt/mermaid-cli/
+
+RUN cd /opt/mermaid-cli \
+ && npm ci --omit=dev --ignore-scripts=false \
+ && test "$(node -p "require('./node_modules/@mermaid-js/mermaid-cli/package.json').version")" = "11.16.0"
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -17,6 +25,18 @@ RUN apt-get update \
       fontconfig=2.15.0-1.1ubuntu2 \
       graphviz=2.42.2-9ubuntu0.1 \
       latexml=0.8.8-1 \
+      libasound2t64=1.2.11-1ubuntu0.3 \
+      libatk1.0-0t64=2.52.0-1build1 \
+      libatk-bridge2.0-0t64=2.52.0-1build1 \
+      libcups2t64=2.4.7-1.2ubuntu7.14 \
+      libdbus-1-3=1.14.10-4ubuntu4.1 \
+      libgbm1=25.2.8-0ubuntu0.24.04.2 \
+      libgtk-3-0t64=3.24.41-4ubuntu1.3 \
+      libxcomposite1=1:0.4.5-1build3 \
+      libxdamage1=1:1.1.6-1build1 \
+      libxfixes3=1:6.0.0-2build1 \
+      libxrandr2=2:1.5.2-2build1 \
+      libxshmfence1=1.3-1build5 \
       openjdk-21-jre-headless=21.0.11+10-1~24.04.2 \
       pandoc=3.1.3+ds-2 \
       texlive-extra-utils=2023.20240207-1 \
@@ -30,11 +50,14 @@ RUN apt-get update \
  && tar -xzf /tmp/tectonic.tar.gz -C /usr/local/bin tectonic \
  && rm /tmp/tectonic.tar.gz \
  && useradd --create-home --uid 10001 renderer \
+ && mkdir -p /home/renderer/.config/puppeteer \
+ && chown -R renderer:renderer /home/renderer \
  && fc-cache -f
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 \
     PLANTUML_JAR=/opt/plantuml.jar \
-    JAVA_PATH=/usr/bin/java
+    JAVA_PATH=/usr/bin/java \
+    MERMAID_CLI_PATH=/opt/mermaid-cli/node_modules/.bin/mmdc
 
 USER renderer
 WORKDIR /workspace

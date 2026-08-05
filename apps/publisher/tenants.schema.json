@@ -933,6 +933,11 @@
           "type": "object",
           "properties": {
             "mode": { "type": "string", "enum": ["runtime", "build"], "default": "runtime" },
+            "theme": { "type": "string", "enum": ["default", "neutral", "forest", "dark", "base"], "default": "neutral" },
+            "executablePath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/])" },
+            "browserPath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/])" },
+            "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 120000, "default": 20000 },
+            "fonts": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true, "default": [] },
             "maxSourceBytes": { "type": "integer", "minimum": 1, "maximum": 50000 },
             "maxEdges": { "type": "integer", "minimum": 1, "maximum": 500 },
             "maxOutputBytes": { "type": "integer", "minimum": 65536, "maximum": 4194304 }

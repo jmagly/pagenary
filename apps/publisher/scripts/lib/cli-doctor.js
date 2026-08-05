@@ -145,9 +145,10 @@ export function checkRendererCapabilities() {
       required: true,
       version: declared.mermaid || null,
       purpose: 'Pinned local Mermaid rendering (no CDN dependency)',
-      profiles: ['runtime', 'build'], securityProfile: 'strict; immutable secure options', offlineReady: true,
+      profiles: ['runtime'], securityProfile: 'strict; immutable secure options', offlineReady: true,
       diagnostic: declared.mermaid ? null : 'Install the publisher dependencies; Mermaid must remain pinned to an exact reviewed version.'
     },
+    commandCapability('mermaid-build-cli', 'mmdc', ['--version'], 'Deterministic build-time Mermaid SVG rendering', 'Install the locked @mermaid-js/mermaid-cli 11.16.0 toolchain and configure absolute executablePath and browserPath values.', { profiles: ['build'], securityProfile: 'strict; bounded subprocess; sanitized SVG', offlineReady: true }),
     commandCapability('latex-standard-web', 'latexmlc', ['--VERSION'], 'Full LaTeX pages using the standard-web-v1 semantic profile', 'Install qualified LaTeXML 0.8.8 and put `latexmlc` on PATH, or explicitly select portable-subset-v1 when its limits are acceptable.', { profiles: ['standard-web-v1'], securityProfile: 'preflight + external networkless sandbox', offlineReady: true }),
     commandCapability('latex-portable-subset', 'pandoc', ['--version'], 'Portable LaTeX subset to semantic HTML + MathML', 'Install qualified Pandoc 3.1.3 and put `pandoc` on PATH to enable portable-subset-v1.', { profiles: ['portable-subset-v1'], securityProfile: 'preflight + external networkless sandbox', offlineReady: true }),
     commandCapability('latex-pdf', 'tectonic', ['--version'], 'Optional LaTeX PDF artifact generation', 'Install qualified Tectonic 0.16.9 and prewarm its bundle only when PDF output is required.', { profiles: ['pdf-v1'], securityProfile: '--untrusted --only-cached', offlineReady: hasTectonicCache(), cache: tectonicCacheStatus(), availableDiagnostic: 'Tectonic is installed; offline PDF still requires the qualified bundle to be present in its cache.' }),

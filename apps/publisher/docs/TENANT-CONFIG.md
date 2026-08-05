@@ -1394,7 +1394,13 @@ prerequisites, security boundaries, failure policies, and troubleshooting.
   },
   "richContent": {
     "failurePolicy": "warn",
-    "mermaid": { "mode": "runtime" },
+    "mermaid": {
+      "mode": "build",
+      "theme": "neutral",
+      "executablePath": "/opt/mermaid-cli/node_modules/.bin/mmdc",
+      "browserPath": "/opt/puppeteer-cache/chrome-headless-shell/linux-139.0.7258.66/chrome-headless-shell-linux64/chrome-headless-shell",
+      "fonts": ["DejaVu Sans"]
+    },
     "plantuml": {
       "enabled": true,
       "executablePath": "/opt/plantuml/bin/plantuml"
@@ -1403,9 +1409,12 @@ prerequisites, security boundaries, failure policies, and troubleshooting.
 }
 ```
 
-Mermaid runtime assets are vendored locally at version 11.16.0. Complete LaTeX
-pages, optional PDF siblings, and PlantUML diagrams require the configured local tools; builds never
-use a public rendering service or install missing tools automatically.
+Mermaid runtime assets are vendored locally at version 11.16.0. Mermaid build
+mode additionally requires absolute paths to the qualified `mmdc` 11.16.0 and
+pinned browser executables; it emits sanitized content-addressed SVG. Complete
+LaTeX pages, optional PDF siblings, and PlantUML diagrams require the configured
+local tools; builds never use a public rendering service or install missing
+tools automatically.
 
 ### Markdown (.md)
 

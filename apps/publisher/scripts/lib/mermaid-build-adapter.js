@@ -1,18 +1,28 @@
 import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import { defineRendererAdapter } from './rich-content-adapters.js';
 import { createRenderDiagnostic, fallbackHtmlForSource } from './rich-content-diagnostics.js';
-import { RENDERER_SECURITY_BASELINES, deepFreeze } from './renderer-security.js';
+import {
+  RENDERER_SECURITY_BASELINES,
+  buildScrubbedRendererEnv,
+  deepFreeze,
+  runRendererSubprocess
+} from './renderer-security.js';
 
 const VERSION = '11.16.0';
 const DEFAULT_MAX_SOURCE_BYTES = RENDERER_SECURITY_BASELINES.mermaid.maxTextSize;
 const DEFAULT_MAX_OUTPUT_BYTES = 1024 * 1024;
 
-export function deterministicMermaidId(source, config = {}) {
+export function deterministicMermaidId(source, config = {}, renderIdentity = {}) {
   const digest = createHash('sha256')
     .update(String(source))
     .update('\0')
     .update(stableJson(config))
+    .update('\0')
+    .update(stableJson(renderIdentity))
     .digest('hex')
     .slice(0, 20);
   return `pagenary-mermaid-${digest}`;
@@ -48,6 +58,16 @@ export function createMermaidBuildAdapter(options = {}) {
   const maxEdges = positiveInteger(options.maxEdges, RENDERER_SECURITY_BASELINES.mermaid.maxEdges);
   const maxOutputBytes = positiveInteger(options.maxOutputBytes, DEFAULT_MAX_OUTPUT_BYTES);
   const injectedRenderer = options.renderer || null;
+  const configuredMermaid = {
+    ...(options.config && typeof options.config === 'object' ? options.config : {}),
+    ...(options.theme ? { theme: options.theme } : {})
+  };
+  const renderIdentity = deepFreeze({
+    renderer: `@mermaid-js/mermaid-cli@${VERSION}`,
+    outputFormat: 'svg',
+    theme: String(configuredMermaid.theme || 'default'),
+    fonts: normalizeFonts(options.fonts)
+  });
 
   return defineRendererAdapter({
     id: 'mermaid',
@@ -56,33 +76,35 @@ export function createMermaidBuildAdapter(options = {}) {
     dependencies: () => [{ package: 'mermaid', version: VERSION }],
     cacheIdentity(node, context = {}) {
       const source = node.body || node.source || '';
-      const config = secureConfig(context.mermaidConfig || options.config);
-      return { source, config, renderer: `mermaid@${VERSION}`, profile: 'build' };
+      const config = secureConfig(context.mermaidConfig || configuredMermaid);
+      return { source, config, ...renderIdentity, profile: 'build' };
     },
     async render(node, context = {}) {
       const source = String(node.body || node.source || '');
       enforceBounds(source, { maxSourceBytes, maxEdges });
-      const config = secureConfig(context.mermaidConfig || options.config);
-      const id = deterministicMermaidId(source, config);
-      const renderer = injectedRenderer || context.mermaidRenderer || await loadLocalRenderer();
-      if (!renderer) {
-        throw mermaidError(
-          'MERMAID_BUILD_UNAVAILABLE',
-          'Build-time Mermaid rendering requires a browser DOM; use runtime mode or provide a local DOM renderer'
-        );
-      }
+      const config = secureConfig(context.mermaidConfig || configuredMermaid);
+      const identity = { ...renderIdentity, theme: String(config.theme || 'default') };
+      const id = deterministicMermaidId(source, config, identity);
+      const renderer = injectedRenderer || context.mermaidRenderer || createCliRenderer(options);
 
       const rendered = await renderer({ id, source, config });
       const rawSvg = typeof rendered === 'string' ? rendered : rendered?.svg;
       const svg = decorateSvg(sanitizeMermaidSvg(rawSvg, { maxOutputBytes }), id);
       const caption = diagramCaption(node);
       const sourceFallback = fallbackHtmlForSource(source);
-      const html = `<figure class="rich-diagram rich-diagram--mermaid" data-renderer="mermaid" data-render-mode="build" data-render-id="${id}">${svg}<figcaption id="${id}-caption">${escapeHtml(caption)}</figcaption><details class="rich-diagram__source"><summary>Mermaid source</summary>${sourceFallback}</details></figure>`;
       const sourceDigest = sha256(source);
       const outputDigest = sha256(svg);
+      const assetPath = `assets/rich-content/mermaid/${outputDigest.slice(0, 24)}.svg`;
+      const html = `<figure class="rich-diagram rich-diagram--mermaid" data-renderer="mermaid" data-render-mode="build" data-render-id="${id}"><img src="./${assetPath}" alt="${escapeHtml(caption)}" aria-describedby="${id}-caption"><figcaption id="${id}-caption">${escapeHtml(caption)}</figcaption><details class="rich-diagram__source"><summary>Mermaid source</summary>${sourceFallback}</details></figure>`;
 
       return {
         html,
+        assets: [{
+          path: assetPath,
+          bytes: Buffer.from(svg, 'utf8'),
+          mimeType: 'image/svg+xml',
+          integrity: `sha256:${outputDigest}`
+        }],
         source,
         semanticText: `${caption}\n${source}`,
         searchText: `${caption}\n${source}`,
@@ -92,7 +114,7 @@ export function createMermaidBuildAdapter(options = {}) {
           version: VERSION,
           profile: 'build',
           renderId: id,
-          cacheIdentity: sha256(stableJson({ sourceDigest, config, version: VERSION })),
+          cacheIdentity: sha256(stableJson({ sourceDigest, config, version: VERSION, ...identity })),
           provenance: deepFreeze({
             schema: 'pagenary.rich-content.provenance.v1',
             renderer: `mermaid@${VERSION}`,
@@ -116,14 +138,61 @@ export function createMermaidBuildAdapter(options = {}) {
   });
 }
 
-async function loadLocalRenderer() {
-  if (!globalThis.document?.createElement) return null;
-  const module = await import('mermaid');
-  const mermaid = module.default || module;
-  return async ({ id, source, config }) => {
-    mermaid.initialize(config);
-    return mermaid.render(id, source);
+function createCliRenderer(options) {
+  const executablePath = assertAbsoluteExecutable(options.executablePath);
+  const browserPath = assertAbsoluteExecutable(options.browserPath, 'Mermaid browser');
+  return async ({ source, config }) => {
+    const tempDir = await fs.mkdtemp(path.join(options.tempRoot || os.tmpdir(), 'pagenary-mermaid-'));
+    try {
+      const inputPath = path.join(tempDir, 'diagram.mmd');
+      const outputPath = path.join(tempDir, 'diagram.svg');
+      const configPath = path.join(tempDir, 'mermaid.json');
+      const puppeteerPath = path.join(tempDir, 'puppeteer.json');
+      await Promise.all([
+        fs.writeFile(inputPath, source, { encoding: 'utf8', mode: 0o600 }),
+        fs.writeFile(configPath, JSON.stringify(config), { encoding: 'utf8', mode: 0o600 }),
+        fs.writeFile(puppeteerPath, JSON.stringify({ executablePath: browserPath, args: ['--disable-dev-shm-usage', '--no-sandbox'] }), { encoding: 'utf8', mode: 0o600 })
+      ]);
+      let result;
+      try {
+        result = await runRendererSubprocess({
+          command: executablePath,
+          args: ['-i', inputPath, '-o', outputPath, '-c', configPath, '-p', puppeteerPath, '--quiet', '--backgroundColor', 'transparent'],
+          cwd: tempDir,
+          env: buildScrubbedRendererEnv({ baseEnv: options.env || process.env }),
+          trustedCommands: [executablePath],
+          timeoutMs: positiveInteger(options.timeoutMs, 20_000),
+          maxOutputBytes: 64 * 1024,
+          maxErrorBytes: 64 * 1024
+        });
+      } catch (error) {
+        throw mermaidError(error.code === 'ENOENT' ? 'MERMAID_BUILD_UNAVAILABLE' : 'MERMAID_RENDER_FAILED', `Bounded Mermaid CLI rendering failed: ${error.message}`);
+      }
+      if (result.code !== 0) {
+        throw mermaidError('MERMAID_RENDER_FAILED', `Mermaid CLI exited with code ${result.code}: ${result.stderr.trim() || 'no diagnostic'}`);
+      }
+      let svg;
+      try {
+        svg = await fs.readFile(outputPath, 'utf8');
+      } catch {
+        throw mermaidError('MERMAID_RENDER_FAILED', 'Mermaid CLI did not produce an SVG output file');
+      }
+      return { svg };
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
   };
+}
+
+function assertAbsoluteExecutable(value, label = 'Mermaid CLI') {
+  if (typeof value !== 'string' || !path.isAbsolute(value)) {
+    throw mermaidError('MERMAID_BUILD_UNAVAILABLE', `${label} requires a configured absolute executable path`);
+  }
+  return value;
+}
+
+function normalizeFonts(value) {
+  return Array.isArray(value) ? [...new Set(value.map(String).filter(Boolean))].sort() : [];
 }
 
 function secureConfig(config = {}) {
@@ -132,6 +201,8 @@ function secureConfig(config = {}) {
     ...authored,
     startOnLoad: false,
     securityLevel: 'strict',
+    look: 'classic',
+    handDrawnSeed: 1,
     suppressErrorRendering: true,
     maxTextSize: RENDERER_SECURITY_BASELINES.mermaid.maxTextSize,
     maxEdges: RENDERER_SECURITY_BASELINES.mermaid.maxEdges,

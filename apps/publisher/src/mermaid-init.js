@@ -93,10 +93,11 @@ export async function renderMermaidBlocks(container) {
 
     try {
       const { svg } = await mermaid.render(id, definition);
-      const wrapper = document.createElement('div');
-      wrapper.className = 'mermaid-diagram';
-      wrapper.setAttribute('role', 'figure');
-      wrapper.setAttribute('aria-label', title);
+      const wrapper = document.createElement('figure');
+      wrapper.className = 'mermaid-diagram rich-diagram rich-diagram--mermaid';
+      wrapper.dataset.renderer = 'mermaid';
+      wrapper.dataset.renderMode = 'runtime';
+      wrapper.dataset.renderId = id;
 
       // Create scrollable content area
       const content = document.createElement('div');
@@ -104,8 +105,29 @@ export async function renderMermaidBlocks(container) {
       content.innerHTML = svg;
 
       wrapper.appendChild(content);
+      const caption = document.createElement('figcaption');
+      caption.id = `${id}-caption`;
+      caption.textContent = title;
+      wrapper.appendChild(caption);
+
+      const sourceDetails = document.createElement('details');
+      sourceDetails.className = 'rich-diagram__source';
+      const sourceSummary = document.createElement('summary');
+      sourceSummary.textContent = 'Mermaid source';
+      const sourcePre = document.createElement('pre');
+      const sourceCode = document.createElement('code');
+      sourceCode.textContent = definition;
+      sourcePre.appendChild(sourceCode);
+      sourceDetails.append(sourceSummary, sourcePre);
+      wrapper.appendChild(sourceDetails);
+
       const svgEl = content.querySelector('svg');
-      if (svgEl) cleanup.push(enhancePanZoomViewport({ container: wrapper, viewport: content, target: svgEl, label: 'Diagram' }));
+      if (svgEl) {
+        svgEl.setAttribute('role', 'img');
+        svgEl.setAttribute('aria-labelledby', caption.id);
+        svgEl.removeAttribute('aria-label');
+        cleanup.push(enhancePanZoomViewport({ container: wrapper, viewport: content, target: svgEl, label: title }));
+      }
 
       pre.replaceWith(wrapper);
     } catch (err) {

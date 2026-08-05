@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,12 +10,15 @@ import { promisify } from 'node:util';
 import { createLatexPageAdapter, renderLatexPdf } from '../../apps/publisher/scripts/lib/latex-page-adapter.js';
 import { preflightLatexPage } from '../../apps/publisher/scripts/lib/latex-page-preflight.js';
 import { createPlantUmlAdapter, diagnosePlantUmlTool } from '../../apps/publisher/scripts/lib/plantuml-renderer.js';
+import { createMermaidBuildAdapter } from '../../apps/publisher/scripts/lib/mermaid-build-adapter.js';
+import { renderConfiguredBuildFences } from '../../apps/publisher/scripts/build-tenants.js';
 
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const fixtures = path.join(root, 'apps/publisher/__tests__/fixtures/latex-pages');
 const javaPath = process.env.JAVA_PATH || '/usr/bin/java';
 const jarPath = process.env.PLANTUML_JAR || '/opt/plantuml.jar';
+const mermaidCliPath = process.env.MERMAID_CLI_PATH || '/opt/mermaid-cli/node_modules/.bin/mmdc';
 
 const versions = await probeVersions();
 assert.match(versions.latexml, /0\.8\.8/);
@@ -22,6 +26,7 @@ assert.match(versions.plantuml, /1\.2026\.4/);
 assert.match(versions.tectonic, /0\.16\.9/);
 assert.match(versions.pandoc, /3\.1\.3/);
 assert.match(versions.make4ht, /v0\.3m/);
+assert.match(versions.mermaid, /11\.16\.0/);
 
 const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-external-renderers-'));
 try {
@@ -110,6 +115,60 @@ try {
 
   const converterBakeoff = await qualifyConverterCandidates(temp);
 
+  const browserPath = await findPuppeteerBrowser();
+  const mermaidCorpus = {
+    flowchart: 'flowchart LR\n  Author --> Publisher\n  Publisher --> Page',
+    sequence: 'sequenceDiagram\n  Author->>Publisher: Build\n  Publisher-->>Author: Page',
+    class: 'classDiagram\n  Page <|-- Article\n  Page : +render()',
+    state: 'stateDiagram-v2\n  [*] --> Draft\n  Draft --> Published',
+    er: 'erDiagram\n  PAGE ||--o{ ASSET : contains'
+  };
+  const mermaidResults = [];
+  for (const theme of ['neutral', 'forest', 'dark']) {
+    const mermaid = createMermaidBuildAdapter({
+      executablePath: mermaidCliPath,
+      browserPath,
+      timeoutMs: 60_000,
+      fonts: ['DejaVu Sans'],
+      theme
+    });
+    for (const [family, body] of Object.entries(mermaidCorpus)) {
+      const diagram = await mermaid.render({ body, attributes: { title: `${family} diagram` } });
+      const repeated = await mermaid.render({ body, attributes: { title: `${family} diagram` } });
+      assert.match(diagram.html, /<img src="\.\/assets\/rich-content\/mermaid\/[a-f0-9]{24}\.svg"/);
+      assert.equal(diagram.assets.length, 1);
+      assert.deepEqual(repeated.assets[0].bytes, diagram.assets[0].bytes);
+      assert.equal(repeated.rendererMetadata.cacheIdentity, diagram.rendererMetadata.cacheIdentity);
+      const svg = diagram.assets[0].bytes.toString('utf8');
+      assert.match(svg, /<svg\b/);
+      assert.doesNotMatch(svg, /<script|<foreignObject|\son[a-z]+=|javascript:/i);
+      const snapshot = await captureSvgSnapshot(browserPath, diagram.assets[0].bytes, temp, `${theme}-${family}`);
+      mermaidResults.push({ theme, family, svgBytes: diagram.assets[0].bytes.length, snapshot });
+    }
+  }
+  const materializedDir = path.join(temp, 'mermaid-materialized');
+  const materializedFence = await renderConfiguredBuildFences(
+    '```mermaid title="Static export"\nflowchart LR\n  Source --> Snapshot\n```',
+    {
+      richContentConfig: {
+        failurePolicy: 'strict',
+        mermaid: {
+          mode: 'build', theme: 'neutral', executablePath: mermaidCliPath,
+          browserPath, timeoutMs: 60_000, fonts: ['DejaVu Sans']
+        }
+      },
+      contentRoot: temp,
+      currentPath: 'static-export.md',
+      distDir: materializedDir,
+      renderDiagnostics: []
+    }
+  );
+  const materializedPath = materializedFence.match(/assets\/rich-content\/mermaid\/[a-f0-9]{24}\.svg/)?.[0];
+  assert.ok(materializedPath);
+  assert.match(materializedFence, /data-render-mode="build"/);
+  assert.doesNotMatch(materializedFence, /class="language-mermaid"/);
+  assert.match(await fs.readFile(path.join(materializedDir, materializedPath), 'utf8'), /<svg\b/);
+
   const plantStatus = await diagnosePlantUmlTool({ jarPath, javaPath, version: '1.2026.4' });
   assert.equal(plantStatus.available, true);
   assert.equal(plantStatus.version, '1.2026.4');
@@ -164,6 +223,7 @@ try {
       malformed: 'bounded converter rejection'
     },
     converterBakeoff,
+    mermaid: { browserPath, diagrams: mermaidResults },
     plantuml: {
       profile: plantStatus.securityProfile,
       diagrams: plantUmlResults,
@@ -181,13 +241,48 @@ async function probeVersions() {
   const tectonic = await exec('tectonic', ['--version'], { encoding: 'utf8' });
   const pandoc = await exec('pandoc', ['--version'], { encoding: 'utf8' });
   const make4ht = await exec('make4ht', ['--version'], { encoding: 'utf8' });
+  const mermaid = await exec(mermaidCliPath, ['--version'], { encoding: 'utf8' });
   return {
     latexml: firstLine(latexml.stdout || latexml.stderr),
     plantuml: firstLine(plantuml.stdout || plantuml.stderr),
     tectonic: firstLine(tectonic.stdout || tectonic.stderr),
     pandoc: firstLine(pandoc.stdout || pandoc.stderr),
-    make4ht: firstLine(make4ht.stdout || make4ht.stderr)
+    make4ht: firstLine(make4ht.stdout || make4ht.stderr),
+    mermaid: firstLine(mermaid.stdout || mermaid.stderr)
   };
+}
+
+async function findPuppeteerBrowser() {
+  const cacheRoot = process.env.PUPPETEER_CACHE_DIR || '/opt/puppeteer-cache';
+  const candidates = [];
+  async function walk(directory) {
+    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+      const candidate = path.join(directory, entry.name);
+      if (entry.isDirectory()) await walk(candidate);
+      else if (entry.isFile() && (entry.name === 'chrome' || entry.name === 'chrome-headless-shell')) candidates.push(candidate);
+    }
+  }
+  await walk(cacheRoot);
+  assert.equal(candidates.length > 0, true, 'Pinned Puppeteer browser was not installed');
+  return candidates.sort()[0];
+}
+
+async function captureSvgSnapshot(browserPath, svg, workDir, name) {
+  const svgPath = path.join(workDir, `${name}.mermaid.svg`);
+  const pngPath = path.join(workDir, `${name}.mermaid.png`);
+  await fs.writeFile(svgPath, svg);
+  await exec(browserPath, [
+    '--headless', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+    '--window-size=1280,900', `--screenshot=${pngPath}`, `file://${svgPath}`
+  ], { timeout: 30_000, maxBuffer: 1024 * 1024 });
+  const png = await fs.readFile(pngPath);
+  assert.deepEqual(png.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  assert.ok(png.length > 1_000);
+  return { bytes: png.length, sha256: createDigest(png) };
+}
+
+function createDigest(value) {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 async function qualifyConverterCandidates(workDir) {
