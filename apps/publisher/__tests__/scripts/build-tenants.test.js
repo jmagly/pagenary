@@ -1637,6 +1637,7 @@ describe('build-tenants.js', () => {
     async function buildDocsMap(config) {
       dmDir = await createTestTenant(DM_ID, config, DM_MANIFEST, DM_CONTENT);
       const res = await runBuildTenantsWithRegistry([{ id: DM_ID }]);
+      if (res.code !== 0) throw new Error(`${res.stderr}\n${res.stdout}`);
       expect(res.code).toBe(0);
       const dist = path.join(PUBLISHER_ROOT, 'dist', DM_ID);
       return {
@@ -1653,6 +1654,10 @@ describe('build-tenants.js', () => {
       expect(has('pages/docs-map.html')).toBe(true);
       expect(manifest).toMatch(/"id":\s*"docs-map"/);
       expect(manifest).toMatch(/"module":\s*"\.\/sections\/docs-map\.[a-f0-9]{12}\.js"/);
+      const docsMapModule = flattenModules(extractManifestArray(manifest)).get('docs-map');
+      expect(docsMapModule).toBeDefined();
+      expect(has(docsMapModule.replace(/^\.\//, ''))).toBe(true);
+      await expectFilenameHashMatches(dist, docsMapModule.replace(/^\.\//, ''));
       const html = await fsp.readFile(path.join(dist, 'pages', 'docs-map.html'), 'utf8');
       expect(html).toContain('<title>Docs Map | DM</title>');
       expect(html).toContain("window.location.replace('/#docs-map')");

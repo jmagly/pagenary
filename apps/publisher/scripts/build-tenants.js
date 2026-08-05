@@ -5821,6 +5821,11 @@ async function rewriteAllTextArtifacts(distDir, map) {
   const built = buildLiteralReplacements(map);
   if (!built.qualified.length && built.baseByDir.size === 0) return;
   const shouldRewrite = (rel) => {
+    // A content-addressed copy is immutable by definition. Mutating imports in
+    // place makes its filename lie about its bytes and can strand consumers on
+    // a later, removed hash. Stable alias sources are the rewrite targets; new
+    // hashed copies are emitted from those sources by refreshHashedCopies.
+    if (/\.[a-f0-9]{12}\.[^/]+$/i.test(rel)) return false;
     if (rel.startsWith('search-index/')) return false;
     if (rel.startsWith('pages/')) return false;
     if (rel.startsWith('sections/') && !rel.includes('docs-map')) return false;
@@ -5872,7 +5877,10 @@ async function refreshHashedCopies(distDir, map) {
     nextMap.set(from, nextTo);
     if (nextTo !== oldTo) {
       oldToNew.set(oldTo, nextTo);
-      await fsp.rm(path.join(distDir, oldTo), { force: true });
+      // Keep the prior content-addressed copy. Runtime modules can contain
+      // import cycles, whose filenames cannot all reach a cryptographic fixed
+      // point. A consumer rewritten in the previous pass may legitimately
+      // reference this immutable intermediate copy; deleting it creates a 404.
     }
   }
   return { map: nextMap, oldToNew };
@@ -5911,11 +5919,14 @@ async function finalizeContentAddressedBundle(distDir, tenantId, config = {}) {
   const firstMap = new Map([...sectionMap, ...runtimeMap, ...assetMap, ...searchMap]);
   await rewriteAllTextArtifacts(distDir, firstMap);
   let stabilized = await refreshHashedCopies(distDir, firstMap);
-  for (let i = 0; i < 3 && stabilized.oldToNew.size > 0; i += 1) {
+  // Propagate dependency hashes through the common acyclic portion of the
+  // module graph. Cyclic imports cannot reach a cryptographic filename fixed
+  // point, so refreshHashedCopies retains their immutable intermediate copies.
+  const maxStabilizationPasses = 3;
+  for (let i = 0; i < maxStabilizationPasses && stabilized.oldToNew.size > 0; i += 1) {
     await rewriteAllTextArtifacts(distDir, new Map([...stabilized.map, ...stabilized.oldToNew]));
     stabilized = await refreshHashedCopies(distDir, stabilized.map);
   }
-
   const contentMap = stabilized.map;
 
   const manifestHashed = await renameTextFileWithHash(distDir, 'manifest.js');
