@@ -16,10 +16,10 @@
 | R3 | Multi-tenant isolation | HIGH | LOW | MEDIUM | MITIGATED | Architecture |
 | R4 | Zero-dependency maintainability | MEDIUM | LOW | LOW | MONITORING | Engineering |
 | R5 | Test coverage gaps | MEDIUM | LOW | MEDIUM | MITIGATED | Test Engineer |
-| R6 | TeX/diagram renderer arbitrary access or resource exhaustion | HIGH | MEDIUM | HIGH | OPEN | Security Architecture |
+| R6 | TeX/diagram renderer arbitrary access or resource exhaustion | HIGH | MEDIUM | HIGH | RETIRED | Security Architecture |
 | R7 | LaTeX-page compatibility claims exceed tested converter profile | HIGH | MEDIUM | HIGH | OPEN | Architecture |
 | R8 | Renderer output diverges across SPA, snapshots, search, and export | HIGH | MEDIUM | HIGH | OPEN | Engineering |
-| R9 | Renderer dependency drift or vulnerable generated markup | HIGH | MEDIUM | HIGH | OPEN | Security Engineering |
+| R9 | Renderer dependency drift or vulnerable generated markup | HIGH | MEDIUM | HIGH | MITIGATED | Security Engineering |
 | R10 | Cold-build cost and toolchain portability regress publisher usability | MEDIUM | MEDIUM | MEDIUM | OPEN | Build Engineering |
 
 ---
@@ -169,7 +169,7 @@
 
 ### R6-R10: Rich Technical Content Rendering Risks
 
-**Status:** OPEN pending planning audit and construction-entry spikes.
+**Status:** ACTIVE; R6 retired, R9 mitigated, remaining risks tracked by their delivery gates.
 
 | ID | Trigger | Mitigation owner | Retirement evidence | Tracker |
 |---|---|---|---|---|
@@ -194,18 +194,19 @@
 - **R10 mitigation:** content-addressed cache, optional toolchains, cold/warm
   benchmarks, prebuilt pinned CI image, CLI capability diagnostics.
 
-R6 and R7 are construction-entry risks and must be retired by the threat model and
-converter bake-off. R8-R10 must be mitigated with automated evidence before
-release.
+R6 is retired for the qualified container profiles. R7 remains open until every
+bake-off candidate has executable evidence. R8 and R10 remain open; R9 is
+mitigated and monitored through exact pins, sanitizer/advisory fixtures, and the
+upgrade gate.
 
 **Total Risks:** 10
-**Retired:** 1 (10%)
-**Mitigated:** 2 (20%)
+**Retired:** 2 (20%)
+**Mitigated:** 3 (30%)
 **Accepted:** 1 (10%)
 **Monitoring:** 1 (10%)
-**Open:** 5 (50%)
+**Open:** 3 (30%)
 
-**HIGH Priority:** 5 (1 Retired, 4 Open)
+**HIGH Priority:** 5 (2 Retired, 1 Mitigated, 2 Open)
 **MEDIUM Priority:** 3 (2 Mitigated, 1 Open)
 **LOW Priority:** 2 (1 Accepted, 1 Monitoring)
 

@@ -4,6 +4,7 @@ import os from 'node:os';
 import {
   createLatexPageAdapter,
   inspectLatexPageRenderers,
+  runBoundedCommand,
   renderLatexPage,
   renderLatexPdf
 } from '../../scripts/lib/latex-page-adapter.js';
@@ -66,6 +67,19 @@ describe('LaTeX page normalization', () => {
 });
 
 describe('LaTeX page adapters', () => {
+  test('default command runner resolves an absolute allowlisted executable without a shell', async () => {
+    const result = await runBoundedCommand('node', ['-e', 'process.stdout.write("bounded")'], {
+      cwd: process.cwd(),
+      env: { PATH: path.dirname(process.execPath), LANG: 'C.UTF-8' },
+      timeoutMs: 1000,
+      maxOutputBytes: 64 * 1024
+    });
+    expect(result.stdout).toBe('bounded');
+    await expect(runBoundedCommand('definitely-not-a-renderer', [], {
+      cwd: process.cwd(), env: { PATH: path.dirname(process.execPath) }
+    })).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   test('materializes a distinct .tex page as a section module', async () => {
     const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-page-'));
     const sourcePath = path.join(temp, 'page.tex');

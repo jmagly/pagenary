@@ -1,11 +1,11 @@
 # Rich Content Renderer Threat Model
 
-**Status:** Proposed
+**Status:** Validated
 **Date:** 2026-08-05
 **Issue:** #167
 **Related Requirements:** `REQ-rich-technical-content.md` RTC-FR-020..046, RTC-NFR-001, RTC-NFR-007, RTC-NFR-008
 **Related Architecture:** `ADR-019-rich-technical-content-rendering.md`
-**Supporting Evidence:** `apps/publisher/scripts/lib/renderer-security.js`, `apps/publisher/__tests__/scripts/renderer-security.test.js`
+**Supporting Evidence:** `apps/publisher/scripts/lib/renderer-security.js`, renderer adapters, focused abuse tests, and `ci/rich-content/`
 
 ## Scope
 
@@ -105,8 +105,8 @@ concerns are out of scope for issue #167.
 | Spoofing | Tenant content impersonates operator policy by embedding weaker Mermaid or renderer flags | Frozen profile merge, immutable path list, allowlisted command paths | Low after integration |
 | Tampering | Includes or symlinks redirect renderer reads outside tenant root | Relative-only path parsing plus realpath containment checks | Low for reads; still depends on caller using the helper everywhere |
 | Repudiation | Failures cannot be traced because diagnostics are stripped too aggressively | Redaction preserves relative tenant path context and renderer failure class | Low |
-| Information Disclosure | Env vars, absolute host paths, or cross-tenant files leak through subprocess or logs | Scrubbed env, path containment, diagnostic redaction | Medium until all renderer call sites adopt the helper |
-| Denial of Service | Recursive includes, macro expansion, or verbose output stall builds | Timeout, kill grace, stdout/stderr ceilings, upstream parser-specific size limits | Medium; CPU/memory/PID limits still need OS/container enforcement at integration time |
+| Information Disclosure | Env vars, absolute host paths, or cross-tenant files leak through subprocess or logs | Scrubbed env, path containment, diagnostic redaction | Low; deployment must retain the qualified container boundary |
+| Denial of Service | Recursive includes, macro expansion, or verbose output stall builds | Timeout, kill grace, source/file/stdout/stderr ceilings, container CPU/memory/PID limits | Low within the qualified container profile |
 | Elevation of Privilege | Shell strings or PATH lookup execute attacker-controlled binaries | Absolute allowlisted commands only, `shell: false` | Low after integration |
 
 ## Required Controls
@@ -159,52 +159,45 @@ concerns are out of scope for issue #167.
 - Unit tests prove immutable profile rejection, env scrubbing, relative path
   enforcement, symlink escape rejection, timeout/output kills, and diagnostic
   redaction.
-- Integration work for renderer call sites must add:
-  - container or OS-level CPU/memory/PID/file-count limits,
-  - generated SVG/HTML normalization tests,
-  - cache identity tests that include tenant and toolchain identity,
-  - dependency pin/checksum/SBOM evidence for Mermaid, PlantUML, Graphviz, and
-    the selected LaTeX converter.
+- Integrated verification now includes container CPU/memory/PID and read-only
+  filesystem limits, generated SVG/HTML normalization, tenant-scoped cache
+  identity/integrity tests, and exact dependency/checksum/license evidence for
+  Mermaid, PlantUML, Graphviz, LaTeXML, Tectonic, and fonts.
 
 ## Residual Risks
 
-1. `renderer-security.js` is currently a reusable foundation, not yet wired into
-   `build-tenants.js` or renderer adapters. Enforcement is only complete after
-   integration.
-2. CPU, memory, and PID ceilings still require the eventual host/container layer;
-   this issue provides the API contract, not kernel enforcement.
-3. Generated SVG/HTML sanitization remains a separate implementation task even
-   though the threat is documented here.
-4. Cache poisoning and tenant-key collision controls still need concrete cache
-   integration and tests in downstream issues.
+1. Operators enabling external renderers must retain the qualified disposable,
+   non-root, networkless, read-only container profile. Running the binaries
+   directly on an unrestricted host is outside the validated boundary.
+2. The repository-wide dependency audit remains conditional on #179's release-age
+   cooldown, although the renderer dependencies themselves are exact and the
+   remaining advisories are not in their dependency paths.
+3. Newly supported packages, renderer versions, or output formats require corpus
+   and sanitizer requalification before entering the standard profile.
 
 ## R6 / R9 Disposition
 
 ### R6: TeX/diagram renderer arbitrary access or resource exhaustion
 
-- **Current disposition:** Partially mitigated by design and unit evidence.
-- **Evidence added in this issue:** immutable baselines, env scrub API, path and
-  symlink containment checks, allowlisted subprocess API, timeout/output kill
-  behavior, and a focused abuse suite.
-- **Retirement condition still open:** integrate these controls into every actual
-  renderer invocation and add OS/container resource enforcement.
+- **Current disposition:** Retired for the qualified default profiles.
+- **Evidence:** immutable baselines, env scrubbing, path/symlink containment,
+  allowlisted subprocesses, timeout/output termination, hostile corpus tests,
+  and a non-root networkless/read-only container with CPU/memory/PID ceilings.
 
 ### R9: Renderer dependency drift or vulnerable generated markup
 
-- **Current disposition:** Still open, but better constrained.
-- **Evidence added in this issue:** Mermaid baseline now targets exact version
-  `11.16.0`, generated diagnostics redact secrets/host paths, and the threat
-  model requires version/toolchain identity in future cache keys.
-- **Retirement condition still open:** dependency checksums/SBOM, advisory
-  fixtures, generated HTML/SVG normalization, and upgrade gates remain the work
-  of issues #171 and #176.
+- **Current disposition:** Mitigated and monitored.
+- **Evidence:** exact KaTeX/Mermaid versions with lockfile integrity; pinned image,
+  package, JAR, and binary digests/checksums; recorded licenses; advisory
+  fixtures; deterministic generated-markup sanitization; and a gated external
+  renderer workflow. #179 tracks the unrelated residual repository audit items.
 
 ## Gate Summary
 
 - Threat model created: yes
 - Assets, trust boundaries, actors, abuse cases, controls, residual risks, and
   verification documented: yes
-- Reusable security primitives added in new files only: yes
+- Reusable security primitives integrated into all external renderer call sites: yes
 - Tests covering profile immutability, env scrubbing, path containment, timeout
   and output bounds, and diagnostic redaction: yes
-- Final R6/R9 retirement: not yet; further integration work is required
+- R6 retired for qualified profiles; R9 mitigated with upgrade monitoring: yes

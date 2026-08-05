@@ -1,14 +1,13 @@
-import { execFile as nodeExecFile } from 'node:child_process';
+import { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { defineRendererAdapter } from './rich-content-adapters.js';
 import { fallbackHtmlForSource } from './rich-content-diagnostics.js';
 import { normalizeLatexHtml, latexHtmlSemanticText } from './latex-page-normalize.js';
 import { preflightLatexPage } from './latex-page-preflight.js';
+import { runRendererSubprocess } from './renderer-security.js';
 
-const execFile = promisify(nodeExecFile);
 export const LATEX_PAGE_PROFILES = Object.freeze({
   'standard-web-v1': Object.freeze({ command: 'latexmlc', versionArgs: ['--VERSION'], semantic: true, output: 'html+mathml' }),
   'portable-subset-v1': Object.freeze({ command: 'pandoc', semantic: true, output: 'html+mathml', subset: true }),
@@ -177,16 +176,43 @@ export async function renderLatexPdf(node, options = {}) {
 }
 
 export async function runBoundedCommand(command, args, options = {}) {
-  const result = await execFile(command, args, {
+  const executable = await resolveExecutable(command, options.env?.PATH || process.env.PATH || '');
+  const result = await runRendererSubprocess({
+    command: executable,
+    args,
     cwd: options.cwd,
     env: options.env,
-    timeout: options.timeoutMs || 20_000,
-    maxBuffer: options.maxOutputBytes || 4 * 1024 * 1024,
-    windowsHide: true,
-    shell: false,
-    encoding: 'utf8'
+    timeoutMs: options.timeoutMs || 20_000,
+    maxOutputBytes: options.maxOutputBytes || 4 * 1024 * 1024,
+    maxErrorBytes: options.maxOutputBytes || 4 * 1024 * 1024,
+    trustedCommands: [executable]
   });
-  return { stdout: result.stdout || '', stderr: result.stderr || '' };
+  if (result.code !== 0) {
+    throw latexError('LATEX_PROCESS_FAILED', `${path.basename(executable)} exited unsuccessfully`);
+  }
+  return { stdout: result.stdout, stderr: result.stderr };
+}
+
+async function resolveExecutable(command, commandPath) {
+  const candidates = path.isAbsolute(command)
+    ? [command]
+    : String(commandPath).split(path.delimiter).filter(Boolean).flatMap((directory) => {
+      const base = path.resolve(directory, command);
+      if (process.platform !== 'win32') return [base];
+      const extensions = String(process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';').filter(Boolean);
+      return [base, ...extensions.map((extension) => `${base}${extension.toLowerCase()}`)];
+    });
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate, fsConstants.X_OK);
+      return await fs.realpath(candidate);
+    } catch {
+      // Try the next operator-provided PATH entry.
+    }
+  }
+  const error = new Error(`Renderer command is not available: ${command}`);
+  error.code = 'ENOENT';
+  throw error;
 }
 
 function resolveInput(node = {}, context = {}) {
