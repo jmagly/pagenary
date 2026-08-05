@@ -117,7 +117,7 @@ delimiters. The selected converter must already be installed locally:
 ```
 
 The default package allowlist is `amsmath`, `amssymb`, `array`, `booktabs`,
-`graphicx`, `hyperref`, `mathtools`, `microtype`, `textcomp`, `url`, and
+`graphicx`, `hyperref`, `inputenc`, `mathtools`, `microtype`, `textcomp`, `url`, and
 `xcolor`. Setting `allowedPackages` replaces that list for the tenant. Included
 TeX, bibliography, and graphic files must exist beneath the tenant content
 root. Absolute paths, parent traversal, URLs, pipe input, direct TeX file I/O,
@@ -182,11 +182,13 @@ PlantUML is build-time and local-only:
 
 ````markdown
 ```plantuml
-@startuml
 Alice -> Bob: hello
-@enduml
 ```
 ````
+
+For an ordinary UML fence, Pagenary supplies `@startuml`/`@enduml` when they
+are omitted. Explicit matching families such as `@startjson`/`@endjson` and
+`@startyaml`/`@endyaml` are preserved; mismatched wrappers fail validation.
 
 Configure either an absolute PlantUML executable path or an absolute JAR and
 Java path. Paths are operator configuration, not content-controlled commands:
@@ -198,7 +200,11 @@ Java path. Paths are operator configuration, not content-controlled commands:
     "plantuml": {
       "enabled": true,
       "executablePath": "/opt/plantuml/bin/plantuml",
-      "version": "1.2026.4"
+      "version": "1.2026.4",
+      "pngFallback": false,
+      "maxSourceBytes": 131072,
+      "maxIncludes": 32,
+      "maxOutputBytes": 4194304
     }
   }
 }
@@ -220,8 +226,12 @@ system property for JAR execution), uses a scrubbed environment and bounded
 subprocess, and sanitizes SVG output. URL/import directives are forbidden.
 Local `!include` and `!include_once` files must remain beneath the tenant root;
 cycles and excessive includes are rejected. The publisher never falls back to
-a PlantUML server. When no configured local tool is available, `warn` retains
+a PlantUML server. Sanitized SVG is emitted as a content-addressed tenant asset
+and referenced by accessible image markup, rather than injected inline. When no configured local tool is available, `warn` retains
 escaped source and diagnostics while `strict` fails the build.
+Set `pngFallback: true` to emit a content-addressed PNG fallback inside a
+`picture` element while retaining SVG as the preferred source. Both generated
+files are subject to `maxOutputBytes`.
 
 ## Delivery behavior
 

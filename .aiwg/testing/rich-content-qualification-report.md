@@ -7,19 +7,20 @@
 
 The implemented in-process rich-content paths pass their focused and complete
 test suites, the publisher build/check/package pipelines pass, VS Code smoke
-tests pass, and generated Mermaid/KaTeX assets are local and stable. Release
-qualification remains conditional because two high-severity transitive audit
-findings remain in the supply-chain cooldown window and the external
-LaTeX/PlantUML renderer matrix cannot be exercised on this host.
+tests pass, generated Mermaid/KaTeX assets are local and stable, and the real
+LaTeXML, PlantUML, and Tectonic corpus passes in a pinned networkless container.
+Release qualification remains conditional because two high-severity transitive
+audit findings remain in the supply-chain cooldown window and browser/CSP/AT
+qualification is still outstanding.
 
 ## Results
 
 | Gate | Result | Evidence |
 |---|---:|---|
-| Rich-content focused tests | PASS | 8 suites, 53 tests, 2.07 s wall, 187,424 KiB max RSS |
+| Rich-content focused tests | PASS | 8 suites, 62 tests, 1.889 s Jest time after external-renderer hardening |
 | Publisher `check` | PASS WITH WARNINGS | 4.60 s wall, 165,616 KiB max RSS; two existing example color-contrast warnings |
 | Publisher build | PASS | 2.44 s wall, 167,180 KiB max RSS; subsequent build 1.45 s / 172,056 KiB |
-| Complete publisher tests | PASS | 47 suites, 668 tests, 715.773 s; the isolated 79-test tenant-build suite passed in 279.25 s after harness optimization |
+| Complete publisher tests | PASS | 47 suites, 675 tests, 417.886 s after external-renderer hardening |
 | VS Code extension tests | PASS | Scaffold and activation smoke tests; 0.35 s wall, 69,628 KiB max RSS |
 | Registry schema validation | PASS | `tenants.json` and `examples/recipes.tenants.json` validate with Ajv |
 | Offline/CDN runtime scan | PASS | No CDN/runtime HTTP imports in publisher source/scripts or generated runtime; documentation-only jsDelivr examples and generated canonical URLs excluded |
@@ -27,7 +28,7 @@ LaTeX/PlantUML renderer matrix cannot be exercised on this host.
 | Whole-build reproducibility | PASS | With `SOURCE_DATE_EPOCH=1704067200`, two isolated builds had identical file sets and byte content; the focused build suite compares every emitted file |
 | Dependency pinning | PASS | KaTeX 0.18.1 and Mermaid 11.16.0 are exact lockfile versions with integrity hashes |
 | Dependency audit | CONDITIONAL | Policy-aged exact overrides fixed `js-yaml` and `postcss`; `npm audit` now reports 2 high, 0 critical (`brace-expansion`, `fast-uri`), neither introduced by the renderer packages; cooldown follow-up is #179 |
-| External renderer matrix | NOT RUN | Pandoc available; LaTeXML, PlantUML, and Tectonic absent |
+| External renderer matrix | PASS | Pinned Ubuntu 24.04 image; LaTeXML 0.8.8, PlantUML 1.2026.4 SANDBOX, and Tectonic 0.16.9; networkless/read-only/resource-bounded run |
 
 ## Exact Commands and Evidence
 
@@ -47,7 +48,7 @@ cd apps/publisher
   __tests__/scripts/semantic-html.test.js
 ```
 
-Result: `Test Suites: 8 passed, 8 total`; `Tests: 53 passed, 53 total`.
+Current result: `Test Suites: 8 passed, 8 total`; `Tests: 62 passed, 62 total`.
 
 ### Full check and build
 
@@ -69,12 +70,11 @@ timeout --signal=INT --kill-after=10s 300s /usr/bin/time -v \
   --runInBand --verbose
 ```
 
-The tenant-build harness now defaults spawned fixture builds to development
-mode while preserving caller overrides; production minification remains
-covered by `build.test.js`. Four identical two-tenant assertions also share a
-single setup build. The affected suite passes 79/79 in 279.25 seconds (down
-from Jest's earlier 512-second estimate), and the final complete in-band run
-passes 47/47 suites and 668/668 tests in 715.773 seconds.
+The tenant-build harness defaults spawned fixture builds to development mode
+while preserving caller overrides; production minification remains covered by
+`build.test.js`. Four identical two-tenant assertions share a single setup
+build. The current complete in-band run passes 47/47 suites and 675/675 tests
+in 417.886 seconds.
 
 ### VS Code tests and schema
 
@@ -163,33 +163,61 @@ adoption after cooldown without bypassing repository supply-chain policy.
 
 ## External Tool Gates
 
-Tool probe:
+The reproducible qualification image is defined in
+`ci/rich-content/Dockerfile` and its real-adapter corpus in
+`ci/rich-content/qualify.mjs`. The qualified local image manifest list was
+`sha256:3803f70b83bf707d3051f9cfdd7c5ef0350cadd90f1d1fe2663ed389f36a6ac6`.
+Its immutable base image and downloaded renderer artifacts are digest/checksum
+pinned. Tectonic resources are warmed from the accepted representative fixture
+during the networked image build; runtime PDF generation uses `--untrusted
+--only-cached`.
+
+```sh
+docker run --rm --network none --read-only \
+  --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=256m \
+  --tmpfs /home/renderer/.cache/fontconfig:rw,nosuid,nodev,mode=0700,uid=10001,gid=10001,size=16m \
+  --cpus 2 --memory 1g --pids-limit 128 \
+  -v "$PWD:/workspace:ro" \
+  pagenary-rich-content:2026-08-05
+```
+
+Result: `PASS`. The five positive LaTeXML fixtures each rendered twice
+with byte-identical normalized HTML. The negative fixture was rejected at
+preflight with `LATEX_UNSAFE_COMMAND`. PlantUML rendered sequence, class,
+component, activity, state, ER, JSON, and YAML diagrams twice with byte-identical
+sanitized SVG under SANDBOX, plus a valid 2,772-byte optional PNG fallback.
+Tectonic emitted a 32,379-byte PDF with network
+disabled and cached-only mode.
+
+Qualified tools:
 
 | Tool | Status | Version/evidence |
 |---|---:|---|
-| Pandoc | AVAILABLE | 3.1.3 |
-| Java | AVAILABLE | OpenJDK 21.0.11 |
-| Graphviz `dot` | AVAILABLE | 2.43.0 |
-| LaTeXML | ABSENT | `command -v latexml` returned no path |
-| PlantUML | ABSENT | `command -v plantuml` returned no path |
-| Tectonic | ABSENT | `command -v tectonic` returned no path |
+| Pandoc | HOST AVAILABLE | 3.1.3; portable-subset unit/integration coverage |
+| Java | CONTAINER PINNED | OpenJDK 21.0.11 |
+| Graphviz | CONTAINER PINNED | 2.42.2 |
+| LaTeXML | PASS | 0.8.8; five positive semantic fixtures plus hostile preflight rejection |
+| PlantUML | PASS | MIT JAR 1.2026.4; eight diagram families; SANDBOX and sanitized deterministic SVG |
+| Tectonic | PASS | 0.16.9; untrusted cached-only PDF output |
 
-No system tools were installed. Consequently, qualification covers fallback,
-diagnostic, and mocked adapter behavior but does **not** qualify real LaTeXML
-semantic conversion, PlantUML diagram generation, or optional Tectonic PDF
-generation. Those require a pinned CI image/toolchain and corpus tests.
+The matching Gitea workflow installs the same exact package versions and
+checksum-verified binaries, warms the same accepted Tectonic fixture, and runs
+the same corpus. The local Docker invocation is the stronger network-denial and
+read-only-filesystem proof; the workflow supplies continuous version/corpus
+regression coverage.
 
 ## Risks and Required Follow-up
 
-1. Exercise real external renderers in a pinned sandboxed CI job, including
-   timeout, output-size, path, shell-escape, network-denial, and malicious-corpus
-   cases.
-2. Complete #179 after the release-age cooldown, then prove `npm audit` has no
+1. Complete #179 after the release-age cooldown, then prove `npm audit` has no
    remaining high/critical findings; do not use an unreviewed blanket
    `npm audit fix`.
-3. Add a browser/CSP qualification that renders representative Mermaid and
+2. Add a browser/CSP qualification that renders representative Mermaid and
    KaTeX pages with networking disabled and asserts accessibility output. Static
    scans prove local references but do not substitute for browser execution.
+3. Add explicit timeout/termination attack execution to the external container
+   corpus; unit tests already cover the bounded subprocess paths and hostile
+   preflight, but a real deliberately non-terminating converter shim remains a
+   useful defense-in-depth regression.
 4. Keep an eye on payload cost: Mermaid is about 3.57 MB on disk. It is lazy
    loaded, but compression and first-diagram latency should be measured in the
    browser performance gate.

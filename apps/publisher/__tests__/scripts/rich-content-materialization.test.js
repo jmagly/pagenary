@@ -1,4 +1,8 @@
-import { renderConfiguredBuildFences } from '../../scripts/build-tenants.js';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import { materializeRichContentAssets, renderConfiguredBuildFences } from '../../scripts/build-tenants.js';
 
 describe('rich-content fence materialization', () => {
   test('keeps Mermaid fences for the default local runtime mode', async () => {
@@ -53,5 +57,22 @@ describe('rich-content fence materialization', () => {
       contentRoot: process.cwd(),
       currentPath: 'page.md'
     })).rejects.toThrow(/browser DOM/i);
+  });
+
+  test('writes only contained content-addressed renderer assets', async () => {
+    const distDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-rich-assets-'));
+    try {
+      await materializeRichContentAssets([{
+        path: 'assets/rich-content/plantuml/abc123.svg',
+        bytes: Buffer.from('<svg/>')
+      }], distDir);
+      await expect(fs.readFile(path.join(distDir, 'assets/rich-content/plantuml/abc123.svg'), 'utf8'))
+        .resolves.toBe('<svg/>');
+      await expect(materializeRichContentAssets([{
+        path: '../escape.svg', bytes: Buffer.from('unsafe')
+      }], distDir)).rejects.toThrow(/unsafe asset path/);
+    } finally {
+      await fs.rm(distDir, { recursive: true, force: true });
+    }
   });
 });

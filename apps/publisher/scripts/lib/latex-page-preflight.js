@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const DEFAULT_LATEX_PACKAGE_ALLOWLIST = Object.freeze([
-  'amsmath', 'amssymb', 'array', 'booktabs', 'graphicx', 'hyperref', 'mathtools',
-  'microtype', 'textcomp', 'url', 'xcolor'
+  'amsmath', 'amssymb', 'array', 'booktabs', 'graphicx', 'hyperref', 'inputenc',
+  'mathtools', 'microtype', 'textcomp', 'url', 'xcolor'
 ]);
 
 const FORBIDDEN = [

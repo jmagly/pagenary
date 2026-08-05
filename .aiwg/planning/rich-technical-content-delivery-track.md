@@ -111,6 +111,7 @@ The canonical Gitea epic owns the delivery graph. Planned children:
 11. [#176](https://git.integrolabs.net/roctinam/pagenary/issues/176) — Cross-renderer test, performance, reproducibility, and release hardening.
 12. [#177](https://git.integrolabs.net/roctinam/pagenary/issues/177) — Documentation, examples, migration, operations, and rollback.
 13. [#178](https://git.integrolabs.net/roctinam/pagenary/issues/178) — Comprehensive functional syntax gallery and help-doc example base.
+14. [#180](https://git.integrolabs.net/roctinam/pagenary/issues/180) — Refresh examples and the help-doc base as supported syntax expands.
 
 Parent epic: [#165](https://git.integrolabs.net/roctinam/pagenary/issues/165).
 

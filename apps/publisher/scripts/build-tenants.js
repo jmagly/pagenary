@@ -3618,6 +3618,7 @@ async function renderConfiguredBuildFences(source, context = {}) {
         workspaceRoot: root
       });
       if (Array.isArray(context.renderDiagnostics)) context.renderDiagnostics.push(...(result.diagnostics || []));
+      await materializeRichContentAssets(result.assets, context.distDir);
       output += `\n\`\`\`html\n${result.html}\n\`\`\`\n`;
     } catch (error) {
       if (failurePolicy === 'strict') throw error;
@@ -3629,6 +3630,25 @@ async function renderConfiguredBuildFences(source, context = {}) {
     cursor = (match.index || 0) + match[0].length;
   }
   return output + source.slice(cursor);
+}
+
+async function materializeRichContentAssets(assets, distDir) {
+  if (!Array.isArray(assets) || assets.length === 0) return;
+  if (!distDir) throw new Error('Rich-content assets require a tenant output directory.');
+  const outputRoot = path.resolve(distDir);
+  for (const asset of assets) {
+    const relativePath = String(asset?.path || '').replace(/\\/g, '/');
+    if (!relativePath || path.posix.isAbsolute(relativePath) || relativePath.split('/').some((part) => part === '..')) {
+      throw new Error('Rich-content renderer returned an unsafe asset path.');
+    }
+    const outputPath = path.resolve(outputRoot, relativePath);
+    const relation = path.relative(outputRoot, outputPath);
+    if (relation.startsWith('..') || path.isAbsolute(relation)) {
+      throw new Error('Rich-content renderer asset escapes the tenant output directory.');
+    }
+    await fsp.mkdir(path.dirname(outputPath), { recursive: true });
+    await fsp.writeFile(outputPath, asset.bytes);
+  }
 }
 
 async function ensureLatexPageModule(sourcePath, targetPath, renderContext = {}) {
@@ -6654,6 +6674,7 @@ export {
   ensureMarkdownModule,
   ensureLatexPageModule,
   renderConfiguredBuildFences,
+  materializeRichContentAssets,
   // Git-source helpers — exported for regression coverage (#80 shell-safety,
   // #81 GIT_CREDENTIALS). execWithRetry only runs spawn after the argv guard.
   execWithRetry,

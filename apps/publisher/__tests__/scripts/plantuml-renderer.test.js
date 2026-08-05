@@ -6,6 +6,7 @@ import { createRendererRegistry, renderRichContentNodes } from '../../scripts/li
 import {
   createPlantUmlAdapter,
   diagnosePlantUmlTool,
+  ensurePlantUmlEnvelope,
   expandContainedIncludes,
   sanitizePlantUmlSvg
 } from '../../scripts/lib/plantuml-renderer.js';
@@ -27,8 +28,15 @@ if (process.argv.includes('-version')) {
 if (process.env.PLANTUML_SECURITY_PROFILE !== 'SANDBOX') process.exit(17);
 const outputDir = process.argv[process.argv.indexOf('-o') + 1];
 const input = process.argv.at(-1);
+const source = fs.readFileSync(input, 'utf8');
+if (source.includes('PAGENARY_SLOW_FIXTURE')) await new Promise((resolve) => setTimeout(resolve, 2000));
 fs.mkdirSync(outputDir, { recursive: true });
-fs.writeFileSync(path.join(outputDir, path.basename(input, path.extname(input)) + '.svg'), '<svg xmlns="http://www.w3.org/2000/svg"><metadata>timestamp</metadata><!-- generated --><script>alert(1)</script><g id="entity-123" onclick="bad()"><a href="https://bad.invalid"><text>Alice to Bob</text></a></g></svg>');
+if (process.argv.includes('-tpng')) {
+  fs.writeFileSync(path.join(outputDir, path.basename(input, path.extname(input)) + '.png'), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]));
+} else {
+  const svg = source.includes('PAGENARY_LARGE_OUTPUT') ? '<svg>' + 'x'.repeat(1024) + '</svg>' : '<svg xmlns="http://www.w3.org/2000/svg"><metadata>timestamp</metadata><!-- generated --><script>alert(1)</script><g id="entity-123" onclick="bad()"><a href="https://bad.invalid"><text>Alice to Bob</text></a></g></svg>';
+  fs.writeFileSync(path.join(outputDir, path.basename(input, path.extname(input)) + '.svg'), svg);
+}
 `);
     fs.chmodSync(fakePlantUml, 0o755);
   });
@@ -44,11 +52,61 @@ fs.writeFileSync(path.join(outputDir, path.basename(input, path.extname(input)) 
     }], { registry, tenantRoot: tmpDir, failurePolicy: 'strict' });
 
     expect(result.html).toContain('<figure class="rich-content rich-content-plantuml"');
-    expect(result.html).toContain('id="puml-');
+    expect(result.html).toContain('<img src="./assets/rich-content/plantuml/');
     expect(result.html).not.toMatch(/script|onclick|https:\/\/bad/);
+    expect(result.assets).toEqual([expect.objectContaining({
+      path: expect.stringMatching(/^assets\/rich-content\/plantuml\/[a-f0-9]{24}\.svg$/),
+      mimeType: 'image/svg+xml',
+      integrity: expect.stringMatching(/^sha256:[a-f0-9]{64}$/)
+    })]);
+    expect(result.assets[0].bytes.toString()).toContain('id="puml-');
     expect(result.semanticText).toBe('Alice -> Bob: hello');
     expect(result.rendererMetadata.profile).toBe('SANDBOX');
     expect(result.rendererMetadata.cacheIdentity).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
+
+  test('synthesizes omitted UML wrappers and preserves matching explicit families', () => {
+    expect(ensurePlantUmlEnvelope('Alice -> Bob: hello')).toBe('@startuml\nAlice -> Bob: hello\n@enduml');
+    expect(ensurePlantUmlEnvelope('@startjson\n{"ok":true}\n@endjson'))
+      .toBe('@startjson\n{"ok":true}\n@endjson');
+    expect(() => ensurePlantUmlEnvelope('@startuml\nA -> B\n@endjson'))
+      .toThrow(/must be present and match/);
+  });
+
+  test('rejects oversized source and terminates a slow renderer', async () => {
+    const small = createPlantUmlAdapter({
+      executablePath: fakePlantUml,
+      tenantRoot: tmpDir,
+      limits: { maxSourceBytes: 32 }
+    });
+    await expect(small.render({ body: 'A'.repeat(64) }, { tenantRoot: tmpDir }))
+      .rejects.toMatchObject({ code: 'RTC_PLANTUML_SOURCE_LIMIT' });
+
+    const slow = createPlantUmlAdapter({
+      executablePath: fakePlantUml,
+      tenantRoot: tmpDir,
+      subprocess: { timeoutMs: 100, killGraceMs: 25 }
+    });
+    await expect(slow.render({ body: 'PAGENARY_SLOW_FIXTURE' }, { tenantRoot: tmpDir }))
+      .rejects.toMatchObject({ code: 'ERR_RENDERER_TIMEOUT' });
+  });
+
+  test('supports a bounded content-addressed PNG fallback and bounds file output', async () => {
+    const withPng = createPlantUmlAdapter({
+      executablePath: fakePlantUml, tenantRoot: tmpDir, pngFallback: true
+    });
+    const rendered = await withPng.render({ body: 'A -> B' }, { tenantRoot: tmpDir });
+    expect(rendered.html).toContain('<picture>');
+    expect(rendered.assets.map(({ mimeType }) => mimeType)).toEqual(['image/svg+xml', 'image/png']);
+    expect(rendered.assets[1].path).toMatch(/\.png$/);
+
+    const bounded = createPlantUmlAdapter({
+      executablePath: fakePlantUml,
+      tenantRoot: tmpDir,
+      limits: { maxOutputBytes: 64 }
+    });
+    await expect(bounded.render({ body: 'PAGENARY_LARGE_OUTPUT' }, { tenantRoot: tmpDir }))
+      .rejects.toMatchObject({ code: 'RTC_PLANTUML_OUTPUT_LIMIT' });
   });
 
   test('expands only contained local includes and records dependency hashes', async () => {
@@ -79,7 +137,7 @@ fs.writeFileSync(path.join(outputDir, path.basename(input, path.extname(input)) 
     const unsafe = '<?xml version="1.0"?><svg><metadata>x</metadata><g id="unstable" style="fill:url(https://bad.invalid/x)"><a xlink:href="file:///etc/passwd"><text>ok</text></a></g><script/><foreignObject><p>bad</p></foreignObject></svg>';
     const first = sanitizePlantUmlSvg(unsafe, 'Alice -> Bob');
     expect(first).toBe(sanitizePlantUmlSvg(unsafe, 'Alice -> Bob'));
-    expect(first).not.toMatch(/metadata|foreignObject|script|file:\/\/|https:\/\/|unstable/);
+    expect(first).not.toMatch(/<\?|metadata|foreignObject|script|file:\/\/|https:\/\/|unstable/);
   });
 
   test('reports unavailable tools honestly and warn mode returns escaped source', async () => {

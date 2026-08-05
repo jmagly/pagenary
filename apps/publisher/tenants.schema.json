@@ -935,7 +935,11 @@
             "executablePath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/])" },
             "jarPath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/])" },
             "javaPath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/])" },
-            "version": { "type": "string" }
+            "version": { "type": "string" },
+            "pngFallback": { "type": "boolean", "default": false },
+            "maxSourceBytes": { "type": "integer", "minimum": 1, "maximum": 131072, "default": 131072 },
+            "maxIncludes": { "type": "integer", "minimum": 0, "maximum": 32, "default": 32 },
+            "maxOutputBytes": { "type": "integer", "minimum": 65536, "maximum": 4194304, "default": 4194304 }
           },
           "additionalProperties": false
         }

@@ -17,7 +17,7 @@ import {
 const INCLUDE_DIRECTIVE = /^\s*!(include|include_once)\s+(.+?)\s*$/gim;
 const FORBIDDEN_INCLUDE = /^\s*!(includeurl|include_many|import)\b/im;
 const URL_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/;
-const DEFAULT_LIMITS = Object.freeze({ maxSourceBytes: 131072, maxIncludes: 32 });
+const DEFAULT_LIMITS = Object.freeze({ maxSourceBytes: 131072, maxIncludes: 32, maxOutputBytes: 4 * 1024 * 1024 });
 
 export class PlantUmlRendererError extends Error {
   constructor(message, { code = 'RTC_PLANTUML_FAILED', details } = {}) {
@@ -30,7 +30,13 @@ export class PlantUmlRendererError extends Error {
 
 export function createPlantUmlAdapter(options = {}) {
   const tool = normalizeTool(options);
-  const limits = { ...DEFAULT_LIMITS, ...(options.limits || {}) };
+  const limits = {
+    ...DEFAULT_LIMITS,
+    ...(options.limits || {}),
+    ...(options.maxSourceBytes == null ? {} : { maxSourceBytes: options.maxSourceBytes }),
+    ...(options.maxIncludes == null ? {} : { maxIncludes: options.maxIncludes }),
+    ...(options.maxOutputBytes == null ? {} : { maxOutputBytes: options.maxOutputBytes })
+  };
   return defineRendererAdapter({
     id: 'plantuml',
     version: options.version || 'local',
@@ -40,7 +46,9 @@ export function createPlantUmlAdapter(options = {}) {
     validate() { return []; },
     async render(node, context = {}) {
       const tenantRoot = path.resolve(context.tenantRoot || options.tenantRoot || process.cwd());
-      const expanded = await expandContainedIncludes(node.body ?? node.source ?? '', {
+      const authoredSource = String(node.body ?? node.source ?? '');
+      const envelopedSource = ensurePlantUmlEnvelope(authoredSource);
+      const expanded = await expandContainedIncludes(envelopedSource, {
         tenantRoot,
         sourceRelativePath: node.relativePath || context.sourceRelativePath || null,
         limits
@@ -52,40 +60,48 @@ export function createPlantUmlAdapter(options = {}) {
         await fs.mkdir(outputDir);
         await fs.writeFile(inputPath, expanded.source, { encoding: 'utf8', mode: 0o600 });
 
-        const invocation = buildInvocation(tool, ['-tsvg', '-charset', 'UTF-8', '-o', outputDir, inputPath]);
-        const result = await runRendererSubprocess({
-          ...invocation,
-          cwd: tempDir,
-          env: buildScrubbedRendererEnv({
-            baseEnv: options.env || process.env,
-            overrides: { PLANTUML_SECURITY_PROFILE: 'SANDBOX' }
-          }),
-          trustedCommands: [invocation.command],
-          ...boundedSubprocessOptions(options.subprocess)
+        await executePlantUml(tool, ['-tsvg', '-charset', 'UTF-8', '-o', outputDir, inputPath], {
+          options, tempDir, tenantRoot
         });
-        if (result.code !== 0) {
-          throw new PlantUmlRendererError('Local PlantUML exited unsuccessfully.', {
-            code: 'RTC_PLANTUML_PROCESS_FAILED',
-            details: redactRendererDiagnostic({ exitCode: result.code, stderr: result.stderr }, {
-              rootPaths: [tenantRoot, tempDir]
-            })
-          });
-        }
 
         const svgPath = path.join(outputDir, 'diagram.svg');
-        const svg = sanitizePlantUmlSvg(await fs.readFile(svgPath, 'utf8'), expanded.source);
+        const svgBytes = await readBoundedOutput(svgPath, limits.maxOutputBytes, 'SVG');
+        const svg = sanitizePlantUmlSvg(svgBytes.toString('utf8'), expanded.source);
         const semanticText = plantUmlSemanticText(expanded.source);
+        const assetHash = sha256(svg);
+        const assetPath = `assets/rich-content/plantuml/${assetHash.slice(0, 24)}.svg`;
+        const assets = [{
+          path: assetPath,
+          bytes: Buffer.from(svg, 'utf8'),
+          mimeType: 'image/svg+xml',
+          integrity: `sha256:${assetHash}`
+        }];
+        let imageMarkup = `<img src="./${assetPath}" alt="${escapeFallbackSource(semanticText || 'PlantUML diagram')}">`;
+        if (options.pngFallback === true) {
+          await executePlantUml(tool, ['-tpng', '-charset', 'UTF-8', '-o', outputDir, inputPath], {
+            options, tempDir, tenantRoot
+          });
+          const png = await readBoundedOutput(path.join(outputDir, 'diagram.png'), limits.maxOutputBytes, 'PNG');
+          if (!png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+            throw new PlantUmlRendererError('PlantUML did not produce a valid PNG fallback.', { code: 'RTC_PLANTUML_INVALID_PNG' });
+          }
+          const pngHash = sha256(png);
+          const pngPath = `assets/rich-content/plantuml/${pngHash.slice(0, 24)}.png`;
+          assets.push({ path: pngPath, bytes: png, mimeType: 'image/png', integrity: `sha256:${pngHash}` });
+          imageMarkup = `<picture><source type="image/svg+xml" srcset="./${assetPath}"><img src="./${pngPath}" alt="${escapeFallbackSource(semanticText || 'PlantUML diagram')}"></picture>`;
+        }
         return {
-          html: `<figure class="rich-content rich-content-plantuml" data-renderer="plantuml">${svg}<figcaption class="sr-only">${escapeFallbackSource(semanticText || 'PlantUML diagram')}</figcaption></figure>`,
+          html: `<figure class="rich-content rich-content-plantuml" data-renderer="plantuml">${imageMarkup}<figcaption class="sr-only">${escapeFallbackSource(semanticText || 'PlantUML diagram')}</figcaption></figure>`,
+          assets,
           semanticText,
           searchText: semanticText,
-          source: node.body ?? node.source ?? '',
+          source: authoredSource,
           dependencies: expanded.dependencies,
           rendererMetadata: {
             renderer: 'plantuml',
             version: options.version || 'local',
             profile: RENDERER_SECURITY_BASELINES.plantuml.securityProfile,
-            cacheIdentity: plantUmlCacheIdentity({ source: expanded.source, dependencies: expanded.dependencies, version: options.version })
+            cacheIdentity: plantUmlCacheIdentity({ source: expanded.source, dependencies: expanded.dependencies, version: options.version, pngFallback: options.pngFallback === true })
           }
         };
       } finally {
@@ -100,7 +116,11 @@ export function createPlantUmlAdapter(options = {}) {
       });
     },
     cacheIdentity(node) {
-      return plantUmlCacheIdentity({ source: node.body ?? node.source ?? '', version: options.version });
+      return plantUmlCacheIdentity({
+        source: node.body ?? node.source ?? '',
+        version: options.version,
+        pngFallback: options.pngFallback === true
+      });
     }
   });
 }
@@ -183,8 +203,23 @@ export function scanPlantUmlIncludes(source) {
   return [...String(source).matchAll(INCLUDE_DIRECTIVE)].map((match) => ({ path: normalizeIncludeRequest(match[2]) }));
 }
 
+export function ensurePlantUmlEnvelope(source) {
+  const text = String(source).trim();
+  const start = text.match(/^\s*@start([a-z0-9_-]+)\b/im);
+  const end = text.match(/^\s*@end([a-z0-9_-]+)\b/im);
+  if (start || end) {
+    if (!start || !end || start[1].toLowerCase() !== end[1].toLowerCase()) {
+      throw new PlantUmlRendererError('PlantUML start/end directives must be present and match.', {
+        code: 'RTC_PLANTUML_ENVELOPE_INVALID'
+      });
+    }
+    return text;
+  }
+  return `@startuml\n${text}\n@enduml`;
+}
+
 export function sanitizePlantUmlSvg(svg, source = '') {
-  let clean = String(svg).replace(/^\s*<\?xml[^>]*\?>\s*/i, '');
+  let clean = String(svg).replace(/<\?[\s\S]*?\?>/g, '').trim();
   if (!/^\s*<svg\b/i.test(clean) || /<!DOCTYPE/i.test(clean)) {
     throw new PlantUmlRendererError('PlantUML did not produce a safe SVG document.', { code: 'RTC_PLANTUML_INVALID_SVG' });
   }
@@ -227,6 +262,38 @@ function buildInvocation(tool, args) {
   return { command: tool.javaPath, args: ['-DPLANTUML_SECURITY_PROFILE=SANDBOX', '-jar', tool.jarPath, ...args] };
 }
 
+async function executePlantUml(tool, args, { options, tempDir, tenantRoot }) {
+  const invocation = buildInvocation(tool, args);
+  const result = await runRendererSubprocess({
+    ...invocation,
+    cwd: tempDir,
+    env: buildScrubbedRendererEnv({
+      baseEnv: options.env || process.env,
+      overrides: { PLANTUML_SECURITY_PROFILE: 'SANDBOX' }
+    }),
+    trustedCommands: [invocation.command],
+    ...boundedSubprocessOptions(options.subprocess)
+  });
+  if (result.code !== 0) {
+    throw new PlantUmlRendererError('Local PlantUML exited unsuccessfully.', {
+      code: 'RTC_PLANTUML_PROCESS_FAILED',
+      details: redactRendererDiagnostic({ exitCode: result.code, stderr: result.stderr }, {
+        rootPaths: [tenantRoot, tempDir]
+      })
+    });
+  }
+}
+
+async function readBoundedOutput(file, maxBytes, label) {
+  const stat = await fs.stat(file);
+  if (stat.size > maxBytes) {
+    throw new PlantUmlRendererError(`PlantUML ${label} exceeds the configured output limit.`, {
+      code: 'RTC_PLANTUML_OUTPUT_LIMIT'
+    });
+  }
+  return fs.readFile(file);
+}
+
 function assertAbsolute(value, label) {
   if (typeof value !== 'string' || !path.isAbsolute(value)) {
     throw new PlantUmlRendererError(`${label} path must be absolute.`, { code: 'RTC_PLANTUML_UNAVAILABLE' });
@@ -256,8 +323,8 @@ function plantUmlSemanticText(source) {
     .filter(Boolean).join(' ');
 }
 
-function plantUmlCacheIdentity({ source, dependencies = [], version = 'local' }) {
-  return `sha256:${sha256(JSON.stringify({ source: String(source), dependencies, version, securityProfile: 'SANDBOX', format: 'svg' }))}`;
+function plantUmlCacheIdentity({ source, dependencies = [], version = 'local', pngFallback = false }) {
+  return `sha256:${sha256(JSON.stringify({ source: String(source), dependencies, version, securityProfile: 'SANDBOX', format: pngFallback ? 'svg+png' : 'svg' }))}`;
 }
 
 function boundedSubprocessOptions(overrides = {}) {
@@ -279,5 +346,5 @@ function diagnosePlantUmlError(error) {
 }
 
 function sha256(value) {
-  return crypto.createHash('sha256').update(String(value)).digest('hex');
+  return crypto.createHash('sha256').update(Buffer.isBuffer(value) ? value : String(value)).digest('hex');
 }

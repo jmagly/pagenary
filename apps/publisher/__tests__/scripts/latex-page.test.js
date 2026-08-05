@@ -4,7 +4,8 @@ import os from 'node:os';
 import {
   createLatexPageAdapter,
   inspectLatexPageRenderers,
-  renderLatexPage
+  renderLatexPage,
+  renderLatexPdf
 } from '../../scripts/lib/latex-page-adapter.js';
 import { normalizeLatexHtml, latexHtmlSemanticText } from '../../scripts/lib/latex-page-normalize.js';
 import { preflightLatexPage } from '../../scripts/lib/latex-page-preflight.js';
@@ -125,6 +126,28 @@ describe('LaTeX page adapters', () => {
     expect(result.rendererMetadata).toMatchObject({ profile: 'portable-subset-v1', portableSubset: true });
   });
 
+  test('standard profile uses the real LaTeXML version flag, stdout, and BibTeX mode', async () => {
+    const calls = [];
+    const runCommand = async (command, args, options) => {
+      calls.push({ command, args, options });
+      if (args[0] === '--VERSION') return { stdout: 'latexmlc (LaTeXML version 0.8.8)\n', stderr: '' };
+      return { stdout: '<article><h1>Citations</h1><p>Reference</p></article>', stderr: '' };
+    };
+    const adapter = createLatexPageAdapter();
+    const source = String.raw`\documentclass{article}\begin{document}\cite{x}\bibliography{refs}\end{document}`;
+    const result = await adapter.render({ body: source, sourceFile }, {
+      contentRoot: root, runCommand, fileExists: () => true
+    });
+
+    expect(calls[0]).toMatchObject({ command: 'latexmlc', args: ['--VERSION'] });
+    expect(calls[1].command).toBe('latexmlc');
+    expect(calls[1].args).toEqual(expect.arrayContaining([
+      '--format=html5', '--strict', '--nocomments', '--nodefaultresources', '--log=/dev/null', '--bibtex', sourceFile
+    ]));
+    expect(calls[1].args).not.toContain('--destination=-');
+    expect(result.rendererMetadata).toMatchObject({ profile: 'standard-web-v1', version: 'latexmlc (LaTeXML version 0.8.8)' });
+  });
+
   test('publishes availability metadata for semantic HTML and optional PDF profiles', async () => {
     const runCommand = async (command) => {
       if (command !== 'pandoc') { const error = new Error('missing'); error.code = 'ENOENT'; throw error; }
@@ -135,5 +158,51 @@ describe('LaTeX page adapters', () => {
     expect(status.profiles['standard-web-v1']).toMatchObject({ command: 'latexmlc', available: false, semantic: true });
     expect(status.profiles['portable-subset-v1']).toMatchObject({ command: 'pandoc', available: true, output: 'html+mathml' });
     expect(status.profiles['pdf-v1']).toMatchObject({ command: 'tectonic', available: false, optional: true, output: 'pdf' });
+  });
+
+  test('renders an optional bounded Tectonic PDF sibling in untrusted cached mode', async () => {
+    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-pdf-page-'));
+    const pdfSource = path.join(temp, 'page.tex');
+    await fs.writeFile(pdfSource, '\\documentclass{article}\\begin{document}PDF\\end{document}');
+    const calls = [];
+    const runCommand = async (command, args) => {
+      calls.push({ command, args });
+      if (args[0] === '--version') return { stdout: 'Tectonic 0.16.9\n', stderr: '' };
+      const outdir = args[args.indexOf('--outdir') + 1];
+      await fs.writeFile(path.join(outdir, 'page.pdf'), Buffer.from('%PDF-1.7\nfixture'));
+      await fs.writeFile(path.join(outdir, 'dependencies.mk'), 'page.pdf: page.tex\n');
+      return { stdout: '', stderr: '' };
+    };
+    try {
+      const result = await renderLatexPdf({ source: await fs.readFile(pdfSource, 'utf8'), sourceFile: pdfSource }, {
+        contentRoot: temp,
+        runCommand,
+        maxPdfBytes: 64 * 1024
+      });
+      expect(result.bytes.toString()).toContain('%PDF-1.7');
+      expect(result.rendererMetadata).toMatchObject({ profile: 'pdf-v1', untrusted: true, onlyCached: true });
+      expect(calls[1].args).toEqual(expect.arrayContaining(['--untrusted', '--only-cached', '--makefile-rules']));
+    } finally {
+      await fs.rm(temp, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects a Tectonic PDF that exceeds the configured output limit', async () => {
+    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-pdf-limit-'));
+    const pdfSource = path.join(temp, 'page.tex');
+    await fs.writeFile(pdfSource, '\\documentclass{article}\\begin{document}PDF\\end{document}');
+    const runCommand = async (_command, args) => {
+      if (args[0] === '--version') return { stdout: 'Tectonic 0.16.9\n', stderr: '' };
+      const outdir = args[args.indexOf('--outdir') + 1];
+      await fs.writeFile(path.join(outdir, 'page.pdf'), Buffer.alloc(64 * 1024 + 1));
+      return { stdout: '', stderr: '' };
+    };
+    try {
+      await expect(renderLatexPdf({ source: await fs.readFile(pdfSource, 'utf8'), sourceFile: pdfSource }, {
+        contentRoot: temp, runCommand, maxPdfBytes: 64 * 1024
+      })).rejects.toMatchObject({ code: 'LATEX_PDF_OUTPUT_LIMIT' });
+    } finally {
+      await fs.rm(temp, { recursive: true, force: true });
+    }
   });
 });
