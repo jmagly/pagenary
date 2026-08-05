@@ -100,9 +100,8 @@ delimiters. The selected converter must already be installed locally:
 - `portable-subset-v1` invokes `pandoc --from=latex --to=html5 --mathml`. It is
   explicitly a portable subset and is not a substitute for arbitrary package
   or macro compatibility.
-- `pdf-v1` is represented by the renderer interface as optional Tectonic
-  output, but PDF cannot replace the required semantic HTML page and is not a
-  selectable tenant page profile in the current schema.
+- `pdf-v1` invokes Tectonic as an optional sibling artifact. It adds a
+  content-addressed download link but never replaces the semantic HTML page.
 
 ```json
 {
@@ -111,7 +110,13 @@ delimiters. The selected converter must already be installed locally:
     "failurePolicy": "strict",
     "allowedPackages": ["amsmath", "amssymb", "graphicx"],
     "timeoutMs": 20000,
-    "maxOutputBytes": 4194304
+    "maxOutputBytes": 4194304,
+    "pdf": {
+      "enabled": true,
+      "profile": "pdf-v1",
+      "failurePolicy": "warn",
+      "maxPdfBytes": 16777216
+    }
   }
 }
 ```
@@ -133,6 +138,11 @@ qualified.
 and diagnostics, `strict` fails rendering, and `off` emits no fallback content.
 Use `strict` in release builds where loss of semantic page content is not
 acceptable.
+
+Optional PDF generation requires local Tectonic with its bundle already
+cached. Pagenary invokes it with `--untrusted --only-cached`; no package download
+is allowed during the build. `pdf.failurePolicy: "warn"` retains the HTML page
+without a PDF link when Tectonic is unavailable, while `strict` fails the build.
 
 ## Mermaid
 

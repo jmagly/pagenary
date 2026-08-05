@@ -19,6 +19,7 @@
   },
   "latexPage": {
     "profile": "portable-subset-v1",
-    "failurePolicy": "warn"
+    "failurePolicy": "warn",
+    "pdf": { "enabled": true, "profile": "pdf-v1", "failurePolicy": "warn" }
   }
 }

@@ -119,6 +119,36 @@ describe('LaTeX page adapters', () => {
     }
   });
 
+  test('materializes an optional content-addressed PDF sibling and download link', async () => {
+    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-pdf-'));
+    const sourcePath = path.join(temp, 'page.tex');
+    const targetPath = path.join(temp, 'sections', 'page.js');
+    const pdfBytes = Buffer.from('%PDF-1.7\nqualified fixture\n');
+    await fs.writeFile(sourcePath, '\\documentclass{article}\\begin{document}Hello\\end{document}');
+    try {
+      await ensureLatexPageModule(sourcePath, targetPath, {
+        contentRoot: temp,
+        distDir: temp,
+        latexPageConfig: {
+          profile: 'portable-subset-v1',
+          runCommand: async (_command, args) => args[0] === '--version'
+            ? { stdout: 'pandoc 3.1.3\n', stderr: '' }
+            : { stdout: '<article><h1>Hello</h1></article>', stderr: '' },
+          pdf: { enabled: true, profile: 'pdf-v1', failurePolicy: 'strict' }
+        },
+        renderLatexPdf: async () => ({ bytes: pdfBytes, mimeType: 'application/pdf' }),
+        renderDiagnostics: []
+      });
+      const digest = (await import('node:crypto')).createHash('sha256').update(pdfBytes).digest('hex').slice(0, 24);
+      const pdfPath = path.join(temp, 'assets', 'rich-content', 'latex', `${digest}.pdf`);
+      expect(await fs.readFile(pdfPath)).toEqual(pdfBytes);
+      expect(await fs.readFile(targetPath, 'utf8')).toContain(`./assets/rich-content/latex/${digest}.pdf`);
+      expect(await fs.readFile(targetPath, 'utf8')).toContain('Download this page as PDF');
+    } finally {
+      await fs.rm(temp, { recursive: true, force: true });
+    }
+  });
+
   test('defaults to standard-web-v1 and reports unavailable LaTeXML with source fallback', async () => {
     const runCommand = async () => { const error = new Error('missing'); error.code = 'ENOENT'; throw error; };
     const result = await renderLatexPage({ body: '\\begin{document}Hi\\end{document}', sourceFile }, {

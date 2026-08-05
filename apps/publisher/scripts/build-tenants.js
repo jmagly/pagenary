@@ -37,7 +37,7 @@ import { validateFrontmatter } from '../src/lib/templates.js';
 import { isFormProvider, parseFormFenceConfig, renderFormEmbed } from '../src/lib/form-providers.js';
 import { normalizeShareConfig } from '../src/lib/share.js';
 import { protectInlineLatex } from './lib/inline-latex.js';
-import { renderLatexPage } from './lib/latex-page-adapter.js';
+import { renderLatexPage, renderLatexPdf } from './lib/latex-page-adapter.js';
 import { createMermaidBuildAdapter } from './lib/mermaid-build-adapter.js';
 import { createPlantUmlAdapter } from './lib/plantuml-renderer.js';
 import { createRendererRegistry, renderRichContentNodes } from './lib/rich-content-adapters.js';
@@ -3667,7 +3667,40 @@ async function ensureLatexPageModule(sourcePath, targetPath, renderContext = {})
   if (Array.isArray(renderContext.renderDiagnostics)) {
     renderContext.renderDiagnostics.push(...(result.diagnostics || []));
   }
-  const html = `<section class="section doc latex-page" data-latex-profile="${escapeAttribute(result.rendererMetadata?.profile || 'standard-web-v1')}">${result.html}</section>`;
+  let pdfLink = '';
+  const pdfConfig = renderContext.latexPageConfig?.pdf;
+  if (pdfConfig?.enabled) {
+    try {
+      const pdfRenderer = renderContext.renderLatexPdf || renderLatexPdf;
+      const pdf = await pdfRenderer({
+        source,
+        sourceFile: sourcePath,
+        contentRoot: renderContext.contentRoot
+      }, {
+        ...(renderContext.latexPageConfig || {}),
+        ...(pdfConfig || {}),
+        contentRoot: renderContext.contentRoot
+      });
+      if (!renderContext.distDir) throw new Error('Optional LaTeX PDF output requires a tenant output directory.');
+      const digest = createHash('sha256').update(pdf.bytes).digest('hex').slice(0, 24);
+      const relativePdf = `assets/rich-content/latex/${digest}.pdf`;
+      const pdfPath = path.join(renderContext.distDir, relativePdf);
+      await fsp.mkdir(path.dirname(pdfPath), { recursive: true });
+      await fsp.writeFile(pdfPath, pdf.bytes);
+      pdfLink = `<p class="latex-page__pdf"><a href="./${relativePdf}" download>Download this page as PDF</a></p>`;
+    } catch (error) {
+      const diagnostic = {
+        code: error.code || 'LATEX_PDF_RENDER_FAILED',
+        severity: pdfConfig.failurePolicy === 'strict' ? 'error' : 'warning',
+        renderer: 'latexPage',
+        profile: 'pdf-v1',
+        message: error.message || 'Optional PDF rendering failed'
+      };
+      if (Array.isArray(renderContext.renderDiagnostics)) renderContext.renderDiagnostics.push(diagnostic);
+      if (pdfConfig.failurePolicy === 'strict') throw error;
+    }
+  }
+  const html = `<section class="section doc latex-page" data-latex-profile="${escapeAttribute(result.rendererMetadata?.profile || 'standard-web-v1')}">${result.html}${pdfLink}</section>`;
   const moduleSource = `export async function load() {\n  return { html: ${JSON.stringify(html)} };\n}\n`;
   await fsp.mkdir(path.dirname(targetPath), { recursive: true });
   await fsp.writeFile(targetPath, moduleSource, 'utf8');
@@ -6381,6 +6414,7 @@ async function processIncrementalManifest(sourceDir, distDir, tenantId, changedF
       } else if (ext === '.tex') {
         await ensureLatexPageModule(sourcePath, targetPath, {
           contentRoot: contentRoot.basePath || contentDir,
+          distDir,
           latexPageConfig: config.latexPage || {},
           renderDiagnostics: []
         });

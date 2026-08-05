@@ -906,6 +906,17 @@
           "minimum": 65536,
           "maximum": 16777216,
           "default": 4194304
+        },
+        "pdf": {
+          "type": "object",
+          "description": "Optional Tectonic-generated PDF sibling; semantic HTML remains the primary page.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "profile": { "type": "string", "const": "pdf-v1", "default": "pdf-v1" },
+            "failurePolicy": { "type": "string", "enum": ["warn", "strict"], "default": "warn" },
+            "maxPdfBytes": { "type": "integer", "minimum": 65536, "maximum": 67108864, "default": 16777216 }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

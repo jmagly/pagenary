@@ -1385,7 +1385,12 @@ prerequisites, security boundaries, failure policies, and troubleshooting.
   },
   "latexPage": {
     "profile": "standard-web-v1",
-    "failurePolicy": "strict"
+    "failurePolicy": "strict",
+    "pdf": {
+      "enabled": true,
+      "profile": "pdf-v1",
+      "failurePolicy": "warn"
+    }
   },
   "richContent": {
     "failurePolicy": "warn",
@@ -1399,7 +1404,7 @@ prerequisites, security boundaries, failure policies, and troubleshooting.
 ```
 
 Mermaid runtime assets are vendored locally at version 11.16.0. Complete LaTeX
-pages and PlantUML diagrams require the configured local tools; builds never
+pages, optional PDF siblings, and PlantUML diagrams require the configured local tools; builds never
 use a public rendering service or install missing tools automatically.
 
 ### Markdown (.md)

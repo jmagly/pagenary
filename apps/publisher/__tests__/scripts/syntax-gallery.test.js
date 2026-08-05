@@ -54,11 +54,36 @@ describe('supported syntax gallery (#178)', () => {
       'inline-latex-dollar-opt-in', 'inline-latex-display-brackets',
       'inline-latex-display-dollars', 'inline-latex-macros',
       'inline-latex-protected-contexts', 'mermaid-fence', 'plantuml-fence',
-      'puml-fence-alias', 'media-image', 'media-responsive-image',
+      'mermaid-flowchart', 'mermaid-sequence', 'mermaid-class', 'mermaid-state',
+      'mermaid-er', 'plantuml-sequence', 'plantuml-class', 'plantuml-component',
+      'plantuml-activity', 'plantuml-state', 'plantuml-er', 'plantuml-json',
+      'plantuml-yaml', 'puml-fence-alias', 'media-image', 'media-responsive-image',
       'media-accessible-viewport', 'media-audio', 'media-video', 'media-hosted',
-      'media-json-definition', 'tally-form', 'complete-latex-page'
+      'media-json-definition', 'tally-form', 'complete-latex-page',
+      'latex-page-bounds', 'latex-page-pdf'
     ];
     expect([...ids].sort()).toEqual([...baseline].sort());
+  });
+
+  it('keeps copyable help snippets for every supported syntax family', () => {
+    const help = fs.readFileSync(docsPath, 'utf8');
+    for (const fence of ['markdown', 'yaml', 'mermaid', 'plantuml', 'media', 'tally', 'json']) {
+      expect(help).toContain(`\`\`\`${fence}`);
+    }
+    expect(help).toContain('complete math-language surface');
+    expect(help).toContain('Optional Tectonic PDF');
+  });
+
+  it('exercises every qualified Mermaid and PlantUML family', () => {
+    const diagrams = fs.readFileSync(path.join(galleryRoot, 'content/diagrams.md'), 'utf8');
+    for (const syntax of ['flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram-v2', 'erDiagram']) {
+      expect(diagrams).toContain(syntax);
+    }
+    for (const heading of ['sequence', 'class', 'component', 'activity', 'state', 'ER', 'JSON', 'YAML']) {
+      expect(diagrams).toContain(`### PlantUML ${heading}`);
+    }
+    expect(diagrams).toContain('Publisher -> Output: static assets');
+    expect(diagrams).toContain('50,000 bytes');
   });
 
   it('renders representative syntax as functional output', () => {

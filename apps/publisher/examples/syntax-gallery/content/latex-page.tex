@@ -21,4 +21,17 @@ and MathML. The standard web profile supports a broader qualified corpus when La
   E = mc^2
 \end{equation}
 
+\section{Bounded controls}
+
+The tenant selects a versioned HTML profile, failure policy, timeout, output
+limit, and package allowlist. Unsafe file, network, shell, traversal, and package
+operations are rejected before the isolated converter runs.
+
+\section{Optional PDF sibling}
+
+When the tenant enables \texttt{pdf-v1} and local Tectonic is available,
+Pagenary adds a content-addressed PDF download. HTML and MathML remain the
+primary accessible page. Under the gallery's warning policy, unavailable PDF
+tooling produces a diagnostic without removing the HTML page.
+
 \end{document}

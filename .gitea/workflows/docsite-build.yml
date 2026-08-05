@@ -77,6 +77,14 @@ jobs:
           PLAYWRIGHT_MODULE: /tmp/pagenary-playwright/node_modules/playwright/index.mjs
         run: SMOKE_REQUIRE=1 npm run test:accessibility:browser
 
+      - name: Syntax gallery browser smoke
+        working-directory: apps/publisher
+        run: |
+          set -euo pipefail
+          CHROME_PATH="$(find /root/.cache/ms-playwright -type f \( -name chrome -o -name chrome-headless-shell \) -perm -111 | head -1)"
+          test -n "${CHROME_PATH}" || { echo "::error::Playwright Chromium executable not found"; exit 1; }
+          CHROME_PATH="${CHROME_PATH}" SMOKE_REQUIRE=1 npm run test:syntax-gallery:browser
+
       - name: Verify build output
         run: |
           set -euo pipefail
