@@ -112,6 +112,18 @@ async function copyRuntimeDependencies() {
     fsp.copyFile(katexCssSource, path.join(katexTarget, 'katex.min.css')),
     fsp.cp(path.join(katexDistSource, 'fonts'), path.join(katexTarget, 'fonts'), { recursive: true })
   ]);
+
+  const prismRoot = path.dirname(require.resolve('prismjs/prism.js'));
+  const prismTarget = path.join(distDir, 'vendor', 'prism');
+  const prismLanguages = ['c', 'json', 'typescript', 'python', 'rust', 'go', 'bash', 'yaml', 'toml', 'sql', 'solidity', 'ini'];
+  await ensureDir(path.join(prismTarget, 'components'));
+  await Promise.all([
+    fsp.copyFile(path.join(prismRoot, 'prism.js'), path.join(prismTarget, 'prism.js')),
+    ...prismLanguages.map((language) => fsp.copyFile(
+      path.join(prismRoot, 'components', `prism-${language}.min.js`),
+      path.join(prismTarget, 'components', `prism-${language}.min.js`)
+    ))
+  ]);
 }
 
 async function main() {

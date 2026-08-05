@@ -89,6 +89,7 @@
     "test:browser": "node scripts/smoke-browser.mjs",
     "test:accessibility:browser": "node scripts/smoke-accessibility.mjs",
     "test:syntax-gallery:browser": "node scripts/smoke-syntax-gallery.mjs",
+    "test:rich-content:matrix": "node scripts/smoke-rich-content-matrix.mjs",
     "prototype:fortemi-shard": "node scripts/prototype-fortemi-shard.mjs"
   },
   "engines": {
@@ -103,6 +104,7 @@
   },
   "dependencies": {
     "katex": "0.18.1",
-    "mermaid": "11.16.0"
+    "mermaid": "11.16.0",
+    "prismjs": "1.30.0"
   }
 }

@@ -516,7 +516,9 @@ export function buildStaticPage(options) {
   // JavaScript-enabled browsers and the "interactive version" link. Do not add
   // a no-JS refresh: HTML-only users need to stay on the static snapshot.
   const canonicalUrl = `${baseUrl}/pages/${encodePathForFilename(sectionId)}.html`;
-  const spaUrl = `${baseUrl}/#${sectionId}`;
+  // Keep sites without a configured absolute URL portable under any mount.
+  // Static snapshots live one directory below the SPA shell.
+  const spaUrl = baseUrl ? `${baseUrl}/#${sectionId}` : `../#${sectionId}`;
   const jsonLd = buildPageJsonLd({
     id: sectionId,
     title: sectionTitle,
@@ -578,12 +580,8 @@ export function buildStaticPage(options) {
 ${jsonLd}
   </script>
 
-  <!-- Redirect to SPA for JavaScript-enabled browsers -->
-  <script>
-    if (typeof window !== 'undefined') {
-      window.location.replace('${spaUrl}');
-    }
-  </script>
+  <!-- Redirect to SPA for JavaScript-enabled browsers (external for self-CSP). -->
+  <script src="../static-redirect.js" data-spa-url="${spaUrl}"></script>
 
   <link rel="stylesheet" href="../styles.css" />
   <style>

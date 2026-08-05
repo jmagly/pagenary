@@ -5,23 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Docs Toolkit</title>
     <meta name="description" content="Reusable documentation toolkit for multi-tenant services." />
-    <script>
-      // Resolve asset/module URLs against the current document directory by
-      // default, so one build can be served at "/", "/docs/", or a tenant-id
-      // preview mount. A configured base remains an explicit deploy override.
-      (function () {
-        var t = "__PAGENARY_TENANT__";
-        var configuredBase = "__PAGENARY_BASE_PATH__";
-        var p = location.pathname || "/";
-        var explicitBase = configuredBase && configuredBase.charAt(0) === "/" ? configuredBase : "";
-        var autoBase = p.endsWith("/") ? p : p.slice(0, p.lastIndexOf("/") + 1);
-        var base = explicitBase || autoBase || "/";
-        document.write('<base href="' + base + '">');
-      })();
-      // Progressive-enhancement gate: effect CSS that hides content pending JS
-      // is scoped under html.has-js, so a JS-off page shows everything.
-      document.documentElement.classList.add('has-js');
-    </script>
+    <script src="./bootstrap.js" data-tenant="__PAGENARY_TENANT__" data-base="__PAGENARY_BASE_PATH__"></script>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="alternate icon" type="image/png" href="./favicon.png" />
     <link rel="stylesheet" href="./vendor/katex/katex.min.css" />

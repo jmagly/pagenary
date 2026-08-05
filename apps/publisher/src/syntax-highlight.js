@@ -15,29 +15,25 @@ async function loadPrism() {
   if (prismPromise) return prismPromise;
 
   prismPromise = (async () => {
-    // Load Prism core
-    const Prism = (await import('https://esm.sh/prismjs@1.29.0')).default;
-
-    // Load additional languages in parallel
-    await Promise.all([
-      import('https://esm.sh/prismjs@1.29.0/components/prism-c'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-json'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-typescript'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-python'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-rust'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-go'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-bash'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-yaml'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-toml'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-sql'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-solidity'),
-      import('https://esm.sh/prismjs@1.29.0/components/prism-ini'),
-    ]);
-
-    return Prism;
+    await loadLocalScript('./vendor/prism/prism.js');
+    for (const language of ['c', 'json', 'typescript', 'python', 'rust', 'go', 'bash', 'yaml', 'toml', 'sql', 'solidity', 'ini']) {
+      await loadLocalScript(`./vendor/prism/components/prism-${language}.min.js`);
+    }
+    return globalThis.Prism;
   })();
 
   return prismPromise;
+}
+
+function loadLocalScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = false;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error(`Unable to load local syntax highlighter: ${src}`));
+    document.head.appendChild(script);
+  });
 }
 
 /**

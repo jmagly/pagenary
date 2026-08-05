@@ -144,7 +144,8 @@ describe('buildStaticPage (#17 + #16)', () => {
 
   test('SPA hash route is still used for the human-facing redirect/links', () => {
     const html = buildStaticPage(baseOpts);
-    expect(html).toContain("window.location.replace('https://docs.pagenary.com/#welcome')");
+    expect(html).toContain('<script src="../static-redirect.js" data-spa-url="https://docs.pagenary.com/#welcome"></script>');
+    expect(html).not.toContain("window.location.replace('https://docs.pagenary.com/#welcome')");
     expect(html).toContain('href="https://docs.pagenary.com/#welcome"'); // "interactive version"
   });
 

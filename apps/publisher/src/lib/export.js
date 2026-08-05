@@ -181,23 +181,6 @@ ${chapter.html}
       </div>
     </div>
 ${body || '<p>No sections available.</p>'}
-    <script type="module">
-      import Prism from 'https://esm.sh/prismjs@1.29.0';
-      await Promise.all([
-        import('https://esm.sh/prismjs@1.29.0/components/prism-c'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-json'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-typescript'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-python'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-rust'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-go'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-bash'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-yaml'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-sql'),
-        import('https://esm.sh/prismjs@1.29.0/components/prism-solidity'),
-      ]);
-      Prism.highlightAll();
-      window.focus();
-    </script>
   </body>
 </html>`;
 }

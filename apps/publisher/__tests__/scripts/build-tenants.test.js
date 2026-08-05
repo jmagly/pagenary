@@ -521,9 +521,12 @@ describe('build-tenants.js', () => {
       expect(cssFile).toMatch(/^styles\.[a-f0-9]{12}\.css$/);
       expect(appFile).toMatch(/^app\.[a-f0-9]{12}\.js$/);
       expect(manifestFile).toMatch(/^manifest\.[a-f0-9]{12}\.js$/);
-      // The base-resolution bootstrap is wired with this tenant id.
-      expect(index).toContain("document.write('<base");
-      expect(index).toContain(`var t = "${TEST_TENANT_ID}"`);
+      // The base-resolution bootstrap is an external self-hosted script so a
+      // strict script-src 'self' policy does not require unsafe-inline.
+      expect(index).toMatch(/<script src="\.\/bootstrap\.[a-f0-9]{12}\.js"/);
+      expect(index).toContain(`data-tenant="${TEST_TENANT_ID}"`);
+      expect(index).toContain('data-base=""');
+      expect(index).not.toContain("document.write('<base");
       // Module paths are relative so dynamic import() resolves against app.js's
       // (base-resolved) URL.
       expect(manifestJs).toMatch(/"module": "\.\/sections\/blog--post\.[a-f0-9]{12}\.js"/);
@@ -757,11 +760,8 @@ describe('build-tenants.js', () => {
 
       const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
-      expect(index).toContain(`var t = "${TEST_TENANT_ID}"`);
-      expect(index).toContain('var configuredBase = "/react/"');
-      expect(index).toContain('var explicitBase = configuredBase && configuredBase.charAt(0) === "/" ? configuredBase : ""');
-      expect(index).toContain('var autoBase = p.endsWith("/") ? p : p.slice(0, p.lastIndexOf("/") + 1)');
-      expect(index).toContain('var base = explicitBase || autoBase || "/"');
+      expect(index).toContain(`data-tenant="${TEST_TENANT_ID}"`);
+      expect(index).toContain('data-base="/react/"');
     });
 
     test('build-time --base overrides committed tenant basePath (#107)', async () => {
@@ -781,8 +781,8 @@ describe('build-tenants.js', () => {
 
       const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
-      expect(index).toContain('var configuredBase = "/server/"');
-      expect(index).not.toContain('var configuredBase = "/committed/"');
+      expect(index).toContain('data-base="/server/"');
+      expect(index).not.toContain('data-base="/committed/"');
     });
 
     test('PAGENARY_BASE=auto omits explicit base for portable mount auto-detection (#107)', async () => {
@@ -803,8 +803,7 @@ describe('build-tenants.js', () => {
 
       const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
-      expect(index).toContain('var configuredBase = ""');
-      expect(index).toContain('var base = explicitBase || autoBase || "/"');
+      expect(index).toContain('data-base=""');
     });
 
     test('content-hashed filenames are deterministic across unchanged rebuilds', async () => {
@@ -1660,7 +1659,8 @@ describe('build-tenants.js', () => {
       await expectFilenameHashMatches(dist, docsMapModule.replace(/^\.\//, ''));
       const html = await fsp.readFile(path.join(dist, 'pages', 'docs-map.html'), 'utf8');
       expect(html).toContain('<title>Docs Map | DM</title>');
-      expect(html).toContain("window.location.replace('/#docs-map')");
+      expect(html).toContain('<script src="../static-redirect.js" data-spa-url="../#docs-map"></script>');
+      expect(html).not.toContain("window.location.replace('../#docs-map')");
       expect(html).toContain('The interactive Docs Map renders in the JavaScript app.');
     });
 

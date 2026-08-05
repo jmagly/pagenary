@@ -11,8 +11,8 @@ tests pass, generated Mermaid/KaTeX assets are local and stable, and the real
 LaTeXML, Mermaid CLI/browser, PlantUML, and Tectonic corpus passes in a pinned
 networkless container.
 Release qualification remains conditional because two high-severity transitive
-audit findings remain in the supply-chain cooldown window and browser/CSP/AT
-qualification is still outstanding.
+audit findings remain in the supply-chain cooldown window, manual assistive-
+technology UAT remains, and the timeout/performance gates below are unfinished.
 
 ## Results
 
@@ -31,6 +31,7 @@ qualification is still outstanding.
 | Dependency audit | CONDITIONAL | Policy-aged exact overrides fixed `js-yaml` and `postcss`; `npm audit` now reports 2 high, 0 critical (`brace-expansion`, `fast-uri`), neither introduced by the renderer packages; cooldown follow-up is #179 |
 | External renderer matrix | PASS | Pinned Ubuntu 24.04 image; LaTeXML 0.8.8, Mermaid CLI 11.16.0/Puppeteer 24.16.0, PlantUML 1.2026.4 SANDBOX, and Tectonic 0.16.9; networkless/read-only/non-root/resource-bounded run |
 | Mermaid static visual matrix | PASS | Five representative families × neutral/forest/dark themes; byte-identical repeated SVG plus real headless-browser PNG snapshots with hashes |
+| Browser/CSP matrix | PASS | Chromium, Firefox, and WebKit: math/MathML, five Mermaid families, complete LaTeX pages, 320 px reflow, mobile, reduced motion, dark/forced colors, print, strict self-only CSP, and offline request denial; Chromium also validates the accessibility tree and PDF output |
 
 ## Exact Commands and Evidence
 
@@ -122,7 +123,10 @@ rg -n --glob '!*.map' \
   apps/publisher/dist
 ```
 
-No runtime CDN reference was found. The source hit is limited to download and
+No runtime CDN reference was found. Prism 1.30.0 core and the supported language
+components are copied into `vendor/prism` and loaded locally; executable
+bootstrap and static-page redirect logic are external self-hosted scripts, so
+`script-src 'self'` does not require `unsafe-inline`. The remaining source hit is limited to download and
 checksum examples in `docs/VENDORING.md`; generated HTTP links are canonical
 metadata for test tenants, not fetched runtime dependencies. Mermaid loads
 `./vendor/mermaid/mermaid.min.js`, and KaTeX CSS/fonts are copied locally.
@@ -137,6 +141,7 @@ Direct publisher dependencies at qualification time:
 | `jest` | 30.4.2 | MIT | Test-only |
 | `katex` | 0.18.1 | MIT | Inline/display LaTeX rendering |
 | `mermaid` | 11.16.0 | MIT | Local Mermaid runtime/build input |
+| `prismjs` | 1.30.0 | MIT | Local syntax-highlighting runtime |
 | `terser` | 5.48.0 | BSD-2-Clause | Build minification |
 
 Both new renderer dependencies are exact package/lockfile pins. Lockfile SRI:
@@ -243,11 +248,11 @@ isolation, corpus, determinism, and visual-snapshot regression coverage.
 1. Complete #179 after the release-age cooldown, then prove `npm audit` has no
    remaining high/critical findings; do not use an unreviewed blanket
    `npm audit fix`.
-2. Complete the remaining whole-page CSP and assistive-technology matrix. The
-   real Chrome syntax-gallery smoke now proves five runtime Mermaid families,
-   accessible captions/names/source fallback, and KaTeX MathML; the external
-   gate proves 15 static Mermaid browser snapshots offline, but manual AT
-   qualification remains.
+2. Complete manual assistive-technology UAT. The automated cross-browser matrix
+   now proves runtime Mermaid alternatives and reading order, KaTeX MathML,
+   complete LaTeX page semantics, reflow/media preferences, offline operation,
+   and strict self-only CSP; Chromium's accessibility tree exposes the page
+   content, but that is not a substitute for a real screen-reader session.
 3. Add explicit timeout/termination attack execution to the external container
    corpus; unit tests already cover the bounded subprocess paths and hostile
    preflight, but a real deliberately non-terminating converter shim remains a
