@@ -38,10 +38,21 @@ concurrency:
 jobs:
   external-renderers:
     runs-on: ubuntu-latest
+    container: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5
     timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install Docker client
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends docker.io
+          rm -rf /var/lib/apt/lists/*
 
       - name: Build locked renderer toolchain
         run: |
