@@ -348,6 +348,10 @@ The full documentation site is published at **[docs.pagenary.com](https://docs.p
 - [Consuming and Embedding Blog Updates](apps/publisher/docs/BLOG-CONSUMPTION.md) — use `@pagenary/blog-client`, `<pagenary-blog>`, and CORS/CDN settings for cross-site updates pages
 - [Tenant Configuration](apps/publisher/docs/TENANT-CONFIG.md) — all config options
 - [Theming Recipes](apps/publisher/docs/THEMING-RECIPES.md) — copy-paste recipes for colors, fonts, and nav positions, with screenshots
+- [Styles: choose and install](apps/publisher/docs/STYLES-INSTALL.md) — select, verify, install, test, and roll back a versioned catalog style
+- [Styles: configure and use](apps/publisher/docs/STYLES-CONFIGURE.md) — load order, tenant branding, upgrades, light/dark behavior, and troubleshooting
+- [Styles: author](apps/publisher/docs/STYLES-AUTHOR.md) — manifests, compatibility, provenance, hashes, fixtures, and previews
+- [Styles: contribute](apps/publisher/docs/STYLES-CONTRIBUTE.md) — canonical Gitea workflow and review gates
 - [Architecture](apps/publisher/docs/ARCHITECTURE.md) — system design
 - [API Reference](apps/publisher/docs/API.md) — module documentation
 - [Deployment](apps/publisher/docs/DEPLOYMENT.md) — hosting patterns

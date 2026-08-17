@@ -118,6 +118,37 @@
       ]
     },
     {
+      "id": "styles",
+      "title": "Styles",
+      "summary": "Choose, install, configure, author, and contribute reusable Pagenary styles.",
+      "sections": [
+        {
+          "id": "styles-install",
+          "title": "Choose and install",
+          "summary": "Select, verify, install, test, and roll back a versioned catalog style.",
+          "file": "STYLES-INSTALL.md"
+        },
+        {
+          "id": "styles-configure",
+          "title": "Configure and use",
+          "summary": "Apply load order, tenant branding, supported customizations, upgrades, and acceptance checks.",
+          "file": "STYLES-CONFIGURE.md"
+        },
+        {
+          "id": "styles-author",
+          "title": "Author a style",
+          "summary": "Package a compatible style with manifests, evidence, final-byte hashes, fixtures, and previews.",
+          "file": "STYLES-AUTHOR.md"
+        },
+        {
+          "id": "styles-contribute",
+          "title": "Contribute a style",
+          "summary": "Submit and review a style through canonical Gitea with complete validation evidence.",
+          "file": "STYLES-CONTRIBUTE.md"
+        }
+      ]
+    },
+    {
       "id": "blog",
       "title": "Blog",
       "layout": "blog",
