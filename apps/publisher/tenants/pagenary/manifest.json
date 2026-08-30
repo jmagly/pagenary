@@ -155,6 +155,14 @@
       "summary": "Monthly reports and updates — dogfooded through Pagenary's own blog layout.",
       "sections": [
         {
+          "id": "posts/2026-08-pagenary",
+          "title": "Pagenary - August 2026",
+          "summary": "Small-site publishing, portable route data, opt-in Fortemi exports, tenant-local app adapters, and a public style catalog.",
+          "file": "posts/2026-08-pagenary.md",
+          "template": "post",
+          "collection": "/posts"
+        },
+        {
           "id": "posts/2026-07-pagenary",
           "title": "Pagenary - July 2026",
           "summary": "Product-grade publishing work: interactive docs maps, hybrid React support, responsive media, SEO profiles, share controls, generated-asset details, and sturdier Markdown.",
