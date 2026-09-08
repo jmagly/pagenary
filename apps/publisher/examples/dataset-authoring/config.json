@@ -1,0 +1,18 @@
+{
+  "title": "Dataset Authoring Example",
+  "brandMark": "Pagenary",
+  "brandSub": "Local authoring",
+  "domain": "https://example.com/dataset-authoring",
+  "language": "en-US",
+  "runtime": {
+    "mode": "hybrid",
+    "fortemi": { "tier": "record", "storage": "idb", "namespace": "dataset-authoring-example" },
+    "react": {
+      "enabled": true,
+      "entry": "app/main.jsx",
+      "mount": "#dataset-authoring-root",
+      "routes": [{ "id": "authoring", "title": "Import pages", "path": "/authoring", "fallback": "content/authoring.html" }],
+      "ssg": { "staticFallbacks": true, "snapshotRoutes": true }
+    }
+  }
+}

@@ -68,3 +68,51 @@ test('missing and cyclic collection parents fail before projection mutation', as
     assert.equal(await store.headSeq(), head);
   }
 });
+
+test('source refresh rebuilds real PGlite from canonical records, including retries', async () => {
+  const runtime = await createPagenaryPgliteRuntime({ tier: 'pglite', storage: 'memory', namespace: 'refresh-test' });
+  try {
+    const plan = await runtime.refresh.prepare({ items: [{ id: 'guide', title: 'Guide', text: 'Refreshed content' }] });
+    await runtime.refresh.preview(plan);
+    const result = await runtime.refresh.execute(plan, { approval: plan.planDigest });
+    const id = result.receipts[0].items[0].note_id;
+    const projected = await runtime.db.query('SELECT content FROM note_revised_current WHERE note_id = $1', [id]);
+    assert.equal(projected.rows[0].content, 'Refreshed content');
+    const head = await runtime.records.store.headSeq();
+    await runtime.refresh.execute(plan, { approval: plan.planDigest });
+    assert.equal(await runtime.records.store.headSeq(), head);
+    assert.equal((await runtime.db.query('SELECT count(*)::int AS count FROM note')).rows[0].count, 1);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test('a failed projection rebuild recovers from canonical receipts without reimporting', async () => {
+  const runtime = await createPagenaryPgliteRuntime({ tier: 'pglite', storage: 'memory', namespace: 'refresh-recovery' });
+  const query = runtime.db.query.bind(runtime.db);
+  try {
+    const plan = await runtime.refresh.prepare({ items: [{ id: 'guide', text: 'Committed canonical content' }] });
+    await runtime.refresh.preview(plan);
+    runtime.db.query = async (sql, ...args) => {
+      if (sql.includes('INSERT INTO note (')) throw new Error('Injected projection failure');
+      return query(sql, ...args);
+    };
+    await assert.rejects(runtime.refresh.execute(plan, { approval: plan.planDigest }), /Injected projection failure/);
+    assert.equal((await runtime.records.store.list('note')).length, 1);
+    const head = await runtime.records.store.headSeq();
+    runtime.db.query = query;
+    await runtime.refresh.execute(plan, { approval: plan.planDigest });
+    assert.equal(await runtime.records.store.headSeq(), head);
+    assert.equal((await query('SELECT count(*)::int AS count FROM note')).rows[0].count, 1);
+    const reconciliation = await runtime.refresh.prepareReconciliation({ items: [] }, {
+      completeCorpus: true, operationKey: 'retire-guide'
+    });
+    await runtime.refresh.reconcile(reconciliation, { approval: reconciliation.planDigest });
+    assert.equal((await query('SELECT count(*)::int AS count FROM note WHERE deleted_at IS NULL')).rows[0].count, 0);
+    await runtime.rebuild();
+    assert.equal((await query('SELECT count(*)::int AS count FROM note WHERE deleted_at IS NULL')).rows[0].count, 0);
+  } finally {
+    runtime.db.query = query;
+    await runtime.close();
+  }
+});

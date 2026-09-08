@@ -124,6 +124,10 @@
       "source": { "type": "local", "path": "./examples/hybrid-react" }
     },
     {
+      "id": "dataset-authoring",
+      "source": { "type": "local", "path": "./examples/dataset-authoring" }
+    },
+    {
       "$comment": "React-SPA brochureware content-module fixture for the ADR-017 construction track.",
       "id": "portfolio-brochure",
       "source": { "type": "local", "path": "./examples/portfolio-brochure" }

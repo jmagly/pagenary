@@ -1,0 +1,13 @@
+.pagenary-dataset { color: var(--ink, #172333); background: var(--surface, #fff); padding: clamp(1rem, 3vw, 2rem); max-width: 64rem; margin: auto; overflow-wrap: anywhere; }
+.pagenary-dataset * { box-sizing: border-box; }
+.pagenary-dataset fieldset { display: grid; gap: .65rem; border: 1px solid currentColor; min-width: 0; }
+.pagenary-dataset label { font-weight: 600; }
+.pagenary-dataset input, .pagenary-dataset select, .pagenary-dataset button { font: inherit; color: inherit; background: var(--surface, #fff); border: 1px solid currentColor; border-radius: .3rem; padding: .65rem; min-height: 44px; max-width: 100%; }
+.pagenary-dataset button { cursor: pointer; }
+.pagenary-dataset button:disabled { cursor: default; opacity: .55; }
+.pagenary-dataset :focus-visible { outline: 3px solid var(--accent, #1769aa); outline-offset: 3px; }
+.pagenary-dataset .dataset-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: 1rem; }
+.pagenary-dataset section { margin-block: 1.25rem; }
+.pagenary-dataset code, .pagenary-dataset pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .pagenary-dataset .dataset-actions { flex-direction: column; } .pagenary-dataset .dataset-actions button { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .pagenary-dataset *, .pagenary-dataset *::before, .pagenary-dataset *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build as viteBuild } from 'vite';
 import react from '@vitejs/plugin-react';
+import { pruneUnusedPgliteAssets } from './prune-unused-pglite-assets.js';
 
 const packageRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -151,13 +152,13 @@ export async function buildReactTenant(options = {}) {
     root: sourceDir,
     base: normalizeBase(basePath),
     logLevel: 'warn',
-    plugins: [react()],
+    plugins: [react(), pruneUnusedPgliteAssets(config.runtime?.fortemi?.tier || 'graph')],
     configFile: false,
     publicDir: false,
     resolve: {
       // PGlite stays out of the tenant bundle because the docs-map imports
       // GraphView from @fortemi/react/graph and the @fortemi/graph root is
-      // graph-only through the reviewed 2026.7.15 release. Database orchestration is isolated behind
+      // graph-only through the reviewed 2026.9.2 release. Database orchestration is isolated behind
       // @fortemi/graph/controller. The artifact audit below guards this seam.
       dedupe: ['react', 'react-dom']
     },

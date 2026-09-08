@@ -53,13 +53,27 @@ test('build-time core-v1 Knowledge Shards seed canonical notes without PGlite', 
     text: 'Portable content'
   }]).index;
   const archive = await aiwgFortemiIndexToKnowledgeShard(projectPagenaryIndexForFullV1(index), { profile: 'core-v1' });
+  let deployedArchive = archive;
+  let fetches = 0;
   const runtime = await createPagenaryRecordRuntime(
     { tier: 'record', storage: 'memory', seed: { type: 'knowledge-shard', path: 'seed.shard' } },
-    { store: new MemoryRecordStore(), seedBytes: archive }
+    { store: new MemoryRecordStore(), seedBytes: archive, fetch: async () => {
+      fetches++;
+      return { ok: true, arrayBuffer: async () => deployedArchive };
+    } }
   );
   const seeded = await runtime.notes.get(index.items[0].id);
   assert.equal(seeded.note.title, 'Guide');
   assert.match(seeded.revised_content, /Portable content/);
   assert.equal(runtime.capabilities.pglite, false);
+  const refreshedIndex = structuredClone(index);
+  refreshedIndex.items[0].text = 'Updated published content';
+  deployedArchive = await aiwgFortemiIndexToKnowledgeShard(projectPagenaryIndexForFullV1(refreshedIndex), { profile: 'core-v1' });
+  const refreshPlan = await runtime.refresh.prepareSeed({ policy: 'version' });
+  await runtime.refresh.preview(refreshPlan);
+  await runtime.refresh.execute(refreshPlan, { approval: refreshPlan.planDigest });
+  assert.equal((await runtime.store.list('note')).length, 1);
+  assert.equal((await runtime.notes.get(index.items[0].id)).revised_content, 'Updated published content');
+  assert.equal(fetches, 1);
   await runtime.close();
 });

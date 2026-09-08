@@ -1,0 +1,7 @@
+{
+  "default": "overview",
+  "sections": [
+    { "id": "overview", "title": "Overview", "file": "overview.md" },
+    { "id": "authoring", "title": "Import pages", "file": "authoring.html" }
+  ]
+}
