@@ -73,8 +73,8 @@ Then use the element in your HTML:
   limit="5"></pagenary-blog>
 ```
 
-For a static site that copies vendor assets, publish the module file from your
-own origin and load it directly:
+For a static site, bundle the embed and its `@pagenary/blog-client` dependency
+into a browser ES module, publish that bundle from your own origin, and load it:
 
 ```html
 <script type="module" src="/vendor/pagenary-embed.js"></script>
@@ -88,6 +88,11 @@ Aggregate several docbases:
   limit="10"
   show-source="true"></pagenary-blog>
 ```
+
+The package source contains a bare `@pagenary/blog-client` import. Copying only
+`src/index.js` is insufficient unless an import map resolves that dependency.
+A CDN must likewise rewrite or bundle package imports; a raw package-file URL
+is not a standalone browser bundle.
 
 ## Component API
 

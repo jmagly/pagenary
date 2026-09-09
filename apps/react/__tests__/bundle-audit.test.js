@@ -12,17 +12,26 @@ test('Tier-1 artifact audit accepts graph-only JavaScript', async (t) => {
   await assertTierOneGraphOnly(outDir, [{ file: 'assets/react/index.js', isEntry: true }]);
 });
 
-test('Tier-1 artifact audit rejects database imports and WASM', async (t) => {
+test('Tier-1 artifact audit rejects database imports without forbidden assets', async (t) => {
   const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-react-audit-'));
   t.after(() => fs.rm(outDir, { recursive: true, force: true }));
-  await fs.writeFile(path.join(outDir, 'index.js'), 'import "@electric-sql/pglite"');
-  await assert.rejects(
-    assertTierOneGraphOnly(outDir, [
-      { file: 'assets/react/index.js', isEntry: true },
-      { file: 'assets/react/pglite.wasm', isEntry: false },
-    ]),
-    /database artifacts\/imports/,
-  );
+  for (const marker of ['@electric-sql/pglite', '@fortemi/core']) {
+    await fs.writeFile(path.join(outDir, 'index.js'), `import "${marker}"`);
+    await assert.rejects(
+      assertTierOneGraphOnly(outDir, [{ file: 'assets/react/index.js', isEntry: true }]),
+      /database artifacts\/imports/,
+    );
+  }
+});
+
+test('Tier-1 artifact audit rejects WASM assets with graph-only JavaScript', async (t) => {
+  const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-react-audit-'));
+  t.after(() => fs.rm(outDir, { recursive: true, force: true }));
+  await fs.writeFile(path.join(outDir, 'index.js'), 'console.log("graph only")');
+  await assert.rejects(assertTierOneGraphOnly(outDir, [
+    { file: 'assets/react/index.js', isEntry: true },
+    { file: 'assets/react/pglite.wasm', isEntry: false },
+  ]), /database artifacts\/imports/);
 });
 
 test('Tier-2 artifact audit permits core records but rejects PGlite artifacts', async (t) => {

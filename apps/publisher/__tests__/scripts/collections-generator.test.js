@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 /**
  * Tests for collection support (#18): front-matter parsing + index.json/feed.xml
  * generation. Exercises the ACTUAL source.
@@ -108,8 +109,12 @@ describe('generateCollections (#18)', () => {
 
   test('missing collection folder warns and does not throw', async () => {
     const cfg = { ...config, collections: [{ path: 'nope', route: '/nope', manifest: true }] };
-    await expect(generateCollections(dist, cfg, content)).resolves.toBeUndefined();
-    await expect(fsp.access(path.join(dist, 'nope', 'index.json'))).rejects.toBeDefined();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(generateCollections(dist, cfg, content)).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('collection source not found: nope'));
+      await expect(fsp.access(path.join(dist, 'nope', 'index.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally { warn.mockRestore(); }
   });
 
   test('no collections config → no-op', async () => {

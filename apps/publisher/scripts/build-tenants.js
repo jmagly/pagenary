@@ -397,7 +397,9 @@ function maskAuthSegment(value) {
  */
 function withGitCredentials(rawUrl) {
   const credentials = process.env.GIT_CREDENTIALS || '';
-  const [username, password] = credentials.split(':', 2);
+  const separator = credentials.indexOf(':');
+  const username = separator < 0 ? '' : credentials.slice(0, separator);
+  const password = separator < 0 ? undefined : credentials.slice(separator + 1);
   if (!credentials || !username || password === undefined || !rawUrl) return rawUrl;
 
   try {
@@ -1689,7 +1691,7 @@ const THEME_PRESETS = {
  * @param {string|object} themeSpec - "light" | "dark" | "matrix" | custom object
  * @param {object} [overrides] - legacy/individual color + font overrides (config)
  */
-function resolveTheme(themeSpec, overrides = {}) {
+export function resolveTheme(themeSpec, overrides = {}) {
   const theme = { ...THEME_PRESETS.light };
   if (themeSpec === 'dark') Object.assign(theme, THEME_PRESETS.dark);
   else if (themeSpec === 'matrix') Object.assign(theme, THEME_PRESETS.matrix);
@@ -3868,7 +3870,7 @@ function isExternalLink(href) {
  * Fragment-only links are not transformed.
  */
 function isFragmentOnly(href) {
-  return href && href.startsWith('#');
+  return Boolean(href && href.startsWith('#'));
 }
 
 /**
@@ -6870,6 +6872,8 @@ if (__isMainModule) {
 }
 
 export {
+  isExternalLink, isFragmentOnly, isMarkdownLink, normalizeLinkPath,
+  resolveLinkPath, pathToSectionId, generateSlug, transformInternalLink,
   markdownToHtml,
   renderHeroMarkup,
   renderBannerMarkup,

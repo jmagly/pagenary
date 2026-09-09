@@ -20,6 +20,16 @@
     "publisher:tenants:diff": "npm run tenants:diff --workspace @pagenary/publisher",
     "publisher:serve": "npm run serve --workspace @pagenary/publisher",
     "publisher:test": "npm run test --workspace @pagenary/publisher",
-    "publisher:clean": "npm run clean --workspace @pagenary/publisher"
+    "publisher:clean": "npm run clean --workspace @pagenary/publisher",
+    "test": "npm run test:publisher && npm run test:react && npm run test:extension && npm run test:tooling",
+    "test:publisher": "npm run test --workspace @pagenary/publisher -- --maxWorkers=2",
+    "test:react": "npm run test --workspace @pagenary/react",
+    "test:extension": "npm run test --workspace @pagenary/vscode-extension",
+    "test:tooling": "node --test scripts/testing/*.test.mjs",
+    "test:checks": "npm run check --workspace @pagenary/publisher",
+    "test:browser": "SMOKE_REQUIRE=1 npm run test:browser --workspace @pagenary/publisher",
+    "test:conformance": "aiwg test-conformance assess",
+    "test:inventory": "aiwg test-conformance inventory",
+    "test:setup": "node scripts/testing/setup-browser.mjs"
   }
 }

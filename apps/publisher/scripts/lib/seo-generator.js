@@ -846,23 +846,11 @@ export async function generateLlmsTxt(distDir, manifest, config) {
         lines.push(`- [${entry.title}](${url}): ${entry.summary || ''}${buildLlmsExtractSuffix(baseUrl, filename, seoConfig)}`);
       }
 
-      // Add subsection pages
-      for (const sub of entry.subsections) {
-        if (!sub.module && !sub.subsections) continue;
-        if (sub.module) {
-          const filename = encodePathForFilename(sub.id);
-          const url = baseUrl ? `${baseUrl}/pages/${filename}.html` : `/pages/${filename}.html`;
-          lines.push(`- [${sub.title}](${url}): ${sub.summary || ''}${buildLlmsExtractSuffix(baseUrl, filename, seoConfig)}`);
-        }
-        // Recurse one more level for deeply nested sections
-        if (sub.subsections) {
-          for (const nested of sub.subsections) {
-            if (!nested.module) continue;
-            const filename = encodePathForFilename(nested.id);
-            const url = baseUrl ? `${baseUrl}/pages/${filename}.html` : `/pages/${filename}.html`;
-            lines.push(`- [${nested.title}](${url}): ${nested.summary || ''}${buildLlmsExtractSuffix(baseUrl, filename, seoConfig)}`);
-          }
-        }
+      // Reuse the recursive section contract so arbitrarily nested pages are discoverable.
+      for (const sub of collectAllSections(entry.subsections)) {
+        const filename = encodePathForFilename(sub.id);
+        const url = baseUrl ? `${baseUrl}/pages/${filename}.html` : `/pages/${filename}.html`;
+        lines.push(`- [${sub.title}](${url}): ${sub.summary || ''}${buildLlmsExtractSuffix(baseUrl, filename, seoConfig)}`);
       }
     } else if (entry.module) {
       // Top-level page without subsections

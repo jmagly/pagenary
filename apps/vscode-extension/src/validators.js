@@ -189,7 +189,7 @@ function validateLatexText(text) {
   const source = String(text || '');
   if (!/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}/.test(source)) findings.push(finding('Complete LaTeX page needs `\\documentclass{…}`.', []));
   if (!/\\begin\{document\}/.test(source) || !/\\end\{document\}/.test(source)) findings.push(finding('Complete LaTeX page needs matching document environment markers.', []));
-  if (/\\(?:immediate\s*)?\\write18|\\(?:openout|openin|read|write)\b|\bhttps?:\/\//i.test(source)) findings.push(finding('LaTeX page contains forbidden shell, file-I/O, or network syntax.', []));
+  if (/\\(?:immediate\s*\\)?write18\b|\\(?:openout|openin|read|write)\b|\bhttps?:\/\//i.test(source)) findings.push(finding('LaTeX page contains forbidden shell, file-I/O, or network syntax.', []));
   return findings;
 }
 

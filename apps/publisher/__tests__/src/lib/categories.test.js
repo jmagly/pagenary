@@ -51,6 +51,10 @@ describe('lib/categories.js', () => {
       expect(formatWord('ui')).toBe('UI');
     });
 
+    test.each([['toString', 'ToString'], ['constructor', 'Constructor'], ['__proto__', '__proto__']])('formats inherited object name %s as text', (input, expected) => {
+      expect(formatWord(input)).toBe(expected);
+    });
+
     test('preserves numeric strings unchanged', () => {
       expect(formatWord('123')).toBe('123');
       expect(formatWord('2025')).toBe('2025');
@@ -223,7 +227,7 @@ describe('CATEGORY_RULES ordering', () => {
     expect(inferCategory('tutorials-overview')).toBe('tutorial-overview');
   });
 
-  test('tutorial- prefix matches before tutorials- prefix', () => {
+  test('singular and plural tutorial prefixes map to tutorial', () => {
     expect(inferCategory('tutorial-basics')).toBe('tutorial');
     expect(inferCategory('tutorials-basics')).toBe('tutorial');
   });

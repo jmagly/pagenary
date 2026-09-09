@@ -84,19 +84,21 @@ describe('Mermaid build-time adapter', () => {
 
   test('strict mode fails the build and source bounds fail before renderer execution', async () => {
     const registry = createRendererRegistry();
-    registry.register(createMermaidBuildAdapter({ maxSourceBytes: 8, renderer: async () => '<svg></svg>' }));
+    let rendererCalls = 0;
+    registry.register(createMermaidBuildAdapter({ maxSourceBytes: 8, renderer: async () => { rendererCalls++; return '<svg></svg>'; } }));
 
     await expect(renderRichContentNodes([node], {
       registry,
       profile: 'build',
       failurePolicy: 'strict'
     })).rejects.toMatchObject({ diagnostics: [expect.objectContaining({ code: 'MERMAID_SOURCE_LIMIT' })] });
+    expect(rendererCalls).toBe(0);
   });
 
   test('bounds CLI execution and removes its temporary workspace after failure', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-mermaid-test-'));
     const command = path.join(tempRoot, 'slow-mmdc');
-    await fs.writeFile(command, '#!/bin/sh\nsleep 2\n', { mode: 0o700 });
+    await fs.writeFile(command, '#!/bin/sh\nexec sleep 2\n', { mode: 0o700 });
     try {
       const registry = createRendererRegistry();
       registry.register(createMermaidBuildAdapter({
@@ -110,7 +112,10 @@ describe('Mermaid build-time adapter', () => {
         profile: 'build',
         failurePolicy: 'strict'
       })).rejects.toMatchObject({
-        diagnostics: [expect.objectContaining({ code: 'MERMAID_RENDER_FAILED' })]
+        diagnostics: [expect.objectContaining({
+          code: 'MERMAID_RENDER_FAILED',
+          message: expect.stringMatching(/exceeded timeout budget/)
+        })]
       });
       expect(await fs.readdir(tempRoot)).toEqual(['slow-mmdc']);
     } finally {

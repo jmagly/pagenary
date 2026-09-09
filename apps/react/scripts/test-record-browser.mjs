@@ -98,7 +98,13 @@ try {
   });
   console.log(JSON.stringify({ ...evidence, emittedBytes: bundle.length, artifacts: files }, null, 2));
 } finally {
-  await browser?.close();
-  if (server) await new Promise((resolve) => server.close(resolve));
-  await rm(temporary, { recursive: true, force: true });
+  try {
+    await browser?.close();
+  } finally {
+    try {
+      if (server) await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  }
 }

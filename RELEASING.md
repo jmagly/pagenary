@@ -28,13 +28,19 @@ flow-release v2026.6.1            # or: "cut a release", "release v2026.6.1"
 
 Or run the gates manually:
 
-1. **Local quality** — from the repo root:
+1. **Local quality** — use Node 24.12.0 for repository qualification. From the repo root:
    ```bash
+   npm ci
+   npm run test:setup   # explicit browser installation; see TESTING.md
    npm run lint:content --workspace @pagenary/publisher
-   npm run test         --workspace @pagenary/publisher
+   npm test
+   npm run build       --workspace @pagenary/publisher
    npm run build:tenants --workspace @pagenary/publisher
    npm run check:seo    --workspace @pagenary/publisher
    ```
+   The default build prepares `dist/` for SEO smoke. The publisher tests include
+   real-browser layout checks; see [Testing Pagenary](TESTING.md) for browser,
+   external-renderer, and complete conformance prerequisites.
 2. **Doc-sync** — reconcile `apps/publisher/docs/*.md` + READMEs with the code.
 3. **Changelog** — add a `## [<version>] - <YYYY-MM-DD>` section to
    [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format). Move items out of

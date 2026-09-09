@@ -45,10 +45,11 @@ A minimalist multi-tenant documentation platform built around static assets and 
 
 ```json
 {
-  "tenant-id": {
-    "source": "/path/or/git:url#branch",
+  "tenants": [{
+    "id": "docs",
+    "source": { "type": "local", "path": "./docs" },
     "domain": "docs.example.com"
-  }
+  }]
 }
 ```
 
@@ -61,6 +62,7 @@ Transforms source content into section modules:
 | Input | Processing | Output |
 |-------|------------|--------|
 | `.md` | Parse Markdown → HTML | ES module with `load()` |
+| `.tex` | Explicit LaTeX-page converter profile → semantic HTML/MathML | ES module plus local rich-content assets |
 | `.html` | Wrap in loader | ES module with `load()` |
 | `.js` | Copy unchanged | ES module with `load()` |
 
@@ -132,14 +134,15 @@ gate when explicitly enabled; converter dependencies never enter browser code.
 ```text
 resolve source
   -> run base build
-  -> process tenant content and manifest
+  -> process tenant content and manifest, emitting Fortemi search-index/
   -> apply overrides
   -> apply branding/theme/navigation/welcome
   -> copy .public assets
-  -> generate Fortemi search index (search-index/)
   -> generate SEO artifacts
   -> for brochureware tenants, generate validated semantic route and corpus artifacts
   -> generate collection manifests/feeds
+  -> build optional React routes
+  -> generate optional negotiated Markdown representations
   -> optionally emit Knowledge Shard + digest/provenance
   -> finalize content-addressed bundle
   -> copy or sync to target
@@ -188,7 +191,7 @@ scripts/lib/
 ### Core Flow
 
 ```
-Build: Content → Manifest → Branding → Public Assets → SEO Artifacts → Collections
+Build: Content/Manifest/Search → Branding → Public Assets → SEO → Collections → Optional React/Markdown/Shard → Content Hashes
 
 Runtime: Hash Change → Router → Manifest Lookup → Module Import → Render → Post-Process
                                                         │
@@ -234,37 +237,27 @@ const page = await searchContentPage(MANIFEST, query, { offset, limit: 25 });
 
 The chunked index is emitted at build time (see "Search Index Generation"); the
 runtime engine and the build-time corpus builder (`lib/fortemi-corpus.js`) share
-the `@fortemi/core` `aiwg.fortemi.index.*.v1` contract.
+versioned Fortémi contracts: v1 chunk envelopes containing v2 records, with a
+v2 export envelope and explicit v1 compatibility metadata.
 
 > `@fortemi/core` is the browser-only half of [Fortémi](https://docs.fortemi.com)
 > (the self-hosted Rust + PostgreSQL server shares the same JSON contracts). The
 > graph and React layers — `@fortemi/graph` and `@fortemi/react` — are documented
 > at [docs.fortemi.com/react](https://docs.fortemi.com/react/). See
-> [Search & Data](#search-and-data) for what this enables and how far it scales.
+> [Search & Data](SEARCH-AND-DATA.md) for what this enables and how far it scales.
 
 ### Mermaid Integration (mermaid-init.js)
 
 Lazy-loaded diagram rendering delegates interaction to the shared
 `lib/pan-zoom.js` viewport controller:
 
-```javascript
-export async function renderMermaidBlocks(container) {
-  const blocks = container.querySelectorAll('code.language-mermaid');
-  if (!blocks.length) return () => {};
+The browser loader reads `./vendor/mermaid/mermaid.min.js` relative to
+`mermaid-init.js`. The build vendors pinned Mermaid 11.16.0; initialization
+forces strict security, disables automatic startup and error rendering, and
+sets source/edge bounds and deterministic IDs. Rendering passes generated SVG
+to the shared pan/zoom controller. Optional build-time rendering emits sanitized
+local SVG assets instead; see [Rich Content](RICH-CONTENT.md).
 
-  const mermaid = await import('https://esm.sh/mermaid@10/dist/mermaid.esm.min.mjs');
-  mermaid.default.initialize({ startOnLoad: false });
-
-  const cleanup = [];
-
-  for (const block of blocks) {
-    const { svg } = await mermaid.default.render(id, block.textContent);
-    // Replace the code block and enhance its SVG with shared controls.
-    cleanup.push(enhancePanZoomViewport({ container, viewport, target, label: 'Diagram' }));
-  }
-  return () => cleanup.forEach((fn) => fn());
-}
-```
 
 The same controller enhances authored `[data-image-viewport]` figures after a
 section mounts. It owns the 50–300% scale bounds, focal-point zoom, scrolling
@@ -274,18 +267,11 @@ progressive-enhancement baseline.
 
 ### Syntax Highlighting (syntax-highlight.js)
 
-Prism.js integration with language auto-detection:
-
-```javascript
-export async function highlightCodeBlocks(container) {
-  const blocks = container.querySelectorAll('pre > code[class*="language-"]');
-  if (!blocks.length) return;
-
-  const Prism = await import('https://esm.sh/prismjs@1.29.0');
-  // Load language modules dynamically
-  Prism.highlightAllUnder(container);
-}
-```
+Prism loads only when eligible code blocks are present. The loader uses
+`./vendor/prism/prism.js` and locally copied language modules under
+`./vendor/prism/components/`. These are supplied by the publisher build; no
+runtime CDN import is required. Language aliases are normalized before applying
+highlighting. See [Vendoring](VENDORING.md).
 
 ### Export (lib/export.js)
 

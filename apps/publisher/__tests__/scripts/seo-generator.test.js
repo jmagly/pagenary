@@ -155,10 +155,10 @@ describe('buildStaticPage (#17 + #16)', () => {
     expect(html).not.toContain('<noscript>');
   });
 
-  test('allows no-JS readers to scroll the static snapshot', () => {
+  test('emits explicit static snapshot scrolling declarations (browser behavior qualified in styles.test.js)', () => {
     const html = buildStaticPage(baseOpts);
-    expect(html).toMatch(/html,\s*body\s*{[\s\S]*height: auto;[\s\S]*overflow: auto;/);
-    expect(html).toMatch(/body\s*{[\s\S]*display: block;/);
+    expect(html).toMatch(/html,\s*body\s*{[^}]*height: auto;[^}]*overflow: auto;/);
+    expect(html).toMatch(/body\s*{[^}]*display: block;/);
   });
 
   test('og:image + twitter:image emitted and card upgraded when image present (#16)', () => {
@@ -478,4 +478,17 @@ describe('profile artifact matrix (#114, #115, #117)', () => {
       await fsp.rm(dir, { recursive: true, force: true });
     }
   });
+});
+
+
+test('llms.txt includes module-bearing pages nested beyond three levels', async () => {
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-deep-llms-'));
+  try {
+    const manifest = [{ id: 'top', title: 'Top', subsections: [{ id: 'middle', title: 'Middle', subsections: [{ id: 'inner', title: 'Inner', module: './inner.js', subsections: [{ id: 'deep/page', title: 'Deep page', module: './deep.js' }] }] }] }];
+    await generateLlmsTxt(dir, manifest, { domain: 'docs.example' });
+    const text = await fsp.readFile(path.join(dir, 'llms.txt'), 'utf8');
+    expect(text).toContain('- [Inner](https://docs.example/pages/inner.html):');
+    expect(text).toContain('- [Deep page](https://docs.example/pages/deep--page.html):');
+    expect(text.indexOf('- [Inner]')).toBeLessThan(text.indexOf('- [Deep page]'));
+  } finally { await fsp.rm(dir, { recursive: true, force: true }); }
 });

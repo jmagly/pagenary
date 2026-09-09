@@ -125,15 +125,20 @@ describe('Markdown delivery artifacts (#163)', () => {
     expect(routes.observability.responseHeader).toBe(true);
   });
 
-  it('is opt-in and removes stale output for noIndex and restrictive profiles', async () => {
+  it.each([
+    ['default opt-out', {}],
+    ['noIndex', { seo: { noIndex: true }, markdownDelivery: { enabled: true } }],
+    ['limited', { seo: { discoverabilityProfile: 'limited' }, markdownDelivery: { enabled: true } }],
+    ['locked', { seo: { discoverabilityProfile: 'locked' }, markdownDelivery: { enabled: true } }]
+  ])('removes stale output for %s', async (_name, config) => {
     await fsp.mkdir(path.join(distDir, 'markdown'));
     await fsp.writeFile(path.join(distDir, 'markdown/stale.md'), 'private');
     await fsp.writeFile(path.join(distDir, 'markdown-routes.json'), '{}');
     expect(resolveMarkdownDeliveryConfig({ markdownDelivery: { enabled: true } }).enabled).toBe(true);
     expect(resolveMarkdownDeliveryConfig({ seo: { discoverabilityProfile: 'limited' }, markdownDelivery: { enabled: true } }).enabled).toBe(false);
     expect(resolveMarkdownDeliveryConfig({ seo: { noIndex: true }, markdownDelivery: { enabled: true } }).enabled).toBe(false);
-    await generateMarkdownArtifacts(distDir, { seo: { discoverabilityProfile: 'locked' }, markdownDelivery: { enabled: true } });
-    await expect(fsp.stat(path.join(distDir, 'markdown'))).rejects.toThrow();
-    await expect(fsp.stat(path.join(distDir, 'markdown-routes.json'))).rejects.toThrow();
+    await generateMarkdownArtifacts(distDir, config);
+    await expect(fsp.stat(path.join(distDir, 'markdown'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(fsp.stat(path.join(distDir, 'markdown-routes.json'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

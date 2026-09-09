@@ -1,32 +1,9 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
+import { resolveTheme } from './build-tenants.js';
 
 const root = process.cwd();
-
-const THEME_PRESETS = {
-  light: {
-    colorScheme: 'light',
-    surface: '#ffffff',
-    ink: '#0b0b0b',
-    muted: '#5a5a5a',
-    accent: '#111111'
-  },
-  dark: {
-    colorScheme: 'dark',
-    surface: '#0a0a0e',
-    ink: '#e0e0e0',
-    muted: '#888888',
-    accent: '#22d3ee'
-  },
-  matrix: {
-    colorScheme: 'dark',
-    surface: '#050509',
-    ink: '#00ff00',
-    muted: '#00cc00',
-    accent: '#00ff00'
-  }
-};
 
 const FOCUS_SELECTORS = [
   '.skip-link:focus',
@@ -84,20 +61,6 @@ function contrastRatio(fg, bg) {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
-function resolveTheme(config = {}) {
-  let theme = { ...THEME_PRESETS.light };
-  if (typeof config.theme === 'string' && THEME_PRESETS[config.theme]) {
-    theme = { ...THEME_PRESETS[config.theme] };
-  } else if (config.theme && typeof config.theme === 'object') {
-    theme = { ...theme, ...config.theme };
-  }
-  if (config.accentColor) theme.accent = config.accentColor;
-  if (config.surfaceColor) theme.surface = config.surfaceColor;
-  if (config.inkColor) theme.ink = config.inkColor;
-  if (config.mutedColor) theme.muted = config.mutedColor;
-  return theme;
-}
-
 function checkRatio(name, fg, bg, minimum, severity = 'fail') {
   const ratio = contrastRatio(fg, bg);
   if (ratio === null) {
@@ -112,7 +75,7 @@ function checkRatio(name, fg, bg, minimum, severity = 'fail') {
 }
 
 function checkTheme(name, config, { strictAccent = false } = {}) {
-  const theme = resolveTheme(config);
+  const { theme } = resolveTheme(config.theme, config);
   checkRatio(`${name} ink text`, theme.ink, theme.surface, 4.5);
   checkRatio(`${name} muted text`, theme.muted, theme.surface, 4.5, 'warn');
   checkRatio(`${name} accent/focus`, theme.accent, theme.surface, 3.0, strictAccent ? 'fail' : 'warn');
@@ -165,8 +128,8 @@ function checkFocusCss() {
   }
 }
 
-for (const [name, preset] of Object.entries(THEME_PRESETS)) {
-  checkTheme(`preset:${name}`, { theme: preset }, { strictAccent: true });
+for (const name of ['light', 'dark', 'matrix']) {
+  checkTheme(`preset:${name}`, { theme: name }, { strictAccent: true });
 }
 
 for (const entry of tenantConfigsFromRegistry('examples/recipes.tenants.json')) {

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { createHash } from 'node:crypto';
 import {
   createLatexPageAdapter,
   inspectLatexPageRenderers,
@@ -13,12 +14,22 @@ import { preflightLatexPage } from '../../scripts/lib/latex-page-preflight.js';
 import { ensureLatexPageModule } from '../../scripts/build-tenants.js';
 import { RendererCache } from '../../scripts/lib/rich-content-cache.js';
 
+const ownedTempDirectories = [];
+async function createTempDirectory(prefix) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+  ownedTempDirectories.push(dir);
+  return dir;
+}
+afterEach(async () => {
+  await Promise.all(ownedTempDirectories.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+});
+
 const root = path.resolve('/workspace/content');
 const sourceFile = path.join(root, 'guides', 'page.tex');
 
 describe('LaTeX full-page preflight', () => {
   test('rejects a tenant-local dependency symlink that resolves outside the content root', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-symlink-'));
+    const temp = await createTempDirectory('pagenary-latex-symlink-');
     const content = path.join(temp, 'content');
     const outside = path.join(temp, 'outside.tex');
     await fs.mkdir(content);
@@ -62,7 +73,7 @@ describe('LaTeX full-page preflight', () => {
     [String.raw`\input{../../secret}`, 'LATEX_DEPENDENCY_OUTSIDE_ROOT'],
     [String.raw`\includegraphics{https://example.test/payload.svg}`, 'LATEX_UNSAFE_COMMAND'],
     [String.raw`\usepackage{minted}`, 'LATEX_PACKAGE_NOT_ALLOWED']
-  ])('rejects dangerous input without invoking a TeX process', (source, expectedCode) => {
+  ])('rejects dangerous input case %# without invoking a TeX process', (source, expectedCode) => {
     const result = preflightLatexPage(source, { contentRoot: root, sourceFile, fileExists: () => false });
     expect(result.ok).toBe(false);
     expect(result.diagnostics.map((item) => item.code)).toContain(expectedCode);
@@ -83,7 +94,7 @@ describe('LaTeX full-page preflight', () => {
   });
 
   test('preflights nested includes and rejects unsafe transitive source', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-nested-'));
+    const temp = await createTempDirectory('pagenary-latex-nested-');
     const page = path.join(temp, 'page.tex');
     const nested = path.join(temp, 'nested.tex');
     await fs.writeFile(page, '\\documentclass{article}\\input{nested}\\begin{document}Page\\end{document}');
@@ -156,7 +167,7 @@ describe('LaTeX page adapters', () => {
   });
 
   test('materializes a distinct .tex page as a section module', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-page-'));
+    const temp = await createTempDirectory('pagenary-latex-page-');
     const sourcePath = path.join(temp, 'page.tex');
     const targetPath = path.join(temp, 'page.js');
     await fs.writeFile(sourcePath, '\\documentclass{article}\\begin{document}Hello\\end{document}');
@@ -179,7 +190,7 @@ describe('LaTeX page adapters', () => {
   });
 
   test('materializes an optional content-addressed PDF sibling and download link', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-pdf-'));
+    const temp = await createTempDirectory('pagenary-latex-pdf-');
     const sourcePath = path.join(temp, 'page.tex');
     const targetPath = path.join(temp, 'sections', 'page.js');
     const pdfBytes = Buffer.from('%PDF-1.7\nqualified fixture\n');
@@ -262,7 +273,7 @@ describe('LaTeX page adapters', () => {
   });
 
   test('cache identity changes when a contained dependency changes', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-cache-'));
+    const temp = await createTempDirectory('pagenary-latex-cache-');
     const page = path.join(temp, 'page.tex');
     const included = path.join(temp, 'included.tex');
     const source = '\\documentclass{article}\\input{included}\\begin{document}Page\\end{document}';
@@ -281,7 +292,7 @@ describe('LaTeX page adapters', () => {
   });
 
   test('rewrites declared graphics to sanitized content-addressed local assets', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-latex-assets-'));
+    const temp = await createTempDirectory('pagenary-latex-assets-');
     const sourcePath = path.join(temp, 'page.tex');
     const graphicPath = path.join(temp, 'figure.svg');
     const source = '\\documentclass{article}\\usepackage{graphicx}\\begin{document}\\includegraphics{figure.svg}\\end{document}';
@@ -300,7 +311,12 @@ describe('LaTeX page adapters', () => {
       expect(result.assets[0]).toMatchObject({ mimeType: 'image/svg+xml' });
       expect(result.assets[0].path).toMatch(/^assets\/rich-content\/latex\/[a-f0-9]{24}\.svg$/);
       expect(result.html).toContain(`src="./${result.assets[0].path}"`);
-      expect(result.assets[0].bytes.toString()).not.toMatch(/script|onload/i);
+      const svg = result.assets[0].bytes.toString();
+      expect(svg).toMatch(/^<svg\b/);
+      expect(svg).toContain('<text>Chart</text>');
+      expect(svg).not.toMatch(/script|onload/i);
+      const digest = createHash('sha256').update(result.assets[0].bytes).digest('hex').slice(0, 24);
+      expect(result.assets[0].path).toBe(`assets/rich-content/latex/${digest}.svg`);
     } finally {
       await fs.rm(temp, { recursive: true, force: true });
     }
@@ -341,7 +357,7 @@ describe('LaTeX page adapters', () => {
   });
 
   test('renders an optional bounded Tectonic PDF sibling in untrusted cached mode', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-pdf-page-'));
+    const temp = await createTempDirectory('pagenary-pdf-page-');
     const pdfSource = path.join(temp, 'page.tex');
     await fs.writeFile(pdfSource, '\\documentclass{article}\\begin{document}PDF\\end{document}');
     const calls = [];
@@ -368,7 +384,7 @@ describe('LaTeX page adapters', () => {
   });
 
   test('rejects a Tectonic PDF that exceeds the configured output limit', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-pdf-limit-'));
+    const temp = await createTempDirectory('pagenary-pdf-limit-');
     const pdfSource = path.join(temp, 'page.tex');
     await fs.writeFile(pdfSource, '\\documentclass{article}\\begin{document}PDF\\end{document}');
     const runCommand = async (_command, args) => {

@@ -1,33 +1,30 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
+import { startPreviewServer, runManagedProcess, fetchWithDeadline } from './lib/process-lifecycle.js';
 import fs from 'node:fs';
-import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const port = Number(process.env.PORT || 5198);
-const origin = `http://127.0.0.1:${port}`;
-const base = `${origin}/syntax-gallery/`;
+let origin;
+let base;
 const requested = String(process.env.SMOKE_BROWSERS || 'chromium,firefox,webkit').split(',').map((v) => v.trim()).filter(Boolean);
+if (requested.length === 0) throw new Error('SMOKE_BROWSERS must select at least one browser.');
 const playwright = await loadPlaywright();
 if (!playwright) throw new Error('Playwright is required; set PLAYWRIGHT_MODULE to its index.mjs');
 
 await run(process.execPath, ['scripts/build-tenants.js', '--registry', 'examples/recipes.tenants.json', 'syntax-gallery']);
 const mermaidBytes = fs.statSync(path.join(packageRoot, 'dist/syntax-gallery/vendor/mermaid/mermaid.min.js')).size;
 assert(mermaidBytes <= 4 * 1024 * 1024, `Mermaid lazy chunk stays within 4 MiB (${mermaidBytes} bytes)`);
-const server = spawn(process.execPath, ['scripts/serve.js', '--dev'], {
-  cwd: packageRoot,
-  env: { ...process.env, PORT: String(port) },
-  stdio: ['ignore', 'ignore', 'inherit']
-});
+const server = await startPreviewServer('scripts/serve.js', { cwd: packageRoot });
+origin = server.origin;
+base = `${origin}/syntax-gallery/`;
 
 try {
   await waitForServer(base);
   for (const name of requested) await qualifyBrowser(name, playwright[name]);
   console.log(`Rich-content browser matrix PASS (${requested.join(', ')})`);
 } finally {
-  server.kill('SIGTERM');
+  await server.stop();
 }
 
 async function qualifyBrowser(name, browserType) {
@@ -172,23 +169,17 @@ async function loadPlaywright() {
   try { return await import('playwright'); } catch { return null; }
 }
 
-function run(command, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd: packageRoot, stdio: 'inherit' });
-    child.on('exit', (code) => code === 0 ? resolve() : reject(new Error(`${command} exited ${code}`)));
-    child.on('error', reject);
-  });
+async function run(command, args, cwd = packageRoot) {
+  const result = await runManagedProcess(command, args, { cwd }, 1_200_000);
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.code !== 0) throw new Error(`${command} ${args.join(' ')} exited ${result.code ?? result.signal}`);
 }
 
-function waitForServer(url, timeoutMs = 15_000) {
-  const deadline = Date.now() + timeoutMs;
-  return new Promise((resolve, reject) => {
-    const poll = () => {
-      const request = http.get(url, (response) => { response.resume(); resolve(); });
-      request.on('error', () => Date.now() >= deadline ? reject(new Error(`Server did not start at ${url}`)) : setTimeout(poll, 150));
-    };
-    poll();
-  });
+async function waitForServer(url) {
+  const response = await fetchWithDeadline(url);
+  if (!response.ok) throw new Error(`Owned preview server returned HTTP ${response.status} at ${url}`);
+  await response.arrayBuffer();
 }
 
 function assert(condition, message) {

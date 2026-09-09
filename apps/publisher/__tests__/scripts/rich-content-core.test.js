@@ -20,6 +20,17 @@ import {
 } from '../../scripts/lib/rich-content-diagnostics.js';
 import { tokenizeRichContent } from '../../scripts/lib/rich-content-tokenizer.js';
 
+const ownedCacheDirectories = [];
+async function createCacheDirectory(prefix) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+  ownedCacheDirectories.push(dir);
+  return dir;
+}
+afterEach(async () => {
+  const directories = ownedCacheDirectories.splice(0);
+  await Promise.all(directories.map((dir) => fs.rm(dir, { recursive: true, force: true })));
+});
+
 describe('rich-content protected tokenizer', () => {
   test('emits source-aware typed nodes and protects code, HTML, links, images, and special fences', () => {
     const source = [
@@ -134,8 +145,63 @@ describe('rich-content adapter registry', () => {
     });
   });
 
+  test.each(['strict', 'warn', 'off'])('invalid nodes honor %s policy before rendering', async (failurePolicy) => {
+    let invocations = 0;
+    const registry = createRendererRegistry();
+    registry.register(defineRendererAdapter({
+      id: 'invalid',
+      validate() { return [{ code: 'MOCK_BAD', severity: 'error', message: 'Bad mock node' }]; },
+      async render() { invocations++; return { html: '<p>must not render</p>' }; }
+    }));
+    const pending = renderRichContentNodes([{ renderer: 'invalid', body: '<bad>' }], { registry, failurePolicy });
+    if (failurePolicy === 'strict') {
+      await expect(pending).rejects.toMatchObject({
+        code: 'MOCK_BAD', diagnostics: [expect.objectContaining({ code: 'MOCK_BAD', severity: 'error' })]
+      });
+    } else {
+      const [result] = await pending;
+      expect(result.html).toBe(failurePolicy === 'off' ? '' : '<pre class="rich-content-fallback"><code>&lt;bad&gt;</code></pre>');
+      expect(result.diagnostics).toEqual([expect.objectContaining({
+        code: 'MOCK_BAD', severity: failurePolicy === 'warn' ? 'warning' : 'error'
+      })]);
+    }
+    expect(invocations).toBe(0);
+  });
+
+  test('strict policy rejects cached error diagnostics from a permissive render', async () => {
+    const registry = createRendererRegistry();
+    const cache = new RendererCache({ rootDir: await createCacheDirectory('pagenary-policy-cache-') });
+    let invocations = 0;
+    registry.register(defineRendererAdapter({
+      id: 'partial-cache',
+      async render() {
+        invocations++;
+        return { html: '<p>partial</p>', diagnostics: [{ code: 'CACHED_ERROR', severity: 'error', message: 'Incomplete render' }] };
+      }
+    }));
+    const nodes = [{ renderer: 'partial-cache', body: 'input' }];
+    const options = { registry, cache, tenantId: 'docs', pageId: 'policy' };
+    const [permissive] = await renderRichContentNodes(nodes, { ...options, failurePolicy: 'warn' });
+    expect(permissive.rendererMetadata.cacheStatus).toBe('miss');
+    await expect(renderRichContentNodes(nodes, { ...options, failurePolicy: 'strict' }))
+      .rejects.toMatchObject({ code: 'CACHED_ERROR' });
+    expect(invocations).toBe(1);
+  });
+
+  test('strict policy rejects missing adapters and error-bearing render results', async () => {
+    const registry = createRendererRegistry();
+    await expect(renderRichContentNodes([{ renderer: 'missing', body: 'input' }], { registry, failurePolicy: 'strict' }))
+      .rejects.toMatchObject({ code: 'RTC_RENDERER_UNAVAILABLE' });
+    registry.register(defineRendererAdapter({
+      id: 'partial',
+      async render() { return { html: '<p>partial</p>', diagnostics: [{ code: 'PARTIAL_FAILED', severity: 'error', message: 'Partial render failed' }] }; }
+    }));
+    await expect(renderRichContentNodes([{ renderer: 'partial', body: 'input' }], { registry, failurePolicy: 'strict' }))
+      .rejects.toMatchObject({ code: 'PARTIAL_FAILED' });
+  });
+
   test('serves warm adapter results without another renderer invocation', async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-adapter-cache-'));
+    const dir = await createCacheDirectory('pagenary-render-adapter-cache-');
     const cache = new RendererCache({ rootDir: dir });
     const registry = createRendererRegistry();
     let invocations = 0;
@@ -165,7 +231,7 @@ describe('rich-content adapter registry', () => {
   });
 
   test('renders successfully when the optional cache is unavailable', async () => {
-    const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-cache-bypass-'));
+    const temp = await createCacheDirectory('pagenary-render-cache-bypass-');
     const blockedRoot = path.join(temp, 'not-a-directory');
     await fs.writeFile(blockedRoot, 'file blocks cache directory');
     const registry = createRendererRegistry();
@@ -242,7 +308,7 @@ describe('rich-content cache identity and storage', () => {
   });
 
   test('cache reads validate metadata/content hash and recover from malformed entries', async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-cache-'));
+    const dir = await createCacheDirectory('pagenary-render-cache-');
     const cache = new RendererCache({ rootDir: dir });
     const identity = buildRendererCacheIdentity({
       tenantId: 'tenant-a',
@@ -267,7 +333,7 @@ describe('rich-content cache identity and storage', () => {
   });
 
   test('isolates tenants and ignores interrupted partial writes', async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-cache-isolation-'));
+    const dir = await createCacheDirectory('pagenary-render-cache-isolation-');
     const cache = new RendererCache({ rootDir: dir });
     const base = { pageId: 'intro', renderer: { id: 'mock', version: '1.0.0' }, source: 'same source' };
     const tenantA = buildRendererCacheIdentity({ ...base, tenantId: 'tenant-a' });
@@ -281,7 +347,7 @@ describe('rich-content cache identity and storage', () => {
   });
 
   test('concurrent writes publish one complete atomic entry and clean temporary files', async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pagenary-render-cache-concurrent-'));
+    const dir = await createCacheDirectory('pagenary-render-cache-concurrent-');
     const cache = new RendererCache({ rootDir: dir });
     const identity = buildRendererCacheIdentity({
       tenantId: 'tenant-a', pageId: 'intro', renderer: { id: 'mock', version: '1.0.0' }, source: 'same source'

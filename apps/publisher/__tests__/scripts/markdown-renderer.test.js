@@ -107,17 +107,23 @@ describe('markdownToHtml HTML comment stripping', () => {
     expect(html).not.toContain('-->');
   });
 
+  it('preserves deliberately raw HTML fence comments as authored markup', () => {
+    const html = markdownToHtml('```html\n<!-- raw comment -->\n<p>hi</p>\n```');
+    expect(html).toContain('<div class="html-block"><!-- raw comment -->\n<p>hi</p></div>');
+  });
+
   it('preserves an HTML comment shown inside a fenced code block', () => {
     const html = markdownToHtml([
       '# Title',
       '',
-      '```html',
+      '```text',
       '<!-- this is example code -->',
       '<p>hi</p>',
       '```'
     ].join('\n'));
     // The code example must still show the literal comment (escaped).
-    expect(html).toContain('this is example code');
+    expect(html).toContain('<pre><code class="language-text">&lt;!-- this is example code --&gt;\n&lt;p&gt;hi&lt;/p&gt;</code></pre>');
+    expect(html).not.toContain('<!-- this is example code -->');
   });
 })
 

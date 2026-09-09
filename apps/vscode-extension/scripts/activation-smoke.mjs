@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import Module from 'node:module';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -97,15 +98,20 @@ try {
   }
 
   await registered.get('pagenary.validateActiveFile')();
-  const activeDiagnostics = diagnostics.get(jsonDocument.uri.fsPath) || [];
-  if (activeDiagnostics.length < 2) {
-    throw new Error('Active-file validation did not publish expected diagnostics.');
-  }
+  const expectedDiagnostics = [
+    { message: 'Tenant `id` must match the Pagenary tenant id pattern.', severity: fakeVscode.DiagnosticSeverity.Error, source: 'pagenary' },
+    { message: 'Git tenant source requires a non-empty `url`.', severity: fakeVscode.DiagnosticSeverity.Error, source: 'pagenary' }
+  ];
+  const diagnosticContents = () => (diagnostics.get(jsonDocument.uri.fsPath) || [])
+    .map(({ message, severity, source }) => ({ message, severity, source }));
+  assert.deepEqual(diagnosticContents(), expectedDiagnostics, 'Active-file diagnostic content');
 
+  diagnostics.clear();
+  messages.length = 0;
   await registered.get('pagenary.validateWorkspace')();
-  if (!messages.some((message) => /workspace validation complete/i.test(message))) {
-    throw new Error('Workspace validation did not report completion.');
-  }
+  assert.deepEqual([...diagnostics.keys()], [jsonDocument.uri.fsPath], 'Workspace validated fixture file');
+  assert.deepEqual(diagnosticContents(), expectedDiagnostics, 'Workspace must publish fresh expected diagnostics');
+  assert.deepEqual(messages, ['Pagenary workspace validation complete: 1 file(s), 2 issue(s).']);
 
   fakeVscode.window.activeTextEditor = { document: markdownDocument };
   await registered.get('pagenary.openPreview')();

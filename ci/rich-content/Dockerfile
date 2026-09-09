@@ -21,7 +21,7 @@ RUN cd /opt/mermaid-cli \
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates=20260601~24.04.1 \
-      curl=8.5.0-2ubuntu10.11 \
+      curl=8.5.0-2ubuntu10.13 \
       fontconfig=2.15.0-1.1ubuntu2 \
       graphviz=2.42.2-9ubuntu0.1 \
       latexml=0.8.8-1 \
@@ -37,7 +37,7 @@ RUN apt-get update \
       libxfixes3=1:6.0.0-2build1 \
       libxrandr2=2:1.5.2-2build1 \
       libxshmfence1=1.3-1build5 \
-      openjdk-21-jre-headless=21.0.11+10-1~24.04.2 \
+      openjdk-21-jre-headless=21.0.12+8-1~24.04 \
       pandoc=3.1.3+ds-2 \
       texlive-extra-utils=2023.20240207-1 \
  && rm -rf /var/lib/apt/lists/* \

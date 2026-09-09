@@ -25,6 +25,11 @@ describe('lib/templates.js', () => {
       expect(getTemplate(undefined)).toBeNull();
     });
 
+    test.each(['toString', 'constructor', '__proto__'])('rejects inherited template name %s', (id) => {
+      expect(getTemplate(id)).toBeNull();
+      expect(validateFrontmatter(id, {})).toEqual({ valid: true, errors: [] });
+    });
+
     test('registry derived from schemas', () => {
       expect(Object.keys(TEMPLATE_REGISTRY).sort()).toEqual(['guide', 'post']);
     });

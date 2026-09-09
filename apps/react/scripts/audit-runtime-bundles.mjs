@@ -15,14 +15,21 @@ try {
   const result = await buildReactTenant({ tenantId: 'graph-audit', sourceDir: temporary, distDir,
     config: { docsMap: { renderer: 'fortemi-react' }, runtime: { fortemi: { tier: 'graph' } } },
     runtime: { entry: 'graph.jsx' } });
+  assert.ok(Array.isArray(result.emittedAssets) && result.emittedAssets.length > 0,
+    'Graph build emitted no assets');
+  assert.ok(result.emittedAssets.some((asset) => asset.isEntry && asset.file.endsWith('.js')),
+    'Graph build emitted no JavaScript entry');
   let emittedBytes = 0;
+  let entryBytes = 0;
   for (const asset of result.emittedAssets) {
     assert.doesNotMatch(asset.file, /\.wasm$|pglite|dataset|inference/i);
     const bytes = await readFile(path.join(distDir, asset.file));
     emittedBytes += bytes.length;
+    if (asset.isEntry && asset.file.endsWith('.js')) entryBytes += bytes.length;
     if (asset.file.endsWith('.js')) {
       assert.doesNotMatch(bytes.toString(), /source-refresh|pagenary:published-pages|source_import_batch|DatasetIngestExecutor/);
     }
   }
-  console.log(JSON.stringify({ tier: 'graph', emittedBytes, artifacts: result.emittedAssets.map((asset) => asset.file) }, null, 2));
+  assert.ok(entryBytes > 0, 'Graph JavaScript entry is empty');
+  console.log(JSON.stringify({ tier: 'graph', entryBytes, emittedBytes, artifacts: result.emittedAssets.map((asset) => asset.file) }, null, 2));
 } finally { await rm(temporary, { recursive: true, force: true }); }

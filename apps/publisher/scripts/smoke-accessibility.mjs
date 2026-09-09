@@ -7,18 +7,16 @@
  * generated-output regressions and report route, selector, rule, and
  * remediation details. CI should run with --require after installing Playwright.
  */
-import { spawn } from 'node:child_process';
-import http from 'node:http';
+import { startPreviewServer, runManagedProcess, fetchWithDeadline } from './lib/process-lifecycle.js';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_DIR = path.resolve(__dirname, '..');
-const PORT = Number(process.env.PORT || 5192);
 const TENANT = process.env.SMOKE_TENANT || 'pagenary';
-const ORIGIN = `http://127.0.0.1:${PORT}/`;
-const BASE = `${ORIGIN}${TENANT}/`;
+let ORIGIN;
+let BASE;
 const REQUIRE = process.argv.includes('--require') || process.env.SMOKE_REQUIRE === '1';
 
 const findings = [];
@@ -35,31 +33,16 @@ function pass(route, rule, detail = '') {
   console.log(`  OK ${route} ${rule}${detail ? ` - ${detail}` : ''}`);
 }
 
-function waitForServer(url, timeoutMs = 15000) {
-  const deadline = Date.now() + timeoutMs;
-  return new Promise((resolve, reject) => {
-    const ping = () => {
-      const req = http.get(url, (res) => {
-        res.resume();
-        resolve();
-      });
-      req.on('error', () => {
-        if (Date.now() > deadline) reject(new Error(`server not ready at ${url}`));
-        else setTimeout(ping, 200);
-      });
-    };
-    ping();
-  });
+async function waitForServer(url) {
+  const response = await fetchWithDeadline(url);
+  if (!response.ok) throw new Error(`Owned preview server returned HTTP ${response.status} at ${url}`);
+  await response.arrayBuffer();
 }
-
-function run(command, args, cwd = PKG_DIR) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' });
-    child.on('exit', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`${command} ${args.join(' ')} exited ${code}`));
-    });
-  });
+async function run(command, args, cwd = PKG_DIR) {
+  const result = await runManagedProcess(command, args, { cwd }, 1_200_000);
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.code !== 0) throw new Error(`${command} ${args.join(' ')} exited ${result.code ?? result.signal}`);
 }
 
 async function loadPlaywright() {
@@ -80,10 +63,6 @@ async function loadPlaywright() {
 }
 
 async function ensureBuilt() {
-  const shell = path.join(PKG_DIR, 'dist', TENANT, 'index.html');
-  const blog = path.join(PKG_DIR, 'dist', 'blog-demo', 'index.html');
-  const effects = path.join(PKG_DIR, 'dist', 'page-effects', 'index.html');
-  if (fs.existsSync(shell) && fs.existsSync(blog) && fs.existsSync(effects)) return;
   console.log('Building docs tenant and example tenants for browser accessibility smoke...');
   await run('node', ['scripts/build-tenants.js', TENANT]);
   await run('npm', ['run', 'build:examples:site']);
@@ -544,6 +523,8 @@ async function checkImageViewport(page) {
     const independent = second.querySelector('.pan-zoom-status').textContent;
     const responsivePreserved = enhanced[3].querySelector('.pan-zoom-viewport > picture > source') !== null;
 
+    const decorativeSkipped = !figures[4].dataset.panZoomEnhanced;
+    const linkedSkipped = !figures[5].dataset.panZoomEnhanced;
     cleanup();
     const cleaned = enhanced.every((figure) => !figure.dataset.panZoomEnhanced
       && !figure.querySelector('.pan-zoom-controls')
@@ -551,8 +532,8 @@ async function checkImageViewport(page) {
     host.remove();
     return {
       enhanced: enhanced.length,
-      decorativeSkipped: !figures[4].dataset.panZoomEnhanced,
-      linkedSkipped: !figures[5].dataset.panZoomEnhanced,
+      decorativeSkipped,
+      linkedSkipped,
       responsivePreserved,
       buttonZoom,
       mouseDragHandled,
@@ -598,11 +579,9 @@ async function main() {
   }
 
   await ensureBuilt();
-  const server = spawn('node', ['scripts/serve.js', '--dev'], {
-    cwd: PKG_DIR,
-    env: { ...process.env, PORT: String(PORT) },
-    stdio: ['ignore', 'ignore', 'inherit']
-  });
+  const server = await startPreviewServer('scripts/serve.js', { cwd: PKG_DIR });
+  ORIGIN = `${server.origin}/`;
+  BASE = `${ORIGIN}${TENANT}/`;
 
   let browser;
   try {
@@ -623,8 +602,11 @@ async function main() {
     await checkPageEffectsReducedMotion(page);
     await checkImageViewport(page);
   } finally {
-    if (browser) await browser.close().catch(() => {});
-    server.kill('SIGTERM');
+    try {
+      if (browser) await browser.close();
+    } finally {
+      await server.stop();
+    }
   }
 
   if (findings.length) {

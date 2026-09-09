@@ -15,7 +15,7 @@ If minimizing supply-chain exposure is your priority, read this alongside
 
 | **Dimension** | **Tier 0 — Static** | **Tier 1 — Hybrid React** | **Tier 2 — Fortémi record tier** | **Tier 3 — Fortémi PGlite projection** |
 |---|---|---|---|---|
-| Status | Default, shipping | Opt-in, shipping | Planned | Planned |
+| Status | Default, shipping | Opt-in, shipping | Opt-in, shipping | Opt-in, shipping |
 | Runtime framework in output | None | React + React DOM | React + React DOM | React + React DOM |
 | npm runtime deps shipped | **None** (vendored artifacts only) | `react`, `react-dom`, `@fortemi/graph` | + `@fortemi/core` record/shard APIs | + `@fortemi/core` PGlite projection and `@electric-sql/pglite` |
 | Build toolchain | No bundler (`scripts/build.js` copies `src/`) | Vite (`@pagenary/react` adapter) | Vite | Vite |
@@ -94,7 +94,7 @@ are hashed and served from your own host.
 
 ## Tier 2 — Fortémi Record Tier
 
-Fortémi `2026.7.15` provides a writable canonical record tier that does not boot
+The locked Fortémi `2026.9.2` provides a writable canonical record tier that does not boot
 PGlite: `createRecordBackend`, `exportShardFromRecords`,
 `importShardToRecords`, and `projectRecords`. Pagenary exposes the first three
 through `@pagenary/react/record-runtime` for tenants that want writable notes, DB-free shard
@@ -163,13 +163,15 @@ Verification gates for a representative Tier-2 tenant:
 find dist/<tenant>/assets/react \
   \( -iname '*pglite*' -o -iname '*.wasm' -o -iname '*.data' \) -print
 rg -n "@electric-sql/pglite|pglite|PGlite" dist/<tenant>/assets/react
-node scripts/smoke-record-tier-shard-roundtrip.mjs dist/<tenant>
+node apps/react/scripts/test-record-browser.mjs  # from the repository root
 ```
 
-The `find` and `rg` commands should produce no output. The smoke should import
-seed records or a generated shard, export a shard, import that export into a
-fresh backend, and compare stable record identifiers, counts, notes, and core
-metadata. Optional semantic, provenance, and SKOS capabilities should be
+The `find` and `rg` commands inspect the tenant output. The repository browser
+check uses its own fixture to exercise IndexedDB persistence and explicit source
+refresh; it is not a validator for an arbitrary dist directory. Install the
+browser prerequisites described in [Testing Pagenary](../../../TESTING.md).
+Record/shard round-trip coverage also runs in `npm run test:react`.
+Optional semantic, provenance, and SKOS capabilities should be
 feature-detected so Tier 2 degrades gracefully when Tier 3 APIs are absent.
 
 See the detailed spike:
@@ -177,22 +179,20 @@ See the detailed spike:
 
 ## Tier 3 — Full Fortémi PGlite Projection
 
-The heaviest tier turns a tenant into a **browser-only Fortémi instance**:
-`<FortemiProvider persistence="idb">` boots PGlite (Postgres-in-WASM) in the
-browser, the docs corpus is seeded as notes, and search + graph run
-**compute-based by default** (full-text + citation/link graph — no inference).
+The heaviest tier creates an explicit **browser PGlite projection** of
+canonical records. Pagenary opens the database through its runtime adapter;
+applications opt into that entry point rather than changing the default static
+search engine. Scoped search currently supports lexical queries.
 
 Pagenary exposes this tier through `@pagenary/react/pglite-runtime`. Canonical
 Tier-2 records remain authoritative; the adapter opens a tenant-scoped PGlite
 archive, projects parent-first, and exposes a drop/rebuild operation. Semantic
 support stays disabled unless the tenant supplies both `enabled: true` and a
 model name under `runtime.fortemi.features.semantic`.
-Two capabilities are **reader-opt-in and off by default**, mirroring the
-magly.net deployment:
-
-- **Semantic** — a transformers.js embedding model (~30 MB) downloaded only
-  when the reader enables semantic search.
-- **LLM** — WebLLM/WebGPU (GB-scale model) downloaded only on explicit opt-in.
+Configuring semantic capability does not make scoped semantic queries
+available: the scoped adapter currently rejects them. Model download and LLM
+integration are separate application choices, not automatic publisher features.
+See [runtime limitations](https://git.integrolabs.net/roctinam/pagenary/src/branch/main/apps/react/README.md#scoped-local-search-and-removal-coverage).
 
 This tier is no longer blocked on upstream optional-PGlite work, but it should
 remain a deliberate choice for tenants that need full-text/semantic projection,

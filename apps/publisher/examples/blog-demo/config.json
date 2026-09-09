@@ -4,7 +4,7 @@
   "brandSub": "Blog",
   "tagline": "A blog-layout demo built with Pagenary.",
   "description": "Demonstrates the Pagenary blog layout: a chronological index, post pages with hero images, bylines, and tags — driven by the collections engine.",
-  "accentColor": "#0ea5e9",
+  "accentColor": "#0369a1",
   "layout": "blog",
   "blog": {
     "sidebar": "hidden",

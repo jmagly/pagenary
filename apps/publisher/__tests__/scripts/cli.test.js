@@ -4,7 +4,8 @@
 // in issue #92: grouped help, per-command help, actionable unknown-command
 // errors with non-zero exit, --json output, and the doctor/new diagnostics.
 
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
+import { startPreviewServer, startManagedProcess, runManagedProcess, fetchWithDeadline } from '../../scripts/lib/process-lifecycle.js';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
@@ -20,25 +21,12 @@ const SERVE_SCRIPT = path.join(PKG_ROOT, 'scripts', 'serve.js');
 function cli(args, opts = {}) {
   const res = spawnSync(process.execPath, [BIN, ...args], {
     encoding: 'utf8',
+    timeout: 30000,
     cwd: opts.cwd || PKG_ROOT,
     env: { ...process.env, ...(opts.env || {}) }
   });
+  if (res.error) throw res.error;
   return { code: res.status, stdout: res.stdout || '', stderr: res.stderr || '' };
-}
-
-async function waitForHttp(url, deadlineMs = 5000) {
-  const deadline = Date.now() + deadlineMs;
-  let lastErr;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url);
-      if (res.status < 500) return res;
-    } catch (err) {
-      lastErr = err;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw lastErr || new Error(`server not ready at ${url}`);
 }
 
 describe('pagenary CLI dispatch', () => {
@@ -164,35 +152,24 @@ describe('pagenary read-only commands', () => {
 describe('pagenary serve mount preview', () => {
   test('serves the only tenant at --mount for deploy-path previews (#107)', async () => {
     const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-serve-'));
-    const tenantDir = path.join(tmp, 'dist', 'fortemi-docs');
-    await fsp.mkdir(tenantDir, { recursive: true });
-    await fsp.writeFile(path.join(tenantDir, 'index.html'), '<!doctype html><title>Fortemi</title>', 'utf8');
-    await fsp.writeFile(path.join(tenantDir, 'styles.css'), 'body { color: black; }', 'utf8');
-
-    const port = 22000 + Math.floor(Math.random() * 1000);
-    const child = spawn(process.execPath, [SERVE_SCRIPT, '--dev'], {
-      cwd: tmp,
-      env: {
-        ...process.env,
-        PORT: String(port),
-        HOST: '127.0.0.1',
-        PAGENARY_SERVE_MOUNT: '/server'
-      },
-      stdio: 'ignore'
-    });
-
+    let server;
     try {
-      const rootRes = await waitForHttp(`http://127.0.0.1:${port}/server/`);
+      const tenantDir = path.join(tmp, 'dist', 'fortemi-docs');
+      await fsp.mkdir(tenantDir, { recursive: true });
+      await fsp.writeFile(path.join(tenantDir, 'index.html'), '<!doctype html><title>Fortemi</title>', 'utf8');
+      await fsp.writeFile(path.join(tenantDir, 'styles.css'), 'body { color: black; }', 'utf8');
+      server = await startPreviewServer(SERVE_SCRIPT, {
+        cwd: tmp, env: { PAGENARY_SERVE_MOUNT: '/server' }
+      });
+      const rootRes = await fetchWithDeadline(`${server.origin}/server/`);
       expect(rootRes.status).toBe(200);
       expect(await rootRes.text()).toContain('Fortemi');
-
-      const cssRes = await fetch(`http://127.0.0.1:${port}/server/styles.css`);
+      const cssRes = await fetchWithDeadline(`${server.origin}/server/styles.css`);
       expect(cssRes.status).toBe(200);
       expect(await cssRes.text()).toContain('color: black');
     } finally {
-      child.kill('SIGTERM');
-      await new Promise((resolve) => child.once('exit', resolve));
-      await fsp.rm(tmp, { recursive: true, force: true });
+      try { await server?.stop(); }
+      finally { await fsp.rm(tmp, { recursive: true, force: true }); }
     }
   });
 });
@@ -232,5 +209,23 @@ describe('pagenary scaffold (new/init)', () => {
     const { code, stderr } = cli(['new', 'dup'], { cwd: tmp });
     expect(code).toBe(1);
     expect(stderr).toContain('already exists');
+  });
+});
+
+
+describe('owned child lifecycle failures', () => {
+  test('startup failure rejects readiness and cleanup observes an already exited child', async () => {
+    const child = startManagedProcess(process.execPath, ['-e', 'process.stderr.write("startup fixture"); process.exit(7)']);
+    try {
+      await expect(child.waitForOutput(/never-ready/)).rejects.toThrow(/Child exited before readiness/);
+      const completed = await child.completion;
+      expect(completed.code).toBe(7);
+      expect(await child.stop()).toEqual(completed);
+    } finally { await child.stop(); }
+  });
+
+  test('a stalled process is terminated and reported as a timeout', async () => {
+    await expect(runManagedProcess(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {}, 100))
+      .rejects.toThrow(/Child exceeded 100ms/);
   });
 });

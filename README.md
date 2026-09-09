@@ -35,7 +35,7 @@ npx pagenary serve                           # serve on http://localhost:5173
 
 Pagenary is a static site generator for documentation. The core application is the **publisher** (`apps/publisher/`): point it at your content (Markdown, HTML, or JS) plus a small config file, and it produces a self-contained docs site with search, navigation, theming, and SEO built in. The same engine scales to many sites through a shared template/tenant model, so one repository can publish anywhere from a single site to a dozen.
 
-Each published bundle is a static single-page app — hash-based routing (`#/page-id`), no server-side rendering, no runtime dependencies. You build it once and host the output anywhere that serves files. Asset and module URLs resolve through a per-tenant `<base>`, so the same bundle works whether a tenant is served at its own domain root **or** mounted under a subpath of a shared host. Tenants share the template catalog but keep isolated content, branding, navigation, and domains, so a single repository can publish a dozen distinct documentation sites — each with real ranked search and SEO-ready output, not just static pages.
+Each published bundle is a static single-page app — hash-based routing (`#page-id`), no application server, with self-hosted browser assets by default. You build it once and host the output anywhere that serves files. Asset and module URLs resolve through a per-tenant `<base>`, so the same bundle works whether a tenant is served at its own domain root **or** mounted under a subpath of a shared host. Tenants share the template catalog but keep isolated content, branding, navigation, and domains, so a single repository can publish a dozen distinct documentation sites — each with real ranked search and SEO-ready output, not just static pages.
 
 ## Building Blocks
 
@@ -168,10 +168,14 @@ Templates + per-tenant content/config
 3. **Output** lands in `dist/<tenant-id>/` as a self-contained static SPA with a tenant-specific `manifest.js` and `sections/`.
 4. **Serve** the bundle from any static host, or use the bundled Caddy setup for multi-tenant domain testing.
 
+## Optional writable runtimes
+
+The optional `@pagenary/react` adapter exposes record and PGlite runtimes, reviewed published-source refresh, local dataset imports, and scoped lexical search. These capabilities require explicit tenant/application integration; the default publisher search remains static and read-only. See the [runtime API and boundaries](apps/react/README.md) and [dependency tiers](apps/publisher/docs/DEPENDENCY-POSTURE.md).
+
 ## Features
 
 - **Multi-Tenant Architecture** — isolated content, branding, and configuration per tenant
-- **Zero Runtime Dependencies** — published output is vanilla HTML, CSS, and ES modules
+- **Static by default** — published output uses HTML, CSS, and ES modules; React and writable record/PGlite runtimes are explicit tenant choices
 - **Fortemi-backed search + graph** — command palette (`Ctrl/Cmd+K`) ranks results with snippets over a static chunked index ([`@fortemi/core`](https://www.npmjs.com/package/@fortemi/core)), with lazy precache, infinite scroll, page metadata, and an inspectable Docs Map with weighted relationships and a static fallback snapshot — all client-side (no server, no WASM)
 - **SEO-first output** — metadata-driven page titles, a configurable no-JS root HTML fallback, crawlable `/pages/` static snapshots, and `sitemap.xml` / `robots.txt` / `llms.txt` / JSON-LD / Open Graph generated at build time
 - **Agentic SEO / AI discoverability surfaces** — GEO/AEO-friendly static output, open-profile corpus artifacts, `llms.txt`, and Git-native review loops for agent-proposed maintenance without silent live-site mutation
@@ -227,6 +231,8 @@ This project is developed with [AIWG](https://aiwg.io). On this host, the AIWG
 project source is available at `~/dev/aiwg` for maintainers who want to inspect,
 build, or run the framework that supports Pagenary development.
 
+For repository tests, use Node **24.12.0** and run `npm run test:setup` from the repository root before `npm test`. Browser layout tests are part of the publisher suite. See [Testing Pagenary](TESTING.md) for the complete prerequisites and qualification scope.
+
 ## Creating Your First Tenant
 
 With `@pagenary/publisher` installed in your project (`npm install -D @pagenary/publisher`):
@@ -279,7 +285,7 @@ npx pagenary serve
 
 ## Architecture
 
-**Static SPA pattern**: hash-based routing (`#/page-id`), no server-side rendering. All navigation runs through `app.js`; all styling lives in a single `styles.css`.
+**Static SPA pattern**: hash-based routing (`#page-id`), no server-side rendering. All navigation runs through `app.js`; all styling lives in a single `styles.css`.
 
 **Key files**:
 

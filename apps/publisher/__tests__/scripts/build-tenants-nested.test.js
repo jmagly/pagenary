@@ -14,61 +14,22 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
-import { spawn } from 'child_process';
+import { createBuildWorkspace } from '../../test-support/build-workspace.js';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLISHER_ROOT = path.resolve(__dirname, '../..');
-const BUILD_TENANTS_SCRIPT = path.join(PUBLISHER_ROOT, 'scripts', 'build-tenants.js');
-const TEST_REGISTRY_PATH = path.join(PUBLISHER_ROOT, '__test-nested-tenants.json');
-
-// Helper to run build-tenants script
-function runBuildTenants(args = [], env = {}) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(process.execPath, [BUILD_TENANTS_SCRIPT, ...args], {
-      cwd: PUBLISHER_ROOT,
-      env: { ...process.env, ...env },
-      stdio: 'pipe'
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (data) => { stdout += data; });
-    proc.stderr.on('data', (data) => { stderr += data; });
-
-    proc.on('close', (code) => {
-      resolve({ code, stdout, stderr });
-    });
-
-    proc.on('error', reject);
-  });
-}
-
-// Helper to run build-tenants with a custom test registry
-async function runBuildTenantsWithRegistry(tenants, args = [], env = {}) {
-  const registry = {
-    "$schema": "./tenants.schema.json",
-    "defaults": {
-      "source": { "type": "local", "path": "./tenants" },
-      "target": { "type": "local", "path": "./dist" }
-    },
-    "tenants": tenants
-  };
-  await fsp.writeFile(TEST_REGISTRY_PATH, JSON.stringify(registry, null, 2));
-
-  try {
-    return await runBuildTenants(['-r', TEST_REGISTRY_PATH, ...args], env);
-  } finally {
-    if (fs.existsSync(TEST_REGISTRY_PATH)) {
-      await fsp.rm(TEST_REGISTRY_PATH);
-    }
-  }
-}
+const buildWorkspace = createBuildWorkspace(PUBLISHER_ROOT);
+const TEST_ROOT = buildWorkspace.root;
+beforeAll(() => buildWorkspace.initialize());
+afterEach(() => buildWorkspace.stopChildren());
+afterAll(() => buildWorkspace.dispose());
+const runBuildTenants = buildWorkspace.run;
+const runBuildTenantsWithRegistry = buildWorkspace.runRegistry;
 
 // Helper to create a nested tenant structure
 async function createNestedTenant(tenantId, structure) {
-  const tenantDir = path.join(PUBLISHER_ROOT, 'tenants', tenantId);
+  const tenantDir = path.join(TEST_ROOT, 'tenants', tenantId);
   await fsp.mkdir(tenantDir, { recursive: true });
 
   // Create config.json if provided
@@ -134,12 +95,12 @@ describe('nested content directories', () => {
 
     afterEach(async () => {
       if (tenantDir) await cleanup(tenantDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
     });
 
     test('detects flat content/ structure', async () => {
       // Create tenant with traditional flat content/ directory
-      tenantDir = path.join(PUBLISHER_ROOT, 'tenants', TEST_ID);
+      tenantDir = path.join(TEST_ROOT, 'tenants', TEST_ID);
       await fsp.mkdir(path.join(tenantDir, 'content'), { recursive: true });
       await fsp.writeFile(path.join(tenantDir, 'config.json'), '{}');
       await fsp.writeFile(
@@ -154,7 +115,7 @@ describe('nested content directories', () => {
     });
 
     test('requires an explicit latexPage content type for manifest-declared .tex pages', async () => {
-      tenantDir = path.join(PUBLISHER_ROOT, 'tenants', TEST_ID);
+      tenantDir = path.join(TEST_ROOT, 'tenants', TEST_ID);
       await fsp.mkdir(path.join(tenantDir, 'content'), { recursive: true });
       await fsp.writeFile(path.join(tenantDir, 'config.json'), '{}');
       await fsp.writeFile(
@@ -163,8 +124,8 @@ describe('nested content directories', () => {
       );
       await fsp.writeFile(path.join(tenantDir, 'content', 'paper.tex'), '\\documentclass{article}\\begin{document}Paper\\end{document}');
 
-      const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
-      expect(result.code).not.toBe(0);
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }], [], {}, 1);
+      expect(result.code).toBe(1);
       expect(`${result.stdout}\n${result.stderr}`).toContain('must declare contentType "latexPage"');
     });
 
@@ -182,7 +143,7 @@ describe('nested content directories', () => {
 
       const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
       expect(result.code).toBe(0);
-      const manifest = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js'), 'utf8');
+      const manifest = await fsp.readFile(path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js'), 'utf8');
       expect(manifest).toContain('papers/overview');
       expect(manifest).toContain('"contentType": "latexPage"');
     });
@@ -213,7 +174,7 @@ describe('nested content directories', () => {
 
     afterEach(async () => {
       if (tenantDir) await cleanup(tenantDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
     });
 
     test('index.md becomes directory ID', async () => {
@@ -230,7 +191,7 @@ describe('nested content directories', () => {
       expect(result.code).toBe(0);
 
       // Section should be named getting-started (not getting-started/index)
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
       expect(manifestContent).toMatch(/getting-started/);
       expect(manifestContent).not.toMatch(/getting-started\/index/);
@@ -253,7 +214,7 @@ describe('nested content directories', () => {
       expect(result.code).toBe(0);
 
       // Check that nested section ID exists
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
       expect(manifestContent).toMatch(/docs\/api\/reference|docs--api--reference/);
     });
@@ -265,7 +226,7 @@ describe('nested content directories', () => {
 
     afterEach(async () => {
       if (tenantDir) await cleanup(tenantDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
     });
 
     test('encodes / as -- in output filenames', async () => {
@@ -282,7 +243,7 @@ describe('nested content directories', () => {
       expect(result.code).toBe(0);
 
       // Output file should use -- encoding
-      const sectionsDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'sections');
+      const sectionsDir = path.join(TEST_ROOT, 'dist', TEST_ID, 'sections');
       const files = await fsp.readdir(sectionsDir);
       expect(files.some(f => f.includes('getting-started--quick-start'))).toBe(true);
     });
@@ -294,7 +255,7 @@ describe('nested content directories', () => {
 
     afterEach(async () => {
       if (tenantDir) await cleanup(tenantDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
     });
 
     test('excludes underscore-prefixed files', async () => {
@@ -313,7 +274,7 @@ describe('nested content directories', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
       expect(result.code).toBe(0);
 
-      const sectionsDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'sections');
+      const sectionsDir = path.join(TEST_ROOT, 'dist', TEST_ID, 'sections');
       const files = await fsp.readdir(sectionsDir);
       expect(files.some(f => f.includes('published'))).toBe(true);
       expect(files.some(f => f.includes('draft'))).toBe(false);
@@ -335,7 +296,7 @@ describe('nested content directories', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
       expect(result.code).toBe(0);
 
-      const sectionsDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'sections');
+      const sectionsDir = path.join(TEST_ROOT, 'dist', TEST_ID, 'sections');
       const files = await fsp.readdir(sectionsDir);
       expect(files.some(f => f.includes('readme'))).toBe(true);
       expect(files.some(f => f.includes('hidden'))).toBe(false);
@@ -357,7 +318,7 @@ describe('nested content directories', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
       expect(result.code).toBe(0);
 
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
       expect(manifestContent).toMatch(/public/);
       expect(manifestContent).not.toMatch(/private/);
@@ -371,7 +332,7 @@ describe('nested content directories', () => {
 
     afterEach(async () => {
       if (tenantDir) await cleanup(tenantDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
     });
 
     test('applies title from _manifest.json', async () => {
@@ -388,7 +349,7 @@ describe('nested content directories', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
       expect(result.code).toBe(0);
 
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
       expect(manifestContent).toMatch(/Quick Start Guide/);
     });
@@ -410,12 +371,14 @@ describe('nested content directories', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
       expect(result.code).toBe(0);
 
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
 
       // Check that second appears before first in the manifest
       const secondIdx = manifestContent.indexOf('second');
       const firstIdx = manifestContent.indexOf('first');
+      expect(secondIdx).toBeGreaterThanOrEqual(0);
+      expect(firstIdx).toBeGreaterThanOrEqual(0);
       expect(secondIdx).toBeLessThan(firstIdx);
     });
   });
@@ -426,12 +389,12 @@ describe('nested content directories', () => {
 
     afterEach(async () => {
       if (tenantDir) await cleanup(tenantDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
     });
 
     test('flat content/ structure still works', async () => {
       // Create a traditional flat structure
-      tenantDir = path.join(PUBLISHER_ROOT, 'tenants', TEST_ID);
+      tenantDir = path.join(TEST_ROOT, 'tenants', TEST_ID);
       await fsp.mkdir(path.join(tenantDir, 'content'), { recursive: true });
       await fsp.writeFile(path.join(tenantDir, 'config.json'), '{}');
       await fsp.writeFile(
@@ -450,7 +413,7 @@ describe('nested content directories', () => {
       expect(result.code).toBe(0);
 
       // Verify sections were created
-      const sectionsDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'sections');
+      const sectionsDir = path.join(TEST_ROOT, 'dist', TEST_ID, 'sections');
       expect(fs.existsSync(path.join(sectionsDir, 'welcome.js'))).toBe(true);
       expect(fs.existsSync(path.join(sectionsDir, 'guide.js'))).toBe(true);
     });
@@ -467,8 +430,8 @@ describe('nested content directories', () => {
       expect(result.stdout).toMatch(/tenant-beta/);
 
       // Verify outputs exist
-      expect(fs.existsSync(path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha', 'index.html'))).toBe(true);
-      expect(fs.existsSync(path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta', 'index.html'))).toBe(true);
+      expect(fs.existsSync(path.join(TEST_ROOT, 'dist', 'tenant-alpha', 'index.html'))).toBe(true);
+      expect(fs.existsSync(path.join(TEST_ROOT, 'dist', 'tenant-beta', 'index.html'))).toBe(true);
     });
   });
 
@@ -478,7 +441,7 @@ describe('nested content directories', () => {
 
     afterEach(async () => {
       if (tenantDir) await cleanup(tenantDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
     });
 
     test('converts kebab-case to Title Case', async () => {
@@ -494,7 +457,7 @@ describe('nested content directories', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
       expect(result.code).toBe(0);
 
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
       expect(manifestContent).toMatch(/My Awesome Section/);
     });
@@ -512,7 +475,7 @@ describe('nested content directories', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
       expect(result.code).toBe(0);
 
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
       expect(manifestContent).toMatch(/API Reference/);
     });
@@ -531,7 +494,7 @@ describe('blog post navigation (#55)', () => {
 
   afterEach(async () => {
     if (tenantDir) await cleanup(tenantDir);
-    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+    await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
   });
 
   async function buildBlogManifest() {
@@ -565,7 +528,7 @@ describe('blog post navigation (#55)', () => {
     const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
     expect(result.code).toBe(0);
 
-    const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'manifest.js');
+    const manifestFile = path.join(TEST_ROOT, 'dist', TEST_ID, 'manifest.js');
     // Cache-bust so repeated dynamic imports across tests don't collide.
     const mod = await import(`file://${manifestFile}?t=${Date.now()}`);
     return mod;
@@ -615,8 +578,8 @@ describe('mixed docs + blog collections', () => {
 
   afterEach(async () => {
     if (tenantDir) await cleanup(tenantDir);
-    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
-    await cleanup(path.join(PUBLISHER_ROOT, 'dist', MANIFESTED_TEST_ID));
+    await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
+    await cleanup(path.join(TEST_ROOT, 'dist', MANIFESTED_TEST_ID));
   });
 
   test('renders collection posts as hash-routed sections and links the blog index to them', async () => {
@@ -658,7 +621,7 @@ describe('mixed docs + blog collections', () => {
     const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
     expect(result.code).toBe(0);
 
-    const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID);
+    const distDir = path.join(TEST_ROOT, 'dist', TEST_ID);
     const manifestFile = path.join(distDir, 'manifest.js');
     const { MANIFEST, findSection, layoutForSection } = await import(`file://${manifestFile}?t=${Date.now()}`);
     const indexJson = JSON.parse(await fsp.readFile(path.join(distDir, 'blog', 'index.json'), 'utf8'));
@@ -748,7 +711,7 @@ describe('mixed docs + blog collections', () => {
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('materialized 2 collection post(s)');
 
-    const distDir = path.join(PUBLISHER_ROOT, 'dist', MANIFESTED_TEST_ID);
+    const distDir = path.join(TEST_ROOT, 'dist', MANIFESTED_TEST_ID);
     const manifestFile = path.join(distDir, 'manifest.js');
     const { findSection, layoutForSection } = await import(`file://${manifestFile}?t=${Date.now()}-${Math.random()}`);
     const blog = findSection('blog');
@@ -780,7 +743,7 @@ describe('export configuration', () => {
 
   afterEach(async () => {
     if (tenantDir) await cleanup(tenantDir);
-    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+    await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
   });
 
   // Read EXPORT_CONFIG from the generated manifest as text. (Dynamic import is
@@ -793,7 +756,7 @@ describe('export configuration', () => {
     });
     const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
     expect(result.code).toBe(0);
-    const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID);
+    const distDir = path.join(TEST_ROOT, 'dist', TEST_ID);
     const files = (await fsp.readdir(distDir)).filter((f) => /^manifest.*\.js$/.test(f));
     let text = '';
     for (const f of files) {
@@ -845,7 +808,7 @@ describe('share configuration', () => {
 
   afterEach(async () => {
     if (tenantDir) await cleanup(tenantDir);
-    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+    await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
   });
 
   async function buildWithShare(shareCfg) {
@@ -860,7 +823,7 @@ describe('share configuration', () => {
     });
     const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
     expect(result.code).toBe(0);
-    const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_ID);
+    const distDir = path.join(TEST_ROOT, 'dist', TEST_ID);
     const manifestFile = (await fsp.readdir(distDir)).find((f) => /^manifest.*\.js$/.test(f));
     const manifestText = await fsp.readFile(path.join(distDir, manifestFile), 'utf8');
     const siteMatch = manifestText.match(/SITE_CONFIG\s*=\s*(\{[\s\S]*?\});\n\n\/\/ Export/);
@@ -906,7 +869,7 @@ describe('living scroll (any layout)', () => {
 
   afterEach(async () => {
     if (tenantDir) await cleanup(tenantDir);
-    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+    await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
   });
 
   async function buildDocsBody(config) {
@@ -917,8 +880,10 @@ describe('living scroll (any layout)', () => {
     const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
     expect(result.code).toBe(0);
     const html = await fsp.readFile(
-      path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'index.html'), 'utf8');
-    return (html.match(/<body[^>]*>/) || [''])[0];
+      path.join(TEST_ROOT, 'dist', TEST_ID, 'index.html'), 'utf8');
+    const body = html.match(/<body[^>]*>/);
+    expect(body).not.toBeNull();
+    return body[0];
   }
 
   test('livingScroll:true sets the layout-agnostic flag on a docs tenant', async () => {
@@ -939,7 +904,7 @@ describe('on-this-page TOC (pageToc)', () => {
 
   afterEach(async () => {
     if (tenantDir) await cleanup(tenantDir);
-    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+    await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
   });
 
   async function buildDocsBody(config) {
@@ -950,8 +915,10 @@ describe('on-this-page TOC (pageToc)', () => {
     const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
     expect(result.code).toBe(0);
     const html = await fsp.readFile(
-      path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'index.html'), 'utf8');
-    return (html.match(/<body[^>]*>/) || [''])[0];
+      path.join(TEST_ROOT, 'dist', TEST_ID, 'index.html'), 'utf8');
+    const body = html.match(/<body[^>]*>/);
+    expect(body).not.toBeNull();
+    return body[0];
   }
 
   test('pageToc:true sets a rail TOC flag', async () => {
@@ -977,7 +944,7 @@ describe('nav collapse mode (navCollapse)', () => {
 
   afterEach(async () => {
     if (tenantDir) await cleanup(tenantDir);
-    await cleanup(path.join(PUBLISHER_ROOT, 'dist', TEST_ID));
+    await cleanup(path.join(TEST_ROOT, 'dist', TEST_ID));
   });
 
   async function buildDocsBody(config) {
@@ -988,8 +955,10 @@ describe('nav collapse mode (navCollapse)', () => {
     const result = await runBuildTenantsWithRegistry([{ id: TEST_ID }]);
     expect(result.code).toBe(0);
     const html = await fsp.readFile(
-      path.join(PUBLISHER_ROOT, 'dist', TEST_ID, 'index.html'), 'utf8');
-    return (html.match(/<body[^>]*>/) || [''])[0];
+      path.join(TEST_ROOT, 'dist', TEST_ID, 'index.html'), 'utf8');
+    const body = html.match(/<body[^>]*>/);
+    expect(body).not.toBeNull();
+    return body[0];
   }
 
   test('default (unset) is the overlay drawer', async () => {

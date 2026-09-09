@@ -63,7 +63,7 @@ export const TEMPLATE_REGISTRY = Object.fromEntries(
  */
 export function getTemplate(id) {
   if (typeof id !== 'string') return null;
-  return TEMPLATE_REGISTRY[id] || null;
+  return Object.hasOwn(TEMPLATE_REGISTRY, id) ? TEMPLATE_REGISTRY[id] : null;
 }
 
 /**

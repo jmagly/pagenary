@@ -12,71 +12,24 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
-import { spawn } from 'child_process';
+import { createBuildWorkspace } from '../../test-support/build-workspace.js';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLISHER_ROOT = path.resolve(__dirname, '../..');
-const BUILD_TENANTS_SCRIPT = path.join(PUBLISHER_ROOT, 'scripts', 'build-tenants.js');
-const DEFAULT_REGISTRY_PATH = path.join(PUBLISHER_ROOT, 'tenants.json');
-const TEST_REGISTRY_PATH = path.join(PUBLISHER_ROOT, '__test-tenants.json');
-
-// Helper to run build-tenants script
-function runBuildTenants(args = [], env = {}) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(process.execPath, [BUILD_TENANTS_SCRIPT, ...args], {
-      cwd: PUBLISHER_ROOT,
-      // This suite exercises tenant assembly, not the standalone minifier.
-      // Avoid running Terser over the complete publisher runtime in every one
-      // of the many child-process builds; production minification has focused
-      // coverage in build.test.js. Callers can still override NODE_ENV when a
-      // tenant test specifically needs production behavior.
-      env: { ...process.env, NODE_ENV: 'development', ...env },
-      stdio: 'pipe'
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (data) => { stdout += data; });
-    proc.stderr.on('data', (data) => { stderr += data; });
-
-    proc.on('close', (code) => {
-      resolve({ code, stdout, stderr });
-    });
-
-    proc.on('error', reject);
-  });
-}
-
-// Helper to run build-tenants with a custom test registry
-async function runBuildTenantsWithRegistry(tenants, args = [], env = {}) {
-  // Create a test registry with the specified tenants
-  const registry = {
-    "$schema": "./tenants.schema.json",
-    "defaults": {
-      "source": { "type": "local", "path": "./tenants" },
-      "target": { "type": "local", "path": "./dist" }
-    },
-    "tenants": tenants
-  };
-  await fsp.writeFile(TEST_REGISTRY_PATH, JSON.stringify(registry, null, 2));
-
-  try {
-    return await runBuildTenants(['-r', TEST_REGISTRY_PATH, ...args], env);
-  } finally {
-    // Clean up test registry
-    if (fs.existsSync(TEST_REGISTRY_PATH)) {
-      await fsp.rm(TEST_REGISTRY_PATH);
-    }
-  }
-}
+const buildWorkspace = createBuildWorkspace(PUBLISHER_ROOT);
+const TEST_ROOT = buildWorkspace.root;
+beforeAll(() => buildWorkspace.initialize());
+afterEach(() => buildWorkspace.stopChildren());
+afterAll(() => buildWorkspace.dispose());
+const runBuildTenants = buildWorkspace.run;
+const runBuildTenantsWithRegistry = buildWorkspace.runRegistry;
 
 // Helper to create a test tenant
 async function createTestTenant(tenantId, config = {}, manifest = null, content = {}) {
-  const tenantDir = path.join(PUBLISHER_ROOT, 'tenants', tenantId);
+  const tenantDir = path.join(TEST_ROOT, 'tenants', tenantId);
   await fsp.mkdir(tenantDir, { recursive: true });
 
   // Write config.json
@@ -191,25 +144,50 @@ describe('build-tenants.js', () => {
       expect(result.stdout).toMatch(/tenant-beta/);
     });
 
+    test('simultaneous workspaces keep the same tenant id and registry isolated', async () => {
+      const other = createBuildWorkspace(PUBLISHER_ROOT);
+      try {
+        await other.initialize();
+        const [first, second] = await Promise.all([
+          runBuildTenantsWithRegistry([{ id: 'tenant-alpha', config: { title: 'First owned build' } }]),
+          other.runRegistry([{ id: 'tenant-alpha', config: { title: 'Second owned build' } }])
+        ]);
+        expect(first.code).toBe(0);
+        expect(second.code).toBe(0);
+        expect(other.root).not.toBe(TEST_ROOT);
+        const ownHtml = await fsp.readFile(path.join(TEST_ROOT, 'dist', 'tenant-alpha', 'index.html'), 'utf8');
+        const otherHtml = await fsp.readFile(path.join(other.root, 'dist', 'tenant-alpha', 'index.html'), 'utf8');
+        expect(ownHtml).toContain('First owned build');
+        expect(ownHtml).not.toContain('Second owned build');
+        expect(otherHtml).toContain('Second owned build');
+        expect(otherHtml).not.toContain('First owned build');
+      } finally { await other.dispose(); }
+    });
+
+    test('rejects a nonzero build centrally before callers inspect partial output', async () => {
+      await expect(runBuildTenantsWithRegistry([{ id: 'missing-owned-tenant' }]))
+        .rejects.toThrow(/Unexpected build exit/);
+    });
+
     test('creates separate dist directories for each tenant', async () => {
-      const alphaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha');
-      const betaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta');
+      const alphaDir = path.join(TEST_ROOT, 'dist', 'tenant-alpha');
+      const betaDir = path.join(TEST_ROOT, 'dist', 'tenant-beta');
 
       expect(fs.existsSync(alphaDir)).toBe(true);
       expect(fs.existsSync(betaDir)).toBe(true);
     });
 
     test('each tenant bundle has index.html', async () => {
-      const alphaIndex = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha', 'index.html');
-      const betaIndex = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta', 'index.html');
+      const alphaIndex = path.join(TEST_ROOT, 'dist', 'tenant-alpha', 'index.html');
+      const betaIndex = path.join(TEST_ROOT, 'dist', 'tenant-beta', 'index.html');
 
       expect(fs.existsSync(alphaIndex)).toBe(true);
       expect(fs.existsSync(betaIndex)).toBe(true);
     });
 
     test('tenant bundles are independent', async () => {
-      const alphaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-alpha');
-      const betaDir = path.join(PUBLISHER_ROOT, 'dist', 'tenant-beta');
+      const alphaDir = path.join(TEST_ROOT, 'dist', 'tenant-alpha');
+      const betaDir = path.join(TEST_ROOT, 'dist', 'tenant-beta');
 
       // Each should have its own manifest.js
       const alphaManifest = path.join(alphaDir, 'manifest.js');
@@ -225,6 +203,12 @@ describe('build-tenants.js', () => {
       // Both should have MANIFEST export
       expect(alphaContent).toMatch(/export const MANIFEST/);
       expect(betaContent).toMatch(/export const MANIFEST/);
+      const alphaIds = [...flattenModules(extractManifestArray(alphaContent)).keys()];
+      const betaIds = [...flattenModules(extractManifestArray(betaContent)).keys()];
+      expect(alphaIds).toEqual(['alpha-welcome', 'alpha-launch-checklist', 'alpha-telemetry-dashboard']);
+      expect(betaIds).toEqual(['beta-welcome', 'beta-rollout-plan', 'beta-analytics-overview']);
+      expect(alphaContent).not.toContain('"id": "beta-welcome"');
+      expect(betaContent).not.toContain('"id": "alpha-welcome"');
     });
   });
 
@@ -238,7 +222,7 @@ describe('build-tenants.js', () => {
         await cleanup(testTenantDir);
       }
       // Clean up dist
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       await cleanup(distDir);
     });
 
@@ -262,7 +246,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const distIndex = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html');
+      const distIndex = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'index.html');
       const content = await fsp.readFile(distIndex, 'utf8');
 
       expect(content).toMatch(/Custom Test Title/);
@@ -286,7 +270,7 @@ describe('build-tenants.js', () => {
 
       // Check that section was created
       const sectionFile = path.join(
-        PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'test-section.js'
+        TEST_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'test-section.js'
       );
       expect(fs.existsSync(sectionFile)).toBe(true);
 
@@ -323,14 +307,14 @@ describe('build-tenants.js', () => {
       expect(result.code).toBe(0);
 
       const sectionContent = await fsp.readFile(path.join(
-        PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'gallery.js'
+        TEST_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'gallery.js'
       ), 'utf8');
       expect(sectionContent).toContain('<picture>');
       expect(sectionContent).toContain('srcset=\\"assets/portrait.jpg\\"');
       expect(sectionContent).toContain('srcset=\\"assets/landscape.jpg\\"');
 
       const staticHtml = await fsp.readFile(path.join(
-        PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'pages', 'gallery.html'
+        TEST_ROOT, 'dist', TEST_TENANT_ID, 'pages', 'gallery.html'
       ), 'utf8');
       expect(staticHtml).toContain('<picture>');
       expect(staticHtml).toContain('srcset="assets/portrait.jpg"');
@@ -352,7 +336,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const indexDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'search-index');
+      const indexDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'search-index');
       const manifestJson = JSON.parse(await fsp.readFile(path.join(indexDir, 'manifest.json'), 'utf8'));
       expect(manifestJson.schema_version).toBe('aiwg.fortemi.index.chunk-manifest.v1');
       expect(manifestJson.total).toBeGreaterThanOrEqual(1);
@@ -389,7 +373,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const index = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
+      const index = await fsp.readFile(path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
       expect(index).toMatch(/<main id="app" class="canvas" tabindex="-1" aria-live="polite"><section class="section doc markdown">/);
       expect(index).toContain('Fallback Page');
       expect(index).toContain('Root HTML fallback body.');
@@ -452,7 +436,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const index = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
+      const index = await fsp.readFile(path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
       expect(index).toMatch(/<main id="app" class="main-panel" tabindex="-1" aria-live="polite"><section class="section doc markdown">/);
       expect(index).toContain('Variant shell fallback body.');
       expect(index).toContain('<title>Welcome · Variant Docs</title>');
@@ -489,7 +473,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const index = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
+      const index = await fsp.readFile(path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'index.html'), 'utf8');
       expect(index).toMatch(/<main id="app" class="canvas" tabindex="-1" aria-live="polite"><\/main>/);
       expect(index).toMatch(/<nav id="nav" class="nav" aria-label="Primary"><\/nav>/);
       expect(index).not.toContain('nav-static-fallback');
@@ -512,7 +496,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const { index, appFile, manifestFile, manifestJs } = await readRuntimeManifest(distDir);
       const cssFile = extractShellAsset(index, 'href', 'styles');
 
@@ -544,7 +528,7 @@ describe('build-tenants.js', () => {
       testTenantDir = await createTestTenant(TEST_TENANT_ID, {}, manifest, content);
       let result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
-      let distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      let distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       let runtime = await readRuntimeManifest(distDir);
       const cssFile = extractShellAsset(runtime.index, 'href', 'styles');
       const modules = flattenModules(extractManifestArray(runtime.manifestJs));
@@ -562,7 +546,7 @@ describe('build-tenants.js', () => {
       testTenantDir = await createTestTenant(TEST_TENANT_ID, { cacheStrategy: 'stable' }, manifest, content);
       result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
-      distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       runtime = await readRuntimeManifest(distDir);
       expect(runtime.index).toContain('src="./app.js"');
       expect(runtime.index).toContain('href="./styles.css"');
@@ -593,7 +577,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const runtime = await readRuntimeManifest(distDir);
       expect(runtime.manifestJs).toContain('"id": "home"');
       expect(fs.existsSync(path.join(distDir, 'assets', 'react'))).toBe(false);
@@ -623,7 +607,7 @@ describe('build-tenants.js', () => {
       await fsp.mkdir(path.join(testTenantDir, 'app'), { recursive: true });
       await fsp.writeFile(path.join(testTenantDir, 'app', 'main.jsx'), 'export default null;\n');
 
-      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }], [], {}, 1);
       expect(result.code).toBe(1);
       expect(result.stderr).toContain('invalid runtime configuration');
       expect(result.stderr).toContain('runtime.react.routes[0].fallback is required');
@@ -656,7 +640,7 @@ describe('build-tenants.js', () => {
       await fsp.mkdir(path.join(testTenantDir, 'app'), { recursive: true });
       await fsp.writeFile(path.join(testTenantDir, 'app', 'main.jsx'), 'export default null;\n');
 
-      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }], [], {}, 1);
       expect(result.code).toBe(1);
       expect(result.stderr).toContain('requires @pagenary/missing-react-adapter');
       expect(result.stderr).toContain('Install the optional React adapter package');
@@ -691,7 +675,7 @@ describe('build-tenants.js', () => {
 
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
-      expect(await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'tenant-adapter.txt'), 'utf8')).toBe('loaded');
+      expect(await fsp.readFile(path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'tenant-adapter.txt'), 'utf8')).toBe('loaded');
     });
 
     test('fails actionably when an interactive docs-map tier is selected without its peers (#135)', async () => {
@@ -721,7 +705,6 @@ describe('build-tenants.js', () => {
       await fsp.mkdir(path.join(testTenantDir, 'app'), { recursive: true });
       await fsp.writeFile(path.join(testTenantDir, 'app', 'main.jsx'), 'export default null;\n');
 
-      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       // The 2d tier's peers are optional and normally absent from this repo
       // (DEPENDENCY-POSTURE: tenants opting in install them). If a developer
       // has installed them locally the build legitimately succeeds — assert
@@ -731,11 +714,12 @@ describe('build-tenants.js', () => {
         createRequire(path.join(PUBLISHER_ROOT, 'noop.js')).resolve('sigma');
         sigmaInstalled = true;
       } catch {}
+      const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }], [], {}, sigmaInstalled ? 0 : 1);
       if (sigmaInstalled) {
         // Peers available → the tier is legitimately buildable.
         expect(result.code).toBe(0);
         const reactDir = await fsp.readdir(
-          path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'assets', 'react')
+          path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'assets', 'react')
         );
         expect(reactDir.some((file) => /^index\.[\w-]+\.js$/.test(file))).toBe(true);
       } else {
@@ -758,7 +742,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID, basePath: 'react' }]);
       expect(result.code).toBe(0);
 
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
       expect(index).toContain(`data-tenant="${TEST_TENANT_ID}"`);
       expect(index).toContain('data-base="/react/"');
@@ -779,7 +763,7 @@ describe('build-tenants.js', () => {
       );
       expect(result.code).toBe(0);
 
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
       expect(index).toContain('data-base="/server/"');
       expect(index).not.toContain('data-base="/committed/"');
@@ -801,7 +785,7 @@ describe('build-tenants.js', () => {
       );
       expect(result.code).toBe(0);
 
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
       expect(index).toContain('data-base=""');
     });
@@ -821,8 +805,18 @@ describe('build-tenants.js', () => {
 
       let result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const first = hashedRuntimeFiles(distDir);
+      for (const pattern of [
+        /^app\.[a-f0-9]{12}\.js$/,
+        /^styles\.[a-f0-9]{12}\.css$/,
+        /^manifest\.[a-f0-9]{12}\.js$/,
+        /^sections\/one\.[a-f0-9]{12}\.js$/,
+        /^sections\/two\.[a-f0-9]{12}\.js$/
+      ]) {
+        expect(first.some((file) => pattern.test(file))).toBe(true);
+      }
+      for (const file of first) await expectFilenameHashMatches(distDir, file);
 
       result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
@@ -845,7 +839,7 @@ describe('build-tenants.js', () => {
 
       let result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const before = flattenModules(extractManifestArray((await readRuntimeManifest(distDir)).manifestJs));
 
       await fsp.writeFile(path.join(testTenantDir, 'content', 'one.md'), '# One\n\nFirst content changed.');
@@ -875,7 +869,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const index = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
       // Default page's metadata title + brand — not the generic brand alone.
       expect(index).toContain('<title>Getting Started · Acme Docs</title>');
@@ -883,7 +877,7 @@ describe('build-tenants.js', () => {
     });
 
     test('uses collection frontmatter metadata for auto-discovered nav entries and sort order', async () => {
-      testTenantDir = path.join(PUBLISHER_ROOT, 'tenants', TEST_TENANT_ID);
+      testTenantDir = path.join(TEST_ROOT, 'tenants', TEST_TENANT_ID);
       await fsp.mkdir(path.join(testTenantDir, 'blog'), { recursive: true });
       await fsp.writeFile(path.join(testTenantDir, '_manifest.json'), JSON.stringify({
         title: 'Docs',
@@ -913,7 +907,7 @@ describe('build-tenants.js', () => {
       expect(result.code).toBe(0);
 
       const manifestJs = await fsp.readFile(
-        path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js'),
+        path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js'),
         'utf8'
       );
       const newerIndex = manifestJs.indexOf('"title": "Newer Frontmatter Title"');
@@ -947,7 +941,7 @@ describe('build-tenants.js', () => {
       expect(result.code).toBe(0);
 
       const sectionFile = path.join(
-        PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'html-section.js'
+        TEST_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'html-section.js'
       );
       expect(fs.existsSync(sectionFile)).toBe(true);
 
@@ -972,7 +966,7 @@ describe('build-tenants.js', () => {
       expect(result.code).toBe(0);
 
       const sectionFile = path.join(
-        PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'js-section.js'
+        TEST_ROOT, 'dist', TEST_TENANT_ID, 'sections', 'js-section.js'
       );
       expect(fs.existsSync(sectionFile)).toBe(true);
 
@@ -989,7 +983,7 @@ describe('build-tenants.js', () => {
       if (testTenantDir) {
         await cleanup(testTenantDir);
       }
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       await cleanup(distDir);
     });
 
@@ -1010,7 +1004,7 @@ describe('build-tenants.js', () => {
 
       await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
 
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
 
       expect(manifestContent).toMatch(/MANIFEST/);
@@ -1044,7 +1038,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
 
       expect(manifestContent).toMatch(/subsections/);
@@ -1081,7 +1075,7 @@ describe('build-tenants.js', () => {
       const result = await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
       expect(result.code).toBe(0);
 
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID);
+      const distDir = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID);
       const runtime = await readRuntimeManifest(distDir);
       const generatedManifest = extractManifestArray(runtime.manifestJs);
       const guides = generatedManifest[0];
@@ -1152,7 +1146,7 @@ describe('build-tenants.js', () => {
 
         for (const profileCase of cases) {
           const tenantId = `${TEST_TENANT_ID}-${profileCase.profile}`;
-          const distDir = path.join(PUBLISHER_ROOT, 'dist', tenantId);
+          const distDir = path.join(TEST_ROOT, 'dist', tenantId);
           const pagePath = path.join(distDir, 'pages', 'guides.html');
           expect(fs.existsSync(pagePath)).toBe(profileCase.page);
           expect(fs.existsSync(path.join(distDir, 'sitemap.xml'))).toBe(profileCase.sitemap);
@@ -1181,8 +1175,8 @@ describe('build-tenants.js', () => {
       } finally {
         for (const profileCase of cases) {
           const tenantId = `${TEST_TENANT_ID}-${profileCase.profile}`;
-          await cleanup(path.join(PUBLISHER_ROOT, 'tenants', tenantId));
-          await cleanup(path.join(PUBLISHER_ROOT, 'dist', tenantId));
+          await cleanup(path.join(TEST_ROOT, 'tenants', tenantId));
+          await cleanup(path.join(TEST_ROOT, 'dist', tenantId));
         }
       }
     });
@@ -1205,7 +1199,7 @@ describe('build-tenants.js', () => {
 
       await runBuildTenantsWithRegistry([{ id: TEST_TENANT_ID }]);
 
-      const manifestFile = path.join(PUBLISHER_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
+      const manifestFile = path.join(TEST_ROOT, 'dist', TEST_TENANT_ID, 'manifest.js');
       const manifestContent = await fsp.readFile(manifestFile, 'utf8');
 
       expect(manifestContent).toMatch(/DEFAULT_SECTION.*section-b/);
@@ -1242,14 +1236,14 @@ describe('build-tenants.js', () => {
       const config = navPosition === undefined ? { title: 'Nav Test' } : { title: 'Nav Test', navPosition };
       navTenantDir = await createTestTenant(navTenantId, config, NAV_MANIFEST, NAV_CONTENT);
       const result = await runBuildTenantsWithRegistry([{ id: navTenantId }]);
-      const indexPath = path.join(PUBLISHER_ROOT, 'dist', navTenantId, 'index.html');
+      const indexPath = path.join(TEST_ROOT, 'dist', navTenantId, 'index.html');
       const html = await fsp.readFile(indexPath, 'utf8');
       return { result, html };
     }
 
     afterEach(async () => {
       if (navTenantDir) await cleanup(navTenantDir);
-      if (navTenantId) await cleanup(path.join(PUBLISHER_ROOT, 'dist', navTenantId));
+      if (navTenantId) await cleanup(path.join(TEST_ROOT, 'dist', navTenantId));
       navTenantDir = undefined;
       navTenantId = undefined;
     });
@@ -1314,14 +1308,14 @@ describe('build-tenants.js', () => {
       const config = navAlign === undefined ? { title: 'Align Test' } : { title: 'Align Test', navAlign };
       alignTenantDir = await createTestTenant(alignTenantId, config, ALIGN_MANIFEST, ALIGN_CONTENT);
       const result = await runBuildTenantsWithRegistry([{ id: alignTenantId }]);
-      const indexPath = path.join(PUBLISHER_ROOT, 'dist', alignTenantId, 'index.html');
+      const indexPath = path.join(TEST_ROOT, 'dist', alignTenantId, 'index.html');
       const html = await fsp.readFile(indexPath, 'utf8');
       return { result, html };
     }
 
     afterEach(async () => {
       if (alignTenantDir) await cleanup(alignTenantDir);
-      if (alignTenantId) await cleanup(path.join(PUBLISHER_ROOT, 'dist', alignTenantId));
+      if (alignTenantId) await cleanup(path.join(TEST_ROOT, 'dist', alignTenantId));
       alignTenantDir = undefined;
       alignTenantId = undefined;
     });
@@ -1363,7 +1357,7 @@ describe('build-tenants.js', () => {
     // collections engine + blog index wiring run.
     async function buildBlog(configOverrides = {}) {
       blogTenantId = '__test-blog-' + Date.now() + '-' + (blogCounter++);
-      blogTenantDir = path.join(PUBLISHER_ROOT, 'tenants', blogTenantId);
+      blogTenantDir = path.join(TEST_ROOT, 'tenants', blogTenantId);
       await fsp.mkdir(path.join(blogTenantDir, 'posts'), { recursive: true });
 
       const config = {
@@ -1390,7 +1384,7 @@ describe('build-tenants.js', () => {
       );
 
       const result = await runBuildTenantsWithRegistry([{ id: blogTenantId }]);
-      const distDir = path.join(PUBLISHER_ROOT, 'dist', blogTenantId);
+      const distDir = path.join(TEST_ROOT, 'dist', blogTenantId);
       const html = await fsp.readFile(path.join(distDir, 'index.html'), 'utf8');
       const manifest = await fsp.readFile(path.join(distDir, 'manifest.js'), 'utf8');
       let index = null;
@@ -1401,7 +1395,7 @@ describe('build-tenants.js', () => {
 
     afterEach(async () => {
       if (blogTenantDir) await cleanup(blogTenantDir);
-      if (blogTenantId) await cleanup(path.join(PUBLISHER_ROOT, 'dist', blogTenantId));
+      if (blogTenantId) await cleanup(path.join(TEST_ROOT, 'dist', blogTenantId));
       blogTenantDir = undefined;
       blogTenantId = undefined;
     });
@@ -1461,7 +1455,7 @@ describe('build-tenants.js', () => {
 
     afterEach(async () => {
       if (alDir) await cleanup(alDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', AL_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', AL_ID));
       alDir = undefined;
     });
 
@@ -1470,7 +1464,7 @@ describe('build-tenants.js', () => {
       alDir = await createTestTenant(AL_ID, { title: 'AL' }, manifest, { 'al.md': body });
       const res = await runBuildTenantsWithRegistry([{ id: AL_ID }]);
       expect(res.code).toBe(0);
-      const sec = path.join(PUBLISHER_ROOT, 'dist', AL_ID, 'sections', 'al.js');
+      const sec = path.join(TEST_ROOT, 'dist', AL_ID, 'sections', 'al.js');
       return await fsp.readFile(sec, 'utf8');
     }
 
@@ -1521,7 +1515,7 @@ describe('build-tenants.js', () => {
 
     afterEach(async () => {
       if (tpDir) await cleanup(tpDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', TP_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', TP_ID));
       tpDir = undefined;
     });
 
@@ -1529,7 +1523,7 @@ describe('build-tenants.js', () => {
       tpDir = await createTestTenant(TP_ID, config);
       const res = await runBuildTenantsWithRegistry([{ id: TP_ID }]);
       expect(res.code).toBe(0);
-      const dist = path.join(PUBLISHER_ROOT, 'dist', TP_ID);
+      const dist = path.join(TEST_ROOT, 'dist', TP_ID);
       return {
         index: await fsp.readFile(path.join(dist, 'index.html'), 'utf8'),
         has: (f) => fs.existsSync(path.join(dist, f))
@@ -1565,7 +1559,7 @@ describe('build-tenants.js', () => {
         title: 'TP',
         themePicker: { enabled: true, themes: ['light', 'dark'] }
       });
-      const dark = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-dark.css'), 'utf8');
+      const dark = await fsp.readFile(path.join(TEST_ROOT, 'dist', TP_ID, 'theme-dark.css'), 'utf8');
       expect(dark).toMatch(/color-scheme: dark;/);
       expect(dark).toMatch(/--surface: #0a0a0e;/);
       expect(dark).toMatch(/--surface-rgb: 10, 10, 14;/);
@@ -1579,8 +1573,8 @@ describe('build-tenants.js', () => {
         title: 'TP',
         themePicker: { enabled: true, themes: ['light', 'dark'] }
       });
-      const light = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-light.css'), 'utf8');
-      const dark = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-dark.css'), 'utf8');
+      const light = await fsp.readFile(path.join(TEST_ROOT, 'dist', TP_ID, 'theme-light.css'), 'utf8');
+      const dark = await fsp.readFile(path.join(TEST_ROOT, 'dist', TP_ID, 'theme-dark.css'), 'utf8');
 
       for (const css of [light, dark]) {
         expect(css).toMatch(/--ink-rgb:\s*\d+,\s*\d+,\s*\d+;/);
@@ -1607,7 +1601,7 @@ describe('build-tenants.js', () => {
         themePicker: { enabled: true, themes: ['light', 'custom'], default: 'custom' }
       });
       expect(has('theme-custom.css')).toBe(true);
-      const custom = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', TP_ID, 'theme-custom.css'), 'utf8');
+      const custom = await fsp.readFile(path.join(TEST_ROOT, 'dist', TP_ID, 'theme-custom.css'), 'utf8');
       expect(custom).toMatch(/--surface: #101820;/);
       expect(custom).toMatch(/--accent: #ff8800;/);
       expect(index).toMatch(/<option value="custom">/);
@@ -1629,7 +1623,7 @@ describe('build-tenants.js', () => {
 
     afterEach(async () => {
       if (dmDir) await cleanup(dmDir);
-      await cleanup(path.join(PUBLISHER_ROOT, 'dist', DM_ID));
+      await cleanup(path.join(TEST_ROOT, 'dist', DM_ID));
       dmDir = undefined;
     });
 
@@ -1638,7 +1632,7 @@ describe('build-tenants.js', () => {
       const res = await runBuildTenantsWithRegistry([{ id: DM_ID }]);
       if (res.code !== 0) throw new Error(`${res.stderr}\n${res.stdout}`);
       expect(res.code).toBe(0);
-      const dist = path.join(PUBLISHER_ROOT, 'dist', DM_ID);
+      const dist = path.join(TEST_ROOT, 'dist', DM_ID);
       return {
         has: (f) => fs.existsSync(path.join(dist, f)),
         manifest: await fsp.readFile(path.join(dist, 'manifest.js'), 'utf8'),
@@ -1671,19 +1665,19 @@ describe('build-tenants.js', () => {
 
     test('renderer option is emitted for optional renderer selection', async () => {
       await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'fortemi-react' } });
-      const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
+      const sect = await fsp.readFile(path.join(TEST_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
       expect(sect).toMatch(/renderer:\s*"fortemi-react"/);
     });
 
     test('unknown renderer values normalize to svg fallback', async () => {
       await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'unknown' } });
-      const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
+      const sect = await fsp.readFile(path.join(TEST_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
       expect(sect).toMatch(/renderer:\s*"svg"/);
     });
 
     test('interactive tiers fall back to svg without the React runtime (#135)', async () => {
       await buildDocsMap({ title: 'DM', docsMap: { enabled: true, renderer: 'fortemi-react-2d' } });
-      const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
+      const sect = await fsp.readFile(path.join(TEST_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
       expect(sect).toMatch(/renderer:\s*"svg"/);
     });
 
@@ -1692,7 +1686,7 @@ describe('build-tenants.js', () => {
         title: 'DM',
         docsMap: { enabled: true, renderer: 'fortemi-react', palette: 'greyscale', draggable: true }
       });
-      const sect = await fsp.readFile(path.join(PUBLISHER_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
+      const sect = await fsp.readFile(path.join(TEST_ROOT, 'dist', DM_ID, 'sections', 'docs-map.js'), 'utf8');
       expect(sect).toMatch(/renderer:\s*"fortemi-react"/);
       expect(sect).toMatch(/palette:\s*"greyscale"/);
       expect(sect).toMatch(/draggable:\s*true/);
@@ -1754,7 +1748,7 @@ describe('build-tenants.js', () => {
       const res = await runBuildTenantsWithRegistry([{ id: DM_ID }]);
       expect(res.code).toBe(0);
 
-      const dist = path.join(PUBLISHER_ROOT, 'dist', DM_ID);
+      const dist = path.join(TEST_ROOT, 'dist', DM_ID);
       expect(fs.existsSync(path.join(dist, 'docs-map-data.js'))).toBe(true);
 
       const data = await fsp.readFile(path.join(dist, 'docs-map-data.js'), 'utf8');
@@ -1808,7 +1802,7 @@ describe('build-tenants.js', () => {
         expect(result.stdout + result.stderr).toMatch(/missing content file/i);
       } finally {
         await cleanup(tenantDir);
-        await cleanup(path.join(PUBLISHER_ROOT, 'dist', testTenantId));
+        await cleanup(path.join(TEST_ROOT, 'dist', testTenantId));
       }
     });
   });
@@ -1816,7 +1810,7 @@ describe('build-tenants.js', () => {
   describe('hybrid React example', () => {
     const REGISTRY = path.join(PUBLISHER_ROOT, 'examples', 'recipes.tenants.json');
     const TENANT = 'hybrid-react';
-    const distDir = path.join(PUBLISHER_ROOT, 'dist', TENANT);
+    const distDir = path.join(TEST_ROOT, 'dist', TENANT);
 
     afterEach(async () => {
       await cleanup(distDir);

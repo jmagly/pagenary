@@ -77,6 +77,7 @@ function checkGeneratedSeoArtifacts(distDir, label = 'dist') {
 
   if (fs.existsSync(path.join(distDir, 'documents.jsonl'))) {
     const lines = fs.readFileSync(path.join(distDir, 'documents.jsonl'), 'utf8').trim().split('\n').filter(Boolean);
+    if (lines.length === 0) fail(`${label}: documents.jsonl contains no records`);
     for (const [index, line] of lines.entries()) {
       try {
         const doc = JSON.parse(line);

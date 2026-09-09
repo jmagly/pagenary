@@ -70,10 +70,15 @@ const markdownFindings = validateDocumentText(`Inline \\(x
 if (markdownFindings.length < 3) {
   throw new Error(`Expected delimiter, accessible-title, and unsafe-include findings, got ${markdownFindings.length}.`);
 }
-const latexFindings = validateDocumentText('\\write18{curl example.com}', 'page.tex', schema);
-if (latexFindings.length < 2) {
-  throw new Error(`Expected complete-document and unsafe LaTeX findings, got ${latexFindings.length}.`);
+for (const command of ['\\write18{curl example.com}', '\\immediate\\write18{curl example.com}']) {
+  const latexFindings = validateDocumentText(`\\documentclass{article}\\begin{document}${command}\\end{document}`, 'page.tex', schema);
+  const unsafeLatexMessage = 'LaTeX page contains forbidden shell, file-I/O, or network syntax.';
+  if (latexFindings.length !== 1 || latexFindings[0].message !== unsafeLatexMessage) {
+    throw new Error(`Expected the unsafe LaTeX diagnostic independently of document structure, got ${JSON.stringify(latexFindings)}.`);
+  }
 }
+const validLatexFindings = validateDocumentText('\\documentclass{article}\\begin{document}Safe text.\\end{document}', 'page.tex', schema);
+if (validLatexFindings.length !== 0) throw new Error('Valid complete LaTeX fixture must have no diagnostics.');
 
 const previewHtml = renderPreviewHtml(`---
 title: Fixture

@@ -210,13 +210,13 @@ Pagenary's default runtime is static. Missing `runtime` is equivalent to:
 }
 ```
 
-Supported draft modes:
+Supported runtime modes:
 
 | Mode | Status | Behavior |
 |------|--------|----------|
 | `static` | Default | Existing vanilla Pagenary runtime. `runtime.react` is ignored. |
-| `hybrid` | Prototype | Builds normal Pagenary docs plus selected React app routes through the optional `@pagenary/react` adapter. |
-| `react-spa` | Planned | Reserved for a future full React shell that still consumes Pagenary artifacts. |
+| `hybrid` | Opt-in | Builds normal Pagenary docs plus selected React app routes through the optional `@pagenary/react` adapter. |
+| `react-spa` | Opt-in | Builds a tenant React SPA through the optional adapter while retaining authored route fallbacks and Pagenary artifacts. |
 
 Hybrid React routes require an authored Markdown or HTML fallback. The fallback
 is published as a normal Pagenary page, so sitemap, static snapshots,

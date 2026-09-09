@@ -17,14 +17,40 @@ const PALETTES = {
   tenant: { surface: '#fff8ed', ink: '#382718', muted: '#806a55', accent: '#a33b20' },
 };
 
+// Independent fixture oracle: production themes normalize colors to six-digit hex.
+function fixtureContrast(foreground, background) {
+  const light = (hex) => {
+    assert.match(hex, /^#[0-9a-f]{6}$/i);
+    const channels = hex.slice(1).match(/../g).map((pair) => parseInt(pair, 16) / 255);
+    return channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+      .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+  };
+  const values = [light(foreground), light(background)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
+test('contrast ratio matches independently known luminance fixtures', () => {
+  assert.equal(contrastRatio('#000000', '#ffffff'), 21);
+  assert.equal(contrastRatio('#ffffff', '#000000'), 21);
+  assert.equal(contrastRatio('#777777', '#777777'), 1);
+  assert.ok(Math.abs(contrastRatio('#777777', '#ffffff') - 4.478089453577214) < 1e-12);
+});
+
+test('low-contrast tenant tokens are corrected against an independent oracle', () => {
+  const theme = createDocsMapTheme({ surface: '#ffffff', ink: '#eeeeee', muted: '#eeeeee', accent: '#eeeeee' });
+  assert.ok(fixtureContrast(theme.ink, theme.surface) >= 4.5);
+  assert.ok(fixtureContrast(theme.muted, theme.surface) >= 4.5);
+  assert.ok(fixtureContrast(theme.accent, theme.surface) >= 3);
+});
+
 test('tenant tokens produce coherent, contrast-safe graph chrome', () => {
   for (const [name, tokens] of Object.entries(PALETTES)) {
     const theme = createDocsMapTheme(tokens);
-    assert.ok(contrastRatio(theme.ink, theme.surface) >= 4.5, `${name} control text`);
-    assert.ok(contrastRatio(theme.muted, theme.surface) >= 4.5, `${name} muted text`);
-    assert.ok(contrastRatio(theme.accent, theme.surface) >= 3, `${name} focus/selection`);
-    assert.ok(contrastRatio(theme.edge, theme.surface) >= 3, `${name} edges`);
-    assert.ok(contrastRatio(theme.rule, theme.surface) >= 3, `${name} control boundaries`);
+    assert.ok(fixtureContrast(theme.ink, theme.surface) >= 4.5, `${name} control text`);
+    assert.ok(fixtureContrast(theme.muted, theme.surface) >= 4.5, `${name} muted text`);
+    assert.ok(fixtureContrast(theme.accent, theme.surface) >= 3, `${name} focus/selection`);
+    assert.ok(fixtureContrast(theme.edge, theme.surface) >= 3, `${name} edges`);
+    assert.ok(fixtureContrast(theme.rule, theme.surface) >= 3, `${name} control boundaries`);
   }
 });
 

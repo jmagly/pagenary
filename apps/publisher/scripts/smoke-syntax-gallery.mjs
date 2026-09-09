@@ -1,12 +1,11 @@
 #!/usr/bin/env node
-import { spawn, spawnSync } from 'node:child_process';
-import http from 'node:http';
+import { spawnSync } from 'node:child_process';
+import { startPreviewServer, runManagedProcess, fetchWithDeadline } from './lib/process-lifecycle.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const port = Number(process.env.PORT || 5197);
-const base = `http://127.0.0.1:${port}/syntax-gallery/`;
+let base;
 const requireBrowser = process.argv.includes('--require') || process.env.SMOKE_REQUIRE === '1';
 const browser = findBrowser();
 
@@ -17,21 +16,18 @@ if (!browser) {
   process.exit(0);
 }
 
-run(process.execPath, [
+await run(process.execPath, [
   'scripts/build-tenants.js', '--registry', 'examples/recipes.tenants.json', 'syntax-gallery'
 ]);
 
-const server = spawn(process.execPath, ['scripts/serve.js', '--dev'], {
-  cwd: packageRoot,
-  env: { ...process.env, PORT: String(port) },
-  stdio: ['ignore', 'ignore', 'inherit']
-});
+const server = await startPreviewServer('scripts/serve.js', { cwd: packageRoot });
+base = `${server.origin}/syntax-gallery/`;
 
 try {
   await waitForServer(base);
-  const diagrams = dumpDom(`${base}#diagrams`);
-  const math = dumpDom(`${base}#inline-latex`);
-  const latexPage = dumpDom(`${base}#latex-page`);
+  const diagrams = await dumpDom(`${base}#diagrams`);
+  const math = await dumpDom(`${base}#inline-latex`);
+  const latexPage = await dumpDom(`${base}#latex-page`);
 
   assert(count(diagrams, /class="mermaid-content[^>]*>[\s\S]*?<svg\b/g) >= 5,
     'five representative Mermaid families render to SVG');
@@ -51,46 +47,37 @@ try {
     'the complete LaTeX source is the rendered page content');
   console.log('Syntax gallery browser smoke PASS');
 } finally {
-  server.kill('SIGTERM');
+  await server.stop();
 }
 
 function findBrowser() {
   for (const command of [process.env.CHROME_PATH, 'google-chrome', 'chromium', 'chromium-browser'].filter(Boolean)) {
-    const probe = spawnSync(command, ['--version'], { encoding: 'utf8' });
+    const probe = spawnSync(command, ['--version'], { encoding: 'utf8', timeout: 5000 });
     if (probe.status === 0) return command;
   }
   return null;
 }
 
-function run(command, args) {
-  const result = spawnSync(command, args, { cwd: packageRoot, encoding: 'utf8', stdio: 'inherit' });
-  if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} exited ${result.status}`);
+async function run(command, args, cwd = packageRoot) {
+  const result = await runManagedProcess(command, args, { cwd }, 1_200_000);
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.code !== 0) throw new Error(`${command} ${args.join(' ')} exited ${result.code ?? result.signal}`);
 }
 
-function dumpDom(url) {
-  const result = spawnSync(browser, [
+async function dumpDom(url) {
+  const result = await runManagedProcess(browser, [
     '--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
     '--virtual-time-budget=8000', '--dump-dom', url
-  ], { cwd: packageRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error(`Browser failed for ${url}: ${result.stderr}`);
+  ], { cwd: packageRoot }, 45_000);
+  if (result.code !== 0) throw new Error(`Browser failed for ${url}: ${result.stderr}`);
   return result.stdout;
 }
 
-function waitForServer(url, timeoutMs = 15_000) {
-  const deadline = Date.now() + timeoutMs;
-  return new Promise((resolve, reject) => {
-    const poll = () => {
-      const request = http.get(url, (response) => {
-        response.resume();
-        resolve();
-      });
-      request.on('error', () => {
-        if (Date.now() >= deadline) reject(new Error(`Server did not start at ${url}`));
-        else setTimeout(poll, 150);
-      });
-    };
-    poll();
-  });
+async function waitForServer(url) {
+  const response = await fetchWithDeadline(url);
+  if (!response.ok) throw new Error(`Owned preview server returned HTTP ${response.status} at ${url}`);
+  await response.arrayBuffer();
 }
 
 function count(value, pattern) {

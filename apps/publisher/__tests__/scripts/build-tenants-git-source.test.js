@@ -52,11 +52,16 @@ describe('build-tenants GIT_CREDENTIALS support (#81)', () => {
 
   test('URL-encodes special characters in the credentials', () => {
     process.env.GIT_CREDENTIALS = 'alice:p@ss/wo:rd';
-    // split(':', 2) → username "alice", password "p@ss/wo" (first colon splits);
-    // the password is percent-encoded so the URL stays well-formed.
+    // Only the first colon separates username/password; later colons are data.
     const out = withGitCredentials('https://git.example.com/org/repo.git');
-    expect(out).toBe('https://alice:p%40ss%2Fwo@git.example.com/org/repo.git');
+    expect(out).toBe('https://alice:p%40ss%2Fwo%3Ard@git.example.com/org/repo.git');
     expect(out.startsWith('https://alice:')).toBe(true);
+  });
+
+  test('preserves consecutive and trailing password colons', () => {
+    process.env.GIT_CREDENTIALS = 'alice::part:';
+    expect(withGitCredentials('https://git.example.com/repo.git'))
+      .toBe('https://alice:%3Apart%3A@git.example.com/repo.git');
   });
 
   test('leaves an SSH/git URL untouched', () => {

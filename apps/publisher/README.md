@@ -4,7 +4,7 @@
 
 **Where documentation takes shape.**
 
-`@pagenary/publisher` is the static site generator behind Pagenary — it turns one shared template catalog into many branded, tenant-specific documentation sites. Zero runtime dependencies, hash-based routing, full-text search, and a Git-aware build pipeline. Install it as a dev dependency and drive it with the `pagenary` CLI.
+`@pagenary/publisher` is the static site generator behind Pagenary — it turns one shared template catalog into many branded, tenant-specific documentation sites. Self-hosted static output by default, hash-based routing, full-text search, and a Git-aware build pipeline. Install it as a dev dependency and drive it with the `pagenary` CLI.
 
 Built with [AIWG](https://aiwg.io), the multi-agent AI framework used to plan,
 audit, and ship this project.
@@ -31,7 +31,7 @@ npx pagenary serve                           # serve on http://localhost:5173
 
 ## What It Is
 
-The publisher takes a catalog of shared section templates plus per-tenant content and configuration and produces a self-contained documentation bundle for each tenant. Each bundle is a static single-page app — hash-based routing (`#page-id`), no server-side rendering, no runtime dependencies — that you build once and host anywhere that serves files. A per-tenant `<base>` resolves asset and module URLs to the tenant root, so the same bundle serves correctly at a domain root *or* under a subpath mount. Tenants share the template catalog but keep isolated content, branding, navigation, and domains — each with ranked client-side search and SEO-ready output — so one repository can publish a dozen distinct sites.
+The publisher takes a catalog of shared section templates plus per-tenant content and configuration and produces a self-contained documentation bundle for each tenant. Each bundle is a static single-page app — hash-based routing (`#page-id`), no application server, with self-hosted browser assets by default — that you build once and host anywhere that serves files. A per-tenant `<base>` resolves asset and module URLs to the tenant root, so the same bundle serves correctly at a domain root *or* under a subpath mount. Tenants share the template catalog but keep isolated content, branding, navigation, and domains — each with ranked client-side search and SEO-ready output — so one repository can publish a dozen distinct sites.
 
 ---
 
@@ -64,6 +64,12 @@ Pagenary development uses [AIWG](https://aiwg.io). On this host, maintainers can
 inspect, build, or run the AIWG project from `~/dev/aiwg`.
 
 ---
+
+## Optional writable runtimes
+
+The optional `@pagenary/react` adapter exposes record and PGlite runtimes, reviewed published-source refresh, local dataset imports, and scoped lexical search. These capabilities require explicit tenant/application integration; the default publisher search remains static and read-only. See the [runtime API and boundaries](../react/README.md) and [dependency tiers](docs/DEPENDENCY-POSTURE.md).
+
+For repository tests, use Node **24.12.0** and run `npm run test:setup` from the repository root before `npm test`. Browser layout tests are part of the publisher suite. See [Testing Pagenary](../../TESTING.md) for the complete prerequisites and qualification scope.
 
 ## Features
 

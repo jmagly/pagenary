@@ -70,7 +70,7 @@ export const FORM_PROVIDERS = {
  */
 export function getFormProvider(id) {
   if (typeof id !== 'string') return null;
-  return FORM_PROVIDERS[id] || null;
+  return Object.hasOwn(FORM_PROVIDERS, id) ? FORM_PROVIDERS[id] : null;
 }
 
 /** True if `id` names a registered form provider (used by the fence parser). */

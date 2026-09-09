@@ -40,7 +40,7 @@ test('canonical records project parent-first and rebuild row-for-row', async () 
   await runtime.close();
 });
 
-test('missing and cyclic collection parents fail before projection mutation', async () => {
+test('missing and cyclic collection parents reject projection creation without canonical mutation', async () => {
   for (const [name, collections] of [
     ['missing', [{ id: 'child', name: 'Child', parent_id: 'absent' }]],
     ['cyclic', [

@@ -1,94 +1,10 @@
-/**
- * Unit tests for ADR-011: Internal Link Transformation
- */
-
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Note: These functions are copied from build-tenants.js for testing.
-// Ideally they would be refactored into a separate module and imported.
+/** Tests the production ADR-011 link functions; no copied algorithms. */
+import {
+  isExternalLink, isFragmentOnly, isMarkdownLink, normalizeLinkPath,
+  resolveLinkPath, pathToSectionId, generateSlug, transformInternalLink
+} from '../../scripts/build-tenants.js';
 
 describe('Link Transformation (ADR-011)', () => {
-  // Helper functions that match the implementation
-  function isExternalLink(href) {
-    if (!href) return true;
-    if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-      return true;
-    }
-    if (href.startsWith('//')) {
-      return true;
-    }
-    return false;
-  }
-
-  function isFragmentOnly(href) {
-    if (!href) return false;
-    return href.startsWith('#');
-  }
-
-  function isMarkdownLink(href) {
-    if (!href) return false;
-    const pathname = href.split('#')[0].split('?')[0];
-    const ext = path.extname(pathname).toLowerCase();
-    return ext === '.md' || ext === '.markdown';
-  }
-
-  function normalizeLinkPath(linkPath) {
-    if (!linkPath) return '';
-    return linkPath
-      .replace(/\\/g, '/')
-      .replace(/\/+/g, '/')
-      .replace(/\/\.$/, '')
-      .replace(/\/+$/, '');
-  }
-
-  function resolveLinkPath(linkPath, currentFilePath) {
-    const currentDir = path.dirname(currentFilePath);
-    let resolvedPath;
-
-    if (linkPath.startsWith('/')) {
-      resolvedPath = linkPath.slice(1);
-    } else if (linkPath.startsWith('./')) {
-      resolvedPath = path.join(currentDir, linkPath.slice(2));
-    } else if (linkPath.startsWith('../')) {
-      resolvedPath = path.join(currentDir, linkPath);
-    } else {
-      resolvedPath = path.join(currentDir, linkPath);
-    }
-
-    return path.normalize(resolvedPath).replace(/\\/g, '/').replace(/^\/|\/$/g, '');
-  }
-
-  const CONTENT_EXTENSIONS = ['.md', '.markdown', '.html', '.htm', '.js', '.mjs'];
-
-  function pathToSectionId(resolvedPath) {
-    if (!resolvedPath) return '';
-
-    let withoutExt = resolvedPath;
-    for (const ext of CONTENT_EXTENSIONS) {
-      if (resolvedPath.toLowerCase().endsWith(ext)) {
-        withoutExt = resolvedPath.slice(0, -ext.length);
-        break;
-      }
-    }
-
-    const normalized = withoutExt.replace(/\/index$/i, '');
-    return normalized || '';
-  }
-
-  function generateSlug(text) {
-    if (!text) return '';
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_]+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
-
   describe('isExternalLink', () => {
     test('should identify http links as external', () => {
       expect(isExternalLink('http://example.com')).toBe(true);
@@ -300,21 +216,9 @@ describe('Link Transformation (ADR-011)', () => {
   });
 
   describe('Full Link Transformation', () => {
-    // Integration-style tests combining all functions
+    // Shape arguments only; all transformation decisions belong to production.
     function transformLink(href, currentPath, sectionIndex = null) {
-      if (isExternalLink(href)) return href;
-      if (isFragmentOnly(href)) return href;
-      if (!isMarkdownLink(href)) return href;
-
-      const hashIndex = href.indexOf('#');
-      const pathname = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
-      const fragment = hashIndex >= 0 ? href.slice(hashIndex) : '';
-
-      const normalizedPath = normalizeLinkPath(pathname);
-      const resolvedPath = resolveLinkPath(normalizedPath, currentPath);
-      const sectionId = pathToSectionId(resolvedPath);
-
-      return fragment ? `#${sectionId}${fragment}` : `#${sectionId}`;
+      return transformInternalLink(href, { currentPath, sectionIndex });
     }
 
     test('should transform relative links', () => {

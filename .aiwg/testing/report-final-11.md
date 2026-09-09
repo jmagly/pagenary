@@ -1,0 +1,189 @@
+# Test conformance: conformant
+
+Snapshot: `d01e38381957cd336e52fedb0d1df9720e8abbeb1bc49c58c6f811911b2060f3`
+
+- **passed — inventory**: Current test, source and configuration scope was inventoried.
+- **passed — publisher-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — publisher-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — publisher-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — react-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — react-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — react-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-check-accessibility-linter-js-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-check-accessibility-linter-js-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-check-accessibility-linter-js-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-check-accessibility-report-js-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-check-accessibility-report-js-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-check-accessibility-report-js-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-check-accessibility-js-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-check-accessibility-js-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-check-accessibility-js-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-check-media-renderers-js-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-check-media-renderers-js-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-check-media-renderers-js-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-check-narration-js-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-check-narration-js-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-check-narration-js-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-check-reading-metadata-js-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-check-reading-metadata-js-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-check-reading-metadata-js-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-check-rich-content-traceability-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-check-rich-content-traceability-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-check-rich-content-traceability-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-check-syntax-inventory-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-check-syntax-inventory-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-check-syntax-inventory-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-smoke-accessibility-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-smoke-accessibility-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-smoke-accessibility-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-smoke-browser-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-smoke-browser-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-smoke-browser-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-smoke-rich-content-atspi-py-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-smoke-rich-content-atspi-py-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-smoke-rich-content-atspi-py-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-smoke-rich-content-matrix-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-smoke-rich-content-matrix-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-smoke-rich-content-matrix-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-smoke-syntax-gallery-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-smoke-syntax-gallery-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-smoke-syntax-gallery-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-react-scripts-audit-runtime-bundles-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-react-scripts-audit-runtime-bundles-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-react-scripts-audit-runtime-bundles-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-react-scripts-test-dataset-browser-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-react-scripts-test-dataset-browser-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-react-scripts-test-dataset-browser-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-react-scripts-test-record-browser-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-react-scripts-test-record-browser-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-react-scripts-test-record-browser-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-vscode-extension-scripts-smoke-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-vscode-extension-scripts-smoke-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-vscode-extension-scripts-smoke-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — ci-rich-content-qualify-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — ci-rich-content-qualify-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — ci-rich-content-qualify-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — extension-activation-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — extension-activation-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — extension-activation-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — publisher-seo-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — publisher-seo-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — publisher-seo-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — tooling-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — tooling-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — tooling-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — apps-publisher-scripts-smoke-styles-mjs-execution**: Required lane executed with complete passing evidence under the configured skip policy.
+- **passed — apps-publisher-scripts-smoke-styles-mjs-file-reconciliation**: Every declared candidate file in the required lane is both registered and represented in execution.
+- **passed — apps-publisher-scripts-smoke-styles-mjs-case-reconciliation**: Registered and executed cases reconcile by lane/file/full-name identity.
+- **passed — required-file-scope**: All candidate test files have a required lane.
+- **passed — review:apps/publisher/__tests__/scripts/accept-negotiation.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/accessibility-linter.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/brochure-content-loader.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/brochure-content.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/brochure-generator.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/build-tenants-git-source.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/build-tenants-nested.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/build-tenants.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/build.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/cli.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/cloudflare-markdown-worker.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/collections-generator.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/content-address-rewrite.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/fortemi-shard-prototype.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/frontmatter.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/hero-banner.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/inline-latex.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/knowledge-shard.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/latex-page.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/link-transformation.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/markdown-delivery.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/markdown-renderer.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/markdown-server.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/mermaid-build-adapter.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/plantuml-renderer.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/renderer-security.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/rich-content-core.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/rich-content-materialization.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/search-index-generator.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/semantic-html.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/seo-generator.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/style-docs.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/scripts/syntax-gallery.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/blog-client.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/categories.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/docs-map.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/export.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/form-providers.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/fortemi-corpus.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/layout.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/manifest-utils.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/pan-zoom.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/router.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/search-adapter.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/search.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/share.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/lib/templates.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/__tests__/src/styles.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/check-accessibility-linter.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/check-accessibility-report.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/check-accessibility.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/check-media-renderers.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/check-narration.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/check-reading-metadata.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/check-rich-content-traceability.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/check-syntax-inventory.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/seo-smoke.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/smoke-accessibility.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/smoke-browser.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/smoke-rich-content-atspi.py**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/smoke-rich-content-matrix.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/smoke-styles.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/publisher/scripts/smoke-syntax-gallery.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/bundle-audit.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/dataset-runtime.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/dataset-workflow.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/pglite-runtime.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/prune-unused-pglite-assets.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/record-runtime.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/renderer-bindings.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/scoped-search.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/source-refresh.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/__tests__/theme.test.js**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/scripts/audit-runtime-bundles.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/scripts/test-dataset-browser.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/react/scripts/test-record-browser.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/vscode-extension/scripts/activation-smoke.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:apps/vscode-extension/scripts/smoke.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:ci/rich-content/qualify.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:scripts/testing/node-reporter.test.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — review:scripts/testing/runner-qualification.test.mjs**: All review dimensions have current source-bound judgments and no unresolved findings.
+- **passed — control:publisher:strict-policy-disabled**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:react:contrast-constant-high**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-check-accessibility-linter-js:harness-01**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-check-accessibility-report-js:harness-02**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-check-accessibility-js:harness-03**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-check-media-renderers-js:harness-04**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-check-narration-js:harness-05**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-check-reading-metadata-js:harness-06**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-check-rich-content-traceability-mjs:harness-07**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-check-syntax-inventory-mjs:harness-08**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-smoke-accessibility-mjs:harness-09**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-smoke-browser-mjs:harness-10**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-smoke-browser-mjs:search-resource-activation**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-smoke-rich-content-atspi-py:harness-11**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-smoke-rich-content-matrix-mjs:harness-12**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-smoke-syntax-gallery-mjs:harness-13**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-react-scripts-audit-runtime-bundles-mjs:harness-14**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-react-scripts-test-dataset-browser-mjs:harness-15**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-react-scripts-test-record-browser-mjs:harness-16**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-vscode-extension-scripts-smoke-mjs:harness-17**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:ci-rich-content-qualify-mjs:harness-18**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:extension-activation:harness-19**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:publisher-seo:harness-20**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:tooling:harness-exit-ignored**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — control:apps-publisher-scripts-smoke-styles-mjs:style-mobile-toc-position**: Verified source-changing control caused the target cases to fail and restoration passed.
+- **passed — coverage-policy**: Protocol defines no coverage thresholds; no measured coverage conclusion is claimed.
+
+- Conformance is relative to the declared protocol scope and policies.
+- Source-review judgments are declared by the recorded reviewer; this tool does not authenticate reviewer identity or prove all possible program behavior.
+- Static candidates and passing tests do not establish mutation sensitivity, live-provider qualification or unmeasured coverage.

@@ -15,13 +15,12 @@
  * Usage:
  *   npm run test:browser                 # skips cleanly if Playwright is absent
  *   SMOKE_REQUIRE=1 npm run test:browser # fails if Playwright is absent (CI)
- *   PORT=5191 npm run test:browser       # override the ephemeral serve port
+ *   The harness binds an owned ephemeral port and awaits server shutdown.
  *
  * One-time setup to enable it:
  *   npm i -D playwright && npx playwright install chromium
  */
-import { spawn } from 'node:child_process';
-import http from 'node:http';
+import { startPreviewServer, runManagedProcess, fetchWithDeadline } from './lib/process-lifecycle.js';
 import path from 'node:path';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -30,8 +29,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PKG_DIR = path.resolve(__dirname, '..');
 const TENANT = process.env.SMOKE_TENANT || 'pagenary';
-const PORT = Number(process.env.PORT || 5190);
-const BASE = `http://127.0.0.1:${PORT}/${TENANT}/`;
+let BASE;
 const REQUIRE = process.argv.includes('--require') || process.env.SMOKE_REQUIRE === '1';
 const SHOT_DIR = path.join(PKG_DIR, '.playwright-mcp'); // gitignored
 const SHOT = path.join(SHOT_DIR, `smoke-${TENANT}.png`);
@@ -45,39 +43,104 @@ function check(name, ok, detail = '') {
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
 }
 
-function waitForServer(url, timeoutMs = 15000) {
-  const deadline = Date.now() + timeoutMs;
-  return new Promise((resolve, reject) => {
-    const ping = () => {
-      const req = http.get(url, (res) => {
-        res.resume();
-        resolve();
-      });
-      req.on('error', () => {
-        if (Date.now() > deadline) reject(new Error(`server not ready at ${url}`));
-        else setTimeout(ping, 200);
-      });
-    };
-    ping();
-  });
+async function waitForServer(url) {
+  const response = await fetchWithDeadline(url);
+  if (!response.ok) throw new Error(`Owned preview server returned HTTP ${response.status} at ${url}`);
+  await response.arrayBuffer();
+}
+async function run(command, args, cwd = PKG_DIR) {
+  const result = await runManagedProcess(command, args, { cwd }, 1_200_000);
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.code !== 0) throw new Error(`${command} ${args.join(' ')} exited ${result.code ?? result.signal}`);
 }
 
 async function ensureBuilt() {
-  const shell = path.join(PKG_DIR, 'dist', TENANT, 'index.html');
-  if (fs.existsSync(shell)) return;
-  console.log(`• dist/${TENANT} missing — building tenant…`);
-  await new Promise((resolve, reject) => {
-    const b = spawn('node', ['scripts/build-tenants.js', TENANT], { cwd: PKG_DIR, stdio: 'inherit' });
-    b.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`build exited ${code}`))));
-  });
+  console.log(`• Building fresh dist/${TENANT} from current source…`);
+  await run(process.execPath, ['scripts/build-tenants.js', TENANT]);
+}
+
+// This harness builds one local tenant from the default or TENANT_REGISTRY
+// registry. Match build-tenants.js local path/config precedence explicitly;
+// unsupported resolution must fail rather than manufacture a disabled feature.
+async function expectedLocalDocsMap() {
+  const registryPath = path.resolve(PKG_DIR, process.env.TENANT_REGISTRY || 'tenants.json');
+  const registry = JSON.parse(await fsp.readFile(registryPath, 'utf8'));
+  if (!Array.isArray(registry.tenants)) throw new Error('Smoke registry must declare tenants');
+  const matches = registry.tenants.filter((tenant) => tenant?.id === TENANT);
+  if (matches.length !== 1 || matches[0].enabled === false) {
+    throw new Error(`Smoke requires one enabled registry entry for ${TENANT}`);
+  }
+  const tenant = matches[0];
+  if (tenant.source?.type && tenant.source.type !== 'local') {
+    throw new Error('Smoke Docs Map expectation requires a local tenant source');
+  }
+  const sourcePath = tenant.source?.path || path.join(registry.defaults?.source?.path || './tenants', TENANT);
+  if (typeof sourcePath !== 'string' || /[$~]/.test(sourcePath)) {
+    throw new Error('Smoke Docs Map expectation requires a literal local source path');
+  }
+  const configPath = path.join(path.resolve(PKG_DIR, sourcePath), 'config.json');
+  let fileConfig = {};
+  try { fileConfig = JSON.parse(await fsp.readFile(configPath, 'utf8')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  for (const config of [fileConfig, tenant.config || {}]) {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      throw new Error('Smoke tenant config must be an object');
+    }
+  }
+  // Registry overrides replace top-level file fields, exactly as the build does.
+  const config = { ...fileConfig, ...(tenant.config || {}) };
+  if (config.docsMap !== undefined && (!config.docsMap || typeof config.docsMap !== 'object' || Array.isArray(config.docsMap))) {
+    throw new Error('Smoke docsMap config must be an object');
+  }
+  if (config.docsMap?.enabled !== undefined && typeof config.docsMap.enabled !== 'boolean') {
+    throw new Error('Smoke docsMap.enabled must be a boolean');
+  }
+  return config.docsMap?.enabled === true;
 }
 
 async function loadPlaywright() {
+  if (process.env.PLAYWRIGHT_MODULE) return import(process.env.PLAYWRIGHT_MODULE);
   try {
     const mod = await import('playwright');
     return mod.chromium ? mod : null;
   } catch {
     return null;
+  }
+}
+
+async function checkSearchResourceIsolation(page) {
+  const indexUrl = `${BASE}search-index/manifest.json`;
+  const moduleUrl = `${BASE}sections/inert-search-fixture.js`;
+  const imageUrl = `${BASE}inert-search-resource-probe.svg`;
+  const requests = [];
+  const indexRoute = route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  const moduleRoute = route => route.fulfill({ status: 200, contentType: 'text/javascript',
+    body: `export const load = async () => ({ html: '<p>&#105;ndexingresourceprobe</p><img src="${imageUrl}" alt="Fixture">' });` });
+  const imageRoute = route => {
+    requests.push(route.request().url());
+    return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg"/>' });
+  };
+  await page.route(indexUrl, indexRoute);
+  await page.route(moduleUrl, moduleRoute);
+  await page.route(imageUrl, imageRoute);
+  try {
+    const result = await page.evaluate(async () => {
+      const search = await import(new URL('lib/search.js', document.baseURI).href);
+      search.resetSearchState();
+      return search.searchContentPage([{ id: 'inert-fixture', title: 'Fixture',
+        module: './sections/inert-search-fixture.js' }], 'indexingresourceprobe');
+    });
+    check('fallback indexing preserves decoded body text', result.source === 'legacy'
+      && result.total === 1 && result.items[0]?.id === 'inert-fixture', JSON.stringify(result));
+    // Give a resource request triggered by detached DOM insertion time to reach
+    // the browser network observer. The sentinel route records it even if valid.
+    await page.waitForTimeout(100);
+    check('fallback indexing does not fetch embedded resources', requests.length === 0, JSON.stringify(requests));
+  } finally {
+    await page.unroute(indexUrl, indexRoute);
+    await page.unroute(moduleUrl, moduleRoute);
+    await page.unroute(imageUrl, imageRoute);
   }
 }
 
@@ -99,11 +162,8 @@ async function main() {
   await fsp.mkdir(SHOT_DIR, { recursive: true });
 
   // Serve in dev mode (no-store) so the browser never reads a stale bundle.
-  const server = spawn('node', ['scripts/serve.js', '--dev'], {
-    cwd: PKG_DIR,
-    env: { ...process.env, PORT: String(PORT) },
-    stdio: ['ignore', 'ignore', 'inherit']
-  });
+  const server = await startPreviewServer('scripts/serve.js', { cwd: PKG_DIR });
+  BASE = `${server.origin}/${TENANT}/`;
 
   let browser;
   try {
@@ -114,14 +174,17 @@ async function main() {
     const consoleErrors = [];
     page.on('console', (m) => {
       if (m.type() === 'error' && !IGNORED_CONSOLE.some((re) => re.test(m.text()))) {
-        consoleErrors.push(m.text());
+        consoleErrors.push(`${m.text()} [${m.location().url || 'unknown source'}]`);
       }
     });
-    const assets = { styles: null, app: null };
+    const responses = new Map();
+    const failedResources = [];
     page.on('response', (res) => {
-      const u = res.url();
-      if (/\/styles\.css(\?|$)/.test(u)) assets.styles = res.status();
-      if (/\/app\.js(\?|$)/.test(u)) assets.app = res.status();
+      responses.set(res.url(), res.status());
+      if (res.status() >= 400) failedResources.push({ url: res.url(), status: res.status() });
+    });
+    page.on('requestfailed', (request) => {
+      failedResources.push({ url: request.url(), error: request.failure()?.errorText || 'request failed' });
     });
 
     await page.goto(BASE, { waitUntil: 'networkidle' });
@@ -130,9 +193,18 @@ async function main() {
     const baseURI = await page.evaluate(() => document.baseURI);
     check(`<base href> resolves to /${TENANT}/`, baseURI.endsWith(`/${TENANT}/`), baseURI);
 
-    // 2) Shell assets loaded 200 under the subpath.
-    check('styles.css loaded (200)', assets.styles === 200, `status ${assets.styles}`);
-    check('app.js loaded (200)', assets.app === 200, `status ${assets.app}`);
+    // 2) Check actual document references, including content-addressed filenames.
+    // Observed browser responses must succeed; a separate fetch cannot hide a
+    // stylesheet/module that the document failed to load.
+    const referenced = await page.evaluate(() => ({
+      styles: Array.from(document.querySelectorAll('link[rel="stylesheet"][href]'), (node) => node.href),
+      modules: Array.from(document.querySelectorAll('script[type="module"][src]'), (node) => node.src)
+    }));
+    for (const [kind, urls] of Object.entries(referenced)) {
+      const observed = urls.map((url) => ({ url, status: responses.get(url) ?? null }));
+      check(`document ${kind} loaded (200)`, observed.length > 0 && observed.every(({ url, status }) =>
+        url.startsWith(BASE) && status === 200), JSON.stringify(observed));
+    }
 
     // 3) Nav renders.
     const navCount = await page.evaluate(
@@ -166,12 +238,23 @@ async function main() {
     check('command palette returns search results', resultCount > 0, `${resultCount} result(s)`);
     await page.keyboard.press('Escape');
 
+    // SITE_CONFIG intentionally exports runtime navigation/SEO fields, not docsMap.
+    // Expectation comes from the same local build input, independently of output.
+    const docsMapEnabled = await expectedLocalDocsMap();
+
     // 7) Docs Map interaction smoke (#39) when the tenant enables it.
     await page.goto(`${BASE}#docs-map`, { waitUntil: 'networkidle' });
-    const docsMapEnabled = await page.waitForSelector('#docsMapRoot .docs-map-svg', { timeout: 5000 })
-      .then(() => true)
-      .catch(() => false);
     if (docsMapEnabled) {
+      await page.waitForSelector('#docsMapRoot .docs-map-svg, #docsMapRoot [data-testid="pagenary-docs-map"]', { timeout: 10000 });
+      const reactMap = page.locator('#docsMapRoot [data-testid="pagenary-docs-map"]');
+      if (await reactMap.count()) {
+        const focus = reactMap.getByLabel('Focus', { exact: true });
+        await focus.fill('welcome');
+        await reactMap.locator('.pagenary-docs-map__matches button').first().waitFor();
+        check('React docs map search returns named pages', await reactMap.locator('.pagenary-docs-map__matches button').count() > 0);
+        await reactMap.getByRole('button', { name: 'Reset', exact: true }).click();
+        check('React docs map reset clears search', await focus.inputValue() === '');
+      } else {
       const graphStats = await page.evaluate(() => ({
         nodes: document.querySelectorAll('#docsMapRoot .docs-map-node').length,
         controls: document.querySelectorAll('#docsMapRoot .docs-map-control').length,
@@ -207,8 +290,9 @@ async function main() {
       await page.waitForFunction(() => location.hash !== '#docs-map', { timeout: 4000 }).catch(() => {});
       const hashAfterOpen = await page.evaluate(() => location.hash);
       check('docs map popup open navigates to page', hashAfterOpen !== '#docs-map', hashAfterOpen);
+      }
     } else {
-      check('docs map not enabled for smoke tenant', true, TENANT);
+      console.log(`• Docs map checks skipped: disabled in authoritative local build input for ${TENANT}.`);
     }
 
     // Hybrid React tenant smoke (#131): one ordinary docs route and one React
@@ -230,15 +314,20 @@ async function main() {
       check('hybrid React route mounts panel', /React diagnostics online/i.test(reactState.panel));
     }
 
+    await checkSearchResourceIsolation(page);
+
     // 8) Screenshot for visual review.
     await page.screenshot({ path: SHOT, fullPage: false });
     check('screenshot captured', fs.existsSync(SHOT), path.relative(PKG_DIR, SHOT));
 
     // 9) No unexpected console errors.
-    check('no console errors (favicon ignored)', consoleErrors.length === 0, consoleErrors.join(' | '));
+    check('no console errors (favicon ignored)', consoleErrors.length === 0, JSON.stringify({ consoleErrors, failedResources }));
   } finally {
-    if (browser) await browser.close().catch(() => {});
-    server.kill('SIGTERM');
+    try {
+      if (browser) await browser.close();
+    } finally {
+      await server.stop();
+    }
   }
 
   const failed = checks.filter((c) => !c.ok);

@@ -126,9 +126,11 @@ function getSectionLookup(manifest) {
  */
 function extractText(html) {
   if (typeof document === 'undefined') return '';
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  return div.textContent || div.innerText || '';
+  // Indexing must not activate resource loads from offscreen page content.
+  // Template contents are inert while still decoding entities into plain text.
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  return template.content.textContent || '';
 }
 
 /**

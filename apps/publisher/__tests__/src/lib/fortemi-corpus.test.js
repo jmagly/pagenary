@@ -418,6 +418,24 @@ describe('fortemi-corpus', () => {
       }));
       expect(graph.nodes.length).toBe(3);
       expect(graph.edges.length).toBeGreaterThan(0);   // concept-derived edges
+      const ids = graph.nodes.map(node => node.id).sort();
+      expect(ids).toEqual(['docs:page:auth', 'docs:page:errors', 'docs:page:keys']);
+      const adjacency = new Map(ids.map(id => [id, new Set()]));
+      for (const edge of graph.edges) {
+        expect(adjacency.has(edge.source)).toBe(true);
+        expect(adjacency.has(edge.target)).toBe(true);
+        adjacency.get(edge.source).add(edge.target);
+        adjacency.get(edge.target).add(edge.source);
+      }
+      const visited = new Set();
+      const pending = [ids[0]];
+      while (pending.length) {
+        const id = pending.pop();
+        if (visited.has(id)) continue;
+        visited.add(id);
+        pending.push(...adjacency.get(id));
+      }
+      expect([...visited].sort()).toEqual(ids);
       expect(graph.communities.length).toBe(2);        // Concepts + Guides
     });
   });

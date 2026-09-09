@@ -103,7 +103,7 @@ export async function renderRichContentNodes(nodes, options = {}) {
     if (!node.renderer) continue;
     const adapter = registry.get(node.renderer);
     if (!adapter) {
-      results.push(missingAdapterResult(node, options, failurePolicy));
+      results.push(enforceFailurePolicy(missingAdapterResult(node, options, failurePolicy), failurePolicy));
       continue;
     }
     results.push(await renderWithAdapter(adapter, node, { ...options, failurePolicy }));
@@ -117,7 +117,7 @@ async function renderWithAdapter(adapter, node, context) {
   try {
     const validationDiagnostics = normalizeDiagnostics(adapter.validate(node, rendererContext), adapter, node, context);
     if (validationDiagnostics.some((diagnostic) => diagnostic.severity === 'error')) {
-      return resultForDiagnostics(node, adapter, validationDiagnostics, context, started);
+      return enforceFailurePolicy(resultForDiagnostics(node, adapter, validationDiagnostics, context, started), context.failurePolicy);
     }
     const cacheIdentity = context.cache
       ? buildRendererCacheIdentity({
@@ -142,7 +142,7 @@ async function renderWithAdapter(adapter, node, context) {
         hit.rendererMetadata.cacheIdentity = cacheIdentity.materialHash;
         hit.rendererMetadata.cacheStatus = 'hit';
         hit.rendererMetadata.durationMs = Date.now() - started;
-        return hit;
+        return enforceFailurePolicy(hit, context.failurePolicy);
       }
     }
     const result = await adapter.render(node, rendererContext);
@@ -155,6 +155,7 @@ async function renderWithAdapter(adapter, node, context) {
       ...validationDiagnostics,
       ...normalizeDiagnostics(normalized.diagnostics, adapter, node, context)
     ];
+    enforceFailurePolicy(normalized, context.failurePolicy);
     normalized.rendererMetadata.durationMs = Date.now() - started;
     if (cacheIdentity) {
       normalized.rendererMetadata.cacheIdentity = cacheIdentity.materialHash;
@@ -167,15 +168,27 @@ async function renderWithAdapter(adapter, node, context) {
     }
     return normalized;
   } catch (error) {
-    const diagnostics = normalizeDiagnostics(adapter.diagnose(error, node, rendererContext), adapter, node, context);
+    const diagnostics = normalizeDiagnostics(error?.diagnostics || adapter.diagnose(error, node, rendererContext), adapter, node, context);
     const fallback = resultForDiagnostics(node, adapter, diagnostics, context, started);
     if (context.failurePolicy === 'strict') {
       const strictError = new Error(fallback.diagnostics[0]?.message || `Renderer failed: ${adapter.id}`);
+      strictError.code = fallback.diagnostics[0]?.code || 'RTC_RENDER_FAILED';
       strictError.diagnostics = fallback.diagnostics;
       throw strictError;
     }
     return fallback;
   }
+}
+
+function enforceFailurePolicy(result, policy) {
+  const failure = result.diagnostics.find((diagnostic) => diagnostic.severity === 'error');
+  if (policy === 'strict' && failure) {
+    const error = new Error(failure.message || 'Renderer validation failed');
+    error.code = failure.code;
+    error.diagnostics = result.diagnostics;
+    throw error;
+  }
+  return result;
 }
 
 function resultForDiagnostics(node, adapter, diagnostics, context, started) {

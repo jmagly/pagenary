@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,6 +17,16 @@ function fixture() {
 }
 
 describe('tenant Knowledge Shard emission (#155)', () => {
+  const ownedRoots = new Set();
+  async function temporaryRoot(prefix) {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), prefix));
+    ownedRoots.add(root);
+    return root;
+  }
+  afterEach(async () => {
+    try { await Promise.all([...ownedRoots].map(root => fsp.rm(root, { recursive: true, force: true }))); }
+    finally { ownedRoots.clear(); }
+  });
   test('is disabled by default and rejects unsafe output paths', () => {
     expect(resolveKnowledgeShardConfig({})).toEqual({ enabled: false });
     expect(() => resolveKnowledgeShardConfig({ knowledgeShard: { enabled: true, output: '../outside.shard' } }))
@@ -23,8 +34,8 @@ describe('tenant Knowledge Shard emission (#155)', () => {
   });
 
   test('emits deterministic bytes, digest, and provenance without browser artifacts', async () => {
-    const firstDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-shard-a-'));
-    const secondDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-shard-b-'));
+    const firstDir = await temporaryRoot('pagenary-shard-a-');
+    const secondDir = await temporaryRoot('pagenary-shard-b-');
     const config = { knowledgeShard: { enabled: true } };
     const first = await emitKnowledgeShardArtifacts(firstDir, fixture(), config);
     const second = await emitKnowledgeShardArtifacts(secondDir, fixture(), config);
@@ -42,19 +53,25 @@ describe('tenant Knowledge Shard emission (#155)', () => {
       .toEqual(await fsp.readFile(path.join(secondDir, relative)));
     expect(await fsp.readFile(path.join(firstDir, `${relative}.sha256`), 'utf8'))
       .toBe(`${first.digest}  tenant.knowledge-shard.tar.gz\n`);
+    const archiveBytes = await fsp.readFile(path.join(firstDir, relative));
+    const independentDigest = createHash('sha256').update(archiveBytes).digest('hex');
+    expect(first.digest).toBe(independentDigest);
+    const provenance = JSON.parse(await fsp.readFile(path.join(firstDir, `${relative}.provenance.json`), 'utf8'));
+    expect(provenance.sha256).toBe(independentDigest);
+    expect(provenance.byte_length).toBe(archiveBytes.byteLength);
     const files = await fsp.readdir(path.join(firstDir, 'fortemi'));
     expect(files.some((name) => /pglite|\.wasm|worker|database/i.test(name))).toBe(false);
   });
 
   test('fails closed when full-v1 cannot represent ordinary page records losslessly', async () => {
-    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-shard-full-'));
+    const dir = await temporaryRoot('pagenary-shard-full-');
     await expect(emitKnowledgeShardArtifacts(dir, fixture(), {
       knowledgeShard: { enabled: true, profile: 'full-v1' }
     })).rejects.toThrow(/not lossless/);
   });
 
   test('restores the v2 compatibility declaration from chunk artifacts', async () => {
-    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-shard-index-'));
+    const dir = await temporaryRoot('pagenary-shard-index-');
     await fsp.mkdir(path.join(dir, 'search-index'));
     const index = fixture();
     await fsp.writeFile(path.join(dir, 'search-index/manifest.json'), JSON.stringify({

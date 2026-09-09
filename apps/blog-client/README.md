@@ -55,6 +55,11 @@ The client does three jobs:
 Use this package when you want full rendering control. If you want a ready-made
 HTML custom element, use [`@pagenary/embed`](https://www.npmjs.com/package/@pagenary/embed).
 
+Fetching requires `globalThis.fetch` or a custom implementation supplied through
+the `fetch` option. In Node versions without built-in fetch (including Node 16),
+provide that implementation explicitly; normalization of already-loaded indexes
+does not need it.
+
 ## Quick Start
 
 Install the package:

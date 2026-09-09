@@ -33,7 +33,7 @@ export const CATEGORY_RULES = [
 
 export function formatWord(word) {
   if (!word) return '';
-  if (WORD_OVERRIDES[word]) return WORD_OVERRIDES[word];
+  if (Object.hasOwn(WORD_OVERRIDES, word)) return WORD_OVERRIDES[word];
   if (/^\d+$/.test(word)) return word;
   return word.charAt(0).toUpperCase() + word.slice(1);
 }

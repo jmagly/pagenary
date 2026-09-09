@@ -35,8 +35,15 @@ describe('lib/form-providers.js', () => {
       expect(isFormProvider(undefined)).toBe(false);
     });
 
+    test.each(['toString', 'constructor', '__proto__'])('rejects inherited provider name %s', (id) => {
+      expect(getFormProvider(id)).toBeNull();
+      expect(isFormProvider(id)).toBe(false);
+      expect(normalizeFormConfig(id, { id: 'abc' }).ok).toBe(false);
+      expect(renderFormEmbed(id, { id: 'abc' })).toMatch(/^<!-- form-embed:/);
+    });
+
     test('formCspHosts dedupes across providers', () => {
-      expect(formCspHosts(['tally'])).toEqual(['tally.so']);
+      expect(formCspHosts(['tally', 'tally'])).toEqual(['tally.so']);
       expect(formCspHosts()).toEqual(expect.arrayContaining(['tally.so']));
     });
   });

@@ -209,6 +209,10 @@ test('complete-corpus reconciliation needs separate approval, preserves local no
   await runtime.refresh.reconcile(plan, { approval: plan.planDigest, signal: aborted.signal });
   assert.equal(await runtime.store.headSeq(), head);
   const receipt = await runtime.refresh.reconcile(plan, { approval: plan.planDigest });
+  const removedId = identities.find((identity) => identity.external_id === 'removed').note_id;
+  const deletedAt = (await runtime.store.get('note', removedId)).deleted_at;
+  assert.equal(typeof deletedAt, 'string');
+  assert.ok(Number.isFinite(Date.parse(deletedAt)), 'Reconciliation must set the selected note deletion timestamp');
   assert.equal(receipt.policy.terminal_purge, false);
   assert.doesNotMatch(JSON.stringify(receipt), /Private user|Removed published|remove-old/);
   assert.equal((await runtime.notes.get(editedId)).note.deleted_at, null);
@@ -216,11 +220,11 @@ test('complete-corpus reconciliation needs separate approval, preserves local no
   const committedHead = await runtime.store.headSeq();
   const repeated = await runtime.refresh.prepareReconciliation(corpus(), { completeCorpus: true, operationKey: 'remove-old' });
   assert.deepEqual(await runtime.refresh.reconcile(repeated, { approval: repeated.planDigest }), receipt);
+  assert.equal((await runtime.store.get('note', removedId)).deleted_at, deletedAt);
   assert.equal(await runtime.store.headSeq(), committedHead);
   await assert.rejects(runtime.refresh.prepareReconciliation(input, { completeCorpus: true, operationKey: 'remove-old' }), /reused/);
   const reappeared = await approve(runtime, input, { policy: 'version' });
   await reappeared.execute();
-  const removedId = identities.find((identity) => identity.external_id === 'removed').note_id;
   assert.equal((await runtime.notes.get(removedId)).note.deleted_at, null);
   await runtime.close();
 });

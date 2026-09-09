@@ -22,6 +22,11 @@ describe('lib/docs-map.js', () => {
 
     const first = layout(graph);
     const second = layout(graph);
+    const expectedIds = graph.nodes.map(({ id }) => id).sort();
+    for (const result of [first, second]) {
+      expect([...result.positions.keys()].sort()).toEqual(expectedIds);
+      expect([...result.radii.keys()].sort()).toEqual(expectedIds);
+    }
     expect(Array.from(first.positions.entries())).toEqual(Array.from(second.positions.entries()));
     expect(Array.from(first.radii.entries())).toEqual(Array.from(second.radii.entries()));
     expect(layoutSize(graph)).toEqual({ width: 1000, height: 700 });
@@ -65,6 +70,9 @@ describe('lib/docs-map.js', () => {
     });
     const graph = { nodes, edges, communities };
     const result = layout(graph);
+    const expectedIds = nodes.map(({ id }) => id).sort();
+    expect([...result.positions.keys()].sort()).toEqual(expectedIds);
+    expect([...result.radii.keys()].sort()).toEqual(expectedIds);
 
     expect(result.width).toBeGreaterThan(1000);
     expect(result.height).toBeGreaterThan(700);

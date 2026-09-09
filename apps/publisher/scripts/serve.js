@@ -260,7 +260,8 @@ function streamFile(target, req, res, extraHeaders = {}, knownStat = null) {
 }
 
 server.listen(port, host, () => {
-  console.log(`Serving dist at http://${host}:${port} ${DEV ? '(dev cache disabled)' : ''}`);
+  const boundPort = server.address().port;
+  console.log(`Serving dist at http://${host}:${boundPort} ${DEV ? '(dev cache disabled)' : ''}`);
   if (tenantDirs.size > 0) {
     console.log(`Tenants: ${[...tenantDirs].join(', ')}`);
   }

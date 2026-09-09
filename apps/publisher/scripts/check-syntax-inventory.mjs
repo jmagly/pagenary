@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const galleryRoot = path.join(packageRoot, 'examples/syntax-gallery');
 const inventory = JSON.parse(fs.readFileSync(path.join(galleryRoot, 'syntax-inventory.json'), 'utf8'));
+if (!Array.isArray(inventory?.features) || inventory.features.length === 0) {
+  throw new Error('Syntax inventory must declare a nonempty features array.');
+}
 const helpAnchors = markdownAnchors(fs.readFileSync(path.join(packageRoot, 'docs/SUPPORTED-SYNTAX.md'), 'utf8'));
 const failures = [];
 const ids = new Set();

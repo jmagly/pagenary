@@ -59,7 +59,11 @@ if (process.argv.includes('-tpng')) {
       mimeType: 'image/svg+xml',
       integrity: expect.stringMatching(/^sha256:[a-f0-9]{64}$/)
     })]);
-    expect(result.assets[0].bytes.toString()).toContain('id="puml-');
+    const svg = result.assets[0].bytes.toString();
+    expect(svg).toMatch(/^<svg\b/);
+    expect(svg).toContain('Alice to Bob');
+    expect(svg).not.toMatch(/script|onclick|https:\/\/bad/);
+    expect(svg).toContain('id="puml-');
     expect(result.semanticText).toBe('Alice -> Bob: hello');
     expect(result.rendererMetadata.profile).toBe('SANDBOX');
     expect(result.rendererMetadata.cacheIdentity).toMatch(/^sha256:[a-f0-9]{64}$/);
@@ -163,6 +167,9 @@ if (process.argv.includes('-tpng')) {
     const unsafe = '<?xml version="1.0"?><svg><metadata>x</metadata><g id="unstable" style="fill:url(https://bad.invalid/x)"><a xlink:href="file:///etc/passwd"><text>ok</text></a></g><script/><foreignObject><p>bad</p></foreignObject></svg>';
     const first = sanitizePlantUmlSvg(unsafe, 'Alice -> Bob');
     expect(first).toBe(sanitizePlantUmlSvg(unsafe, 'Alice -> Bob'));
+    expect(first).toMatch(/^<svg\b/);
+    expect(first).toContain('<text>ok</text>');
+    expect(first).toContain('id="puml-');
     expect(first).not.toMatch(/<\?|metadata|foreignObject|script|file:\/\/|https:\/\/|unstable/);
   });
 

@@ -100,23 +100,22 @@ npm gate enforces. Treat that as a deliberate tradeoff:
 - Always verify the recorded SHA-256 and run the full suite before committing a
   re-vendor — that, plus reading the upstream diff, is the compensating control.
 
-## Runtime CDN dependencies (not yet vendored)
+## Self-hosted browser libraries
 
-Two libraries are loaded at **runtime in the browser** from the `esm.sh` CDN,
-and are therefore outside npm, the lockfile, and any dependency tooling:
+The publisher build copies installed, locked browser artifacts into each site.
+The runtime loads them from the published site's own origin:
 
-| Library | Loaded in | Pin | Status |
-|---|---|---|---|
-| PrismJS | `src/syntax-highlight.js` | `1.29.0` (exact) | syntax highlighting |
-| Mermaid | diagram rendering | `@10` (**floating major**) | diagram rendering |
+| Library | Loader | Output |
+|---|---|---|
+| PrismJS | `src/syntax-highlight.js` | `vendor/prism/prism.js` and language components |
+| Mermaid 11.16.0 | `src/mermaid-init.js` | `vendor/mermaid/mermaid.min.js` |
+| KaTeX | Build-rendered inline math | `vendor/katex/katex.min.css` and local fonts |
 
-These are genuine functional dependencies of the generated site. They are
-candidates for vendoring/self-hosting on the same pattern above (which would
-remove the runtime CDN fetch, work offline, and make them SHA-pinnable). Until
-then, note that Mermaid floats on its major version — `esm.sh` resolves `@10` to
-the latest `10.x`, so the executed code can change without a Pagenary change.
-Pinning Mermaid to an exact `10.x.y` is the minimum hardening if vendoring is
-deferred.
+These libraries remain dependencies to review, but generated sites do not need
+`esm.sh` or another public CDN to load them. Their build inputs are governed by
+package pins and the lockfile, unlike the separately committed Fortémi static
+index artifact described above. Mermaid uses strict initialization settings and
+can also render to sanitized SVG at build time; see [Rich Content](RICH-CONTENT.md).
 
 ## References
 

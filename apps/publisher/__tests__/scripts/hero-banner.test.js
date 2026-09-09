@@ -51,9 +51,12 @@ describe('renderHeroMarkup', () => {
   });
 
   test('video background takes precedence over image', () => {
-    const html = renderHeroMarkup({ title: 'T', video: 'assets/clip.mp4', poster: 'p.jpg' });
+    const html = renderHeroMarkup({ title: 'T', image: 'assets/still.svg', video: 'assets/clip.mp4', poster: 'p.jpg' });
     expect(html).toContain('<video class="pe-hero-video" autoplay muted loop playsinline poster="p.jpg">');
     expect(html).toContain('<source src="assets/clip.mp4" />');
+    expect(html.match(/class="pe-hero-bg"/g)).toHaveLength(1);
+    expect(html).toContain('<div class="pe-hero-bg" aria-hidden="true"><video');
+    expect(html).not.toContain('<div class="pe-hero-bg" aria-hidden="true"></div>');
   });
 
   test('sticky modifier and align=start', () => {

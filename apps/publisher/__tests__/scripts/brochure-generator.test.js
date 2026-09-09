@@ -12,11 +12,17 @@ const registryUrl = new URL('../../examples/recipes.tenants.json', import.meta.u
 describe('brochureware route coverage and corpus emission (#143 #144)', () => {
   let content;
   let dir;
+  let secondDir;
   beforeEach(async () => {
     content = JSON.parse(await fsp.readFile(fixtureUrl, 'utf8'));
     dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-brochure-artifacts-'));
   });
-  afterEach(async () => fsp.rm(dir, { recursive: true, force: true }));
+  afterEach(async () => {
+    await Promise.all([dir, secondDir].filter(Boolean).map((ownedDir) =>
+      fsp.rm(ownedDir, { recursive: true, force: true })));
+    dir = undefined;
+    secondDir = undefined;
+  });
 
   test('emits semantic snapshots, extracts, corpus, JSON-LD, and complete coverage', async () => {
     assertBrochureContent(content);
@@ -50,13 +56,12 @@ describe('brochureware route coverage and corpus emission (#143 #144)', () => {
   test('is deterministic and excludes private routes', async () => {
     content.routeManifest[1].extractPolicy = 'private';
     const first = await generateBrochureArtifacts(dir, content);
-    const secondDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-brochure-artifacts-b-'));
+    secondDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-brochure-artifacts-b-'));
     const second = await generateBrochureArtifacts(secondDir, content);
     expect(first.report.public_routes).toBe(6);
     expect(await fsp.readFile(path.join(dir, 'documents.jsonl')))
       .toEqual(await fsp.readFile(path.join(secondDir, 'documents.jsonl')));
     await expect(fsp.access(path.join(dir, 'brochure/pages/about.html'))).rejects.toThrow();
-    await fsp.rm(secondDir, { recursive: true, force: true });
   });
 
   test('registers the independent portfolio fixture in the local/CI example build', async () => {

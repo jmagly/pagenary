@@ -123,7 +123,13 @@ try {
     'IndexedDB persistence', 'repeated approval', 'cancel/retry', 'mobile layout', 'dark theme', 'reduced motion', 'live status'],
     entryBytes, emittedBytes, artifacts: built.emittedAssets.map((asset) => asset.file) }, null, 2));
 } finally {
-  await browser?.close();
-  if (server) await new Promise((resolve) => server.close(resolve));
-  await rm(temporary, { recursive: true, force: true });
+  try {
+    await browser?.close();
+  } finally {
+    try {
+      if (server) await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  }
 }

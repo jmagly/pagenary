@@ -8,7 +8,7 @@ data engine. This page explains what that gets you and where to dig deeper.
 ## What powers it: Fortémi
 
 [Fortémi](https://docs.fortemi.com) is a knowledge-management platform with two
-deployment shapes that share **100% JSON format parity**:
+deployment shapes with portable, versioned interchange contracts:
 
 - **Self-hosted server** — Rust + PostgreSQL, hybrid search, MCP server,
   multi-provider LLM inference, multimodal ingestion. → [docs.fortemi.com/server](https://docs.fortemi.com/server/)
@@ -23,30 +23,33 @@ The browser side is three composable packages:
 | **`@fortemi/graph`** | Framework-agnostic community-graph tooling: layout, filtering, neighborhood expansion, and snapshot serialization. | [packages/graph](https://docs.fortemi.com/react/#packages/graph) |
 | **`@fortemi/react`** | React 19 hooks and `FortemiProvider` (30 hooks) over `@fortemi/core`. | [packages/react](https://docs.fortemi.com/react/#packages/react) |
 
-Pagenary vendors **`@fortemi/core`** directly (see [Architecture](#architecture)
-and `ADR-015`). The same engine that runs in a full Fortémi app runs your docs
-search — there is no second-rate static-site search path.
+Pagenary vendors the **static index/query subset** of `@fortemi/core` (see
+[Architecture](ARCHITECTURE.md) and [Vendoring](VENDORING.md)). The default
+publisher does not start PGlite or download an embedding model.
 
 ## What you get
 
-**Hybrid search, not keyword matching.** The command palette (`⌘K` / `Ctrl+K`)
-runs ranked full-text search over titles, summaries, and rendered content, with
-snippets and infinite scroll. It's the same hybrid lexical + semantic engine
-Fortémi ships — see the [hybrid search guide](https://docs.fortemi.com/react/#search).
+**Ranked static search.** The command palette (`⌘K` / `Ctrl+K`) searches
+titles, summaries, and rendered content with ranked results, snippets, and
+infinite scroll. This default path uses the vendored static-index query engine;
+it does not perform semantic inference.
 
 **A knowledge graph from your content.** The opt-in **Docs Map** projects your
 corpus into a Fortémi community graph — pages become nodes, shared concepts
 become edges — rendered as a framework-free SVG. Turn it on with one config key
-(see [Theming Recipes](#theming-recipes)).
+(see [Theming Recipes](THEMING-RECIPES.md)).
 
 **Faceted, page-addressable metadata.** The build emits compact per-page Fortémi
 metadata (the `pagenary.fortemi.metadata.v1` contract) so page tools, the graph,
 and facets resolve without re-shipping full document text.
 
 **Deterministic, CDN-safe output.** The search index is generated at build time
-(`manifest.json` + `part-NNNN.json`, the `aiwg.fortemi.index.*.v1` contract) and
-is byte-for-byte reproducible. No server, no runtime index build, no per-query
-cost.
+(`manifest.json` + `part-NNNN.json`) and is reproducible for unchanged
+content. The chunk envelopes remain v1; records and the reconstructed export
+use v2 with an explicit v1 compatibility declaration. If the static index is
+unavailable, the browser builds a fallback from local section modules. HTML
+text extraction uses an inert template so indexing does not fetch embedded
+images. No application server is required.
 
 **Portable build artifact.** Set `knowledgeShard.enabled: true` to publish the
 validated static corpus as a deterministic Fortémi `1.2.0/core-v1` Knowledge
@@ -79,7 +82,7 @@ For the full surface — hooks, providers, and core APIs — see the Fortémi
 ## Where it lives in Pagenary
 
 - **`src/lib/search.js`** — the Fortémi-backed search adapter (ranking, paging,
-  runtime fallback). See the [API Reference](#api).
+  runtime fallback). See the [API Reference](API.md).
 - **`src/lib/fortemi-corpus.js`** — the deterministic corpus builder, shared by
   the build step and the runtime fallback.
 - **`src/vendor/fortemi-aiwg-index.js`** — the vendored `@fortemi/core` engine.
@@ -87,6 +90,16 @@ For the full surface — hooks, providers, and core APIs — see the Fortémi
   own shell uses the engine with zero React dependency. The data is React-ready;
   Pagenary just doesn't require it.
 
-See [Architecture](#architecture) for the build pipeline and the
-`aiwg.fortemi.index.*.v1` contract, and `ADR-015` for why the real engine was
-vendored over a local search mirror.
+See [Architecture](ARCHITECTURE.md) for the build pipeline and versioned
+index contracts.
+
+## Optional writable data workflows
+
+`@pagenary/react/record-runtime` adds canonical records, shard exchange, and
+explicitly reviewed source refresh. `@pagenary/react/dataset-runtime` adds
+bounded import planning, previews, approval, and transactional receipts;
+`@pagenary/react/dataset` provides the optional import UI. Tier 3 projects those
+records into PGlite and exposes scoped lexical search. Automatic deletion,
+semantic scoped search, and comprehensive local-data removal are not supported
+by these APIs. See the [runtime API and limitations](https://git.integrolabs.net/roctinam/pagenary/src/branch/main/apps/react/README.md) and
+[dependency tiers](DEPENDENCY-POSTURE.md).

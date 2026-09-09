@@ -63,8 +63,8 @@ jobs:
   build-and-publish:
     name: Build and Publish
     runs-on: ubuntu-latest
-    container: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5  # node 20.20.2 (see ci/digests.txt)
-    timeout-minutes: 15
+    container: node:24.12.0@sha256:929c026d5a4e4a59685b3c1dbc1a8c3eb090aa95373d3a4fd668daa2493c8331  # qualified repository test runtime
+    timeout-minutes: 30
     # Force bash so `set -o pipefail` works (gitea-runner-host default is sh/dash).
     defaults:
       run:
@@ -91,7 +91,7 @@ jobs:
 
       - name: Upgrade npm to ^11.5 (release-age gate)
         # The root .npmrc sets min-release-age=7, which requires npm 11.5+.
-        # node:20 ships npm 10.x. `npm ci` on a locked tree is a no-op for
+        # `npm ci` on a locked tree is a no-op for
         # the gate, but we honor it here — the publish moment is the most
         # security-sensitive one.
         run: npm install -g npm@^11.5
@@ -108,8 +108,11 @@ jobs:
       - name: Build publisher
         run: npm run publisher:build
 
+      - name: Install test browser
+        run: npm run test:setup -- --with-deps
+
       - name: Run tests
-        run: npm run publisher:test
+        run: npm run test:publisher
 
       - name: Verify tag matches package versions
         id: version

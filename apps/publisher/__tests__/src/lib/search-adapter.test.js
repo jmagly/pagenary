@@ -84,6 +84,9 @@ describe('lib/search.js runtime adapter', () => {
     test('produces a graph with one node per navigable section', () => {
       const graph = buildCommunityGraph(MANIFEST);
       expect(graph.nodes.length).toBe(3);
+      expect(graph.nodes.map(({ id }) => id).sort()).toEqual([
+        'docs:page:developers', 'docs:page:security', 'docs:page:welcome'
+      ]);
       expect(Array.isArray(graph.edges)).toBe(true);
       expect(Array.isArray(graph.communities)).toBe(true);
     });

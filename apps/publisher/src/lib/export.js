@@ -199,11 +199,7 @@ export function collectExportableSections(manifest) {
       allSections.push(section);
     }
     if (section.subsections) {
-      for (const subsection of section.subsections) {
-        if (subsection.module) {
-          allSections.push(subsection);
-        }
-      }
+      allSections.push(...collectExportableSections(section.subsections));
     }
   }
   return allSections;

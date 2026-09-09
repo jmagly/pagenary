@@ -74,7 +74,7 @@ describe('supported syntax gallery (#178)', () => {
     expect(help).toContain('Optional Tectonic PDF');
   });
 
-  it('exercises every qualified Mermaid and PlantUML family', () => {
+  it('contains authored examples of every qualified Mermaid and PlantUML family', () => {
     const diagrams = fs.readFileSync(path.join(galleryRoot, 'content/diagrams.md'), 'utf8');
     for (const syntax of ['flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram-v2', 'erDiagram']) {
       expect(diagrams).toContain(syntax);

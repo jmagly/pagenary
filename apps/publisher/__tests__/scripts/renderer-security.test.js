@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   DEFAULT_RENDERER_ENV_ALLOWLIST,
@@ -109,6 +110,7 @@ describe('resolveContainedRendererPath', () => {
 
   test('rejects traversal, URL-like paths, and symlink escapes', () => {
     const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'renderer-security-outside-'));
+    try {
     fs.mkdirSync(path.join(tmpDir, 'docs'));
     fs.symlinkSync(outsideDir, path.join(tmpDir, 'escape-link'), 'dir');
 
@@ -117,7 +119,7 @@ describe('resolveContainedRendererPath', () => {
     expect(() => resolveContainedRendererPath(tmpDir, 'https://example.com/diagram.puml')).toThrow(/tenant-relative/i);
     expect(() => resolveContainedRendererPath(tmpDir, 'escape-link/secrets.txt')).toThrow(/escapes tenant root/i);
 
-    fs.rmSync(outsideDir, { recursive: true, force: true });
+    } finally { fs.rmSync(outsideDir, { recursive: true, force: true }); }
   });
 });
 
@@ -140,7 +142,15 @@ describe('runRendererSubprocess', () => {
     });
   });
 
-  test('rejects commands outside the trusted allowlist', async () => {
+  test('rejects an existing command outside an existing trusted allowlist', async () => {
+    await expect(runRendererSubprocess({
+      command: process.execPath,
+      args: ['-e', 'process.stdout.write("should not execute")'],
+      trustedCommands: [fileURLToPath(import.meta.url)]
+    })).rejects.toMatchObject({ code: 'ERR_RENDERER_UNTRUSTED_COMMAND' });
+  });
+
+  test('rejects a missing trusted allowlist entry', async () => {
     await expect(runRendererSubprocess({
       command: process.execPath,
       args: ['-e', 'process.stdout.write("x")'],

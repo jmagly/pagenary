@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 /**
  * Tests for lib/export.js
  * Tests the ACTUAL source code - no logic duplication.
@@ -120,8 +121,13 @@ describe('lib/export.js', () => {
     });
 
     test('includes generated timestamp', () => {
-      const result = composeExportDocument([]);
-      expect(result).toContain('Generated');
+      const fixedDate = new Date('2024-01-02T03:04:05.000Z');
+      const expected = fixedDate.toLocaleString();
+      jest.useFakeTimers().setSystemTime(fixedDate);
+      try {
+        const result = composeExportDocument([]);
+        expect(result).toContain(`<p class="meta">Generated ${expected}</p>`);
+      } finally { jest.useRealTimers(); }
     });
 
     test('includes title', () => {
@@ -142,6 +148,13 @@ describe('lib/export.js', () => {
   });
 
   describe('collectExportableSections', () => {
+    test('recurses through authored groups in navigation order', () => {
+      const leaf = { id: 'leaf', module: './leaf.js' };
+      const authored = { id: 'authored', module: './authored.js', subsections: [{ id: 'group', subsections: [leaf] }] };
+      const after = { id: 'after', module: './after.js' };
+      expect(collectExportableSections([authored, after])).toEqual([authored, leaf, after]);
+    });
+
     test('collects leaf sections with module paths', () => {
       const manifest = [
         { id: 'welcome', title: 'Welcome', module: './sections/welcome.js' },

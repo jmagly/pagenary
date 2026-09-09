@@ -1,6 +1,5 @@
-import { spawn } from 'node:child_process';
+import { startPreviewServer, fetchWithDeadline } from '../../scripts/lib/process-lifecycle.js';
 import * as fsp from 'node:fs/promises';
-import http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,23 +7,9 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = path.resolve(HERE, '../../scripts/serve.js');
 
-function waitFor(url, timeout = 10000) {
-  const deadline = Date.now() + timeout;
-  return new Promise((resolve, reject) => {
-    const probe = () => {
-      const request = http.get(url, (response) => {
-        response.resume();
-        resolve();
-      });
-      request.on('error', () => Date.now() >= deadline ? reject(new Error('server timeout')) : setTimeout(probe, 50));
-    };
-    probe();
-  });
-}
-
 describe('preview server Markdown negotiation (#163)', () => {
   let cwd;
-  let child;
+  let server;
   let origin;
 
   beforeAll(async () => {
@@ -46,30 +31,27 @@ describe('preview server Markdown negotiation (#163)', () => {
         '/pages/guide.html': { id: 'guide', canonical: '/pages/guide.html', artifact: '/markdown/guide.md' }
       }
     }));
-    const port = 20000 + (process.pid % 20000);
-    origin = `http://127.0.0.1:${port}`;
-    child = spawn(process.execPath, [SERVER, '--dev'], {
+    server = await startPreviewServer(SERVER, {
       cwd,
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DEFAULT_TENANT: 'test', PAGENARY_SERVE_MOUNT: '/docs' },
-      stdio: 'ignore'
+      env: { DEFAULT_TENANT: 'test', PAGENARY_SERVE_MOUNT: '/docs' }
     });
-    await waitFor(`${origin}/docs/`);
+    origin = server.origin;
   });
 
   afterAll(async () => {
-    child?.kill('SIGTERM');
-    await fsp.rm(cwd, { recursive: true, force: true });
+    try { await server?.stop(); }
+    finally { if (cwd) await fsp.rm(cwd, { recursive: true, force: true }); }
   });
 
   it('serves HTML normally and Markdown when it has the stronger preference', async () => {
-    const html = await fetch(`${origin}/docs/pages/guide.html`, { headers: { Accept: 'text/html' } });
+    const html = await fetchWithDeadline(`${origin}/docs/pages/guide.html`, { headers: { Accept: 'text/html' } });
     expect(html.status).toBe(200);
     expect(html.headers.get('content-type')).toContain('text/html');
     expect(html.headers.get('vary')).toBe('Accept');
     expect(html.headers.get('x-pagenary-representation')).toBe('html');
     expect(await html.text()).toContain('Guide HTML');
 
-    const markdown = await fetch(`${origin}/docs/pages/guide.html`, {
+    const markdown = await fetchWithDeadline(`${origin}/docs/pages/guide.html`, {
       headers: { Accept: 'text/markdown, text/html;q=0.5' }
     });
     expect(markdown.status).toBe(200);
@@ -81,44 +63,44 @@ describe('preview server Markdown negotiation (#163)', () => {
   });
 
   it('supports HEAD, clean aliases, direct artifacts, and conditional requests', async () => {
-    const head = await fetch(`${origin}/docs/pages/guide`, { method: 'HEAD', headers: { Accept: 'text/markdown' } });
+    const head = await fetchWithDeadline(`${origin}/docs/pages/guide`, { method: 'HEAD', headers: { Accept: 'text/markdown' } });
     expect(head.status).toBe(200);
     expect(head.headers.get('content-type')).toContain('text/markdown');
     expect(head.headers.get('content-location')).toBe('/docs/pages/guide.html');
     expect(await head.text()).toBe('');
 
-    const negotiated = await fetch(`${origin}/docs/pages/guide.html`, { headers: { Accept: 'text/markdown' } });
-    const negotiatedCached = await fetch(`${origin}/docs/pages/guide.html`, {
+    const negotiated = await fetchWithDeadline(`${origin}/docs/pages/guide.html`, { headers: { Accept: 'text/markdown' } });
+    const negotiatedCached = await fetchWithDeadline(`${origin}/docs/pages/guide.html`, {
       headers: { Accept: 'text/markdown', 'If-None-Match': negotiated.headers.get('etag') }
     });
     expect(negotiatedCached.status).toBe(304);
     expect(negotiatedCached.headers.get('vary')).toBe('Accept');
 
-    const html = await fetch(`${origin}/docs/pages/guide.html`, { headers: { Accept: 'text/html' } });
-    const htmlCached = await fetch(`${origin}/docs/pages/guide.html`, {
+    const html = await fetchWithDeadline(`${origin}/docs/pages/guide.html`, { headers: { Accept: 'text/html' } });
+    const htmlCached = await fetchWithDeadline(`${origin}/docs/pages/guide.html`, {
       headers: { Accept: 'text/html', 'If-None-Match': html.headers.get('etag') }
     });
     expect(htmlCached.status).toBe(304);
     expect(htmlCached.headers.get('vary')).toBe('Accept');
 
-    const direct = await fetch(`${origin}/docs/markdown/guide.md`);
+    const direct = await fetchWithDeadline(`${origin}/docs/markdown/guide.md`);
     expect(direct.status).toBe(200);
     expect(direct.headers.get('content-type')).toContain('text/markdown');
     const etag = direct.headers.get('etag');
     expect(etag).toBeTruthy();
-    const cached = await fetch(`${origin}/docs/markdown/guide.md`, { headers: { 'If-None-Match': etag } });
+    const cached = await fetchWithDeadline(`${origin}/docs/markdown/guide.md`, { headers: { 'If-None-Match': etag } });
     expect(cached.status).toBe(304);
   });
 
   it('preserves redirect, q=0, tie, and 404 behavior', async () => {
-    const redirect = await fetch(`${origin}/docs`, { redirect: 'manual' });
+    const redirect = await fetchWithDeadline(`${origin}/docs`, { redirect: 'manual' });
     expect(redirect.status).toBe(302);
     expect(redirect.headers.get('location')).toBe('/docs/');
 
     for (const accept of ['text/markdown;q=0, text/html;q=0.5', 'text/markdown, text/html']) {
-      const response = await fetch(`${origin}/docs/pages/guide.html`, { headers: { Accept: accept } });
+      const response = await fetchWithDeadline(`${origin}/docs/pages/guide.html`, { headers: { Accept: accept } });
       expect(response.headers.get('content-type')).toContain('text/html');
     }
-    expect((await fetch(`${origin}/docs/pages/missing`, { headers: { Accept: 'text/markdown' } })).status).toBe(404);
+    expect((await fetchWithDeadline(`${origin}/docs/pages/missing`, { headers: { Accept: 'text/markdown' } })).status).toBe(404);
   });
 });

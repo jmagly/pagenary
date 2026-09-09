@@ -37,7 +37,7 @@ test('bounded previews, stale approvals and pre-cancelled work never mutate dest
   await runtime.close();
 });
 
-test('ingest receipts/checkpoints and notes commit atomically, then replay after reopening', async () => {
+test('ingest receipts/checkpoints and notes commit atomically, then replay after recreating the dataset adapter', async () => {
   const runtime = await open();
   let datasets = createPagenaryDatasetRuntime(runtime);
   const plan = await datasets.prepare(corpus, { batchSize: 1 });

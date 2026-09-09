@@ -12,40 +12,24 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
-import { spawn } from 'child_process';
+import os from 'node:os';
+import vm from 'node:vm';
+import { runManagedProcess } from '../../scripts/lib/process-lifecycle.js';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLISHER_ROOT = path.resolve(__dirname, '../..');
 const BUILD_SCRIPT = path.join(PUBLISHER_ROOT, 'scripts', 'build.js');
 
-// Helper to run build script with options
-function runBuild(env = {}, args = []) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(process.execPath, [BUILD_SCRIPT, ...args], {
-      cwd: PUBLISHER_ROOT,
-      env: { ...process.env, ...env },
-      stdio: 'pipe'
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (data) => { stdout += data; });
-    proc.stderr.on('data', (data) => { stderr += data; });
-
-    proc.on('close', (code) => {
-      resolve({ code, stdout, stderr });
-    });
-
-    proc.on('error', reject);
-  });
+// Shared bounded child helper awaits termination on every path.
+function runBuild(env = {}, args = [], cwd = PUBLISHER_ROOT) {
+  return runManagedProcess(process.execPath, [BUILD_SCRIPT, ...args], {
+    cwd, env: { ...process.env, SOURCE_DATE_EPOCH: '', FORCE_MINIFY: '', NODE_ENV: '', ...env }
+  }, 45000);
 }
 
-// Helper to create temp directory for isolated builds
 async function createTempBuildDir() {
-  const tempDir = path.join(PUBLISHER_ROOT, '.test-dist-' + Date.now());
-  return tempDir;
+  return fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-core-build-'));
 }
 
 // Cleanup helper
@@ -210,6 +194,8 @@ describe('build.js', () => {
 
       expect(result.code).toBe(0);
       expect(result.stdout).toMatch(/dev copy/);
+      expect(await fsp.readFile(path.join(tempDist, 'app.js'), 'utf8'))
+        .toBe(await fsp.readFile(path.join(PUBLISHER_ROOT, 'src/app.js'), 'utf8'));
     });
 
     test('NODE_ENV=development skips minification', async () => {
@@ -220,6 +206,8 @@ describe('build.js', () => {
 
       expect(result.code).toBe(0);
       expect(result.stdout).toMatch(/dev copy/);
+      expect(await fsp.readFile(path.join(tempDist, 'app.js'), 'utf8'))
+        .toBe(await fsp.readFile(path.join(PUBLISHER_ROOT, 'src/app.js'), 'utf8'));
     });
   });
 
@@ -234,35 +222,30 @@ describe('build.js', () => {
       await cleanup(tempDist);
     });
 
-    test('production build attempts minification', async () => {
-      const result = await runBuild({
-        BUILD_OUTPUT: tempDist,
-        NODE_ENV: 'production'
-      });
-
-      expect(result.code).toBe(0);
-      // Should mention minification status (either minified or terser not found)
-      expect(result.stdout).toMatch(/minified|Terser/i);
+    test('production build minifies code while preserving its behavior', async () => {
+      const fixture = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-minify-fixture-'));
+      try {
+        await fsp.mkdir(path.join(fixture, 'src'));
+        const source = '/* a removable fixture comment */\nfunction addNumbers(first, second) { return first + second; }\nglobalThis.answer = addNumbers(19, 23);\n';
+        await fsp.writeFile(path.join(fixture, 'src/probe.js'), source);
+        const result = await runBuild({ BUILD_OUTPUT: tempDist, NODE_ENV: 'production' }, [], fixture);
+        expect(result.code).toBe(0);
+        const emitted = await fsp.readFile(path.join(tempDist, 'probe.js'), 'utf8');
+        expect(emitted.length).toBeLessThan(source.length);
+        expect(emitted).not.toContain('removable fixture comment');
+        const context = {};
+        vm.runInNewContext(emitted, context, { timeout: 1000 });
+        expect(context.answer).toBe(42);
+      } finally { await cleanup(fixture); }
     });
   });
 
   describe('error handling', () => {
     test('fails gracefully if src directory missing', async () => {
-      const tempDir = path.join(PUBLISHER_ROOT, '.test-empty-' + Date.now());
-      await fsp.mkdir(tempDir, { recursive: true });
+      const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-empty-build-'));
 
       try {
-        const proc = spawn(process.execPath, [BUILD_SCRIPT], {
-          cwd: tempDir, // Run from empty directory
-          env: { ...process.env },
-          stdio: 'pipe'
-        });
-
-        const result = await new Promise((resolve) => {
-          let stderr = '';
-          proc.stderr.on('data', (data) => { stderr += data; });
-          proc.on('close', (code) => resolve({ code, stderr }));
-        });
+        const result = await runBuild({}, [], tempDir);
 
         expect(result.code).toBe(1);
         expect(result.stderr).toMatch(/src directory missing/);
