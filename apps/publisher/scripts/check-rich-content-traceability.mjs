@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import authoringContract from '../../authoring-contract/index.cjs';
+import authoringContract from './lib/authoring-contract.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const requirementsPath = path.join(repoRoot, '.aiwg/requirements/REQ-rich-technical-content.md');

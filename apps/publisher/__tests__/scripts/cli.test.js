@@ -229,3 +229,96 @@ describe('owned child lifecycle failures', () => {
       .rejects.toThrow(/Child exceeded 100ms/);
   });
 });
+
+
+describe('published publisher package', () => {
+  test('real prepack bundles the shared contract and detached package builds a tenant', async () => {
+    const temporary = await fsp.mkdtemp(path.join(os.tmpdir(), 'pagenary-installed-package-'));
+    const stage = path.join(temporary, 'workspace', 'apps', 'publisher');
+    const detached = path.join(temporary, 'installed');
+    const dependencies = path.resolve(PKG_ROOT, '../..', 'node_modules');
+    const childEnv = { ...process.env, NODE_ENV: 'development' };
+    delete childEnv.NODE_OPTIONS;
+    delete childEnv.NODE_PATH;
+    delete childEnv.TENANT_REGISTRY;
+    const run = async (command, args, cwd, timeout = 180000) => {
+      const result = await runManagedProcess(command, args, { cwd, env: childEnv }, timeout);
+      if (result.code !== 0 || result.signal) {
+        throw new Error(`Installed-package action failed (${result.code ?? result.signal}) in ${cwd}: ${command}\n${result.stderr}\n${result.stdout}`);
+      }
+      return result;
+    };
+    try {
+      // Pack in a private source workspace: prepack's site/dist cannot race other
+      // publisher tests. Materialize documentation symlinks while copying.
+      await fsp.cp(PKG_ROOT, stage, { recursive: true, dereference: true, filter(source) {
+        const parts = path.relative(PKG_ROOT, source).split(path.sep);
+        return !parts.some(part => ['node_modules', 'dist', 'site', '.cache', '.playwright-mcp', '.git'].includes(part));
+      } });
+      const canonical = path.join(temporary, 'workspace', 'apps', 'authoring-contract', 'index.cjs');
+      await fsp.mkdir(path.dirname(canonical), { recursive: true });
+      await fsp.copyFile(path.resolve(PKG_ROOT, '../authoring-contract/index.cjs'), canonical);
+      await fsp.symlink(dependencies, path.join(stage, 'node_modules'), 'junction');
+      const bundled = path.join(stage, 'scripts/lib/authoring-contract.cjs');
+      await fsp.writeFile(bundled, 'module.exports = { staleBundle: true };\n');
+      // A stale packed copy must not hide changes to the workspace contract.
+      await run(process.execPath, ['--input-type=module', '-e', String.raw`
+        import assert from 'node:assert/strict';
+        import { createRequire } from 'node:module';
+        import contract from './scripts/lib/authoring-contract.js';
+        const require = createRequire(import.meta.url);
+        assert.strictEqual(contract, require('../authoring-contract/index.cjs'));
+        assert.equal(contract.staleBundle, undefined);
+      `], stage);
+      const packed = await run(process.platform === 'win32' ? 'npm.cmd' : 'npm',
+        ['pack', '--json', '--pack-destination', temporary], stage);
+      const [metadata] = JSON.parse(packed.stdout);
+      expect(metadata.files.some(file => file.path === 'scripts/lib/authoring-contract.cjs')).toBe(true);
+      expect(metadata.files.some(file => file.path === 'site/index.html')).toBe(true);
+      await fsp.mkdir(detached);
+      await run('tar', ['-xzf', path.join(temporary, metadata.filename), '-C', detached], temporary);
+      const installed = path.join(detached, 'package');
+      // External dependencies may resolve from the installed dependency tree;
+      // publisher code and the authoring contract must come from this tarball.
+      const installedMetadata = JSON.parse(await fsp.readFile(path.join(installed, 'package.json'), 'utf8'));
+      for (const name of Object.keys({ ...installedMetadata.dependencies, ...installedMetadata.optionalDependencies })) {
+        const dependency = path.join(dependencies, name);
+        if (!fs.existsSync(dependency) && installedMetadata.optionalDependencies?.[name]) continue;
+        const target = path.join(installed, 'node_modules', name);
+        await fsp.mkdir(path.dirname(target), { recursive: true });
+        await fsp.symlink(await fsp.realpath(dependency), target, 'junction');
+      }
+      expect(fs.existsSync(path.join(installed, 'node_modules', '@pagenary'))).toBe(false);
+      expect(fs.existsSync(path.join(detached, 'authoring-contract'))).toBe(false);
+      await run(process.execPath, ['--input-type=module', '-e', String.raw`
+        import assert from 'node:assert/strict';
+        import { createRequire } from 'node:module';
+        import contract from './scripts/lib/authoring-contract.js';
+        import { markdownToHtml } from './scripts/build-tenants.js';
+        import { createPlantUmlAdapter } from './scripts/lib/plantuml-renderer.js';
+        import './scripts/lib/mermaid-build-adapter.js';
+        const require = createRequire(import.meta.url);
+        assert.strictEqual(contract, require('./scripts/lib/authoring-contract.cjs'));
+        const matches = contract.scanRichFences('\x60\x60\x60puml title="Published"\nAlice -> Bob\n\x60\x60\x60');
+        assert.equal(matches.length, 1);
+        assert.deepEqual(contract.parseRichFenceInfo(matches[0][1], matches[0][2]),
+          { authored: 'puml', renderer: 'plantuml', title: 'Published' });
+        assert.ok(markdownToHtml('# Installed contract').includes('Installed contract'));
+        assert.throws(() => createPlantUmlAdapter(), { code: 'RTC_PLANTUML_UNAVAILABLE' });
+      `], installed);
+      const project = path.join(temporary, 'consumer');
+      await fsp.mkdir(path.join(project, 'content'), { recursive: true });
+      await fsp.writeFile(path.join(project, 'content', 'welcome.md'), '# Detached package works\n\nPublished build sentinel.\n');
+      await fsp.writeFile(path.join(project, 'tenants.json'), JSON.stringify({ tenants: [{
+        id: 'installed', source: { type: 'local', path: './content' }, config: { title: 'Detached package', docsMap: false }
+      }] }));
+      await run(process.execPath, [path.join(installed, 'bin/pagenary.mjs'), 'build', 'installed', '--registry', 'tenants.json'], project);
+      const html = await fsp.readFile(path.join(project, 'dist/installed/index.html'), 'utf8');
+      expect(html).toContain('Detached package');
+      const section = await fsp.readFile(path.join(project, 'dist/installed/sections/welcome.js'), 'utf8');
+      expect(section).toContain('Published build sentinel.');
+    } finally {
+      await fsp.rm(temporary, { recursive: true, force: true });
+    }
+  }, 240000);
+});

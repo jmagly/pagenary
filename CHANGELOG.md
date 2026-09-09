@@ -6,6 +6,13 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.9.1] - 2026-09-09
+
+### Fixed
+
+- Bundle the shared authoring contract in the published publisher package so installed tenant builds and rich-content renderer imports work without the source workspace.
+- Exercise real prepack, tarball extraction and a detached consumer build in the publisher CLI regression suite, while preserving canonical workspace contract checks.
+
 ## [2026.9.0] - 2026-09-09
 
 ### Added

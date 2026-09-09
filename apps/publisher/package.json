@@ -1,6 +1,6 @@
 {
   "name": "@pagenary/publisher",
-  "version": "2026.9.0",
+  "version": "2026.9.1",
   "type": "module",
   "description": "Multi-tenant documentation static site generator with Markdown, search, SEO snapshots, and docs-as-code publishing.",
   "license": "AGPL-3.0-or-later",
@@ -59,7 +59,7 @@
     "build:examples": "node scripts/build-tenants.js --registry examples/recipes.tenants.json",
     "build:examples:site": "node scripts/build-tenants.js --registry examples/recipes.tenants.json --target dist/pagenary",
     "build:site": "node scripts/build-tenants.js pagenary && node scripts/build-site.js",
-    "prepack": "node scripts/build-tenants.js pagenary >&2 && node scripts/build-site.js >&2",
+    "prepack": "node scripts/prepare-package.js && node scripts/build-tenants.js pagenary >&2 && node scripts/build-site.js >&2",
     "build:incremental": "node scripts/build-tenants.js --incremental",
     "build:diff": "node scripts/build-tenants.js --diff-only",
     "tenants:list": "node bin/pagenary.mjs tenants:list",

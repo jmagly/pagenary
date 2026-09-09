@@ -32,3 +32,6 @@ docsmap-graph.png
 .windsurf/agents/
 .windsurf/skills/
 .windsurf/rules/
+
+# Generated canonical authoring contract, shipped by publisher prepack
+/apps/publisher/scripts/lib/authoring-contract.cjs

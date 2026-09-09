@@ -44,7 +44,7 @@ import { createRendererRegistry, renderRichContentNodes } from './lib/rich-conte
 import { buildRendererCacheIdentity, RendererCache } from './lib/rich-content-cache.js';
 import { fallbackHtmlForSource } from './lib/rich-content-diagnostics.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import authoringContract from '../../authoring-contract/index.cjs';
+import authoringContract from './lib/authoring-contract.js';
 
 const { parseRichFenceInfo, scanRichFences } = authoringContract;
 

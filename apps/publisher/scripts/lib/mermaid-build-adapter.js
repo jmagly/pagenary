@@ -11,7 +11,7 @@ import {
   deepFreeze,
   runRendererSubprocess
 } from './renderer-security.js';
-import authoringContract from '../../../authoring-contract/index.cjs';
+import authoringContract from './authoring-contract.js';
 
 const { RICH_CONFIG } = authoringContract;
 
