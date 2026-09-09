@@ -15,6 +15,8 @@ LICENSE
 README.md
 bin
 build.config.json
+# Published API, configuration and authoring guides declared in package.json files.
+docs
 examples
 package.json
 scripts

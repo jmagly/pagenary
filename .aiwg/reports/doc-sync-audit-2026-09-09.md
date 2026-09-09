@@ -12,6 +12,6 @@ Blog-client/embed exports and source are unchanged since v2026.8.2. npm badge id
 
 ## Validation and handoff
 
-`git diff --check` passes. All22 newly added local Markdown links/anchors resolve. Eleven assigned Markdown files changed; detailed paths, hashes and findings are in `.aiwg/working/doc-sync/release-2026.9.0-review.json`.
+`git diff --check` passes. Initial local path/anchor checks passed22 references, but parent strict tenant build exposed four cross-workspace React references that cannot become tenant routes. Those references now use canonical absolute forge URLs; DEPENDENCY-POSTURE was checked for the same issue. Parent then reported strict build-tenants-02 and SEO-02 exit0. Strict link validation was retained. Eleven assigned Markdown files changed; detailed paths, hashes and findings are in `.aiwg/working/doc-sync/release-2026.9.0-review.json`.
 
-Parent owns package versions, CI compatibility and delivery/release. The out-of-scope `.aiwg/release.config` still contains an obsolete warn-only SEO stylesheet rationale. Public Node badges currently agree with package engines; test tooling independently requires Node24.12.0. Continue the release workflow after reviewing the documentation diff.
+Parent owns package versions, CI compatibility and delivery/release. Parent removed the obsolete SEO rationale from `.aiwg/release.config` without changing its warn-only gate policy. Public Node badges currently agree with package engines; test tooling independently requires Node24.12.0. Continue the release workflow after reviewing the documentation diff.

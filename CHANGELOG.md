@@ -6,6 +6,26 @@ is CalVer (`YYYY.M.PATCH`, no leading zeros — see `.claude/rules/versioning.md
 
 ## [Unreleased]
 
+## [2026.9.0] - 2026-09-09
+
+### Added
+
+- Added bounded rich technical content rendering for inline mathematics, complete LaTeX pages, Mermaid and PlantUML, with source-aware diagnostics, converter readiness reporting, isolated execution and accessible semantic output.
+- Shared rich-content authoring validation between the publisher and editor extension, and added a working syntax gallery and style catalog workflow guide.
+- Added record refresh, dataset imports and scoped search to the optional React runtime, with transactional cancellation and explicit resource cleanup (#184, #185, #186).
+
+### Fixed
+
+- Enforced strict rich-content failures for missing adapters, validation errors, renderer diagnostics and cached error results.
+- Prevented search indexing from activating embedded image requests while preserving decoded text matching.
+- Fixed colon handling in Git-source authentication, rejected inherited provider/template/category keys, and included deeply nested content in exports and generated text summaries.
+- Corrected unsafe LaTeX validation, mobile table-of-contents scrolling, theme contrast fixtures and browser checks against actual generated assets.
+
+### Changed
+
+- Normalized repository testing with explicit browser setup, Node 24.12.0 CI, isolated fixtures, bounded cleanup, accurate test registration and failure propagation.
+- Completed full-file review of 81 test/harness files and verified 25 source-only negative controls across 24 test lanes. The recorded audit passed all 181 conformance gates; these results do not claim measured code coverage.
+
 ## [2026.8.2] - 2026-08-02
 
 ### Fixed
