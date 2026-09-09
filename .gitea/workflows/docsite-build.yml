@@ -68,17 +68,6 @@ jobs:
           npm run check:syntax
           node scripts/build-tenants.js pagenary
 
-      - name: Build example recipes into the docsite
-        # Each recipe builds to dist/pagenary/<id>/ so it deploys to
-        # docs.pagenary.com/<id>/ (flat id => correct <base> resolution).
-        # Must run AFTER the pagenary build, which owns dist/pagenary/.
-        working-directory: apps/publisher
-        run: |
-          set -euo pipefail
-          npm run build:examples:site
-          # Serve the gallery's screenshots at /images/ for the live docs page.
-          cp -rL docs/images dist/pagenary/images
-
       - name: Install Playwright for browser accessibility smoke
         run: |
           set -euo pipefail
@@ -107,6 +96,18 @@ jobs:
           PLAYWRIGHT_MODULE: /tmp/pagenary-playwright/node_modules/playwright/index.mjs
           SMOKE_BROWSERS: chromium,firefox,webkit
         run: npm run test:rich-content:matrix
+
+      - name: Build example recipes into the docsite
+        # Each recipe builds to dist/pagenary/<id>/ so it deploys to
+        # docs.pagenary.com/<id>/ (flat id => correct <base> resolution).
+        # Browser checks rebuild their fixtures. Stage the final examples and
+        # gallery only after those checks have finished.
+        working-directory: apps/publisher
+        run: |
+          set -euo pipefail
+          npm run build:examples:site
+          # Serve the gallery's screenshots at /images/ for the live docs page.
+          cp -rL docs/images dist/pagenary/images
 
       - name: Verify build output
         run: |
