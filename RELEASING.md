@@ -60,17 +60,22 @@ Or run the gates manually:
    Push to `origin` first, then push the same commit and signed tag to `github`
    so GitHub Actions receives the public npm trusted-publishing tag event.
    ```bash
-   git tag -s -u 719AB63879E84CE8 v<version> -m "v<version> — <summary>"
+   tools/release/cut-tag.sh <version> -m "v<version> — <summary>"
    git push origin main
    git push origin v<version>
    git push github main
    git push github v<version>
    ```
-   The tag push triggers `.gitea/workflows/release.yml` (Gitea + GitHub release
-   records, pushes `main`), `npm-publish.yml` (publishes `@pagenary/blog-client`,
-   `@pagenary/embed`, and `@pagenary/publisher` to the Gitea npm registry), and
-   `docsite-deploy.yml` (redeploys docs.pagenary.com).
-8. **Post-release** — verify the Gitea release + npm publish, restore an empty
+   The GitHub tag push triggers `.github/workflows/npm-publish.yml`, which
+   publishes the public npm packages and then creates the public GitHub release
+   with its assets. The origin tag push triggers Gitea's internal npm publish,
+   docsite deployment, and `release.yml`. For stable releases, `release.yml`
+   downloads the public GitHub assets and checksums, verifies all assets before
+   writing, and mirrors the exact assets and release body to Gitea. Gitea does
+   not push to GitHub. Internal npm publishing and release mirroring use
+   distinct concurrency groups.
+8. **Post-release** — verify public npm, the GitHub release, internal npm,
+   and the Gitea release mirror; restore an empty
    `## [Unreleased]` in the changelog, and thank/close any imported reporter
    issues.
 
@@ -98,12 +103,17 @@ canonical [`docs/contributing/releasing.md`](docs/contributing/releasing.md).
 - **Push the tag to both remotes, in order** — `origin` drives the Gitea release
   and internal package workflows; `github` drives public npm trusted publishing.
   Push `origin` first, then `github`.
-- **GitHub mirror token scope** — when a release commit changes
-  `.github/workflows/*`, the `GH_TOKEN` used by `release.yml` must include
-  GitHub `workflow` scope or GitHub rejects the mirror push.
+- **Release credentials** — GitHub creates its public release with the
+  ephemeral `github.token` and `contents: write`; npm uses trusted publishing.
+  No GitHub PAT is required. Gitea mirroring uses `GT_TOKEN`, falling back to
+  `NPM_TOKEN`, with repository write access.
 - **GitHub npm `ENEEDAUTH`** — if the GitHub npm workflow starts but `npm
   publish` says auth is required, npm trusted publishing is not configured or
   does not exactly match `jmagly/pagenary` + `npm-publish.yml` for that package.
-- **Never force-push** (`force_push_policy: never`). Never delete a pushed tag;
-  if a post-tag step fails, bump `PATCH` and re-cut.
+- **Recover a mirror failure without retagging** — after the public GitHub
+  release is complete, dispatch Gitea `release.yml` from `main` with
+  `tag_to_publish` set to the existing stable tag (for example, `v2026.9.1`).
+- **Never force-push** (`force_push_policy: never`). Never delete a pushed tag.
+  Retry failed publication or mirroring for the same immutable release; if
+  released product content must change, bump `PATCH` and cut a new tag.
 - **Never finalize on red CI** — wait for `release.yml` / `npm-publish.yml` green.

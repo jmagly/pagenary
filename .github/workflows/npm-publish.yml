@@ -9,8 +9,8 @@
 # @pagenary packages to this source commit + build. That attestation is the
 # supply-chain reason the public publish lives here.
 #
-# Triggered by the version tag that .gitea/workflows/release.yml mirrors to
-# GitHub, or manually via workflow_dispatch.
+# Triggered by the operator pushing the signed version tag, or manually
+# on an existing tag. This workflow owns public GitHub release assets after npm.
 #
 # Publish enable gate (OFF by default):
 #   NPMJS_PUBLISH_ENABLED (repo variable) must equal 'true' for this workflow
@@ -47,7 +47,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write  # Publish release assets with the ephemeral workflow token
   id-token: write   # GitHub OIDC, required for npm trusted publishing
 
 env:
@@ -68,6 +68,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Verify trusted-publishing runtime
         run: |
@@ -79,10 +80,15 @@ jobs:
         run: npm ci
 
       - name: Verify tag matches package versions
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.dry_run != 'true' }}
         run: |
-          set -o pipefail
+          set -euo pipefail
           VERSION=$(node -p "require('./apps/publisher/package.json').version")
+          node --input-type=module - <<'NODE'
+          import { verifyLocalTag } from './tools/release/publish-github-release.mjs';
+          import { readFileSync } from 'node:fs';
+          verifyLocalTag({ cwd: process.cwd(), ref: process.env.GITHUB_REF, version: JSON.parse(readFileSync('apps/publisher/package.json')).version });
+          NODE
           TAG="${GITHUB_REF#refs/tags/v}"
           if [ "$TAG" != "$VERSION" ]; then
             echo "Error: tag ($TAG) != apps/publisher/package.json ($VERSION)"; exit 1
@@ -178,6 +184,7 @@ jobs:
           echo "Recommended order: make the repo PUBLIC -> configure npm trusted publishers -> NPMJS_PUBLISH_ENABLED=true."
 
       - name: Publish to npmjs.org
+        id: npm_publish
         if: ${{ vars.NPMJS_PUBLISH_ENABLED == 'true' && github.event.inputs.dry_run != 'true' }}
         run: |
           set -o pipefail
@@ -201,3 +208,12 @@ jobs:
             (cd "$pkg" && npm pack --pack-destination "$GITHUB_WORKSPACE")
           done
           ls -la *.tgz
+
+      - name: Build and publish stable GitHub release assets
+        if: ${{ success() && steps.npm_publish.outcome == 'success' && vars.NPMJS_PUBLISH_ENABLED == 'true' && github.event.inputs.dry_run != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NPMJS_PUBLISH_ENABLED: ${{ vars.NPMJS_PUBLISH_ENABLED }}
+          RELEASE_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          NPM_PUBLISH_SUCCEEDED: 'true'
+        run: node tools/release/publish-github-release.mjs

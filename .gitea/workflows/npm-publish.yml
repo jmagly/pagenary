@@ -51,7 +51,7 @@ on:
         type: boolean
 
 concurrency:
-  group: release
+  group: gitea-npm-publish-${{ github.ref }}
   cancel-in-progress: false
 
 env:

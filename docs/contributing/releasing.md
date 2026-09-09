@@ -1,7 +1,10 @@
 # Releasing Pagenary Packages
 
-Publishing is automated by `.gitea/workflows/npm-publish.yml`, triggered on a
-version tag push. Versioning is **CalVer** — `YYYY.M.PATCH`, no leading zeros
+Public npm publishing and the public GitHub release are owned by
+`.github/workflows/npm-publish.yml`, triggered by the operator's version tag
+push to GitHub. `.gitea/workflows/npm-publish.yml` publishes the internal npm
+packages, while `.gitea/workflows/release.yml` mirrors verified public release
+assets from GitHub to Gitea. Versioning is **CalVer** — `YYYY.M.PATCH`, no leading zeros
 (see `.claude/rules/versioning.md`). The setup mirrors `roctinam/aiwg`'s
 supply-chain hardening, adapted to this repo.
 
@@ -21,14 +24,16 @@ internal `@pagenary/*` dependency is pinned to that exact version.
 
 | Name | Type | Where | Purpose |
 |------|------|-------|---------|
-| `NPM_TOKEN` | **secret** | Gitea repo → Settings → Actions → Secrets | Gitea API token (`gta_…`) with `package:write` **and** `repository:write`. Authenticates the Gitea-registry publish *and* the Gitea release-creation API. **Not** an npmjs.org token. |
-| `GH_TOKEN` | **secret** | Gitea repo → Settings → Actions → Secrets | GitHub PAT with `repo` (or `public_repo`) scope, plus `workflow` scope when commits may update `.github/workflows/*`. Used by `release.yml` to push the mirror and create the GitHub release with assets. The GitHub leg skips gracefully if absent. |
+| `GT_TOKEN` | **secret** | Gitea repo → Settings → Actions → Secrets | Preferred Gitea API token with `package:write` for internal npm and `repository:write` for the Gitea release mirror. |
+| `NPM_TOKEN` | **secret** | Gitea repo → Settings → Actions → Secrets | Backward-compatible fallback when `GT_TOKEN` is absent; the same Gitea scopes apply. **Not** an npmjs.org token. |
+| `github.token` | ephemeral workflow token | GitHub Actions | Creates the public GitHub release and uploads assets with `contents: write`. No GitHub PAT is needed. |
 | `REQUIRE_SIGNED_TAGS` | variable (optional) | Gitea repo → Settings → Actions → Variables | Set to `true` to turn the signed-tag gate from dormant into a hard requirement. Needs a committed maintainer key (below). |
 | Maintainer signing key | committed file | `.gitea/keys/maintainers.asc` (GPG) **or** `.gitea/allowed_signers` (SSH) | Public key the signed-tag gate verifies against. Only the public key is committed; you sign tags locally with the private key. |
 | npm trusted publisher | package settings | npmjs.org | Required for the **public npm** leg. Configure each public package for GitHub Actions trusted publishing; no long-lived `NPMJS_TOKEN` is required for publishing. |
 
-The Gitea-registry release path needs only `NPM_TOKEN`. Everything else is
-opt-in hardening.
+The Gitea workflows prefer `GT_TOKEN` and fall back to `NPM_TOKEN`. Public npm
+requires the trusted-publisher settings below. Signed-tag verification in CI
+is optional hardening; maintainers still sign release tags locally.
 
 ## Release steps
 
@@ -48,7 +53,7 @@ git commit -am "release: v2026.5.2 — <one-line summary> (#refs)"
 
 # 4. Tag with a SIGNED, v-prefixed tag (the workflow guards tag == version).
 #    Sign with the RELEASE key, not the default commit key — see note below.
-git tag -s -u 719AB63879E84CE8 v2026.5.2 -m "v2026.5.2 — <summary>"
+tools/release/cut-tag.sh 2026.5.2 -m "v2026.5.2 — <summary>"
 
 # 5. Push the commit, then the tag, to origin first. Then push the same commit
 #    and signed tag to github so GitHub Actions receives the public npm trigger.
@@ -68,10 +73,12 @@ HTTPS remotes require interactive credentials and can fail in automation with
 `could not read Username`.
 
 **A `v*` tag push to origin triggers Gitea workflows:** `npm-publish.yml`
-(publishes the internal package set), `release.yml` (Gitea + GitHub release
-records), and `docsite-deploy.yml` (the tag matches its `v*` trigger, so
-docs.pagenary.com redeploys too). **A `v*` tag push to github triggers the
-public npmjs.org workflow** in `.github/workflows/npm-publish.yml`.
+(publishes the internal package set), `release.yml` (mirrors the stable public
+GitHub release to Gitea), and `docsite-deploy.yml` (redeploys docs.pagenary.com).
+**A `v*` tag push to github triggers the public npmjs.org workflow** in
+`.github/workflows/npm-publish.yml`, which also owns the public release.
+Gitea never pushes `main` or tags to GitHub. The internal npm and release
+mirror workflows use distinct concurrency groups.
 
 ### Signing key (important)
 
@@ -96,9 +103,9 @@ publish).
 - **Push both remotes.** `origin` drives Gitea release/internal package
   workflows. The `github` tag push is what triggers
   `.github/workflows/npm-publish.yml` for public npm trusted publishing. Push
-  `origin` first, then `github`; do not wait for the Gitea mirror leg as the
-  only GitHub trigger.
-- **`NPM_TOKEN` scope:** the publish needs a Gitea token with **both**
+  `origin` first, then `github`. The operator's GitHub push supplies the tag
+  event; there is no Gitea-to-GitHub push job.
+- **`GT_TOKEN` / fallback `NPM_TOKEN` scope:** the workflows need a Gitea token with **both**
   `package:write` and `repository:write`. If `npm-publish.yml` fails on auth,
   fix the token scope and re-run it via `workflow_dispatch` (idempotent —
   re-publishing the same version is a no-op, dist-tag promotion is safe to repeat).
@@ -129,22 +136,25 @@ In order, on a `v*` tag push:
 
 ## Release records & artifacts (Gitea + GitHub)
 
-`.gitea/workflows/release.yml` runs alongside the npm publish on the same `v*`
-tag. It builds the package once and then:
+For stable releases, `.github/workflows/npm-publish.yml` publishes the public
+npm package set first, then creates the public GitHub release and uploads its
+assets and SHA-256 checksums. It uses the ephemeral `github.token` with
+`contents: write` for release operations and OIDC for npm publishing; no
+long-lived GitHub PAT is required.
 
-- **Gitea** — creates (or reuses) a Gitea release for the tag and attaches the
-  publisher tarball (`pagenary-publisher-<version>.tgz`), the compiled site
-  bundle, and `checksums.txt` (SHA-256). npm package publishing for all public
-  packages is handled by `npm-publish.yml`. Uses `NPM_TOKEN` (needs
-  `repository:write`).
-- **GitHub** *(stable tags only)* — pushes `main` + the tag to the mirror via a
-  transient mode-600 credential file (no token in the URL), then creates a
-  matching GitHub release with the same assets. Uses `GH_TOKEN`. Pre-release
-  tags (e.g. `v2026.5.0-rc.1`) skip this leg.
+`.gitea/workflows/release.yml` downloads the public release assets and checksum
+manifest from GitHub, verifies every asset before making Gitea writes, and
+mirrors the exact asset bytes and release body to the matching Gitea release.
+It does not rebuild the assets or push anything to GitHub. Gitea writes use
+`GT_TOKEN`, falling back to `NPM_TOKEN`, with `repository:write` access.
+Public release mirroring accepts stable CalVer tags only; prerelease tags do
+not enter this path.
 
-Release notes are auto-composed: install snippet, a commit changelog since the
-previous tag, and the artifact's SHA-256. Asset uploads are idempotent, so
-re-running the workflow on an existing tag refreshes rather than duplicates.
+If mirroring fails before the public release is available, finish or rerun the
+GitHub npm workflow first. Then dispatch Gitea `release.yml` using the workflow
+on `main`, with `tag_to_publish` set to the existing stable tag, for example
+`v2026.9.1`. This recovers the mirror without moving or deleting the signed
+tag. A change to released product content requires a new patch version.
 
 ## Signed release tags (enabling the gate)
 
@@ -154,13 +164,14 @@ re-running the workflow on an existing tag refreshes rather than duplicates.
      `release <principal> namespaces="git" <ssh-ed25519 AAAA…>`
 2. Configure local signing (`git config user.signingkey …`, `gpg.format ssh` for SSH).
 3. Set the repo variable `REQUIRE_SIGNED_TAGS=true`.
-4. Tag with `git tag -s vYYYY.M.PATCH -m "…"` from then on.
+4. Create signed tags with `tools/release/cut-tag.sh YYYY.M.PATCH -m "…"`.
 
-## Public npm (npmjs.org) — optional second leg
+## Public npm (npmjs.org) and GitHub release ownership
 
-The Gitea registry is the default. Public npmjs.org publishing is handled by
-`.github/workflows/npm-publish.yml` after `release.yml` mirrors the tag to
-GitHub. It uses npm trusted publishing/OIDC and automatic provenance.
+Public npmjs.org publishing is handled by `.github/workflows/npm-publish.yml`
+after the operator pushes the signed tag to GitHub. It uses npm trusted
+publishing/OIDC and automatic provenance, then creates the public release that
+Gitea mirrors.
 One-time operator setup:
 
 1. For each public package (`@pagenary/blog-client`, `@pagenary/embed`,
@@ -176,10 +187,10 @@ One-time operator setup:
 3. Push the signed release tag to the `github` remote after pushing `origin`.
    GitHub Actions needs the tag event to start the public npm workflow.
 
-No long-lived `NPMJS_TOKEN` is needed with OIDC. If `release.yml` fails while
-pushing to GitHub with a message about updating `.github/workflows/*`, replace
-`GH_TOKEN` with a PAT that includes `workflow` scope and rerun the release job
-or cut the next patch release.
+No long-lived `NPMJS_TOKEN` or GitHub PAT is needed. The workflow requests
+`id-token: write` for npm trusted publishing and `contents: write` for its own
+GitHub release. Gitea only reads public GitHub assets and authenticates its
+writes to Gitea with the existing Gitea token.
 
 ## When `npm audit signatures` fails
 
