@@ -201,7 +201,12 @@ a:focus {
   position: relative;
   display: grid;
   grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
   align-items: center;
+}
+
+.nav-parent > .nav-summary {
+  grid-column: 1 / -1;
 }
 
 .nav-parent .nav-title {
@@ -216,6 +221,58 @@ a:focus {
   color: var(--muted);
   transform: rotate(-90deg);
   transition: transform 160ms ease;
+}
+
+/* Parent with content - title navigates, arrow expands */
+.nav-parent-with-content {
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+}
+
+.nav-parent-with-content .nav-summary {
+  grid-column: 1 / -1;
+}
+
+.nav-parent-with-content::after {
+  display: none; /* Hide default arrow, use custom toggle */
+}
+
+.nav-parent-with-content .nav-title-link {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.nav-parent-with-content .nav-title-link:hover {
+  text-decoration: underline;
+}
+
+.nav-parent-with-content .nav-expand-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.nav-parent-with-content .nav-expand-toggle::after {
+  content: '\25BE';
+  font-size: 0.75rem;
+  color: var(--muted);
+  transform: rotate(-90deg);
+  transition: transform 160ms ease;
+}
+
+.nav-parent-with-content .nav-expand-toggle:hover {
+  background: rgba(var(--ink-rgb), 0.1);
+}
+
+.nav-group.expanded .nav-parent-with-content .nav-expand-toggle::after {
+  transform: rotate(0deg);
 }
 
 .nav-group {
@@ -245,6 +302,7 @@ a:focus {
   font-size: 0.85rem;
   padding: 0.35rem 0.5rem;
   opacity: 0.85;
+  white-space: nowrap;
 }
 
 .nav-sublist-nested {
@@ -264,6 +322,70 @@ a:focus {
 
 .nav-item-nested .nav-summary {
   font-size: 0.7rem;
+}
+
+/* Deep nav groups (4-level hierarchy) */
+.nav-group-deep {
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(var(--ink-rgb), 0.08);
+}
+
+.nav-parent-deep {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+  opacity: 0.8;
+}
+
+.nav-sublist-deep {
+  display: none;
+  gap: 0.2rem;
+  padding-left: 0.25rem;
+}
+
+.nav-group-deep.expanded .nav-sublist-deep {
+  display: grid;
+}
+
+.nav-item-deep {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.nav-item-deep .nav-summary {
+  font-size: 0.65rem;
+}
+
+/* Ultra-deep nav groups (5-level hierarchy) */
+.nav-group-ultra {
+  margin-left: 0.4rem;
+  padding-left: 0.4rem;
+  border-left: 1px solid rgba(var(--ink-rgb), 0.06);
+}
+
+.nav-parent-ultra {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.4rem;
+  opacity: 0.75;
+}
+
+.nav-sublist-ultra {
+  display: none;
+  gap: 0.15rem;
+  padding-left: 0.2rem;
+}
+
+.nav-group-ultra.expanded .nav-sublist-ultra {
+  display: grid;
+}
+
+.nav-item-ultra {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+}
+
+.nav-item-ultra .nav-summary {
+  font-size: 0.6rem;
 }
 
 .nav-base:hover,
