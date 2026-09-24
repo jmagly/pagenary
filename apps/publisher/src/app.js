@@ -60,18 +60,52 @@ function initNav() {
       const group = document.createElement('div');
       group.className = 'nav-group';
 
+      // Check if section has content (module) in addition to subsections
+      const hasContent = Boolean(section.module);
+
       const parentBtn = document.createElement('button');
       parentBtn.type = 'button';
-      parentBtn.className = 'nav-parent';
+      parentBtn.className = 'nav-parent' + (hasContent ? ' nav-parent-with-content' : '');
       parentBtn.dataset.section = section.id;
       parentBtn.title = section.summary;
-      parentBtn.innerHTML = `
-        <span class="nav-title">${section.title}</span>
-      `;
-      parentBtn.addEventListener('click', () => {
-        const next = !expandedGroups.has(section.id);
-        setGroupExpanded(section.id, next);
-      });
+
+      if (hasContent) {
+        // Section has content - title navigates, arrow toggles
+        parentBtn.innerHTML = `
+          <span class="nav-title-link">${section.title}</span>
+          <span class="nav-expand-toggle" aria-label="Expand"></span>
+          ${section.summary ? `<span class="nav-summary">${section.summary}</span>` : ''}
+        `;
+        // Title click navigates to content
+        parentBtn.querySelector('.nav-title-link').addEventListener('click', (e) => {
+          e.stopPropagation();
+          navigate(section.id, { scrollToHighlight: Boolean(highlightQuery) });
+        });
+        // Arrow click toggles expansion
+        parentBtn.querySelector('.nav-expand-toggle').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const next = !expandedGroups.has(section.id);
+          setGroupExpanded(section.id, next);
+        });
+        // Button itself does nothing (handled by children)
+        parentBtn.addEventListener('click', (e) => {
+          // Only toggle if clicking the button background, not title or arrow
+          if (e.target === parentBtn) {
+            const next = !expandedGroups.has(section.id);
+            setGroupExpanded(section.id, next);
+          }
+        });
+      } else {
+        // No content - whole button toggles expansion
+        parentBtn.innerHTML = `
+          <span class="nav-title">${section.title}</span>
+          ${section.summary ? `<span class="nav-summary">${section.summary}</span>` : ''}
+        `;
+        parentBtn.addEventListener('click', () => {
+          const next = !expandedGroups.has(section.id);
+          setGroupExpanded(section.id, next);
+        });
+      }
 
       const list = document.createElement('div');
       list.className = 'nav-sublist';
@@ -107,6 +141,102 @@ function initNav() {
               nestedList.appendChild(link);
               return;
             }
+
+            // Handle 4th level of nesting (deeply nested subsections)
+            if (nested.subsections && nested.subsections.length) {
+              const deepGroup = document.createElement('div');
+              deepGroup.className = 'nav-group nav-group-deep';
+
+              const deepParentBtn = document.createElement('button');
+              deepParentBtn.type = 'button';
+              deepParentBtn.className = 'nav-parent nav-parent-deep';
+              deepParentBtn.dataset.section = nested.id;
+              deepParentBtn.title = nested.summary || nested.title;
+              deepParentBtn.innerHTML = `<span class="nav-title">${nested.title}</span>`;
+              deepParentBtn.addEventListener('click', () => {
+                const next = !expandedGroups.has(nested.id);
+                setGroupExpanded(nested.id, next);
+              });
+
+              const deepList = document.createElement('div');
+              deepList.className = 'nav-sublist nav-sublist-deep';
+              nested.subsections.forEach((deep) => {
+                if (deep.url) {
+                  const link = createExternalLink(deep, 'nav-item');
+                  deepList.appendChild(link);
+                  return;
+                }
+
+                // Handle 5th level of nesting (ultra-deep subsections)
+                if (deep.subsections && deep.subsections.length) {
+                  const ultraGroup = document.createElement('div');
+                  ultraGroup.className = 'nav-group nav-group-ultra';
+
+                  const ultraParentBtn = document.createElement('button');
+                  ultraParentBtn.type = 'button';
+                  ultraParentBtn.className = 'nav-parent nav-parent-ultra';
+                  ultraParentBtn.dataset.section = deep.id;
+                  ultraParentBtn.title = deep.summary || deep.title;
+                  ultraParentBtn.innerHTML = `<span class="nav-title">${deep.title}</span>`;
+                  ultraParentBtn.addEventListener('click', () => {
+                    const next = !expandedGroups.has(deep.id);
+                    setGroupExpanded(deep.id, next);
+                  });
+
+                  const ultraList = document.createElement('div');
+                  ultraList.className = 'nav-sublist nav-sublist-ultra';
+                  deep.subsections.forEach((ultra) => {
+                    if (ultra.url) {
+                      const link = createExternalLink(ultra, 'nav-item');
+                      ultraList.appendChild(link);
+                      return;
+                    }
+                    const ultraBtn = document.createElement('button');
+                    ultraBtn.type = 'button';
+                    ultraBtn.className = 'nav-item nav-item-ultra' + (ultra.type ? ` nav-type-${ultra.type}` : '');
+                    ultraBtn.dataset.section = ultra.id;
+                    ultraBtn.title = ultra.summary || ultra.title;
+                    ultraBtn.innerHTML = `
+                      <span class="nav-title">${ultra.title}</span>
+                      <span class="nav-summary">${ultra.summary || ''}</span>
+                    `;
+                    ultraBtn.addEventListener('click', () => navigate(ultra.id, { scrollToHighlight: Boolean(highlightQuery) }));
+                    ultraList.appendChild(ultraBtn);
+                    navButtons.set(ultra.id, ultraBtn);
+                  });
+
+                  ultraGroup.append(ultraParentBtn, ultraList);
+                  deepList.appendChild(ultraGroup);
+                  navButtons.set(deep.id, ultraParentBtn);
+                  navGroups.set(deep.id, { group: ultraGroup, button: ultraParentBtn, list: ultraList });
+                  const ultraShouldExpand = expandedGroups.has(deep.id) && !deep.collapsed;
+                  setGroupExpanded(deep.id, ultraShouldExpand);
+                  return;
+                }
+
+                const deepBtn = document.createElement('button');
+                deepBtn.type = 'button';
+                deepBtn.className = 'nav-item nav-item-deep' + (deep.type ? ` nav-type-${deep.type}` : '');
+                deepBtn.dataset.section = deep.id;
+                deepBtn.title = deep.summary || deep.title;
+                deepBtn.innerHTML = `
+                  <span class="nav-title">${deep.title}${deep.type === 'press-release' ? '<span class="nav-type-icon" aria-label="Press Release"></span>' : ''}</span>
+                  <span class="nav-summary">${deep.summary || ''}</span>
+                `;
+                deepBtn.addEventListener('click', () => navigate(deep.id, { scrollToHighlight: Boolean(highlightQuery) }));
+                deepList.appendChild(deepBtn);
+                navButtons.set(deep.id, deepBtn);
+              });
+
+              deepGroup.append(deepParentBtn, deepList);
+              nestedList.appendChild(deepGroup);
+              navButtons.set(nested.id, deepParentBtn);
+              navGroups.set(nested.id, { group: deepGroup, button: deepParentBtn, list: deepList });
+              const deepShouldExpand = expandedGroups.has(nested.id) && !nested.collapsed;
+              setGroupExpanded(nested.id, deepShouldExpand);
+              return;
+            }
+
             const nestedBtn = document.createElement('button');
             nestedBtn.type = 'button';
             nestedBtn.className = 'nav-item nav-item-nested' + (nested.type ? ` nav-type-${nested.type}` : '');
@@ -149,7 +279,8 @@ function initNav() {
       nav.appendChild(group);
       navButtons.set(section.id, parentBtn);
       navGroups.set(section.id, { group, button: parentBtn, list });
-      const shouldExpand = expandedGroups.has(section.id) || (!groupApplied && !expandedGroups.size);
+      // Respect collapsed property - only expand if not marked collapsed AND (previously expanded OR first group)
+      const shouldExpand = !section.collapsed && (expandedGroups.has(section.id) || (!groupApplied && !expandedGroups.size));
       setGroupExpanded(section.id, shouldExpand);
       if (shouldExpand) groupApplied = true;
     } else {

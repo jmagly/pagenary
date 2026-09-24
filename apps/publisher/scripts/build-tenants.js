@@ -1806,6 +1806,8 @@ function transformInternalLink(href, context) {
     let actualId = sectionId;
 
     for (const [id] of context.sectionIndex) {
+      // Skip entries with undefined/null IDs
+      if (!id) continue;
       if (id.toLowerCase() === sectionIdLower) {
         found = true;
         actualId = id;
@@ -2183,7 +2185,10 @@ async function scanContentDirectory(dirPath, parentId, context, depth = 0) {
 function buildSectionIndex(sections, index = new Map()) {
   for (const section of sections) {
     const { id, title, file, subsections } = section;
-    index.set(id, { id, title, file });
+    // Only index sections with valid IDs
+    if (id) {
+      index.set(id, { id, title, file });
+    }
 
     if (subsections && subsections.length > 0) {
       buildSectionIndex(subsections, index);
